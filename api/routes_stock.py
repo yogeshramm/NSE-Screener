@@ -1,0 +1,116 @@
+"""
+GET /stock/{symbol} — Indicator inspector breakdown for a single stock.
+"""
+
+from fastapi import APIRouter, HTTPException, Query
+from typing import Optional
+
+from engine.default_config import get_default_config
+from engine.screener import screen_stock_stage1, screen_stock_stage2
+from engine.inspector import build_inspector_report
+from api.data_helper import get_stock_bundle, prepare_stock_result
+
+router = APIRouter()
+
+
+@router.get("/stock/{symbol}")
+def get_stock_inspector(
+    symbol: str,
+    include_stage2: bool = Query(True, description="Include Stage 2 breakout analysis"),
+    config: Optional[str] = Query(None, description="JSON config override (URL-encoded)"),
+):
+    """
+    Get full indicator inspector breakdown for a single stock.
+    Shows every filter's status, actual value, threshold, and whether enabled.
+    """
+    symbol = symbol.strip().upper()
+
+    # Parse config override if provided
+    screen_config = get_default_config()
+    if config:
+        import json
+        try:
+            overrides = json.loads(config)
+            for key, value in overrides.items():
+                if key in screen_config and isinstance(screen_config[key], dict) and isinstance(value, dict):
+                    screen_config[key].update(value)
+                else:
+                    screen_config[key] = value
+        except json.JSONDecodeError:
+            raise HTTPException(400, "Invalid JSON in config parameter")
+
+    # Fetch data
+    try:
+        bundle = get_stock_bundle(symbol)
+    except Exception as e:
+        raise HTTPException(502, f"Could not fetch data for {symbol}: {e}")
+
+    daily_df = bundle["daily_df"]
+    stock_data = bundle["stock_data"]
+    df_4h = bundle.get("df_4h")
+
+    # Run Stage 1
+    s1 = screen_stock_stage1(symbol, daily_df, stock_data, screen_config, df_4h)
+
+    # Run Stage 2 if requested and Stage 1 passed
+    s2 = None
+    if include_stage2 and s1["passed"]:
+        s2 = screen_stock_stage2(symbol, daily_df, stock_data, s1, screen_config)
+
+    # Build inspector report
+    report = build_inspector_report(s1, s2)
+
+    # Build response
+    inspector_items = []
+    for r in report:
+        inspector_items.append({
+            "filter_name": r["filter_name"],
+            "category": r["category"],
+            "status": r["status"],
+            "actual_value": str(r["actual_value"]),
+            "threshold": str(r["threshold"]),
+            "enabled": r["enabled"],
+            "details": r.get("details", ""),
+            "timeframe": r.get("timeframe", "daily"),
+        })
+
+    # Summary counts
+    total = len(report)
+    passes = sum(1 for r in report if r["status"] == "PASS")
+    fails = sum(1 for r in report if r["status"] == "FAIL")
+    borderlines = sum(1 for r in report if r["status"] == "BORDERLINE")
+    skipped = sum(1 for r in report if r["status"] == "SKIPPED")
+
+    # Stock info
+    stock_info = prepare_stock_result(stock_data)
+
+    response = {
+        "symbol": symbol,
+        "stock_info": stock_info,
+        "stage1_passed": s1["passed"],
+        "stage1_score": s1["score"],
+        "scores": {
+            "total": s1["scores"]["total_score"],
+            "technical": s1["scores"]["technical_score"],
+            "fundamental": s1["scores"]["fundamental_score"],
+            "breakout": s1["scores"]["breakout_score"],
+            "liquidity": s1["scores"]["liquidity_score"],
+        },
+        "inspector": inspector_items,
+        "summary": {
+            "total_filters": total,
+            "pass": passes,
+            "fail": fails,
+            "borderline": borderlines,
+            "skipped": skipped,
+        },
+    }
+
+    if s2:
+        response["stage2_passed"] = s2["passed"]
+        response["stage2_score"] = s2["score"]
+        response["stop_loss"] = s2.get("stop_loss")
+        response["target"] = s2.get("target")
+        response["risk_reward"] = s2.get("risk_reward")
+
+    return response
