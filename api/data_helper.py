@@ -6,71 +6,74 @@ After daily_download.py runs, ALL searches use stored data — zero API calls.
 """
 
 import time
+from setup_data import load_stock_full
 from data.batch_downloader import load_stock_data
-from data.nse_history import get_stock_history, load_history
-from data.yfinance_fetcher import (
-    fetch_price_history, fetch_4h_history, fetch_all,
-    _retry_on_rate_limit
-)
+from data.nse_history import get_stock_history
+from data.yfinance_fetcher import fetch_price_history, fetch_all, _retry_on_rate_limit
 from data.cache import get_cached, set_cached
 
 
 def get_stock_bundle(symbol: str) -> dict:
     """
     Get everything needed for screening a single stock.
-    Returns dict with daily_df, stock_data, df_4h.
 
     Priority:
-    1. Daily store (fundamentals) + persistent history (NSE prices) — instant
-    2. Session cache — fast
-    3. Live yfinance — slow, may rate limit
+    1. setup_data store (NSE prices + screener.in fundamentals) — instant
+    2. batch_downloader daily store — instant
+    3. Session cache — fast
+    4. Live yfinance — slow, last resort
 
-    After daily_download.py runs, everything comes from #1.
+    After `python setup_data.py` runs, everything comes from #1.
     """
     symbol = symbol.strip().upper()
 
-    # 1. Try pre-downloaded daily store + persistent NSE history
+    # 1. Primary: setup_data store (NSE history + screener.in fundamentals)
+    full = load_stock_full(symbol)
+    if full is not None and full.get("daily_history") is not None:
+        daily_df = full["daily_history"]
+        if len(daily_df) >= 50:
+            return {
+                "symbol": symbol,
+                "daily_df": daily_df,
+                "stock_data": full,
+                "df_4h": None,
+                "source": "nse+screener.in",
+            }
+
+    # 2. batch_downloader daily store (legacy yfinance downloads)
     stored = load_stock_data(symbol)
-    nse_history = get_stock_history(symbol, min_bars=50)
-
-    if stored is not None:
-        # Use NSE history if available and longer than stored daily
-        daily_df = stored.get("daily_history")
-        if nse_history is not None and (daily_df is None or len(nse_history) > len(daily_df)):
-            daily_df = nse_history
-            stored["daily_history"] = nse_history
-            stored["daily_rows"] = len(nse_history)
-
-        if daily_df is not None and len(daily_df) >= 50:
+    if stored is not None and stored.get("daily_history") is not None:
+        daily_df = stored["daily_history"]
+        if len(daily_df) >= 50:
             return {
                 "symbol": symbol,
                 "daily_df": daily_df,
                 "stock_data": stored,
                 "df_4h": None,
-                "source": "daily_store+nse_history",
+                "source": "daily_store",
             }
 
-    # 1b. NSE history exists but no fundamentals — still usable for technical screening
-    if nse_history is not None and len(nse_history) >= 50:
-        # Build minimal stock_data from history
+    # 3. NSE history only (prices but no fundamentals)
+    nse_hist = get_stock_history(symbol, min_bars=50)
+    if nse_hist is not None:
         stock_data = {
             "symbol": symbol,
-            "daily_history": nse_history,
-            "daily_rows": len(nse_history),
-            "latest_close": round(nse_history["Close"].iloc[-1], 2),
-            "current_price": round(nse_history["Close"].iloc[-1], 2),
-            "latest_date": str(nse_history.index[-1].date()),
-            "average_volume": int(nse_history["Volume"].mean()),
+            "daily_history": nse_hist,
+            "daily_rows": len(nse_hist),
+            "latest_close": round(nse_hist["Close"].iloc[-1], 2),
+            "current_price": round(nse_hist["Close"].iloc[-1], 2),
+            "latest_date": str(nse_hist.index[-1].date()),
+            "average_volume": int(nse_hist["Volume"].mean()),
         }
         return {
             "symbol": symbol,
-            "daily_df": nse_history,
+            "daily_df": nse_hist,
             "stock_data": stock_data,
             "df_4h": None,
             "source": "nse_history_only",
         }
 
-    # 2. Try session cache
+    # 4. Session cache
     cached = get_cached(symbol, "fundamentals")
     if cached is not None:
         daily_df = cached.get("daily_history")
@@ -83,14 +86,10 @@ def get_stock_bundle(symbol: str) -> dict:
                 "source": "cache",
             }
 
-    # 3. Fallback to live yfinance (may hit rate limits)
+    # 5. Last resort: live yfinance
     stock_data = _retry_on_rate_limit(fetch_all, symbol)
     set_cached(symbol, "fundamentals", stock_data)
-
     daily_df = stock_data.get("daily_history")
-    if daily_df is None or len(daily_df) < 50:
-        time.sleep(1)
-        daily_df = _retry_on_rate_limit(fetch_price_history, symbol, period_days=250)
 
     return {
         "symbol": symbol,
