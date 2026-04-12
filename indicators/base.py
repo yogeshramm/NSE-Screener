@@ -24,6 +24,15 @@ class BaseIndicator(ABC):
     indicator_type: str = "technical"  # "technical", "fundamental", "breakout"
     description: str = ""
 
+    # Precision/efficiency tiers — helps user pick the best indicators
+    # "most_precise": Top 5 most precise indicators for swing trading
+    # "hidden_gem":   Top 5 underrated/efficient indicators
+    # None:           Standard indicator
+    precision_tier: str | None = None
+
+    # Extra highlight — user's top 3 preferred indicators for replacement
+    highlighted: bool = False
+
     @property
     @abstractmethod
     def default_params(self) -> dict:

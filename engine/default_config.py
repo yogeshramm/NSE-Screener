@@ -93,6 +93,35 @@ def get_default_config() -> dict:
             "roc_minimum": 0,
         },
 
+        # --- PRECISION / HIDDEN GEM INDICATORS ---
+
+        "fisher_transform": {
+            "enabled": True,
+            "fisher_period": 10,
+            "fisher_signal_period": 1,
+        },
+        "klinger_oscillator": {
+            "enabled": True,
+            "kvo_fast": 34,
+            "kvo_slow": 55,
+            "kvo_signal": 13,
+        },
+        "chande_momentum": {
+            "enabled": True,
+            "cmo_period": 14,
+            "cmo_min": 10,
+            "cmo_max": 50,
+        },
+        "force_index": {
+            "enabled": True,
+            "efi_period": 13,
+        },
+        "vortex": {
+            "enabled": True,
+            "vortex_period": 14,
+            "vi_threshold": 0.05,
+        },
+
         # --- FUNDAMENTAL FILTERS ---
 
         "roe": {
@@ -261,6 +290,11 @@ CONFIG_TO_INDICATOR = {
     "obv": "OBV",
     "cmf": "CMF",
     "roc": "ROC",
+    "fisher_transform": "Ehlers Fisher Transform",
+    "klinger_oscillator": "Klinger Volume Oscillator",
+    "chande_momentum": "Chande Momentum Oscillator",
+    "force_index": "Elder Force Index",
+    "vortex": "Vortex Indicator",
     "bb_squeeze": "Bollinger Band Squeeze",
     "stochastic_rsi": "Stochastic RSI",
     "williams_r": "Williams %R",

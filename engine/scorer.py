@@ -13,6 +13,8 @@ TECHNICAL_INDICATORS = [
     "EMA", "RSI", "MACD", "Supertrend", "ADX", "Awesome Oscillator",
     "OBV", "CMF", "ROC", "Anchored VWAP", "Pivot Levels",
     "Hidden Bullish Divergence",
+    "Ehlers Fisher Transform", "Klinger Volume Oscillator",
+    "Chande Momentum Oscillator", "Elder Force Index", "Vortex Indicator",
 ]
 
 FUNDAMENTAL_INDICATORS = [

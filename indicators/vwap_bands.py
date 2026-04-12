@@ -9,6 +9,8 @@ class VWAPBandsIndicator(BaseIndicator):
     name = "VWAP Bands"
     indicator_type = "breakout"
     description = "Price within sigma bands of VWAP (not extended)"
+    precision_tier = "most_precise"
+    highlighted = True
 
     @property
     def default_params(self) -> dict:

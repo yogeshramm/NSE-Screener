@@ -9,6 +9,8 @@ class SupertrendIndicator(BaseIndicator):
     name = "Supertrend"
     indicator_type = "technical"
     description = "Price must be above the Supertrend line"
+    precision_tier = "most_precise"
+    highlighted = True
 
     @property
     def default_params(self) -> dict:

@@ -8,6 +8,7 @@ class IchimokuIndicator(BaseIndicator):
     name = "Ichimoku Cloud"
     indicator_type = "breakout"
     description = "Price must be above Ichimoku Cloud"
+    precision_tier = "most_precise"
 
     @property
     def default_params(self) -> dict:

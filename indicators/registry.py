@@ -62,6 +62,8 @@ def list_indicators() -> list[dict]:
             "description": instance.description,
             "default_params": instance.default_params,
             "is_custom": name in CUSTOM_INDICATORS,
+            "precision_tier": getattr(instance, "precision_tier", None),
+            "highlighted": getattr(instance, "highlighted", False),
         })
     return sorted(result, key=lambda x: (x["type"], x["name"]))
 
