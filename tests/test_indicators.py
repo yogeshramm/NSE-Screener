@@ -202,6 +202,70 @@ def test_disabled_filters():
     return len(skipped) >= 2
 
 
+def test_timeframes():
+    """Test that indicators work on daily, weekly, and monthly timeframes without errors."""
+    print_header("TEST: TIMEFRAME SUPPORT (Daily / Weekly / Monthly)")
+
+    from indicators.timeframe import resample_ohlcv, validate_dataframe
+
+    df = generate_sample_ohlcv("RELIANCE", bars=300, trend="up")
+
+    timeframes_to_test = ["daily", "weekly", "monthly"]
+    all_ok = True
+
+    for tf in timeframes_to_test:
+        resampled = resample_ohlcv(df, tf)
+        valid, msg = validate_dataframe(resampled)
+        print(f"\n  {tf.upper():10s}: {len(resampled)} bars — {'VALID' if valid else f'INVALID: {msg}'}")
+
+        if not valid:
+            all_ok = False
+            continue
+
+        # Run all indicators on this timeframe
+        enabled = {name: True for name in [i["name"] for i in list_indicators()]}
+        enabled["Sector Performance"] = False
+
+        results = run_all_indicators(resampled, enabled_indicators=enabled)
+        errors = [r for r in results if r["status"] == "ERROR"]
+        passes = sum(1 for r in results if r["status"] == "PASS")
+        fails = sum(1 for r in results if r["status"] == "FAIL")
+
+        if errors:
+            all_ok = False
+            for e in errors:
+                print(f"    ERROR: {e['indicator']} — {e['value']}")
+        print(f"    Results: {passes} PASS | {fails} FAIL | {len(errors)} ERROR")
+
+    # Test per-indicator timeframe override
+    print(f"\n  Per-indicator timeframe override test:")
+    tf_overrides = {
+        "RSI": "weekly",
+        "MACD": "weekly",
+        "EMA": "monthly",
+    }
+    enabled = {name: True for name in [i["name"] for i in list_indicators()]}
+    enabled["Sector Performance"] = False
+    results = run_all_indicators(df, enabled_indicators=enabled, timeframes=tf_overrides)
+    override_errors = [r for r in results if r["status"] == "ERROR"]
+
+    # Check that overridden indicators used the right timeframe
+    for r in results:
+        if r["indicator"] in tf_overrides and r.get("timeframe"):
+            expected_tf = tf_overrides[r["indicator"]]
+            actual_tf = r.get("timeframe", "daily")
+            match = "OK" if actual_tf == expected_tf else "MISMATCH"
+            print(f"    {r['indicator']:20s}: expected={expected_tf}, actual={actual_tf} — {match}")
+
+    if override_errors:
+        all_ok = False
+        for e in override_errors:
+            print(f"    ERROR: {e['indicator']} — {e['value']}")
+
+    print(f"\n  Timeframe test: {'PASS' if all_ok else 'FAIL'}")
+    return all_ok
+
+
 def run_all_tests():
     print("\n" + "="*70)
     print("  NSE SCREENER — SESSION 2 INDICATOR LAYER TEST")
@@ -225,6 +289,9 @@ def run_all_tests():
     # Test 4: Disabled filters
     disabled_ok = test_disabled_filters()
 
+    # Test 5: Timeframes
+    timeframe_ok = test_timeframes()
+
     # Final summary
     print_header("FINAL STATUS SUMMARY")
     print(f"\n  Total built-in indicators: {len(indicators)}")
@@ -240,9 +307,10 @@ def run_all_tests():
 
     print(f"\n  Custom indicator test:    {'PASS' if custom_ok else 'FAIL'}")
     print(f"  Disabled filter test:     {'PASS' if disabled_ok else 'FAIL'}")
+    print(f"  Timeframe test:           {'PASS' if timeframe_ok else 'FAIL'}")
     print(f"  Total computation errors: {total_errors}")
 
-    status = "ALL OK" if total_errors == 0 and custom_ok and disabled_ok else "HAS ISSUES"
+    status = "ALL OK" if total_errors == 0 and custom_ok and disabled_ok and timeframe_ok else "HAS ISSUES"
     print(f"\n  Overall: {status}")
 
     print(f"\n{'='*70}")

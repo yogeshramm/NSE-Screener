@@ -75,24 +75,55 @@ def register_custom_indicator(indicator_class: type[BaseIndicator]):
 
 
 def run_all_indicators(df, enabled_indicators: dict | None = None,
-                       params: dict | None = None, sector: str = None) -> list[dict]:
+                       params: dict | None = None, sector: str = None,
+                       timeframes: dict | None = None,
+                       df_weekly: "pd.DataFrame | None" = None,
+                       df_monthly: "pd.DataFrame | None" = None,
+                       df_4h: "pd.DataFrame | None" = None) -> list[dict]:
     """
     Run all enabled indicators on a DataFrame.
 
     Args:
-        df: OHLCV DataFrame
+        df: Daily OHLCV DataFrame
         enabled_indicators: dict of {indicator_name: True/False}
                            If None, all indicators are enabled.
         params: dict of {indicator_name: {param_name: value}}
         sector: stock sector (needed for Sector Performance indicator)
+        timeframes: dict of {indicator_name: "daily"|"weekly"|"monthly"|"4H"}
+                   Override timeframe for specific indicators.
+        df_weekly: Pre-resampled weekly data (auto-generated if needed)
+        df_monthly: Pre-resampled monthly data (auto-generated if needed)
+        df_4h: 4-hour data from yfinance (optional)
 
     Returns:
         list of indicator results (each is a dict from evaluate())
     """
+    from indicators.timeframe import resample_ohlcv, validate_dataframe
+
     if params is None:
         params = {}
     if enabled_indicators is None:
         enabled_indicators = {name: True for name in get_all_indicators()}
+    if timeframes is None:
+        timeframes = {}
+
+    # Pre-generate weekly/monthly if not provided
+    tf_cache = {"daily": df}
+    if df_weekly is not None:
+        tf_cache["weekly"] = df_weekly
+    if df_monthly is not None:
+        tf_cache["monthly"] = df_monthly
+    if df_4h is not None:
+        tf_cache["4h"] = df_4h
+
+    def _get_tf_data(timeframe: str):
+        """Get data for a timeframe, resampling and caching if needed."""
+        tf = timeframe.lower()
+        if tf in tf_cache:
+            return tf_cache[tf]
+        resampled = resample_ohlcv(df, tf)
+        tf_cache[tf] = resampled
+        return resampled
 
     results = []
     for name, cls in get_all_indicators().items():
@@ -115,18 +146,38 @@ def run_all_indicators(df, enabled_indicators: dict | None = None,
             instance = cls()
             indicator_params = params.get(name, {})
 
+            # Determine which timeframe data to use
+            tf = timeframes.get(name, "daily")
+            indicator_df = _get_tf_data(tf)
+
+            # Validate the data
+            valid, msg = validate_dataframe(indicator_df)
+            if not valid:
+                results.append({
+                    "indicator": name,
+                    "type": cls.indicator_type,
+                    "status": "ERROR",
+                    "value": f"Data validation failed: {msg}",
+                    "threshold": "N/A",
+                    "details": f"Timeframe: {tf}",
+                    "params": {},
+                    "computed": {},
+                })
+                continue
+
             # Sector Performance needs sector as extra arg
             if name == "Sector Performance":
                 merged_params = instance.get_params(indicator_params)
-                computed = instance.compute(df, merged_params, sector=sector)
+                computed = instance.compute(indicator_df, merged_params, sector=sector)
                 result = instance.check(computed, merged_params)
                 result["indicator"] = name
                 result["type"] = instance.indicator_type
                 result["params"] = merged_params
                 result["computed"] = computed
             else:
-                result = instance.evaluate(df, indicator_params)
+                result = instance.evaluate(indicator_df, indicator_params)
 
+            result["timeframe"] = tf
             results.append(result)
         except Exception as e:
             results.append({
