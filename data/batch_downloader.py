@@ -1,10 +1,13 @@
 """
-Batch Data Downloader
-Downloads data for all NSE stocks in controlled batches.
-Designed to run once daily after market close (6:30 PM IST).
-Stores everything in a persistent daily data store.
+Batch Data Downloader — Hybrid NSE + yfinance approach.
 
-After this runs, all screening searches use cached data — zero API calls.
+Daily flow:
+  STEP 1: Download Bhavcopy from NSE (1 request = ALL stocks' OHLCV, no rate limit)
+  STEP 2: Append today's prices to persistent history (data_store/history/)
+  STEP 3: yfinance for fundamentals only (ROE, PE, balance sheet — not available from NSE)
+
+After Day 1 backfill, daily updates use almost no yfinance calls.
+All screening searches are instant — zero live API calls.
 """
 
 import time
@@ -20,6 +23,10 @@ from data.yfinance_fetcher import (
     _nse_symbol, _retry_on_rate_limit
 )
 from data.nse_symbols import get_nse_stock_list
+from data.nse_history import (
+    append_bhavcopy_to_history, backfill_from_yfinance,
+    get_stock_history, load_history, save_history, get_history_stats
+)
 
 # Persistent daily store — survives across sessions
 DATA_STORE_DIR = Path(__file__).parent.parent / "data_store"
@@ -347,3 +354,157 @@ def run_batch_download(symbols: list[str] = None, trade_date: str = None,
     print(f"{'='*60}")
 
     return stats
+
+
+def run_daily_update(backfill_symbols: list[str] = None, skip_fundamentals: bool = False) -> dict:
+    """
+    Smart daily update — NSE-first approach.
+
+    STEP 1: Download Bhavcopy (1 request = ALL stocks, no rate limit)
+    STEP 2: Append to persistent history
+    STEP 3: Backfill any stocks with < 200 bars from yfinance (one-time)
+    STEP 4: Download fundamentals from yfinance (only for stocks that need it)
+
+    Args:
+        backfill_symbols: specific symbols to backfill. None = auto-detect.
+        skip_fundamentals: skip yfinance fundamental downloads (prices only)
+
+    Returns:
+        dict with update stats
+    """
+    start_time = time.time()
+
+    print("\n" + "="*60)
+    print("  NSE SCREENER — DAILY UPDATE (NSE-first)")
+    print("="*60)
+
+    # STEP 1: Bhavcopy — one download, ALL stocks
+    print("\n  STEP 1: Downloading Bhavcopy from NSE...")
+    try:
+        from data.nse_bhavcopy import download_bhavcopy
+        bhavcopy = download_bhavcopy()
+        bhav_stats = append_bhavcopy_to_history(bhavcopy)
+        print(f"  Bhavcopy: {bhav_stats['total_in_bhavcopy']} stocks, "
+              f"{bhav_stats['updated']} updated, {bhav_stats['new']} new")
+    except Exception as e:
+        print(f"  Bhavcopy failed: {e}")
+        bhav_stats = {"total_in_bhavcopy": 0, "updated": 0, "new": 0}
+
+    # STEP 2: Check which stocks need history backfill
+    print("\n  STEP 2: Checking history completeness...")
+    hist_stats = get_history_stats()
+    print(f"  Total symbols with history: {hist_stats['total_symbols']}")
+
+    needs_backfill = []
+    if backfill_symbols:
+        needs_backfill = backfill_symbols
+    else:
+        # Auto-detect: check all stored symbols
+        for sym in hist_stats.get("symbols", []):
+            hist = load_history(sym)
+            if hist is None or len(hist) < 200:
+                needs_backfill.append(sym)
+
+    backfill_count = 0
+    if needs_backfill:
+        print(f"\n  STEP 3: Backfilling {len(needs_backfill)} stocks from yfinance...")
+        for i, sym in enumerate(needs_backfill):
+            try:
+                ok = backfill_from_yfinance(sym)
+                if ok:
+                    backfill_count += 1
+                    print(f"    OK  {sym}")
+                else:
+                    print(f"    SKIP {sym}")
+            except Exception as e:
+                print(f"    ERR  {sym}: {e}")
+
+            # Rate limit handling
+            if (i + 1) % 5 == 0 and i < len(needs_backfill) - 1:
+                print(f"    Waiting 15s (batch pause)...")
+                time.sleep(15)
+            else:
+                time.sleep(2)
+    else:
+        print("  STEP 3: All stocks have sufficient history — no backfill needed!")
+
+    # STEP 4: Fundamentals (only if not skipped)
+    fund_count = 0
+    if not skip_fundamentals:
+        # Get symbols that have history
+        symbols_with_history = hist_stats.get("symbols", [])
+        if not symbols_with_history:
+            symbols_with_history = get_nse_stock_list(source="fallback")
+
+        # Only download fundamentals for stocks we'll actually screen
+        # Use the curated list as a reasonable subset
+        from data.nse_symbols import NIFTY_500_FALLBACK
+        fund_symbols = [s for s in NIFTY_500_FALLBACK if s in symbols_with_history]
+        if not fund_symbols:
+            fund_symbols = symbols_with_history[:150]
+
+        # Check which already have fundamentals today
+        trade_date = _today_str()
+        already = set(get_downloaded_symbols(trade_date))
+        fund_remaining = [s for s in fund_symbols if s not in already]
+
+        if fund_remaining:
+            print(f"\n  STEP 4: Downloading fundamentals for {len(fund_remaining)} stocks...")
+            fund_stats = run_batch_download(symbols=fund_remaining, resume=True)
+            fund_count = fund_stats.get("success", 0)
+        else:
+            print(f"\n  STEP 4: Fundamentals already up to date ({len(already)} stocks)")
+            fund_count = len(already)
+    else:
+        print("\n  STEP 4: Skipped (fundamentals not requested)")
+
+    # Also save history-based stock data to daily store
+    # This merges NSE prices + yfinance fundamentals
+    _merge_history_with_fundamentals()
+
+    elapsed = time.time() - start_time
+
+    stats = {
+        "bhavcopy": bhav_stats,
+        "history_symbols": hist_stats["total_symbols"],
+        "backfilled": backfill_count,
+        "fundamentals": fund_count,
+        "elapsed_seconds": round(elapsed, 1),
+    }
+
+    print(f"\n{'='*60}")
+    print(f"  DAILY UPDATE COMPLETE")
+    print(f"  Bhavcopy prices: {bhav_stats.get('updated', 0) + bhav_stats.get('new', 0)} stocks")
+    print(f"  History backfill: {backfill_count} stocks")
+    print(f"  Fundamentals: {fund_count} stocks")
+    print(f"  Time: {elapsed:.0f}s")
+    print(f"  Ready for unlimited instant screening!")
+    print(f"{'='*60}")
+
+    return stats
+
+
+def _merge_history_with_fundamentals():
+    """
+    For each stock in today's daily store, attach the full price history
+    from the history store. This way the screener gets both prices + fundamentals.
+    """
+    trade_date = _today_str()
+    stored_symbols = get_downloaded_symbols(trade_date)
+
+    merged = 0
+    for sym in stored_symbols:
+        data = load_stock_data(sym, trade_date)
+        if data is None:
+            continue
+
+        # Replace daily_history with the full persistent history
+        full_hist = load_history(sym)
+        if full_hist is not None and len(full_hist) > len(data.get("daily_history", [])):
+            data["daily_history"] = full_hist
+            data["daily_rows"] = len(full_hist)
+            _save_stock_data(sym, data, trade_date)
+            merged += 1
+
+    if merged:
+        print(f"  Merged full history into {merged} stocks' daily store")

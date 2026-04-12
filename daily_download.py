@@ -1,66 +1,93 @@
 """
 Daily Data Download Script
-Run once after market close (6:30 PM IST) to pre-download all NSE stock data.
+Run once after market close to pre-download all NSE stock data.
 After this runs, all screening searches are instant — zero API calls.
 
+HOW IT WORKS:
+  Step 1: Downloads Bhavcopy from NSE (1 request = ALL stocks' prices)
+  Step 2: Appends today's prices to persistent history
+  Step 3: First time only — backfills 1 year history from yfinance
+  Step 4: Downloads fundamentals (ROE, PE, etc.) from yfinance
+
+After Day 1, only Steps 1-2 hit any API. Steps 3-4 are cached.
+
 Usage:
-  python daily_download.py                    # download all NSE stocks
-  python daily_download.py --symbols RELIANCE,TCS,INFY   # specific stocks
-  python daily_download.py --fallback         # use curated 150-stock list
-  python daily_download.py --status           # check download status
+  python daily_download.py                  # smart daily update (NSE-first)
+  python daily_download.py --prices-only    # just Bhavcopy prices, no fundamentals
+  python daily_download.py --backfill RELIANCE,TCS  # backfill specific stocks
+  python daily_download.py --full           # full download (yfinance for everything)
+  python daily_download.py --status         # check download status
 """
 
 import argparse
-import sys
 from data.batch_downloader import (
-    run_batch_download, is_today_downloaded, get_downloaded_symbols,
-    get_available_dates
+    run_batch_download, run_daily_update,
+    get_downloaded_symbols, get_available_dates
 )
-from data.nse_symbols import get_nse_stock_list, NIFTY_500_FALLBACK
+from data.nse_history import get_history_stats
+from data.nse_symbols import NIFTY_500_FALLBACK
 
 
 def main():
     parser = argparse.ArgumentParser(description="NSE Daily Data Downloader")
-    parser.add_argument("--symbols", type=str, help="Comma-separated symbols to download")
-    parser.add_argument("--fallback", action="store_true", help="Use curated 150-stock list instead of full Bhavcopy")
-    parser.add_argument("--status", action="store_true", help="Check today's download status")
-    parser.add_argument("--no-resume", action="store_true", help="Re-download everything (ignore cache)")
-    parser.add_argument("--date", type=str, help="Download for specific date (YYYY-MM-DD)")
+    parser.add_argument("--prices-only", action="store_true",
+                       help="Download only Bhavcopy prices (no yfinance fundamentals)")
+    parser.add_argument("--backfill", type=str,
+                       help="Backfill history for specific symbols (comma-separated)")
+    parser.add_argument("--full", action="store_true",
+                       help="Full yfinance download (all data, slower)")
+    parser.add_argument("--symbols", type=str,
+                       help="Specific symbols for --full mode (comma-separated)")
+    parser.add_argument("--status", action="store_true",
+                       help="Check download status")
     args = parser.parse_args()
 
     if args.status:
         print("\n  NSE Screener — Download Status")
-        print(f"  {'='*40}")
+        print(f"  {'='*50}")
+
+        # History store
+        hist = get_history_stats()
+        print(f"\n  Price History (data_store/history/):")
+        print(f"    Symbols with history: {hist['total_symbols']}")
+        print(f"    Latest date: {hist.get('latest_date', 'N/A')}")
+
+        # Daily store
         dates = get_available_dates()
-        if not dates:
-            print("  No data downloaded yet.")
-        else:
+        print(f"\n  Daily Store (fundamentals):")
+        if dates:
             for d in dates[:5]:
                 count = len(get_downloaded_symbols(d))
-                print(f"  {d}: {count} stocks")
+                print(f"    {d}: {count} stocks")
+        else:
+            print("    No data downloaded yet.")
+
         today_count = len(get_downloaded_symbols())
-        print(f"\n  Today: {today_count} stocks cached")
-        print(f"  Ready for instant screening: {'YES' if today_count > 50 else 'NO'}")
+        history_count = hist['total_symbols']
+        ready = history_count > 50 and today_count > 50
+        print(f"\n  Ready for instant screening: {'YES' if ready else 'NO'}")
+        if not ready:
+            print(f"  Run: python daily_download.py")
         return
 
-    print("\n" + "="*60)
-    print("  NSE SCREENER — DAILY DATA DOWNLOAD")
-    print("  Run this after market close (3:30 PM IST)")
-    print("  All subsequent searches will be instant")
-    print("="*60)
-
-    if args.symbols:
-        symbols = [s.strip().upper() for s in args.symbols.split(",")]
-    elif args.fallback:
-        symbols = list(NIFTY_500_FALLBACK)
+    if args.full:
+        # Legacy full yfinance download
+        symbols = None
+        if args.symbols:
+            symbols = [s.strip().upper() for s in args.symbols.split(",")]
+        else:
+            symbols = list(NIFTY_500_FALLBACK)
+        run_batch_download(symbols=symbols)
     else:
-        symbols = None  # will auto-fetch from Bhavcopy
+        # Smart NSE-first daily update
+        backfill = None
+        if args.backfill:
+            backfill = [s.strip().upper() for s in args.backfill.split(",")]
 
-    stats = run_batch_download(
-        symbols=symbols,
-        trade_date=args.date,
-        resume=not args.no_resume,
-    )
+        run_daily_update(
+            backfill_symbols=backfill,
+            skip_fundamentals=args.prices_only,
+        )
 
     print(f"\n  Your screener is now ready for instant searches!")
     print(f"  Start the API: python run_server.py")
