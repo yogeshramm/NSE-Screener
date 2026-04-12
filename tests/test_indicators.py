@@ -29,12 +29,20 @@ def generate_sample_ohlcv(symbol: str, bars: int = 300, trend: str = "up") -> pd
     """
     np.random.seed(hash(symbol) % 2**31)
 
+    # Approximate real NSE prices (Apr 2026) for realistic test output
     base_prices = {
-        "RELIANCE": 1200.0,
-        "HDFCBANK": 750.0,
-        "INFY": 1400.0,
+        "RELIANCE": 1350.0,
+        "HDFCBANK": 1900.0,
+        "INFY": 1500.0,
+        "TCS": 3600.0,
+        "TATAMOTORS": 650.0,
+        "WIPRO": 250.0,
+        "ICICIBANK": 1300.0,
+        "SBIN": 780.0,
+        "BAJFINANCE": 8500.0,
+        "LT": 3400.0,
     }
-    base = base_prices.get(symbol, 1000.0)
+    base = base_prices.get(symbol, 1500.0)
 
     dates = pd.bdate_range(end=pd.Timestamp.now(), periods=bars, freq="B")
 
