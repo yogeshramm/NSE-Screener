@@ -1,86 +1,77 @@
 """
-Data Helper — Fetches and caches stock data for API endpoints.
-Uses the cache layer to avoid yfinance rate limiting.
+Data Helper — Fetches stock data for API endpoints.
+Priority: Pre-downloaded daily store > Cache > Live yfinance
+
+After daily_download.py runs, ALL searches use stored data — zero API calls.
 """
 
 import time
+from data.batch_downloader import load_stock_data
 from data.yfinance_fetcher import (
     fetch_price_history, fetch_4h_history, fetch_all,
     _retry_on_rate_limit
 )
 from data.cache import get_cached, set_cached
 
-# Cache TTL in hours (data refreshes after this)
-CACHE_TTL_HOURS = 4
-
-
-def get_stock_daily(symbol: str, period_days: int = 250):
-    """Get daily OHLCV data with caching."""
-    cache_key = f"daily_{period_days}"
-    cached = get_cached(symbol, cache_key)
-    if cached is not None:
-        return cached
-
-    df = _retry_on_rate_limit(fetch_price_history, symbol, period_days=period_days)
-    set_cached(symbol, cache_key, df)
-    return df
-
-
-def get_stock_4h(symbol: str):
-    """Get 4H OHLCV data with caching."""
-    cached = get_cached(symbol, "4h")
-    if cached is not None:
-        return cached
-
-    df = _retry_on_rate_limit(fetch_4h_history, symbol)
-    set_cached(symbol, "4h", df)
-    return df
-
-
-def get_stock_fundamentals(symbol: str) -> dict:
-    """Get all fundamental data with caching."""
-    cached = get_cached(symbol, "fundamentals")
-    if cached is not None:
-        return cached
-
-    data = _retry_on_rate_limit(fetch_all, symbol)
-    set_cached(symbol, "fundamentals", data)
-    return data
-
 
 def get_stock_bundle(symbol: str) -> dict:
     """
     Get everything needed for screening a single stock.
     Returns dict with daily_df, stock_data, df_4h.
+
+    Priority:
+    1. Pre-downloaded daily store (instant, no API call)
+    2. Session cache (fast, no API call)
+    3. Live yfinance (slow, may rate limit)
     """
-    # Try to get fundamentals (includes daily history)
-    stock_data = get_stock_fundamentals(symbol)
+    symbol = symbol.strip().upper()
 
-    # Get daily separately if not in stock_data or too few bars
+    # 1. Try pre-downloaded daily store (from daily_download.py)
+    stored = load_stock_data(symbol)
+    if stored is not None and stored.get("daily_history") is not None:
+        daily_df = stored["daily_history"]
+        if len(daily_df) >= 50:
+            return {
+                "symbol": symbol,
+                "daily_df": daily_df,
+                "stock_data": stored,
+                "df_4h": None,  # 4H not pre-downloaded (not needed for swing)
+                "source": "daily_store",
+            }
+
+    # 2. Try session cache
+    cached = get_cached(symbol, "fundamentals")
+    if cached is not None:
+        daily_df = cached.get("daily_history")
+        if daily_df is not None and len(daily_df) >= 50:
+            return {
+                "symbol": symbol,
+                "daily_df": daily_df,
+                "stock_data": cached,
+                "df_4h": None,
+                "source": "cache",
+            }
+
+    # 3. Fallback to live yfinance (may hit rate limits)
+    stock_data = _retry_on_rate_limit(fetch_all, symbol)
+    set_cached(symbol, "fundamentals", stock_data)
+
     daily_df = stock_data.get("daily_history")
-    if daily_df is None or len(daily_df) < 200:
+    if daily_df is None or len(daily_df) < 50:
         time.sleep(1)
-        daily_df = get_stock_daily(symbol)
-
-    # Get 4H data
-    try:
-        time.sleep(1)
-        df_4h = get_stock_4h(symbol)
-    except Exception:
-        df_4h = None
+        daily_df = _retry_on_rate_limit(fetch_price_history, symbol, period_days=250)
 
     return {
         "symbol": symbol,
         "daily_df": daily_df,
         "stock_data": stock_data,
-        "df_4h": df_4h,
+        "df_4h": None,
+        "source": "live_yfinance",
     }
 
 
 def prepare_stock_result(stock_data: dict) -> dict:
-    """
-    Convert internal stock_data to API-safe dict (no DataFrames).
-    """
+    """Convert internal stock_data to API-safe dict (no DataFrames)."""
     safe = {}
     skip_keys = {"daily_history", "h4_history", "balance_sheet",
                  "recommendations", "earnings_calendar"}
@@ -89,7 +80,7 @@ def prepare_stock_result(stock_data: dict) -> dict:
         if k in skip_keys:
             continue
         if hasattr(v, 'to_dict'):
-            continue  # skip DataFrames
+            continue
         safe[k] = v
 
     # Add recommendation summary

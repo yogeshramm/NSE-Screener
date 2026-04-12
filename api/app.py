@@ -11,6 +11,7 @@ from api.routes_stock import router as stock_router
 from api.routes_indicators import router as indicators_router
 from api.routes_presets import router as presets_router
 from api.routes_config import router as config_router
+from api.routes_data import router as data_router
 
 app = FastAPI(
     title="NSE Screener API",
@@ -34,6 +35,7 @@ app.include_router(stock_router, tags=["Stock Inspector"])
 app.include_router(indicators_router, tags=["Indicators"])
 app.include_router(presets_router, tags=["Presets"])
 app.include_router(config_router, tags=["Configuration"])
+app.include_router(data_router, tags=["Data Management"])
 
 
 @app.get("/", tags=["Health"])
