@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.claude/
+*.pages
+.DS_Store
