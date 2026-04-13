@@ -170,15 +170,30 @@ def trigger_catchup():
 
     hist = get_history_stats()
     latest = hist.get("latest_date", None)
+    total_symbols = hist.get("total_symbols", 0)
 
-    if latest and latest != "N/A":
+    # Check if any stock has enough history bars
+    needs_full_setup = False
+    if total_symbols > 0:
+        from data.nse_history import load_history
+        # Sample a stock to check bar count
+        sample_sym = hist.get("symbols", ["RELIANCE"])[0]
+        sample_hist = load_history(sample_sym)
+        if sample_hist is None or len(sample_hist) < 200:
+            needs_full_setup = True
+    else:
+        needs_full_setup = True
+
+    if latest and latest != "N/A" and not needs_full_setup:
         try:
             latest_dt = datetime.strptime(latest, "%Y-%m-%d").date()
             gap_days = (date.today() - latest_dt).days
         except Exception:
             gap_days = 30
+    elif needs_full_setup:
+        gap_days = 400  # force full 1-year download
     else:
-        gap_days = 370  # no data at all — full setup
+        gap_days = 400
 
     if gap_days <= 0:
         return {
@@ -187,8 +202,8 @@ def trigger_catchup():
             "message": "Data is already current. No catch-up needed.",
         }
 
-    # Add buffer for weekends/holidays
-    fetch_days = gap_days + 5
+    # Ensure minimum 370 days for full indicator coverage
+    fetch_days = max(gap_days + 5, 375) if needs_full_setup else gap_days + 5
 
     def _bg_catchup():
         global _download_in_progress, _download_stats

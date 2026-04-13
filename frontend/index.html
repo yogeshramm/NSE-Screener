@@ -135,6 +135,7 @@ body { font-family: 'Inter', sans-serif; background: #0f1117; color: #e2e2eb; }
     <div class="text-center">
       <div class="animate-spin w-8 h-8 border-2 border-[#00d4aa] border-t-transparent rounded-full mx-auto mb-3"></div>
       <p class="text-sm text-slate-400">Screening stocks...</p>
+      <button onclick="stopScreening()" class="mt-3 px-4 py-1.5 bg-red-500/20 text-red-400 text-xs font-bold rounded-lg hover:bg-red-500/30">Stop Screening</button>
     </div>
   </div>
 
@@ -262,6 +263,17 @@ function getFilterConfig() {
   };
 }
 
+let screenAbort = null;  // AbortController for cancelling
+
+// Stop screening
+function stopScreening() {
+  if (screenAbort) { screenAbort.abort(); screenAbort = null; }
+  document.getElementById('loading').classList.remove('active');
+  document.getElementById('scan-all-btn').disabled = false;
+  document.getElementById('scan-all-btn').innerHTML = '<span class="material-symbols-outlined text-sm">radar</span> Screen All Stocks';
+  document.getElementById('run-btn').disabled = false;
+}
+
 // Screen ALL stocks (no symbols needed)
 async function runScreenAll() {
   const config = getFilterConfig();
@@ -269,16 +281,19 @@ async function runScreenAll() {
   document.getElementById('scan-all-btn').disabled = true;
   document.getElementById('scan-all-btn').textContent = 'Scanning...';
 
+  screenAbort = new AbortController();
   try {
     const res = await fetch(API + '/screen', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ scan_all: true, config })
+      body: JSON.stringify({ scan_all: true, config }),
+      signal: screenAbort.signal
     });
     const data = await res.json();
     renderResults(data);
   } catch(e) {
-    alert('Error: ' + e.message);
+    if (e.name !== 'AbortError') alert('Error: ' + e.message);
   } finally {
+    screenAbort = null;
     document.getElementById('loading').classList.remove('active');
     document.getElementById('scan-all-btn').disabled = false;
     document.getElementById('scan-all-btn').innerHTML = '<span class="material-symbols-outlined text-sm">radar</span> Screen All Stocks';
@@ -288,23 +303,26 @@ async function runScreenAll() {
 // Run screening for specific symbols
 async function runScreen() {
   const input = document.getElementById('symbols-input').value.trim();
-  if (!input) { runScreenAll(); return; }  // empty = screen all
+  if (!input) { runScreenAll(); return; }
   const symbols = input.split(',').map(s => s.trim().toUpperCase()).filter(s => s);
   const config = getFilterConfig();
 
   document.getElementById('loading').classList.add('active');
   document.getElementById('run-btn').disabled = true;
 
+  screenAbort = new AbortController();
   try {
     const res = await fetch(API + '/screen', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ symbols, config })
+      body: JSON.stringify({ symbols, config }),
+      signal: screenAbort.signal
     });
     const data = await res.json();
     renderResults(data);
   } catch(e) {
-    alert('Error: ' + e.message + '. Is the server running?');
+    if (e.name !== 'AbortError') alert('Error: ' + e.message);
   } finally {
+    screenAbort = null;
     document.getElementById('loading').classList.remove('active');
     document.getElementById('run-btn').disabled = false;
   }
