@@ -72,6 +72,32 @@
     "roc_period": 20,
     "roc_minimum": 0
   },
+  "fisher_transform": {
+    "enabled": true,
+    "fisher_period": 10,
+    "fisher_signal_period": 1
+  },
+  "klinger_oscillator": {
+    "enabled": true,
+    "kvo_fast": 34,
+    "kvo_slow": 55,
+    "kvo_signal": 13
+  },
+  "chande_momentum": {
+    "enabled": true,
+    "cmo_period": 14,
+    "cmo_min": 10,
+    "cmo_max": 50
+  },
+  "force_index": {
+    "enabled": true,
+    "efi_period": 13
+  },
+  "vortex": {
+    "enabled": true,
+    "vortex_period": 14,
+    "vi_threshold": 0.05
+  },
   "roe": {
     "enabled": true,
     "roe_minimum": 12
