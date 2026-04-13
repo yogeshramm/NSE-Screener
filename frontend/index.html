@@ -119,11 +119,14 @@ body { font-family: 'Inter', sans-serif; background: #0f1117; color: #e2e2eb; }
     <button onclick="runScreen()" class="bg-[#00d4aa] px-4 py-1.5 rounded-lg text-[#00382b] font-bold text-xs ml-auto">Apply</button>
   </div>
 
-  <!-- Search -->
+  <!-- Search + Screen All -->
   <div class="flex gap-3 mb-4">
-    <input id="symbols-input" class="flex-grow bg-[#191b22] border border-[#33343b] rounded-xl py-2.5 px-4 text-sm focus:ring-1 focus:ring-[#00d4aa]" placeholder="RELIANCE, TCS, HDFCBANK, INFY"/>
-    <button onclick="runScreen()" id="run-btn" class="bg-[#0566d9] px-6 py-2.5 rounded-xl text-white font-bold text-sm flex items-center gap-2">
-      Run Screen <span class="material-symbols-outlined text-sm">bolt</span>
+    <button onclick="runScreenAll()" id="scan-all-btn" class="bg-[#00d4aa] px-6 py-2.5 rounded-xl text-[#00382b] font-bold text-sm flex items-center gap-2 whitespace-nowrap">
+      <span class="material-symbols-outlined text-sm">radar</span> Screen All Stocks
+    </button>
+    <input id="symbols-input" class="flex-grow bg-[#191b22] border border-[#33343b] rounded-xl py-2.5 px-4 text-sm focus:ring-1 focus:ring-[#00d4aa]" placeholder="Or type specific symbols: RELIANCE, TCS, HDFCBANK"/>
+    <button onclick="runScreen()" id="run-btn" class="bg-[#0566d9] px-5 py-2.5 rounded-xl text-white font-bold text-sm flex items-center gap-2 whitespace-nowrap">
+      Search <span class="material-symbols-outlined text-sm">bolt</span>
     </button>
   </div>
 
@@ -259,10 +262,33 @@ function getFilterConfig() {
   };
 }
 
-// Run screening
+// Screen ALL stocks (no symbols needed)
+async function runScreenAll() {
+  const config = getFilterConfig();
+  document.getElementById('loading').classList.add('active');
+  document.getElementById('scan-all-btn').disabled = true;
+  document.getElementById('scan-all-btn').textContent = 'Scanning...';
+
+  try {
+    const res = await fetch(API + '/screen', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ scan_all: true, config })
+    });
+    const data = await res.json();
+    renderResults(data);
+  } catch(e) {
+    alert('Error: ' + e.message);
+  } finally {
+    document.getElementById('loading').classList.remove('active');
+    document.getElementById('scan-all-btn').disabled = false;
+    document.getElementById('scan-all-btn').innerHTML = '<span class="material-symbols-outlined text-sm">radar</span> Screen All Stocks';
+  }
+}
+
+// Run screening for specific symbols
 async function runScreen() {
   const input = document.getElementById('symbols-input').value.trim();
-  if (!input) { alert('Enter stock symbols'); return; }
+  if (!input) { runScreenAll(); return; }  // empty = screen all
   const symbols = input.split(',').map(s => s.trim().toUpperCase()).filter(s => s);
   const config = getFilterConfig();
 
@@ -277,7 +303,7 @@ async function runScreen() {
     const data = await res.json();
     renderResults(data);
   } catch(e) {
-    alert('Error: ' + e.message + '. Is the server running? (python3 run_server.py)');
+    alert('Error: ' + e.message + '. Is the server running?');
   } finally {
     document.getElementById('loading').classList.remove('active');
     document.getElementById('run-btn').disabled = false;

@@ -14,9 +14,10 @@ router = APIRouter()
 
 
 class ScreenRequest(BaseModel):
-    symbols: list[str]
+    symbols: Optional[list[str]] = None
     config: Optional[dict] = None
     stage2: bool = True
+    scan_all: bool = False
 
 
 def _clean_result(result: dict) -> dict:
@@ -86,27 +87,38 @@ def run_screen(request: ScreenRequest):
     Pass a config JSON to override any filter parameter.
     If no config is provided, defaults are used.
     """
-    if not request.symbols:
-        raise HTTPException(400, "At least one symbol required")
-
-    if len(request.symbols) > 50:
-        raise HTTPException(400, "Maximum 50 symbols per request")
-
     config = get_default_config()
     if request.config:
-        # Deep merge user config into defaults
         for key, value in request.config.items():
             if key in config and isinstance(config[key], dict) and isinstance(value, dict):
                 config[key].update(value)
             else:
                 config[key] = value
 
+    # Determine which symbols to screen
+    if request.scan_all or not request.symbols:
+        # Scan all stocks that have data
+        from data.nse_history import get_history_stats
+        from setup_data import FUNDAMENTALS_DIR
+        hist = get_history_stats()
+        all_symbols = hist.get("symbols", [])
+        # Prioritize stocks with fundamentals
+        fund_symbols = set()
+        if FUNDAMENTALS_DIR.exists():
+            fund_symbols = {f.stem for f in FUNDAMENTALS_DIR.glob("*.pkl")}
+        # Put fundamental stocks first, then others
+        symbols = sorted(fund_symbols & set(all_symbols)) + sorted(set(all_symbols) - fund_symbols)
+        if not symbols:
+            raise HTTPException(400, "No stock data available. Click Sync to download data first.")
+    else:
+        symbols = [s.strip().upper() for s in request.symbols]
+
     # Fetch data for all symbols
     stocks = []
     errors = []
-    for symbol in request.symbols:
+    for symbol in symbols:
         try:
-            bundle = get_stock_bundle(symbol.strip().upper())
+            bundle = get_stock_bundle(symbol)
             stocks.append(bundle)
         except Exception as e:
             errors.append({"symbol": symbol, "error": str(e)})
