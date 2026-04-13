@@ -24,14 +24,36 @@ _download_stats = None
 
 @router.get("/data/status")
 def data_status():
-    """Check today's data download status."""
+    """Check today's data download status with date info."""
+    from data.nse_history import get_history_stats
+    from datetime import date
+
     symbols = get_downloaded_symbols()
+    hist = get_history_stats()
+    dates = get_available_dates()
+
+    # Filter out non-date folder names
+    real_dates = [d for d in dates if d[:4].isdigit()]
+    latest_price_date = hist.get("latest_date", "N/A")
+
+    # data_as_of = most recent actual date we have data for
+    if latest_price_date and latest_price_date != "N/A":
+        data_as_of = latest_price_date
+    elif real_dates:
+        data_as_of = real_dates[0]
+    else:
+        data_as_of = "No data"
+
     return {
         "today_downloaded": len(symbols),
         "ready_for_screening": len(symbols) > 50,
         "download_in_progress": _download_in_progress,
         "last_download": _download_stats,
-        "available_dates": get_available_dates()[:5],
+        "available_dates": real_dates[:5],
+        "today_date": date.today().isoformat(),
+        "data_as_of": data_as_of,
+        "history_latest_date": latest_price_date,
+        "history_symbols": hist.get("total_symbols", 0),
     }
 
 

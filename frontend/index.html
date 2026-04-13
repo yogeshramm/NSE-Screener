@@ -80,6 +80,7 @@ body { font-family: 'Inter', sans-serif; background: #0f1117; color: #e2e2eb; }
     </div>
     <div class="flex flex-col">
       <span id="data-status" class="text-[10px] text-slate-500">Checking...</span>
+      <span id="data-date" class="text-[10px] text-[#00d4aa] font-bold"></span>
       <span id="data-detail" class="text-[9px] text-slate-600"></span>
     </div>
     <button onclick="triggerDownload()" id="dl-btn" class="flex items-center gap-1 bg-surface-container-highest px-3 py-1.5 rounded-lg text-primary text-xs font-bold hover:bg-surface-container-high">
@@ -491,6 +492,12 @@ async function checkDataStatus() {
     const inProgress = data.download_in_progress;
 
     document.getElementById('data-status').textContent = count + ' stocks cached';
+
+    // Show data date
+    const dataDate = data.data_as_of || data.history_latest_date || '';
+    if (dataDate && dataDate !== 'N/A') {
+      document.getElementById('data-date').textContent = 'Data as of: ' + dataDate;
+    }
 
     if (ready) {
       updateRing(100);
