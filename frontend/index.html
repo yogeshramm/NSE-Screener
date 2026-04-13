@@ -501,8 +501,9 @@ async function checkDataStatus() {
 
     if (ready) {
       updateRing(100);
-      document.getElementById('data-detail').textContent = 'Ready for screening';
-      document.getElementById('dl-btn-text').textContent = 'Up to date';
+      document.getElementById('ring-text').textContent = '\u2713';
+      document.getElementById('data-detail').textContent = count.toLocaleString() + ' stocks ready';
+      document.getElementById('dl-btn-text').textContent = 'Synced';
       document.getElementById('dl-btn').classList.remove('text-primary');
       document.getElementById('dl-btn').classList.add('text-slate-500');
       if (downloadPolling) { clearInterval(downloadPolling); downloadPolling = null; }

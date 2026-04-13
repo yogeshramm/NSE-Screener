@@ -44,16 +44,20 @@ def data_status():
     else:
         data_as_of = "No data"
 
+    history_count = hist.get("total_symbols", 0)
+    total_stocks = max(len(symbols), history_count)
+    ready = total_stocks > 50
+
     return {
-        "today_downloaded": len(symbols),
-        "ready_for_screening": len(symbols) > 50,
+        "today_downloaded": total_stocks,
+        "ready_for_screening": ready,
         "download_in_progress": _download_in_progress,
         "last_download": _download_stats,
         "available_dates": real_dates[:5],
         "today_date": date.today().isoformat(),
         "data_as_of": data_as_of,
         "history_latest_date": latest_price_date,
-        "history_symbols": hist.get("total_symbols", 0),
+        "history_symbols": history_count,
     }
 
 
