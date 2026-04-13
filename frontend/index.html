@@ -92,31 +92,28 @@ body { font-family: 'Inter', sans-serif; background: #0f1117; color: #e2e2eb; }
 <!-- ==================== TAB 1: SCREENER ==================== -->
 <div id="tab-screener" class="tab-content active mt-14 p-4 h-[calc(100vh-56px)] overflow-y-auto">
 
-  <!-- Filter Bar -->
-  <div class="bg-[#191b22] p-3 rounded-xl mb-4 flex flex-wrap gap-3 items-center">
-    <div class="flex items-center bg-[#33343b] px-2 py-1 rounded-lg">
-      <label class="text-[9px] text-slate-400 mr-1.5 uppercase">PE</label>
-      <input id="f-pe" class="bg-transparent border-none p-0 text-xs font-bold text-[#00d4aa] w-10 focus:ring-0" value="< 40"/>
+  <!-- Dynamic Filter Panel — all filters from config with toggles -->
+  <div class="bg-[#191b22] rounded-xl mb-4 overflow-hidden">
+    <div class="flex items-center justify-between px-3 py-2 bg-[#1e1f26] border-b border-[#33343b]/20">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-[#00d4aa] text-sm">tune</span>
+        <span class="text-xs font-bold text-slate-300">ACTIVE FILTERS</span>
+        <span id="filter-count" class="text-[9px] bg-[#00d4aa]/20 text-[#00d4aa] px-1.5 py-0.5 rounded-full font-bold">0/0</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="toggleAllFilters(true)" class="text-[9px] text-[#00d4aa] hover:underline">Enable All</button>
+        <span class="text-slate-600">|</span>
+        <button onclick="toggleAllFilters(false)" class="text-[9px] text-slate-400 hover:underline">Disable All</button>
+        <span class="text-slate-600">|</span>
+        <button onclick="toggleFilterPanel()" id="filter-toggle-btn" class="text-[9px] text-slate-400 hover:text-[#00d4aa] flex items-center gap-1">
+          <span class="material-symbols-outlined text-sm" id="filter-expand-icon">expand_more</span>
+        </button>
+      </div>
     </div>
-    <div class="flex items-center bg-[#33343b] px-2 py-1 rounded-lg">
-      <label class="text-[9px] text-slate-400 mr-1.5 uppercase">RSI</label>
-      <input id="f-rsi-min" class="bg-transparent border-none p-0 text-xs font-bold text-[#00d4aa] w-6 focus:ring-0" value="50"/>
-      <span class="text-slate-500 text-xs mx-1">-</span>
-      <input id="f-rsi-max" class="bg-transparent border-none p-0 text-xs font-bold text-[#00d4aa] w-6 focus:ring-0" value="65"/>
+    <div id="filter-panel" class="p-3 flex flex-wrap gap-2 items-center" style="max-height: 120px; overflow-y: auto; transition: max-height 0.3s;">
+      <!-- Populated dynamically by loadFilterPanel() -->
+      <span class="text-xs text-slate-500">Loading filters...</span>
     </div>
-    <div class="flex items-center bg-[#33343b] px-2 py-1 rounded-lg">
-      <label class="text-[9px] text-slate-400 mr-1.5 uppercase">ADX</label>
-      <input id="f-adx" class="bg-transparent border-none p-0 text-xs font-bold text-[#00d4aa] w-6 focus:ring-0" value="20"/>
-    </div>
-    <div class="flex items-center bg-[#33343b] px-2 py-1 rounded-lg">
-      <label class="text-[9px] text-slate-400 mr-1.5 uppercase">ROE</label>
-      <input id="f-roe" class="bg-transparent border-none p-0 text-xs font-bold text-[#00d4aa] w-8 focus:ring-0" value="12%"/>
-    </div>
-    <div class="flex items-center bg-[#33343b] px-2 py-1 rounded-lg">
-      <label class="text-[9px] text-slate-400 mr-1.5 uppercase">D/E</label>
-      <input id="f-de" class="bg-transparent border-none p-0 text-xs font-bold text-[#00d4aa] w-8 focus:ring-0" value="1.0"/>
-    </div>
-    <button onclick="runScreen()" class="bg-[#00d4aa] px-4 py-1.5 rounded-lg text-[#00382b] font-bold text-xs ml-auto">Apply</button>
   </div>
 
   <!-- Search + Screen All -->
@@ -246,21 +243,97 @@ function switchTab(tab) {
   if (tab === 'indicators') loadIndicators();
 }
 
-// Build config from inline filters
+// ============ DYNAMIC FILTER PANEL ============
+let fullConfig = {};  // stores the complete config from API
+let filterExpanded = false;
+
+// Load all filters from config API and render as toggleable chips
+async function loadFilterPanel() {
+  try {
+    const res = await fetch(API + '/config/default');
+    const data = await res.json();
+    fullConfig = data.config;
+    renderFilterPanel();
+  } catch(e) { console.error('Failed to load filters:', e); }
+}
+
+function renderFilterPanel() {
+  const panel = document.getElementById('filter-panel');
+  let html = '';
+  let total = 0, enabled = 0;
+
+  for (const [key, val] of Object.entries(fullConfig)) {
+    if (typeof val !== 'object' || !('enabled' in val) || key === 'scoring') continue;
+    total++;
+    const isOn = val.enabled;
+    if (isOn) enabled++;
+
+    // Get the main parameter value to display
+    const params = Object.entries(val).filter(([k]) => k !== 'enabled');
+    const mainParam = params.length > 0 ? params[0] : null;
+    const label = key.replace(/_/g, ' ');
+
+    html += `<div class="flex items-center gap-1 ${isOn ? 'bg-[#00d4aa]/10 border-[#00d4aa]/30' : 'bg-[#33343b]/50 border-[#33343b]'} border px-2 py-1 rounded-lg cursor-pointer transition-all" id="chip-${key}">
+      <input type="checkbox" ${isOn ? 'checked' : ''} onchange="toggleFilter('${key}', this.checked)"
+        class="w-3 h-3 rounded text-[#00d4aa] bg-[#33343b] border-none focus:ring-0 cursor-pointer"/>
+      <span class="text-[9px] uppercase font-bold ${isOn ? 'text-[#00d4aa]' : 'text-slate-500'}" onclick="toggleFilter('${key}', !fullConfig['${key}'].enabled)">${label}</span>`;
+
+    // Show editable value for main param
+    if (mainParam) {
+      const [pk, pv] = mainParam;
+      html += `<input type="text" value="${pv}" data-filter="${key}" data-param="${pk}"
+        class="bg-transparent border-none p-0 text-[10px] font-bold ${isOn ? 'text-[#00d4aa]' : 'text-slate-600'} w-8 text-right focus:ring-0"
+        onchange="updateFilterParam('${key}', '${pk}', this.value)"/>`;
+    }
+    html += `</div>`;
+  }
+
+  panel.innerHTML = html;
+  document.getElementById('filter-count').textContent = enabled + '/' + total;
+}
+
+function toggleFilter(key, enabled) {
+  if (fullConfig[key]) {
+    fullConfig[key].enabled = enabled;
+    renderFilterPanel();
+  }
+}
+
+function toggleAllFilters(enabled) {
+  for (const key of Object.keys(fullConfig)) {
+    if (typeof fullConfig[key] === 'object' && 'enabled' in fullConfig[key]) {
+      fullConfig[key].enabled = enabled;
+    }
+  }
+  renderFilterPanel();
+}
+
+function updateFilterParam(filterKey, paramKey, value) {
+  if (fullConfig[filterKey]) {
+    // Try to parse as number
+    const num = parseFloat(value);
+    fullConfig[filterKey][paramKey] = isNaN(num) ? value : num;
+  }
+}
+
+function toggleFilterPanel() {
+  const panel = document.getElementById('filter-panel');
+  const icon = document.getElementById('filter-expand-icon');
+  filterExpanded = !filterExpanded;
+  panel.style.maxHeight = filterExpanded ? '400px' : '120px';
+  icon.textContent = filterExpanded ? 'expand_less' : 'expand_more';
+}
+
+// Build config from dynamic filter panel
 function getFilterConfig() {
-  const pe = parseFloat(document.getElementById('f-pe').value.replace('<','').trim()) || 40;
-  const rsiMin = parseFloat(document.getElementById('f-rsi-min').value) || 50;
-  const rsiMax = parseFloat(document.getElementById('f-rsi-max').value) || 65;
-  const adx = parseFloat(document.getElementById('f-adx').value) || 20;
-  const roe = parseFloat(document.getElementById('f-roe').value.replace('%','')) || 12;
-  const de = parseFloat(document.getElementById('f-de').value) || 1.0;
-  return {
-    pe_ratio: { enabled: true, pe_maximum: pe },
-    rsi: { enabled: true, rsi_min: rsiMin, rsi_max: rsiMax },
-    adx: { enabled: true, adx_minimum: adx },
-    roe: { enabled: true, roe_minimum: roe },
-    debt_to_equity: { enabled: true, de_maximum: de },
-  };
+  // Return only the modified filters (enabled/disabled + changed params)
+  const config = {};
+  for (const [key, val] of Object.entries(fullConfig)) {
+    if (typeof val === 'object' && 'enabled' in val) {
+      config[key] = { ...val };
+    }
+  }
+  return config;
 }
 
 let screenAbort = null;  // AbortController for cancelling
@@ -657,6 +730,7 @@ async function initData() {
 }
 
 // Init
+loadFilterPanel();
 initData();
 </script>
 </body>
