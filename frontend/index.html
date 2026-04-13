@@ -117,14 +117,20 @@ body { font-family: 'Inter', sans-serif; background: #0f1117; color: #e2e2eb; }
     </div>
   </div>
 
-  <!-- Search + Screen All -->
-  <div class="flex gap-3 mb-4">
-    <button onclick="runScreenAll()" id="scan-all-btn" class="bg-[#00d4aa] px-6 py-2.5 rounded-xl text-[#00382b] font-bold text-sm flex items-center gap-2 whitespace-nowrap">
-      <span class="material-symbols-outlined text-sm">radar</span> Screen All Stocks
+  <!-- Scope + Screen + Search -->
+  <div class="flex gap-2 mb-4 items-center">
+    <select id="scope-select" class="bg-[#191b22] border border-[#33343b] rounded-xl py-2.5 px-3 text-sm text-[#00d4aa] font-bold focus:ring-1 focus:ring-[#00d4aa]">
+      <option value="nifty200">Nifty 200</option>
+      <option value="nifty500" selected>Nifty 500</option>
+      <option value="all">All NSE</option>
+    </select>
+    <button onclick="runScreenAll()" id="scan-all-btn" class="bg-[#00d4aa] px-5 py-2.5 rounded-xl text-[#00382b] font-bold text-sm flex items-center gap-2 whitespace-nowrap">
+      <span class="material-symbols-outlined text-sm">radar</span> Screen
     </button>
-    <input id="symbols-input" class="flex-grow bg-[#191b22] border border-[#33343b] rounded-xl py-2.5 px-4 text-sm focus:ring-1 focus:ring-[#00d4aa]" placeholder="Or type specific symbols: RELIANCE, TCS, HDFCBANK"/>
-    <button onclick="runScreen()" id="run-btn" class="bg-[#0566d9] px-5 py-2.5 rounded-xl text-white font-bold text-sm flex items-center gap-2 whitespace-nowrap">
-      Search <span class="material-symbols-outlined text-sm">bolt</span>
+    <div class="w-px h-8 bg-[#33343b]"></div>
+    <input id="symbols-input" class="flex-grow bg-[#191b22] border border-[#33343b] rounded-xl py-2.5 px-4 text-sm focus:ring-1 focus:ring-[#00d4aa]" placeholder="Or search: RELIANCE, TCS, HDFCBANK"/>
+    <button onclick="runScreen()" id="run-btn" class="bg-[#0566d9] px-4 py-2.5 rounded-xl text-white font-bold text-sm flex items-center gap-1 whitespace-nowrap">
+      <span class="material-symbols-outlined text-sm">bolt</span>
     </button>
   </div>
 
@@ -542,13 +548,14 @@ function stopScreening() {
   if (screenAbort) { screenAbort.abort(); screenAbort = null; }
   document.getElementById('loading').classList.remove('active');
   document.getElementById('scan-all-btn').disabled = false;
-  document.getElementById('scan-all-btn').innerHTML = '<span class="material-symbols-outlined text-sm">radar</span> Screen All Stocks';
+  document.getElementById('scan-all-btn').innerHTML = '<span class="material-symbols-outlined text-sm">radar</span> Screen';
   document.getElementById('run-btn').disabled = false;
 }
 
-// Screen ALL stocks (no symbols needed)
+// Screen stocks by scope (Nifty 200/500/All)
 async function runScreenAll() {
   const config = getFilterConfig();
+  const scope = document.getElementById('scope-select').value;
   document.getElementById('loading').classList.add('active');
   document.getElementById('scan-all-btn').disabled = true;
   document.getElementById('scan-all-btn').textContent = 'Scanning...';
@@ -557,7 +564,7 @@ async function runScreenAll() {
   try {
     const res = await fetch(API + '/screen', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ scan_all: true, config }),
+      body: JSON.stringify({ scan_all: true, config, scope, min_price: 50, min_volume: 100000 }),
       signal: screenAbort.signal
     });
     const data = await res.json();
@@ -568,7 +575,7 @@ async function runScreenAll() {
     screenAbort = null;
     document.getElementById('loading').classList.remove('active');
     document.getElementById('scan-all-btn').disabled = false;
-    document.getElementById('scan-all-btn').innerHTML = '<span class="material-symbols-outlined text-sm">radar</span> Screen All Stocks';
+    document.getElementById('scan-all-btn').innerHTML = '<span class="material-symbols-outlined text-sm">radar</span> Screen';
   }
 }
 

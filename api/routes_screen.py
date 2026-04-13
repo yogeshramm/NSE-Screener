@@ -18,6 +18,9 @@ class ScreenRequest(BaseModel):
     config: Optional[dict] = None
     stage2: bool = True
     scan_all: bool = False
+    scope: str = "nifty500"  # "nifty200", "nifty500", "all"
+    min_price: float = 50.0
+    min_volume: int = 100000
 
 
 def _clean_result(result: dict) -> dict:
@@ -97,19 +100,47 @@ def run_screen(request: ScreenRequest):
 
     # Determine which symbols to screen
     if request.scan_all or not request.symbols:
-        # Scan all stocks that have data
-        from data.nse_history import get_history_stats
+        from data.nse_history import get_history_stats, load_history
+        from data.nse_symbols import NIFTY_500_FALLBACK
         from setup_data import FUNDAMENTALS_DIR
+
+        # Nifty 200 — top 200 from our curated list
+        NIFTY_200 = list(NIFTY_500_FALLBACK[:120])
+
         hist = get_history_stats()
-        all_symbols = hist.get("symbols", [])
-        # Prioritize stocks with fundamentals
+        all_symbols = set(hist.get("symbols", []))
         fund_symbols = set()
         if FUNDAMENTALS_DIR.exists():
             fund_symbols = {f.stem for f in FUNDAMENTALS_DIR.glob("*.pkl")}
-        # Put fundamental stocks first, then others
-        symbols = sorted(fund_symbols & set(all_symbols)) + sorted(set(all_symbols) - fund_symbols)
+
+        # Choose scope
+        if request.scope == "nifty200":
+            candidates = [s for s in NIFTY_200 if s in all_symbols]
+        elif request.scope == "nifty500":
+            candidates = [s for s in NIFTY_500_FALLBACK if s in all_symbols]
+        else:  # "all"
+            candidates = sorted(fund_symbols & all_symbols) + sorted(all_symbols - fund_symbols)
+
+        # Pre-filter: skip penny stocks and illiquid
+        symbols = []
+        skipped = 0
+        for sym in candidates:
+            hist_df = load_history(sym)
+            if hist_df is None or len(hist_df) < 50:
+                skipped += 1
+                continue
+            last_close = hist_df["Close"].iloc[-1]
+            avg_vol = hist_df["Volume"].mean()
+            if last_close < request.min_price:
+                skipped += 1
+                continue
+            if avg_vol < request.min_volume:
+                skipped += 1
+                continue
+            symbols.append(sym)
+
         if not symbols:
-            raise HTTPException(400, "No stock data available. Click Sync to download data first.")
+            raise HTTPException(400, f"No stocks passed pre-filter (price > ₹{request.min_price}, volume > {request.min_volume:,}). Try a broader scope.")
     else:
         symbols = [s.strip().upper() for s in request.symbols]
 
