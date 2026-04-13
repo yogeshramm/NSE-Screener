@@ -257,36 +257,72 @@ async function loadFilterPanel() {
   } catch(e) { console.error('Failed to load filters:', e); }
 }
 
+// Filter categories
+const TECHNICAL_KEYS = ['ema','rsi','macd','volume_surge','supertrend','adx','obv','cmf','roc',
+  'awesome_oscillator','anchored_vwap','pivot_levels','hidden_divergence','sector_performance',
+  'fisher_transform','klinger_oscillator','chande_momentum','force_index','vortex'];
+const FUNDAMENTAL_KEYS = ['roe','roce','debt_to_equity','eps','free_cash_flow',
+  'institutional_holdings','analyst_ratings','earnings_blackout','pe_ratio','daily_turnover','free_float'];
+const BREAKOUT_KEYS = ['breakout_proximity','breakout_volume','breakout_rsi','breakout_candle',
+  'supply_zone','institutional_flow','bb_squeeze','stochastic_rsi','williams_r','vwap_bands','ichimoku',
+  'late_entry_stage1','late_entry_stage2','risk_management'];
+// The 3 highlighted indicators
+const HIGHLIGHTED = ['supertrend','vwap_bands','vortex'];
+
 function renderFilterPanel() {
   const panel = document.getElementById('filter-panel');
-  let html = '';
   let total = 0, enabled = 0;
 
+  // Count
   for (const [key, val] of Object.entries(fullConfig)) {
     if (typeof val !== 'object' || !('enabled' in val) || key === 'scoring') continue;
     total++;
-    const isOn = val.enabled;
-    if (isOn) enabled++;
+    if (val.enabled) enabled++;
+  }
 
-    // Get the main parameter value to display
+  function renderChip(key) {
+    const val = fullConfig[key];
+    if (!val || typeof val !== 'object' || !('enabled' in val)) return '';
+    const isOn = val.enabled;
+    const isHL = HIGHLIGHTED.includes(key);
     const params = Object.entries(val).filter(([k]) => k !== 'enabled');
     const mainParam = params.length > 0 ? params[0] : null;
     const label = key.replace(/_/g, ' ');
-
-    html += `<div class="flex items-center gap-1 ${isOn ? 'bg-[#00d4aa]/10 border-[#00d4aa]/30' : 'bg-[#33343b]/50 border-[#33343b]'} border px-2 py-1 rounded-lg cursor-pointer transition-all" id="chip-${key}">
-      <input type="checkbox" ${isOn ? 'checked' : ''} onchange="toggleFilter('${key}', this.checked)"
+    const hlBorder = isHL ? (isOn ? 'border-[#00d4aa] shadow-[0_0_8px_rgba(0,212,170,0.25)]' : 'border-[#00d4aa]/40') : (isOn ? 'border-[#00d4aa]/30' : 'border-[#33343b]');
+    const hlBg = isOn ? (isHL ? 'bg-[#00d4aa]/20' : 'bg-[#00d4aa]/10') : 'bg-[#33343b]/50';
+    let chip = `<div class="flex items-center gap-1 ${hlBg} ${hlBorder} border px-2 py-1 rounded-lg cursor-pointer transition-all" id="chip-${key}">`;
+    if (isHL) chip += `<span class="text-[8px]">⭐</span>`;
+    chip += `<input type="checkbox" ${isOn ? 'checked' : ''} onchange="toggleFilter('${key}', this.checked)"
         class="w-3 h-3 rounded text-[#00d4aa] bg-[#33343b] border-none focus:ring-0 cursor-pointer"/>
       <span class="text-[9px] uppercase font-bold ${isOn ? 'text-[#00d4aa]' : 'text-slate-500'}" onclick="toggleFilter('${key}', !fullConfig['${key}'].enabled)">${label}</span>`;
-
-    // Show editable value for main param
     if (mainParam) {
       const [pk, pv] = mainParam;
-      html += `<input type="text" value="${pv}" data-filter="${key}" data-param="${pk}"
+      chip += `<input type="text" value="${pv}" data-filter="${key}" data-param="${pk}"
         class="bg-transparent border-none p-0 text-[10px] font-bold ${isOn ? 'text-[#00d4aa]' : 'text-slate-600'} w-8 text-right focus:ring-0"
         onchange="updateFilterParam('${key}', '${pk}', this.value)"/>`;
     }
-    html += `</div>`;
+    chip += `</div>`;
+    return chip;
   }
+
+  let html = '';
+  // Technical section
+  html += `<div class="w-full mb-1"><span class="text-[9px] font-bold text-blue-400 uppercase tracking-wider">▎Technical</span></div>`;
+  html += `<div class="flex flex-wrap gap-1.5 w-full mb-2">`;
+  for (const k of TECHNICAL_KEYS) html += renderChip(k);
+  html += `</div>`;
+
+  // Fundamental section
+  html += `<div class="w-full mb-1"><span class="text-[9px] font-bold text-purple-400 uppercase tracking-wider">▎Fundamental</span></div>`;
+  html += `<div class="flex flex-wrap gap-1.5 w-full mb-2">`;
+  for (const k of FUNDAMENTAL_KEYS) html += renderChip(k);
+  html += `</div>`;
+
+  // Breakout section
+  html += `<div class="w-full mb-1"><span class="text-[9px] font-bold text-amber-400 uppercase tracking-wider">▎Breakout & Risk</span></div>`;
+  html += `<div class="flex flex-wrap gap-1.5 w-full">`;
+  for (const k of BREAKOUT_KEYS) html += renderChip(k);
+  html += `</div>`;
 
   panel.innerHTML = html;
   document.getElementById('filter-count').textContent = enabled + '/' + total;
