@@ -543,14 +543,24 @@ async function checkDataStatus() {
       document.getElementById('data-date').textContent = 'Data as of: ' + dataDate;
     }
 
-    if (ready) {
+    const bars = data.bars_per_stock || 0;
+    const needsHistory = data.needs_history;
+
+    if (ready && !needsHistory) {
       updateRing(100);
       document.getElementById('ring-text').textContent = '\u2713';
-      document.getElementById('data-detail').textContent = count.toLocaleString() + ' stocks ready';
+      document.getElementById('data-detail').textContent = count.toLocaleString() + ' stocks | ' + bars + ' days';
       document.getElementById('dl-btn-text').textContent = 'Synced';
       document.getElementById('dl-btn').classList.remove('text-primary');
       document.getElementById('dl-btn').classList.add('text-slate-500');
       if (downloadPolling) { clearInterval(downloadPolling); downloadPolling = null; }
+    } else if (needsHistory && !inProgress) {
+      // Has stocks but not enough history — needs full download
+      updateRing(30);
+      document.getElementById('ring-text').textContent = bars + 'd';
+      document.getElementById('data-detail').textContent = 'Need 200+ days (have ' + bars + '). Click Sync.';
+      document.getElementById('dl-btn-text').textContent = 'Download History';
+      document.getElementById('dl-btn').classList.add('text-primary');
     } else if (inProgress) {
       const pct = Math.min((count / totalExpected) * 100, 95);
       updateRing(pct);
@@ -629,13 +639,19 @@ async function triggerFullSetup(days) {
   }
 }
 
-// Auto-check on load, auto-catchup if stale
+// Auto-check on load, auto-trigger downloads as needed
 async function initData() {
   const status = await checkDataStatus();
-  if (status && status.download_in_progress) {
+  if (!status) return;
+
+  if (status.download_in_progress) {
     downloadPolling = setInterval(checkDataStatus, 3000);
-  } else if (status && !status.ready_for_screening && status.today_downloaded < 10) {
-    // No data — trigger catch-up (will do full setup if needed)
+  } else if (status.needs_history) {
+    // Has stocks but < 200 bars — auto-trigger full 1-year download
+    console.log('History insufficient (' + (status.bars_per_stock||0) + ' bars), triggering full download...');
+    triggerCatchup();
+  } else if (!status.ready_for_screening && status.today_downloaded < 10) {
+    // No data at all
     triggerCatchup();
   }
 }

@@ -46,11 +46,24 @@ def data_status():
 
     history_count = hist.get("total_symbols", 0)
     total_stocks = max(len(symbols), history_count)
-    ready = total_stocks > 50
+
+    # Check actual bar count — need minimum 200 bars for EMA 200
+    bars_sufficient = False
+    if history_count > 0:
+        from data.nse_history import load_history
+        sample_sym = hist.get("symbols", [])[0] if hist.get("symbols") else None
+        if sample_sym:
+            sample = load_history(sample_sym)
+            bars_sufficient = sample is not None and len(sample) >= 200
+
+    ready = total_stocks > 50 and bars_sufficient
+    bar_count = len(sample) if sample_sym and load_history(sample_sym) is not None else 0
 
     return {
         "today_downloaded": total_stocks,
         "ready_for_screening": ready,
+        "needs_history": not bars_sufficient and total_stocks > 0,
+        "bars_per_stock": bar_count,
         "download_in_progress": _download_in_progress,
         "last_download": _download_stats,
         "available_dates": real_dates[:5],
