@@ -5,6 +5,7 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Precision Intelligence - NSE Swing Screener</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <script>
@@ -136,63 +137,88 @@ body { font-family: 'Inter', sans-serif; background: #0f1117; color: #e2e2eb; }
     </div>
   </div>
 
-  <div class="flex gap-4">
-    <!-- Tables -->
-    <div class="flex-grow flex flex-col gap-4" id="results-area">
+  <!-- Split layout: Tables left, Chart right (like Kite) -->
+  <div class="flex gap-0 h-[calc(100vh-280px)]" id="main-split">
+    <!-- LEFT: Tables (shrinks when chart is open) -->
+    <div id="tables-panel" class="flex flex-col gap-3 overflow-y-auto transition-all duration-300" style="width:100%;">
       <!-- Stage 1 -->
       <div class="bg-[#191b22] rounded-xl overflow-hidden">
-        <div class="p-3 bg-[#1e1f26] flex items-center justify-between border-b border-[#33343b]/30">
+        <div class="p-2 bg-[#1e1f26] flex items-center justify-between border-b border-[#33343b]/30">
           <h2 class="text-xs font-bold text-[#00d4aa] uppercase flex items-center gap-2">
             <span class="w-1.5 h-1.5 rounded-full bg-[#00d4aa] animate-pulse"></span> Stage 1: Swing Base
           </h2>
           <span id="s1-count" class="text-[10px] text-slate-500 bg-[#33343b] px-2 py-0.5 rounded">0 results</span>
         </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-[11px]">
-            <thead><tr class="text-slate-400 border-b border-[#33343b]/20">
-              <th class="px-3 py-2">#</th><th class="px-3 py-2">Stock</th><th class="px-3 py-2 text-right">Price</th>
-              <th class="px-3 py-2 text-right">PE</th><th class="px-3 py-2 text-right">RSI</th>
-              <th class="px-3 py-2 text-right">ROE%</th><th class="px-3 py-2 text-right">Score</th>
-              <th class="px-3 py-2 text-center">Status</th>
-            </tr></thead>
-            <tbody id="s1-body"></tbody>
-          </table>
-        </div>
+        <div class="overflow-x-auto"><table class="w-full text-left text-[11px]">
+          <thead><tr class="text-slate-400 border-b border-[#33343b]/20">
+            <th class="px-2 py-1.5">#</th><th class="px-2 py-1.5">Stock</th><th class="px-2 py-1.5 text-right">Price</th>
+            <th class="px-2 py-1.5 text-right table-col-wide">PE</th><th class="px-2 py-1.5 text-right table-col-wide">RSI</th>
+            <th class="px-2 py-1.5 text-right table-col-wide">ROE%</th><th class="px-2 py-1.5 text-right">Score</th>
+            <th class="px-2 py-1.5 text-center">Status</th>
+          </tr></thead>
+          <tbody id="s1-body"></tbody>
+        </table></div>
       </div>
-
       <!-- Stage 2 -->
       <div class="bg-[#191b22] rounded-xl overflow-hidden">
-        <div class="p-3 bg-[#1e1f26] flex items-center justify-between border-b border-[#33343b]/30">
+        <div class="p-2 bg-[#1e1f26] flex items-center justify-between border-b border-[#33343b]/30">
           <h2 class="text-xs font-bold text-[#adc6ff] uppercase flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-[#adc6ff]"></span> Stage 2: Breakout Execution
+            <span class="w-1.5 h-1.5 rounded-full bg-[#adc6ff]"></span> Stage 2: Breakout
           </h2>
           <span id="s2-count" class="text-[10px] text-slate-500 bg-[#33343b] px-2 py-0.5 rounded">0 results</span>
         </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-[11px]">
-            <thead><tr class="text-slate-400 border-b border-[#33343b]/20">
-              <th class="px-3 py-2">#</th><th class="px-3 py-2">Stock</th><th class="px-3 py-2 text-right">Price</th>
-              <th class="px-3 py-2 text-right">SL</th><th class="px-3 py-2 text-right">Target</th>
-              <th class="px-3 py-2 text-center">R:R</th><th class="px-3 py-2 text-right">Score</th>
-              <th class="px-3 py-2 text-center">Status</th>
-            </tr></thead>
-            <tbody id="s2-body"></tbody>
-          </table>
-        </div>
+        <div class="overflow-x-auto"><table class="w-full text-left text-[11px]">
+          <thead><tr class="text-slate-400 border-b border-[#33343b]/20">
+            <th class="px-2 py-1.5">#</th><th class="px-2 py-1.5">Stock</th><th class="px-2 py-1.5 text-right">Price</th>
+            <th class="px-2 py-1.5 text-right">SL</th><th class="px-2 py-1.5 text-right">Target</th>
+            <th class="px-2 py-1.5 text-center">R:R</th><th class="px-2 py-1.5 text-right">Score</th>
+            <th class="px-2 py-1.5 text-center">Status</th>
+          </tr></thead>
+          <tbody id="s2-body"></tbody>
+        </table></div>
       </div>
     </div>
 
-    <!-- Side Panel -->
-    <div id="side-panel" class="fixed right-0 top-14 h-[calc(100vh-56px)] w-[420px] bg-[#191b22] border-l border-[#33343b]/30 z-40 overflow-y-auto">
-      <div class="p-4 bg-[#1e1f26] flex items-center justify-between border-b border-[#33343b]/20">
+    <!-- RIGHT: Chart panel (hidden by default, shows on stock click) -->
+    <div id="chart-panel" class="bg-[#191b22] rounded-xl overflow-hidden border-l border-[#33343b]/30 flex-col" style="display:none; width:0;">
+      <div class="p-2 bg-[#1e1f26] flex items-center justify-between border-b border-[#33343b]/30">
         <div class="flex items-center gap-2">
-          <span class="material-symbols-outlined text-[#00d4aa]" style="font-variation-settings:'FILL' 1;">psychology</span>
-          <h2 id="panel-title" class="text-sm font-bold uppercase">AI Insights</h2>
+          <span class="material-symbols-outlined text-[#00d4aa] text-sm">candlestick_chart</span>
+          <span id="chart-title" class="text-xs font-bold text-[#00d4aa]">CHART</span>
+          <span id="chart-price" class="text-xs text-slate-400"></span>
         </div>
-        <button onclick="closePanel()" class="material-symbols-outlined text-slate-400 hover:text-white">close</button>
+        <div class="flex items-center gap-2">
+          <button onclick="openInsightsFromChart()" class="text-[9px] text-slate-400 hover:text-[#00d4aa] flex items-center gap-1">
+            <span class="material-symbols-outlined text-sm">psychology</span> Insights
+          </button>
+          <button onclick="closeChart()" class="material-symbols-outlined text-slate-400 hover:text-white text-sm">close</button>
+        </div>
       </div>
-      <div id="panel-content" class="p-4"></div>
+      <!-- Candlestick chart -->
+      <div id="chart-container" style="height:60%;"></div>
+      <!-- RSI sub-panel -->
+      <div class="border-t border-[#33343b]/30">
+        <div class="px-2 py-1 text-[9px] text-slate-500 uppercase">RSI (14)</div>
+        <div id="rsi-container" style="height:80px;"></div>
+      </div>
+      <!-- Volume sub-panel -->
+      <div class="border-t border-[#33343b]/30">
+        <div class="px-2 py-1 text-[9px] text-slate-500 uppercase">Volume</div>
+        <div id="vol-container" style="height:60px;"></div>
+      </div>
     </div>
+  </div>
+
+  <!-- Side Panel (for AI Insights — slides over chart) -->
+  <div id="side-panel" class="fixed right-0 top-14 h-[calc(100vh-56px)] w-[400px] bg-[#191b22] border-l border-[#33343b]/30 z-40 overflow-y-auto">
+    <div class="p-3 bg-[#1e1f26] flex items-center justify-between border-b border-[#33343b]/20">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-[#00d4aa]" style="font-variation-settings:'FILL' 1;">psychology</span>
+        <h2 id="panel-title" class="text-sm font-bold uppercase">AI Insights</h2>
+      </div>
+      <button onclick="closePanel()" class="material-symbols-outlined text-slate-400 hover:text-white">close</button>
+    </div>
+    <div id="panel-content" class="p-4"></div>
   </div>
 </div>
 
@@ -372,6 +398,143 @@ function getFilterConfig() {
   return config;
 }
 
+// ============ CANDLESTICK CHART (Kite-style) ============
+let currentChart = null;
+let currentRsiChart = null;
+let currentVolChart = null;
+let currentChartSymbol = null;
+
+function openChart(symbol) {
+  currentChartSymbol = symbol;
+  const tables = document.getElementById('tables-panel');
+  const chart = document.getElementById('chart-panel');
+
+  // Shrink tables, expand chart
+  tables.style.width = '320px';
+  tables.style.minWidth = '320px';
+  chart.style.display = 'flex';
+  chart.style.width = 'calc(100% - 330px)';
+
+  document.getElementById('chart-title').textContent = symbol;
+  document.getElementById('chart-container').innerHTML = '';
+  document.getElementById('rsi-container').innerHTML = '';
+  document.getElementById('vol-container').innerHTML = '';
+
+  loadChart(symbol);
+}
+
+function closeChart() {
+  const tables = document.getElementById('tables-panel');
+  const chart = document.getElementById('chart-panel');
+  tables.style.width = '100%';
+  tables.style.minWidth = '';
+  chart.style.display = 'none';
+  chart.style.width = '0';
+  currentChartSymbol = null;
+}
+
+function openInsightsFromChart() {
+  if (currentChartSymbol) openStock(currentChartSymbol);
+}
+
+async function loadChart(symbol) {
+  try {
+    const res = await fetch(API + '/chart/' + symbol);
+    const data = await res.json();
+    document.getElementById('chart-price').textContent = '₹' + data.price;
+    renderChart(data);
+  } catch(e) {
+    document.getElementById('chart-container').innerHTML = '<p class="text-red-400 p-4 text-sm">Chart error: ' + e.message + '</p>';
+  }
+}
+
+function renderChart(data) {
+  const chartEl = document.getElementById('chart-container');
+  const rsiEl = document.getElementById('rsi-container');
+  const volEl = document.getElementById('vol-container');
+
+  // Main candlestick chart
+  currentChart = LightweightCharts.createChart(chartEl, {
+    width: chartEl.clientWidth, height: chartEl.clientHeight,
+    layout: { background: { color: '#191b22' }, textColor: '#8b949e', fontSize: 10 },
+    grid: { vertLines: { color: '#1e1f26' }, horzLines: { color: '#1e1f26' } },
+    crosshair: { mode: 0 },
+    timeScale: { borderColor: '#33343b', timeVisible: false },
+    rightPriceScale: { borderColor: '#33343b' },
+  });
+
+  // Candles
+  const candleSeries = currentChart.addCandlestickSeries({
+    upColor: '#00d4aa', downColor: '#ff4757', borderUpColor: '#00d4aa', borderDownColor: '#ff4757',
+    wickUpColor: '#00d4aa', wickDownColor: '#ff4757',
+  });
+  candleSeries.setData(data.candles);
+
+  // EMA 50 (yellow)
+  if (data.overlays.ema50 && data.overlays.ema50.length) {
+    const ema50 = currentChart.addLineSeries({ color: '#f59e0b', lineWidth: 1, title: 'EMA50' });
+    ema50.setData(data.overlays.ema50);
+  }
+
+  // EMA 200 (blue)
+  if (data.overlays.ema200 && data.overlays.ema200.length) {
+    const ema200 = currentChart.addLineSeries({ color: '#3b82f6', lineWidth: 1, title: 'EMA200' });
+    ema200.setData(data.overlays.ema200);
+  }
+
+  // Supertrend (green line)
+  if (data.overlays.supertrend && data.overlays.supertrend.length) {
+    const st = currentChart.addLineSeries({ color: '#00d4aa', lineWidth: 2, lineStyle: 0, title: 'ST' });
+    st.setData(data.overlays.supertrend);
+  }
+
+  currentChart.timeScale().fitContent();
+
+  // RSI chart
+  currentRsiChart = LightweightCharts.createChart(rsiEl, {
+    width: rsiEl.clientWidth, height: 80,
+    layout: { background: { color: '#191b22' }, textColor: '#8b949e', fontSize: 9 },
+    grid: { vertLines: { color: '#1e1f26' }, horzLines: { color: '#1e1f26' } },
+    timeScale: { visible: false }, rightPriceScale: { borderColor: '#33343b' },
+    crosshair: { mode: 0 },
+  });
+  const rsiLine = currentRsiChart.addLineSeries({ color: '#a855f7', lineWidth: 1.5 });
+  rsiLine.setData(data.panels.rsi);
+  // RSI levels
+  const rsi70 = currentRsiChart.addLineSeries({ color: '#ff475744', lineWidth: 1, lineStyle: 2 });
+  const rsi30 = currentRsiChart.addLineSeries({ color: '#00d4aa44', lineWidth: 1, lineStyle: 2 });
+  if (data.panels.rsi.length) {
+    rsi70.setData([{time: data.panels.rsi[0].time, value:70},{time: data.panels.rsi[data.panels.rsi.length-1].time, value:70}]);
+    rsi30.setData([{time: data.panels.rsi[0].time, value:30},{time: data.panels.rsi[data.panels.rsi.length-1].time, value:30}]);
+  }
+  currentRsiChart.timeScale().fitContent();
+
+  // Volume chart
+  currentVolChart = LightweightCharts.createChart(volEl, {
+    width: volEl.clientWidth, height: 60,
+    layout: { background: { color: '#191b22' }, textColor: '#8b949e', fontSize: 9 },
+    grid: { vertLines: { color: '#1e1f26' }, horzLines: { color: '#1e1f26' } },
+    timeScale: { visible: false }, rightPriceScale: { borderColor: '#33343b' },
+    crosshair: { mode: 0 },
+  });
+  const volSeries = currentVolChart.addHistogramSeries({ priceFormat: { type: 'volume' } });
+  volSeries.setData(data.volumes);
+  currentVolChart.timeScale().fitContent();
+
+  // Sync crosshairs
+  currentChart.timeScale().subscribeVisibleTimeRangeChange(tr => {
+    currentRsiChart.timeScale().setVisibleRange(tr);
+    currentVolChart.timeScale().setVisibleRange(tr);
+  });
+
+  // Resize handler
+  new ResizeObserver(() => {
+    if (currentChart) currentChart.applyOptions({ width: chartEl.clientWidth });
+    if (currentRsiChart) currentRsiChart.applyOptions({ width: rsiEl.clientWidth });
+    if (currentVolChart) currentVolChart.applyOptions({ width: volEl.clientWidth });
+  }).observe(chartEl);
+}
+
 let screenAbort = null;  // AbortController for cancelling
 
 // Stop screening
@@ -443,15 +606,15 @@ function renderResults(data) {
   const s1 = document.getElementById('s1-body');
   document.getElementById('s1-count').textContent = data.stage1_results.length + ' results';
   s1.innerHTML = data.stage1_results.map((r,i) => `
-    <tr class="hover:bg-[#33343b]/30 cursor-pointer border-b border-[#33343b]/10" onclick="openStock('${r.symbol}')">
-      <td class="px-3 py-2.5 font-bold ${r.passed?'text-[#00d4aa]':'text-slate-500'}">#${r.rank}</td>
-      <td class="px-3 py-2.5"><div class="font-bold">${r.symbol}</div><div class="text-[9px] text-slate-500">${r.sector||''}</div></td>
-      <td class="px-3 py-2.5 text-right">₹${r.price||'--'}</td>
-      <td class="px-3 py-2.5 text-right">${r.pe||'--'}</td>
-      <td class="px-3 py-2.5 text-right">${r.fundamentals?.pe_ratio?.value||'--'}</td>
-      <td class="px-3 py-2.5 text-right">${r.roe||'--'}%</td>
-      <td class="px-3 py-2.5 text-right font-bold">${r.score}</td>
-      <td class="px-3 py-2.5 text-center"><span class="${r.passed?'badge-pass':'badge-fail'} text-[10px] px-2 py-0.5 rounded-full font-bold">${r.passed?'PASS':'FAIL'}</span></td>
+    <tr class="hover:bg-[#33343b]/30 cursor-pointer border-b border-[#33343b]/10" onclick="openChart('${r.symbol}')">
+      <td class="px-2 py-2 font-bold ${r.passed?'text-[#00d4aa]':'text-slate-500'}">#${r.rank}</td>
+      <td class="px-2 py-2"><div class="font-bold">${r.symbol}</div><div class="text-[9px] text-slate-500">${r.sector||''}</div></td>
+      <td class="px-2 py-2 text-right">₹${r.price||'--'}</td>
+      <td class="px-2 py-2 text-right table-col-wide">${r.pe||'--'}</td>
+      <td class="px-2 py-2 text-right table-col-wide">${r.fundamentals?.pe_ratio?.value||'--'}</td>
+      <td class="px-2 py-2 text-right table-col-wide">${r.roe||'--'}%</td>
+      <td class="px-2 py-2 text-right font-bold">${r.score}</td>
+      <td class="px-2 py-2 text-center"><span class="${r.passed?'badge-pass':'badge-fail'} text-[10px] px-2 py-0.5 rounded-full font-bold">${r.passed?'PASS':'FAIL'}</span></td>
     </tr>
   `).join('');
 
@@ -459,15 +622,15 @@ function renderResults(data) {
   const s2 = document.getElementById('s2-body');
   document.getElementById('s2-count').textContent = data.stage2_results.length + ' results';
   s2.innerHTML = data.stage2_results.map((r,i) => `
-    <tr class="hover:bg-[#33343b]/30 cursor-pointer border-b border-[#33343b]/10" onclick="openStock('${r.symbol}')">
-      <td class="px-3 py-2.5 font-bold text-[#adc6ff]">#${r.rank}</td>
-      <td class="px-3 py-2.5 font-bold">${r.symbol}</td>
-      <td class="px-3 py-2.5 text-right">₹${r.price||'--'}</td>
-      <td class="px-3 py-2.5 text-right text-red-400">${r.stop_loss||'--'}</td>
-      <td class="px-3 py-2.5 text-right text-[#00d4aa]">${r.target||'--'}</td>
-      <td class="px-3 py-2.5 text-center font-bold">1:${r.risk_reward||'--'}</td>
-      <td class="px-3 py-2.5 text-right font-bold">${r.score}</td>
-      <td class="px-3 py-2.5 text-center"><span class="${r.passed?'badge-pass':'badge-fail'} text-[10px] px-2 py-0.5 rounded-full font-bold">${r.passed?'PASS':'FAIL'}</span></td>
+    <tr class="hover:bg-[#33343b]/30 cursor-pointer border-b border-[#33343b]/10" onclick="openChart('${r.symbol}')">
+      <td class="px-2 py-2 font-bold text-[#adc6ff]">#${r.rank}</td>
+      <td class="px-2 py-2 font-bold">${r.symbol}</td>
+      <td class="px-2 py-2 text-right">₹${r.price||'--'}</td>
+      <td class="px-2 py-2 text-right text-red-400">${r.stop_loss||'--'}</td>
+      <td class="px-2 py-2 text-right text-[#00d4aa]">${r.target||'--'}</td>
+      <td class="px-2 py-2 text-center font-bold">1:${r.risk_reward||'--'}</td>
+      <td class="px-2 py-2 text-right font-bold">${r.score}</td>
+      <td class="px-2 py-2 text-center"><span class="${r.passed?'badge-pass':'badge-fail'} text-[10px] px-2 py-0.5 rounded-full font-bold">${r.passed?'PASS':'FAIL'}</span></td>
     </tr>
   `).join('');
 }
