@@ -3,8 +3,11 @@ NSE Screener — FastAPI Application
 Main entry point for the backend API server.
 """
 
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from api.routes_screen import router as screen_router
 from api.routes_stock import router as stock_router
@@ -38,7 +41,17 @@ app.include_router(config_router, tags=["Configuration"])
 app.include_router(data_router, tags=["Data Management"])
 
 
-@app.get("/", tags=["Health"])
+# Serve frontend
+FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
+
+
+@app.get("/", tags=["Frontend"])
+def serve_frontend():
+    """Serve the screener frontend."""
+    return FileResponse(FRONTEND_DIR / "index.html")
+
+
+@app.get("/health", tags=["Health"])
 def health_check():
     """Health check endpoint."""
     from indicators.registry import get_all_indicators

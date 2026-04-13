@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Precision Intelligence - NSE Swing Screener</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "surface-container-lowest": "#0c0e14",
+        "primary": "#46f1c5",
+        "error": "#ffb4ab",
+        "surface-container-low": "#191b22",
+        "on-primary": "#00382b",
+        "surface-container-high": "#282a30",
+        "surface-container-highest": "#33343b",
+        "secondary": "#adc6ff",
+        "surface-container": "#1e1f26",
+        "primary-container": "#00d4aa",
+        "on-surface": "#e2e2eb",
+        "on-surface-variant": "#bacac2",
+        "outline-variant": "#3b4a44",
+        "surface": "#111319",
+        "background": "#111319",
+      },
+      fontFamily: { body: ["Inter"], },
+    },
+  },
+}
+</script>
+<style>
+body { font-family: 'Inter', sans-serif; background: #0f1117; color: #e2e2eb; }
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #111319; }
+::-webkit-scrollbar-thumb { background: #33343b; border-radius: 10px; }
+.glow-green { border: 1px solid #00d4aa; box-shadow: 0 0 12px rgba(0,212,170,0.2); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.badge-pass { background: rgba(0,212,170,0.15); color: #00d4aa; }
+.badge-fail { background: rgba(255,71,87,0.15); color: #ff4757; }
+.badge-borderline { background: rgba(255,184,0,0.15); color: #ffb800; }
+.badge-skipped { background: rgba(139,148,158,0.15); color: #8b949e; }
+.loading { display: none; }
+.loading.active { display: flex; }
+#side-panel { transform: translateX(100%); transition: transform 0.3s ease; }
+#side-panel.open { transform: translateX(0); }
+</style>
+</head>
+<body class="overflow-hidden">
+
+<!-- Top Nav -->
+<header class="fixed top-0 w-full z-50 bg-[#111319]/80 backdrop-blur-xl flex justify-between items-center px-6 h-14">
+  <div class="flex items-center gap-8">
+    <span class="text-lg font-bold tracking-tighter text-[#00d4aa]">PRECISION INTELLIGENCE</span>
+    <nav class="hidden md:flex gap-5">
+      <button onclick="switchTab('screener')" id="tab-btn-screener" class="tab-btn text-[#00d4aa] border-b-2 border-[#00d4aa] pb-1 text-sm font-medium">Screener</button>
+      <button onclick="switchTab('config')" id="tab-btn-config" class="tab-btn text-slate-400 text-sm font-medium hover:text-[#00d4aa]">Configuration</button>
+      <button onclick="switchTab('indicators')" id="tab-btn-indicators" class="tab-btn text-slate-400 text-sm font-medium hover:text-[#00d4aa]">Indicators</button>
+    </nav>
+  </div>
+  <div class="flex items-center gap-3">
+    <span id="data-status" class="text-[10px] text-slate-500"></span>
+    <button onclick="refreshData()" class="flex items-center gap-1 bg-surface-container-highest px-3 py-1.5 rounded-lg text-primary text-xs font-bold hover:bg-surface-container-high">
+      <span class="material-symbols-outlined text-sm">refresh</span> Refresh
+    </button>
+  </div>
+</header>
+
+<!-- ==================== TAB 1: SCREENER ==================== -->
+<div id="tab-screener" class="tab-content active mt-14 p-4 h-[calc(100vh-56px)] overflow-y-auto">
+
+  <!-- Filter Bar -->
+  <div class="bg-[#191b22] p-3 rounded-xl mb-4 flex flex-wrap gap-3 items-center">
+    <div class="flex items-center bg-[#33343b] px-2 py-1 rounded-lg">
+      <label class="text-[9px] text-slate-400 mr-1.5 uppercase">PE</label>
+      <input id="f-pe" class="bg-transparent border-none p-0 text-xs font-bold text-[#00d4aa] w-10 focus:ring-0" value="< 40"/>
+    </div>
+    <div class="flex items-center bg-[#33343b] px-2 py-1 rounded-lg">
+      <label class="text-[9px] text-slate-400 mr-1.5 uppercase">RSI</label>
+      <input id="f-rsi-min" class="bg-transparent border-none p-0 text-xs font-bold text-[#00d4aa] w-6 focus:ring-0" value="50"/>
+      <span class="text-slate-500 text-xs mx-1">-</span>
+      <input id="f-rsi-max" class="bg-transparent border-none p-0 text-xs font-bold text-[#00d4aa] w-6 focus:ring-0" value="65"/>
+    </div>
+    <div class="flex items-center bg-[#33343b] px-2 py-1 rounded-lg">
+      <label class="text-[9px] text-slate-400 mr-1.5 uppercase">ADX</label>
+      <input id="f-adx" class="bg-transparent border-none p-0 text-xs font-bold text-[#00d4aa] w-6 focus:ring-0" value="20"/>
+    </div>
+    <div class="flex items-center bg-[#33343b] px-2 py-1 rounded-lg">
+      <label class="text-[9px] text-slate-400 mr-1.5 uppercase">ROE</label>
+      <input id="f-roe" class="bg-transparent border-none p-0 text-xs font-bold text-[#00d4aa] w-8 focus:ring-0" value="12%"/>
+    </div>
+    <div class="flex items-center bg-[#33343b] px-2 py-1 rounded-lg">
+      <label class="text-[9px] text-slate-400 mr-1.5 uppercase">D/E</label>
+      <input id="f-de" class="bg-transparent border-none p-0 text-xs font-bold text-[#00d4aa] w-8 focus:ring-0" value="1.0"/>
+    </div>
+    <button onclick="runScreen()" class="bg-[#00d4aa] px-4 py-1.5 rounded-lg text-[#00382b] font-bold text-xs ml-auto">Apply</button>
+  </div>
+
+  <!-- Search -->
+  <div class="flex gap-3 mb-4">
+    <input id="symbols-input" class="flex-grow bg-[#191b22] border border-[#33343b] rounded-xl py-2.5 px-4 text-sm focus:ring-1 focus:ring-[#00d4aa]" placeholder="RELIANCE, TCS, HDFCBANK, INFY"/>
+    <button onclick="runScreen()" id="run-btn" class="bg-[#0566d9] px-6 py-2.5 rounded-xl text-white font-bold text-sm flex items-center gap-2">
+      Run Screen <span class="material-symbols-outlined text-sm">bolt</span>
+    </button>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading" class="loading justify-center py-8">
+    <div class="text-center">
+      <div class="animate-spin w-8 h-8 border-2 border-[#00d4aa] border-t-transparent rounded-full mx-auto mb-3"></div>
+      <p class="text-sm text-slate-400">Screening stocks...</p>
+    </div>
+  </div>
+
+  <div class="flex gap-4">
+    <!-- Tables -->
+    <div class="flex-grow flex flex-col gap-4" id="results-area">
+      <!-- Stage 1 -->
+      <div class="bg-[#191b22] rounded-xl overflow-hidden">
+        <div class="p-3 bg-[#1e1f26] flex items-center justify-between border-b border-[#33343b]/30">
+          <h2 class="text-xs font-bold text-[#00d4aa] uppercase flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#00d4aa] animate-pulse"></span> Stage 1: Swing Base
+          </h2>
+          <span id="s1-count" class="text-[10px] text-slate-500 bg-[#33343b] px-2 py-0.5 rounded">0 results</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-[11px]">
+            <thead><tr class="text-slate-400 border-b border-[#33343b]/20">
+              <th class="px-3 py-2">#</th><th class="px-3 py-2">Stock</th><th class="px-3 py-2 text-right">Price</th>
+              <th class="px-3 py-2 text-right">PE</th><th class="px-3 py-2 text-right">RSI</th>
+              <th class="px-3 py-2 text-right">ROE%</th><th class="px-3 py-2 text-right">Score</th>
+              <th class="px-3 py-2 text-center">Status</th>
+            </tr></thead>
+            <tbody id="s1-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Stage 2 -->
+      <div class="bg-[#191b22] rounded-xl overflow-hidden">
+        <div class="p-3 bg-[#1e1f26] flex items-center justify-between border-b border-[#33343b]/30">
+          <h2 class="text-xs font-bold text-[#adc6ff] uppercase flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#adc6ff]"></span> Stage 2: Breakout Execution
+          </h2>
+          <span id="s2-count" class="text-[10px] text-slate-500 bg-[#33343b] px-2 py-0.5 rounded">0 results</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-[11px]">
+            <thead><tr class="text-slate-400 border-b border-[#33343b]/20">
+              <th class="px-3 py-2">#</th><th class="px-3 py-2">Stock</th><th class="px-3 py-2 text-right">Price</th>
+              <th class="px-3 py-2 text-right">SL</th><th class="px-3 py-2 text-right">Target</th>
+              <th class="px-3 py-2 text-center">R:R</th><th class="px-3 py-2 text-right">Score</th>
+              <th class="px-3 py-2 text-center">Status</th>
+            </tr></thead>
+            <tbody id="s2-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Side Panel -->
+    <div id="side-panel" class="fixed right-0 top-14 h-[calc(100vh-56px)] w-[420px] bg-[#191b22] border-l border-[#33343b]/30 z-40 overflow-y-auto">
+      <div class="p-4 bg-[#1e1f26] flex items-center justify-between border-b border-[#33343b]/20">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-[#00d4aa]" style="font-variation-settings:'FILL' 1;">psychology</span>
+          <h2 id="panel-title" class="text-sm font-bold uppercase">AI Insights</h2>
+        </div>
+        <button onclick="closePanel()" class="material-symbols-outlined text-slate-400 hover:text-white">close</button>
+      </div>
+      <div id="panel-content" class="p-4"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== TAB 2: CONFIG ==================== -->
+<div id="tab-config" class="tab-content mt-14 p-6 h-[calc(100vh-56px)] overflow-y-auto">
+  <h1 class="text-2xl font-bold mb-2">Filter Configuration</h1>
+  <p class="text-sm text-slate-400 mb-6">Fine-tune your screening parameters.</p>
+  <div id="config-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    <div class="text-slate-400 text-sm">Loading configuration...</div>
+  </div>
+  <!-- Preset bar -->
+  <div class="fixed bottom-0 left-0 right-0 h-16 bg-[#111319]/90 backdrop-blur-xl border-t border-[#33343b]/20 px-6 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <input id="preset-name" class="bg-[#191b22] border-none rounded-lg text-sm py-2 px-3 w-48" placeholder="Preset name..."/>
+      <button onclick="savePreset()" class="bg-[#00d4aa] text-[#00382b] px-4 py-2 rounded-lg text-xs font-bold">Save Preset</button>
+    </div>
+    <div class="flex items-center gap-3">
+      <select id="preset-select" class="bg-[#33343b] border-none rounded-lg text-xs py-2 px-3" onchange="loadPreset(this.value)">
+        <option value="">Load Preset...</option>
+      </select>
+      <button onclick="resetConfig()" class="text-slate-400 hover:text-white text-xs flex items-center gap-1">
+        <span class="material-symbols-outlined text-sm">restart_alt</span> Reset
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== TAB 3: INDICATORS ==================== -->
+<div id="tab-indicators" class="tab-content mt-14 p-6 h-[calc(100vh-56px)] overflow-y-auto">
+  <h1 class="text-2xl font-bold mb-2">Available Indicators</h1>
+  <p class="text-sm text-slate-400 mb-6" id="ind-count">Loading...</p>
+  <div id="indicators-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+</div>
+
+<!-- ==================== JAVASCRIPT ==================== -->
+<script>
+const API = 'http://localhost:8000';
+
+// Tab switching
+function switchTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('text-[#00d4aa]','border-b-2','border-[#00d4aa]'); b.classList.add('text-slate-400'); });
+  document.getElementById('tab-' + tab).classList.add('active');
+  const btn = document.getElementById('tab-btn-' + tab);
+  btn.classList.add('text-[#00d4aa]','border-b-2','border-[#00d4aa]');
+  btn.classList.remove('text-slate-400');
+  if (tab === 'config') loadConfig();
+  if (tab === 'indicators') loadIndicators();
+}
+
+// Build config from inline filters
+function getFilterConfig() {
+  const pe = parseFloat(document.getElementById('f-pe').value.replace('<','').trim()) || 40;
+  const rsiMin = parseFloat(document.getElementById('f-rsi-min').value) || 50;
+  const rsiMax = parseFloat(document.getElementById('f-rsi-max').value) || 65;
+  const adx = parseFloat(document.getElementById('f-adx').value) || 20;
+  const roe = parseFloat(document.getElementById('f-roe').value.replace('%','')) || 12;
+  const de = parseFloat(document.getElementById('f-de').value) || 1.0;
+  return {
+    pe_ratio: { enabled: true, pe_maximum: pe },
+    rsi: { enabled: true, rsi_min: rsiMin, rsi_max: rsiMax },
+    adx: { enabled: true, adx_minimum: adx },
+    roe: { enabled: true, roe_minimum: roe },
+    debt_to_equity: { enabled: true, de_maximum: de },
+  };
+}
+
+// Run screening
+async function runScreen() {
+  const input = document.getElementById('symbols-input').value.trim();
+  if (!input) { alert('Enter stock symbols'); return; }
+  const symbols = input.split(',').map(s => s.trim().toUpperCase()).filter(s => s);
+  const config = getFilterConfig();
+
+  document.getElementById('loading').classList.add('active');
+  document.getElementById('run-btn').disabled = true;
+
+  try {
+    const res = await fetch(API + '/screen', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ symbols, config })
+    });
+    const data = await res.json();
+    renderResults(data);
+  } catch(e) {
+    alert('Error: ' + e.message + '. Is the server running? (python3 run_server.py)');
+  } finally {
+    document.getElementById('loading').classList.remove('active');
+    document.getElementById('run-btn').disabled = false;
+  }
+}
+
+// Render screening results
+function renderResults(data) {
+  // Stage 1
+  const s1 = document.getElementById('s1-body');
+  document.getElementById('s1-count').textContent = data.stage1_results.length + ' results';
+  s1.innerHTML = data.stage1_results.map((r,i) => `
+    <tr class="hover:bg-[#33343b]/30 cursor-pointer border-b border-[#33343b]/10" onclick="openStock('${r.symbol}')">
+      <td class="px-3 py-2.5 font-bold ${r.passed?'text-[#00d4aa]':'text-slate-500'}">#${r.rank}</td>
+      <td class="px-3 py-2.5"><div class="font-bold">${r.symbol}</div><div class="text-[9px] text-slate-500">${r.sector||''}</div></td>
+      <td class="px-3 py-2.5 text-right">₹${r.price||'--'}</td>
+      <td class="px-3 py-2.5 text-right">${r.pe||'--'}</td>
+      <td class="px-3 py-2.5 text-right">${r.fundamentals?.pe_ratio?.value||'--'}</td>
+      <td class="px-3 py-2.5 text-right">${r.roe||'--'}%</td>
+      <td class="px-3 py-2.5 text-right font-bold">${r.score}</td>
+      <td class="px-3 py-2.5 text-center"><span class="${r.passed?'badge-pass':'badge-fail'} text-[10px] px-2 py-0.5 rounded-full font-bold">${r.passed?'PASS':'FAIL'}</span></td>
+    </tr>
+  `).join('');
+
+  // Stage 2
+  const s2 = document.getElementById('s2-body');
+  document.getElementById('s2-count').textContent = data.stage2_results.length + ' results';
+  s2.innerHTML = data.stage2_results.map((r,i) => `
+    <tr class="hover:bg-[#33343b]/30 cursor-pointer border-b border-[#33343b]/10" onclick="openStock('${r.symbol}')">
+      <td class="px-3 py-2.5 font-bold text-[#adc6ff]">#${r.rank}</td>
+      <td class="px-3 py-2.5 font-bold">${r.symbol}</td>
+      <td class="px-3 py-2.5 text-right">₹${r.price||'--'}</td>
+      <td class="px-3 py-2.5 text-right text-red-400">${r.stop_loss||'--'}</td>
+      <td class="px-3 py-2.5 text-right text-[#00d4aa]">${r.target||'--'}</td>
+      <td class="px-3 py-2.5 text-center font-bold">1:${r.risk_reward||'--'}</td>
+      <td class="px-3 py-2.5 text-right font-bold">${r.score}</td>
+      <td class="px-3 py-2.5 text-center"><span class="${r.passed?'badge-pass':'badge-fail'} text-[10px] px-2 py-0.5 rounded-full font-bold">${r.passed?'PASS':'FAIL'}</span></td>
+    </tr>
+  `).join('');
+}
+
+// Open stock side panel with insights
+async function openStock(symbol) {
+  document.getElementById('panel-title').textContent = 'AI Insights: ' + symbol;
+  document.getElementById('panel-content').innerHTML = '<div class="text-center py-8"><div class="animate-spin w-6 h-6 border-2 border-[#00d4aa] border-t-transparent rounded-full mx-auto"></div></div>';
+  document.getElementById('side-panel').classList.add('open');
+
+  try {
+    const res = await fetch(API + '/stock/' + symbol);
+    const data = await res.json();
+    renderPanel(data);
+  } catch(e) {
+    document.getElementById('panel-content').innerHTML = '<p class="text-red-400">Error loading: ' + e.message + '</p>';
+  }
+}
+
+function closePanel() { document.getElementById('side-panel').classList.remove('open'); }
+
+function renderPanel(data) {
+  const ins = data.insights || {};
+  const badgeColor = ins.overall_outlook==='Bullish'?'bg-[#00d4aa]/20 text-[#00d4aa]':
+                     ins.overall_outlook==='Bearish'?'bg-red-500/20 text-red-400':'bg-slate-500/20 text-slate-300';
+
+  let html = `
+    <div class="p-4 rounded-xl border border-[#00d4aa]/20 bg-[#33343b]/20 mb-4">
+      <div class="flex items-center justify-between mb-3">
+        <span class="${badgeColor} text-[10px] px-2 py-1 rounded-full font-bold uppercase">${ins.overall_outlook||'N/A'}</span>
+        <span class="text-xs text-slate-400">Confidence: <b class="text-[#00d4aa]">${ins.confidence||'N/A'}</b></span>
+      </div>
+      <p class="text-sm leading-relaxed mb-3">${ins.summary||''}</p>
+      <div class="pt-3 border-t border-[#33343b]/30">
+        <span class="text-[10px] text-slate-400 uppercase block mb-1">Action</span>
+        <span class="text-[#00d4aa] font-bold text-sm">${ins.action||'N/A'}</span>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3 mb-4">
+      <div class="p-3 bg-[#1e1f26] rounded-lg">
+        <div class="flex items-center gap-1 text-[#00d4aa] mb-2"><span class="material-symbols-outlined text-sm">verified</span><span class="text-[10px] font-bold uppercase">Strengths (${ins.bull_count||0})</span></div>
+        <ul class="text-[10px] text-slate-300 space-y-1.5">${(ins.strengths||[]).map(s=>'<li>+ '+s+'</li>').join('')}</ul>
+      </div>
+      <div class="p-3 bg-[#1e1f26] rounded-lg">
+        <div class="flex items-center gap-1 text-red-400 mb-2"><span class="material-symbols-outlined text-sm">warning</span><span class="text-[10px] font-bold uppercase">Risks (${ins.bear_count||0})</span></div>
+        <ul class="text-[10px] text-slate-300 space-y-1.5">${(ins.weaknesses||[]).map(w=>'<li>- '+w+'</li>').join('')}</ul>
+      </div>
+    </div>`;
+
+  // Indicator analysis
+  if (ins.indicator_insights && ins.indicator_insights.length) {
+    html += '<h3 class="text-[10px] font-bold text-slate-400 uppercase mb-2 tracking-widest">Indicator Analysis</h3><div class="space-y-2">';
+    ins.indicator_insights.forEach(i => {
+      const color = i.signal==='bullish'?'border-[#00d4aa]':i.signal==='bearish'?'border-red-400':'border-slate-500';
+      html += `<div class="p-3 bg-[#1e1f26] rounded-lg border-l-2 ${color}">
+        <div class="font-bold text-xs mb-1">${i.indicator}</div>
+        <div class="text-[10px] text-slate-400 leading-relaxed">${i.interpretation}</div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  // Inspector
+  if (data.inspector) {
+    html += '<h3 class="text-[10px] font-bold text-slate-400 uppercase mt-4 mb-2 tracking-widest">Filter Inspector</h3><div class="space-y-1">';
+    data.inspector.forEach(f => {
+      const cls = f.status==='PASS'?'badge-pass':f.status==='FAIL'?'badge-fail':f.status==='BORDERLINE'?'badge-borderline':'badge-skipped';
+      html += `<div class="flex items-center justify-between py-1.5 px-2 rounded hover:bg-[#33343b]/20 text-[10px]">
+        <span class="w-32 truncate">${f.filter_name}</span>
+        <span class="${cls} px-1.5 py-0.5 rounded text-[9px] font-bold">${f.status}</span>
+        <span class="w-24 text-right text-slate-400 truncate">${f.actual_value}</span>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  document.getElementById('panel-content').innerHTML = html;
+}
+
+// Load indicators tab
+async function loadIndicators() {
+  try {
+    const res = await fetch(API + '/indicators/available');
+    const data = await res.json();
+    document.getElementById('ind-count').textContent = data.total + ' indicators available';
+    const grid = document.getElementById('indicators-grid');
+    grid.innerHTML = data.indicators.map(ind => {
+      const isHighlighted = ind.highlighted;
+      const tier = ind.precision_tier;
+      const tierBadge = tier==='most_precise'?'<span class="text-[10px] text-[#f59e0b] bg-[#f59e0b]/10 px-1.5 py-0.5 rounded-full font-bold">Most Precise</span>'
+        : tier==='hidden_gem'?'<span class="text-[10px] text-purple-400 bg-purple-400/10 px-1.5 py-0.5 rounded-full font-bold">Hidden Gem</span>'
+        : '<span class="text-[10px] text-slate-500 italic">Standard</span>';
+      return `<div class="bg-[#1a1d27] rounded-xl p-4 ${isHighlighted?'glow-green':''} hover:bg-[#1e1f26] transition-all">
+        <div class="flex justify-between items-start mb-3">
+          <div><span class="text-[10px] text-slate-400 uppercase">${ind.type}</span><h3 class="text-sm font-bold">${ind.name}</h3></div>
+        </div>
+        <p class="text-[10px] text-slate-400 mb-3 line-clamp-2">${ind.description}</p>
+        <div class="flex flex-wrap gap-1 mb-3">${Object.entries(ind.default_params).map(([k,v])=>`<span class="text-[9px] bg-[#191b22] px-1.5 py-0.5 rounded text-slate-400">${k}: <b class="text-[#00d4aa]">${v}</b></span>`).join('')}</div>
+        ${tierBadge}
+      </div>`;
+    }).join('');
+  } catch(e) { console.error(e); }
+}
+
+// Load config tab
+async function loadConfig() {
+  try {
+    const res = await fetch(API + '/config/default');
+    const data = await res.json();
+    const grid = document.getElementById('config-grid');
+    grid.innerHTML = '';
+    const config = data.config;
+    for (const [key, val] of Object.entries(config)) {
+      if (typeof val !== 'object' || key === 'scoring') continue;
+      const card = document.createElement('div');
+      card.className = 'bg-[#1e1f26] p-4 rounded-xl border border-[#33343b]/10';
+      let fields = '';
+      for (const [pk, pv] of Object.entries(val)) {
+        if (pk === 'enabled') continue;
+        fields += `<div class="flex justify-between items-center py-1"><span class="text-[10px] text-slate-400">${pk}</span><input class="bg-[#33343b] border-none rounded text-xs text-[#00d4aa] w-20 text-right py-1 px-2" value="${pv}"/></div>`;
+      }
+      card.innerHTML = `<div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold capitalize">${key.replace(/_/g,' ')}</h3>
+        <span class="text-[10px] ${val.enabled?'text-[#00d4aa]':'text-slate-500'}">${val.enabled?'ON':'OFF'}</span></div>${fields}`;
+      grid.appendChild(card);
+    }
+    // Load presets
+    const pRes = await fetch(API + '/presets/list');
+    const pData = await pRes.json();
+    const sel = document.getElementById('preset-select');
+    sel.innerHTML = '<option value="">Load Preset...</option>' + pData.presets.map(p=>`<option value="${p}">${p}</option>`).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function savePreset() {
+  const name = document.getElementById('preset-name').value.trim();
+  if (!name) { alert('Enter preset name'); return; }
+  const config = getFilterConfig();
+  await fetch(API+'/presets/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,config})});
+  alert('Preset saved: '+name);
+  loadConfig();
+}
+
+async function loadPreset(name) {
+  if (!name) return;
+  const res = await fetch(API+'/presets/'+name);
+  const data = await res.json();
+  alert('Loaded preset: '+name);
+}
+
+function resetConfig() { loadConfig(); }
+
+// Refresh data status
+async function refreshData() {
+  try {
+    const res = await fetch(API + '/data/status');
+    const data = await res.json();
+    document.getElementById('data-status').textContent = data.today_downloaded + ' stocks cached';
+  } catch(e) {
+    document.getElementById('data-status').textContent = 'Server offline';
+  }
+}
+
+// Init
+refreshData();
+</script>
+</body>
+</html>
