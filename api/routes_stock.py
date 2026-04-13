@@ -8,6 +8,7 @@ from typing import Optional
 from engine.default_config import get_default_config
 from engine.screener import screen_stock_stage1, screen_stock_stage2
 from engine.inspector import build_inspector_report
+from engine.insights import generate_insights
 from api.data_helper import get_stock_bundle, prepare_stock_result
 
 router = APIRouter()
@@ -113,4 +114,32 @@ def get_stock_inspector(
         response["target"] = s2.get("target")
         response["risk_reward"] = s2.get("risk_reward")
 
+    # AI Insights
+    insights = generate_insights(symbol, s1, s2)
+    response["insights"] = insights
+
     return response
+
+
+@router.get("/stock/{symbol}/insights")
+def get_stock_insights(symbol: str):
+    """
+    Get AI-powered insights for a stock.
+    Analyzes all indicators and explains what they mean,
+    what's likely to happen, and recommended action.
+    """
+    symbol = symbol.strip().upper()
+    config = get_default_config()
+
+    try:
+        bundle = get_stock_bundle(symbol)
+    except Exception as e:
+        raise HTTPException(502, f"Could not fetch data for {symbol}: {e}")
+
+    s1 = screen_stock_stage1(symbol, bundle["daily_df"], bundle["stock_data"], config)
+    s2 = None
+    if s1["passed"]:
+        s2 = screen_stock_stage2(symbol, bundle["daily_df"], bundle["stock_data"], s1, config)
+
+    insights = generate_insights(symbol, s1, s2)
+    return insights
