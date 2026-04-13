@@ -83,8 +83,8 @@ body { font-family: 'Inter', sans-serif; background: #0f1117; color: #e2e2eb; }
       <span id="data-date" class="text-[10px] text-[#00d4aa] font-bold"></span>
       <span id="data-detail" class="text-[9px] text-slate-600"></span>
     </div>
-    <button onclick="triggerDownload()" id="dl-btn" class="flex items-center gap-1 bg-surface-container-highest px-3 py-1.5 rounded-lg text-primary text-xs font-bold hover:bg-surface-container-high">
-      <span class="material-symbols-outlined text-sm">cloud_download</span> <span id="dl-btn-text">Download</span>
+    <button onclick="triggerCatchup()" id="dl-btn" class="flex items-center gap-1 bg-surface-container-highest px-3 py-1.5 rounded-lg text-primary text-xs font-bold hover:bg-surface-container-high">
+      <span class="material-symbols-outlined text-sm">sync</span> <span id="dl-btn-text">Sync</span>
     </button>
   </div>
 </header>
@@ -531,45 +531,67 @@ async function checkDataStatus() {
   }
 }
 
-async function triggerDownload() {
+// Smart catch-up: detects gap and downloads only missing days
+async function triggerCatchup() {
   const status = await checkDataStatus();
-  if (status && status.ready_for_screening) {
-    // Already up to date — just refresh
-    await checkDataStatus();
-    return;
-  }
-  if (status && status.download_in_progress) {
-    // Already downloading
-    return;
-  }
+  if (status && status.download_in_progress) return;
 
-  // Start download
   try {
-    document.getElementById('dl-btn-text').textContent = 'Starting...';
-    await fetch(API + '/data/download', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ use_fallback: true })
-    });
+    document.getElementById('dl-btn-text').textContent = 'Syncing...';
 
-    // Start polling for progress
+    // Use catch-up endpoint — auto-detects gap
+    const res = await fetch(API + '/data/catchup', { method: 'POST' });
+    const data = await res.json();
+
+    if (data.status === 'up_to_date') {
+      document.getElementById('dl-btn-text').textContent = 'Up to date';
+      updateRing(100);
+      return;
+    }
+
+    document.getElementById('data-detail').textContent = 'Catching up ' + (data.gap_days || '') + ' days...';
+
     if (!downloadPolling) {
       downloadPolling = setInterval(checkDataStatus, 3000);
     }
   } catch(e) {
-    alert('Download failed: ' + e.message);
+    // Fallback to basic download
+    try {
+      await fetch(API + '/data/download', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ use_fallback: true })
+      });
+      if (!downloadPolling) downloadPolling = setInterval(checkDataStatus, 3000);
+    } catch(e2) {
+      alert('Download failed: ' + e2.message);
+    }
   }
 }
 
-// Auto-check on load, auto-download if no data
+// Full history setup (first time only)
+async function triggerFullSetup(days) {
+  try {
+    document.getElementById('dl-btn-text').textContent = 'Full setup...';
+    await fetch(API + '/data/setup', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ days: days || 370 })
+    });
+    if (!downloadPolling) downloadPolling = setInterval(checkDataStatus, 3000);
+  } catch(e) {
+    alert('Setup failed: ' + e.message);
+  }
+}
+
+// Auto-check on load, auto-catchup if stale
 async function initData() {
   const status = await checkDataStatus();
-  if (status && !status.ready_for_screening && !status.download_in_progress && status.today_downloaded < 10) {
-    // Auto-start download if no data
-    triggerDownload();
-  } else if (status && status.download_in_progress) {
-    // Resume polling
+  if (status && status.download_in_progress) {
     downloadPolling = setInterval(checkDataStatus, 3000);
+  } else if (status && !status.ready_for_screening && status.today_downloaded < 10) {
+    // No data — trigger catch-up (will do full setup if needed)
+    triggerCatchup();
   }
 }
 
