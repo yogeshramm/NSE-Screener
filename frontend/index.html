@@ -51,6 +51,13 @@ body { font-family: 'Inter', sans-serif; background: #0f1117; color: #e2e2eb; }
 .loading.active { display: flex; }
 #side-panel { transform: translateX(100%); transition: transform 0.3s ease; }
 #side-panel.open { transform: translateX(0); }
+/* Circular progress ring */
+.progress-ring { position: relative; width: 36px; height: 36px; }
+.progress-ring svg { transform: rotate(-90deg); }
+.progress-ring circle { fill: none; stroke-width: 3; }
+.progress-ring .bg { stroke: #33343b; }
+.progress-ring .fg { stroke: #00d4aa; stroke-linecap: round; transition: stroke-dashoffset 0.5s ease; }
+.progress-ring .text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; color: #00d4aa; }
 </style>
 </head>
 <body class="overflow-hidden">
@@ -66,9 +73,17 @@ body { font-family: 'Inter', sans-serif; background: #0f1117; color: #e2e2eb; }
     </nav>
   </div>
   <div class="flex items-center gap-3">
-    <span id="data-status" class="text-[10px] text-slate-500"></span>
-    <button onclick="refreshData()" class="flex items-center gap-1 bg-surface-container-highest px-3 py-1.5 rounded-lg text-primary text-xs font-bold hover:bg-surface-container-high">
-      <span class="material-symbols-outlined text-sm">refresh</span> Refresh
+    <!-- Download progress ring -->
+    <div id="download-ring" class="progress-ring cursor-pointer" onclick="triggerDownload()" title="Click to download data">
+      <svg width="36" height="36"><circle class="bg" cx="18" cy="18" r="15"/><circle id="ring-fg" class="fg" cx="18" cy="18" r="15" stroke-dasharray="94.25" stroke-dashoffset="94.25"/></svg>
+      <div class="text" id="ring-text">0%</div>
+    </div>
+    <div class="flex flex-col">
+      <span id="data-status" class="text-[10px] text-slate-500">Checking...</span>
+      <span id="data-detail" class="text-[9px] text-slate-600"></span>
+    </div>
+    <button onclick="triggerDownload()" id="dl-btn" class="flex items-center gap-1 bg-surface-container-highest px-3 py-1.5 rounded-lg text-primary text-xs font-bold hover:bg-surface-container-high">
+      <span class="material-symbols-outlined text-sm">cloud_download</span> <span id="dl-btn-text">Download</span>
     </button>
   </div>
 </header>
@@ -450,19 +465,109 @@ async function loadPreset(name) {
 
 function resetConfig() { loadConfig(); }
 
-// Refresh data status
-async function refreshData() {
+// ============ DATA DOWNLOAD & PROGRESS RING ============
+
+const RING_CIRCUMFERENCE = 94.25; // 2 * PI * 15
+let downloadPolling = null;
+let totalExpected = 150; // expected stock count
+
+function updateRing(percent) {
+  const offset = RING_CIRCUMFERENCE - (percent / 100) * RING_CIRCUMFERENCE;
+  document.getElementById('ring-fg').style.strokeDashoffset = offset;
+  document.getElementById('ring-text').textContent = Math.round(percent) + '%';
+  // Color changes
+  const fg = document.getElementById('ring-fg');
+  if (percent >= 100) fg.style.stroke = '#00d4aa';
+  else if (percent > 0) fg.style.stroke = '#46f1c5';
+  else fg.style.stroke = '#33343b';
+}
+
+async function checkDataStatus() {
   try {
     const res = await fetch(API + '/data/status');
     const data = await res.json();
-    document.getElementById('data-status').textContent = data.today_downloaded + ' stocks cached';
+    const count = data.today_downloaded || 0;
+    const ready = data.ready_for_screening;
+    const inProgress = data.download_in_progress;
+
+    document.getElementById('data-status').textContent = count + ' stocks cached';
+
+    if (ready) {
+      updateRing(100);
+      document.getElementById('data-detail').textContent = 'Ready for screening';
+      document.getElementById('dl-btn-text').textContent = 'Up to date';
+      document.getElementById('dl-btn').classList.remove('text-primary');
+      document.getElementById('dl-btn').classList.add('text-slate-500');
+      if (downloadPolling) { clearInterval(downloadPolling); downloadPolling = null; }
+    } else if (inProgress) {
+      const pct = Math.min((count / totalExpected) * 100, 95);
+      updateRing(pct);
+      document.getElementById('data-detail').textContent = 'Downloading...';
+      document.getElementById('dl-btn-text').textContent = 'Downloading...';
+    } else if (count === 0) {
+      updateRing(0);
+      document.getElementById('data-detail').textContent = 'No data — click to download';
+      document.getElementById('dl-btn-text').textContent = 'Download Data';
+      document.getElementById('dl-btn').classList.add('text-primary');
+    } else {
+      const pct = Math.min((count / totalExpected) * 100, 99);
+      updateRing(pct);
+      document.getElementById('data-detail').textContent = count + ' / ~' + totalExpected + ' stocks';
+    }
+
+    return data;
   } catch(e) {
     document.getElementById('data-status').textContent = 'Server offline';
+    document.getElementById('data-detail').textContent = 'Start: python3 run_server.py';
+    updateRing(0);
+    return null;
+  }
+}
+
+async function triggerDownload() {
+  const status = await checkDataStatus();
+  if (status && status.ready_for_screening) {
+    // Already up to date — just refresh
+    await checkDataStatus();
+    return;
+  }
+  if (status && status.download_in_progress) {
+    // Already downloading
+    return;
+  }
+
+  // Start download
+  try {
+    document.getElementById('dl-btn-text').textContent = 'Starting...';
+    await fetch(API + '/data/download', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ use_fallback: true })
+    });
+
+    // Start polling for progress
+    if (!downloadPolling) {
+      downloadPolling = setInterval(checkDataStatus, 3000);
+    }
+  } catch(e) {
+    alert('Download failed: ' + e.message);
+  }
+}
+
+// Auto-check on load, auto-download if no data
+async function initData() {
+  const status = await checkDataStatus();
+  if (status && !status.ready_for_screening && !status.download_in_progress && status.today_downloaded < 10) {
+    // Auto-start download if no data
+    triggerDownload();
+  } else if (status && status.download_in_progress) {
+    // Resume polling
+    downloadPolling = setInterval(checkDataStatus, 3000);
   }
 }
 
 // Init
-refreshData();
+initData();
 </script>
 </body>
 </html>
