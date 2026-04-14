@@ -1,0 +1,35 @@
+[
+  {
+    "symbol": "RELIANCE",
+    "alerts": [
+      {
+        "type": "indicator",
+        "indicator": "rsi",
+        "condition": "crosses_above",
+        "value": 50.0,
+        "enabled": true,
+        "created": "2026-04-14T00:26:42.445294"
+      }
+    ],
+    "added_date": "2026-04-14T00:26:11.220004",
+    "notes": ""
+  },
+  {
+    "symbol": "TCS",
+    "alerts": [],
+    "added_date": "2026-04-14T00:26:11.221170",
+    "notes": ""
+  },
+  {
+    "symbol": "HDFCBANK",
+    "alerts": [],
+    "added_date": "2026-04-14T00:26:11.222074",
+    "notes": ""
+  },
+  {
+    "symbol": "INFY",
+    "alerts": [],
+    "added_date": "2026-04-14T00:28:26.698314",
+    "notes": ""
+  }
+]

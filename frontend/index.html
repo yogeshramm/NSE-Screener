@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Precision Intelligence - NSE Swing Screener</title>
+<title>YOINTELL | Institutional Intelligence Terminal</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <script>
 tailwind.config = {
@@ -14,282 +14,586 @@ tailwind.config = {
   theme: {
     extend: {
       colors: {
-        "surface-container-lowest": "#0c0e14",
-        "primary": "#46f1c5",
+        "secondary": "#a4c9ff",
+        "primary-container": "#00e5a0",
+        "tertiary-container": "#ffb7b4",
+        "surface-variant": "#313442",
+        "surface-container-low": "#171b28",
+        "on-secondary": "#00315d",
+        "on-background": "#dfe2f3",
+        "inverse-primary": "#006c49",
+        "on-primary-fixed": "#002114",
+        "background": "#0f131f",
+        "surface-container-lowest": "#0a0e1a",
+        "secondary-fixed": "#d4e3ff",
+        "on-primary": "#003824",
+        "on-secondary-fixed-variant": "#004883",
+        "tertiary": "#ffdedc",
+        "on-surface-variant": "#bacbbf",
+        "primary": "#6effc0",
+        "on-error-container": "#ffdad6",
+        "surface-dim": "#0f131f",
+        "inverse-surface": "#dfe2f3",
+        "secondary-fixed-dim": "#a4c9ff",
+        "on-primary-fixed-variant": "#005236",
+        "surface-tint": "#00e29e",
+        "on-tertiary-container": "#9f252b",
+        "on-secondary-fixed": "#001c39",
+        "on-error": "#690005",
         "error": "#ffb4ab",
-        "surface-container-low": "#191b22",
-        "on-primary": "#00382b",
-        "surface-container-high": "#282a30",
-        "surface-container-highest": "#33343b",
-        "secondary": "#adc6ff",
-        "surface-container": "#1e1f26",
-        "primary-container": "#00d4aa",
-        "on-surface": "#e2e2eb",
-        "on-surface-variant": "#bacac2",
-        "outline-variant": "#3b4a44",
-        "surface": "#111319",
-        "background": "#111319",
+        "tertiary-fixed-dim": "#ffb3b0",
+        "error-container": "#93000a",
+        "surface-container-highest": "#313442",
+        "outline-variant": "#3b4a41",
+        "on-tertiary": "#68000f",
+        "on-surface": "#dfe2f3",
+        "primary-fixed": "#47ffb8",
+        "on-primary-container": "#006141",
+        "on-tertiary-fixed-variant": "#8c1520",
+        "surface": "#0f131f",
+        "inverse-on-surface": "#2c303d",
+        "secondary-container": "#0267b8",
+        "outline": "#84958a",
+        "surface-bright": "#353946",
+        "on-secondary-container": "#d6e5ff",
+        "surface-container-high": "#262a37",
+        "on-tertiary-fixed": "#410006",
+        "tertiary-fixed": "#ffdad8",
+        "surface-container": "#1b1f2c",
+        "primary-fixed-dim": "#00e29e"
       },
-      fontFamily: { body: ["Inter"], },
+      borderRadius: { DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px" },
+      fontFamily: { headline: ["Inter"], body: ["Inter"], label: ["Inter"] }
     },
   },
 }
 </script>
 <style>
-body { font-family: 'Inter', sans-serif; background: #0f1117; color: #e2e2eb; }
-.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #111319; }
-::-webkit-scrollbar-thumb { background: #33343b; border-radius: 10px; }
-.glow-green { border: 1px solid #00d4aa; box-shadow: 0 0 12px rgba(0,212,170,0.2); }
+body { font-family: 'Inter', sans-serif; background-color: #0a0e1a; color: #dfe2f3; }
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+.tabular-nums { font-variant-numeric: tabular-nums; }
+.glass-panel { background: rgba(49,52,66,0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+.mesh-gradient { background: radial-gradient(at 0% 0%, rgba(0,229,160,0.15) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(2,103,184,0.15) 0px, transparent 50%); }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #3b4a41; border-radius: 10px; }
+.ghost-border { outline: 1px solid rgba(59,74,65,0.2); }
+input:focus { outline: 1px solid #6effc0; box-shadow: 0 0 4px rgba(110,255,192,0.1); }
 .tab-content { display: none; }
-.tab-content.active { display: block; }
-.badge-pass { background: rgba(0,212,170,0.15); color: #00d4aa; }
-.badge-fail { background: rgba(255,71,87,0.15); color: #ff4757; }
-.badge-borderline { background: rgba(255,184,0,0.15); color: #ffb800; }
-.badge-skipped { background: rgba(139,148,158,0.15); color: #8b949e; }
-.loading { display: none; }
-.loading.active { display: flex; }
-#side-panel { transform: translateX(100%); transition: transform 0.3s ease; }
-#side-panel.open { transform: translateX(0); }
-/* Circular progress ring */
-.progress-ring { position: relative; width: 36px; height: 36px; }
-.progress-ring svg { transform: rotate(-90deg); }
-.progress-ring circle { fill: none; stroke-width: 3; }
-.progress-ring .bg { stroke: #33343b; }
-.progress-ring .fg { stroke: #00d4aa; stroke-linecap: round; transition: stroke-dashoffset 0.5s ease; }
-.progress-ring .text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; color: #00d4aa; }
+.tab-content.active { display: flex; }
+@keyframes pulse-soft { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.7;transform:scale(1.05)} }
+.animate-pulse-soft { animation: pulse-soft 2s cubic-bezier(0.4,0,0.6,1) infinite; }
+.brand-gradient { background: linear-gradient(135deg, #6effc0 0%, #00e5a0 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.top-glow { position:absolute; top:0; left:50%; transform:translateX(-50%); width:80%; height:1px; background:linear-gradient(90deg,transparent,#6effc0,transparent); filter:blur(1px); }
 </style>
 </head>
-<body class="overflow-hidden">
+<body class="overflow-hidden h-screen flex flex-col bg-surface-container-lowest">
 
-<!-- Top Nav -->
-<header class="fixed top-0 w-full z-50 bg-[#111319]/80 backdrop-blur-xl flex justify-between items-center px-6 h-14">
-  <div class="flex items-center gap-8">
-    <span class="text-lg font-bold tracking-tighter text-[#00d4aa]">PRECISION INTELLIGENCE</span>
-    <nav class="hidden md:flex gap-5">
-      <button onclick="switchTab('screener')" id="tab-btn-screener" class="tab-btn text-[#00d4aa] border-b-2 border-[#00d4aa] pb-1 text-sm font-medium">Screener</button>
-      <button onclick="switchTab('config')" id="tab-btn-config" class="tab-btn text-slate-400 text-sm font-medium hover:text-[#00d4aa]">Configuration</button>
-      <button onclick="switchTab('indicators')" id="tab-btn-indicators" class="tab-btn text-slate-400 text-sm font-medium hover:text-[#00d4aa]">Indicators</button>
-    </nav>
+<!-- ==================== LOGIN OVERLAY ==================== -->
+<div class="fixed inset-0 z-[100] flex items-center justify-center bg-surface-container-lowest mesh-gradient" id="login-overlay">
+  <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+    <div class="absolute -top-1/4 -right-1/4 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[120px]"></div>
+    <div class="absolute -bottom-1/4 -left-1/4 w-[600px] h-[600px] bg-secondary-container/10 rounded-full blur-[100px]"></div>
   </div>
-  <div class="flex items-center gap-3">
-    <!-- Download progress ring -->
-    <div id="download-ring" class="progress-ring cursor-pointer" onclick="triggerDownload()" title="Click to download data">
-      <svg width="36" height="36"><circle class="bg" cx="18" cy="18" r="15"/><circle id="ring-fg" class="fg" cx="18" cy="18" r="15" stroke-dasharray="94.25" stroke-dashoffset="94.25"/></svg>
-      <div class="text" id="ring-text">0%</div>
+  <div class="w-[400px] p-8 rounded-xl glass-panel border border-outline-variant/20 shadow-2xl relative z-10">
+    <div class="top-glow"></div>
+    <div class="text-center mb-8">
+      <h1 class="text-3xl font-black tracking-tighter brand-gradient uppercase">YOINTELL</h1>
+      <p class="text-on-surface-variant text-xs mt-2 uppercase tracking-widest font-bold">NSE Intelligence Terminal</p>
     </div>
-    <div class="flex flex-col">
-      <span id="data-status" class="text-[10px] text-slate-500">Checking...</span>
-      <span id="data-date" class="text-[10px] text-[#00d4aa] font-bold"></span>
-      <span id="data-detail" class="text-[9px] text-slate-600"></span>
+    <!-- Login / Register Toggle -->
+    <div class="flex gap-1 p-1 bg-surface-container-high rounded-lg mb-6" id="auth-tabs">
+      <button class="flex-1 py-2 text-xs font-bold bg-primary-container text-on-primary rounded-md" onclick="showAuthTab('login')" id="auth-tab-login">LOGIN</button>
+      <button class="flex-1 py-2 text-xs font-bold text-on-surface-variant hover:text-on-surface rounded-md" onclick="showAuthTab('register')" id="auth-tab-register">REGISTER</button>
     </div>
-    <button onclick="triggerCatchup()" id="dl-btn" class="flex items-center gap-1 bg-surface-container-highest px-3 py-1.5 rounded-lg text-primary text-xs font-bold hover:bg-surface-container-high">
-      <span class="material-symbols-outlined text-sm">sync</span> <span id="dl-btn-text">Sync</span>
-    </button>
-  </div>
-</header>
-
-<!-- ==================== TAB 1: SCREENER ==================== -->
-<div id="tab-screener" class="tab-content active mt-14 p-4 h-[calc(100vh-56px)] overflow-y-auto">
-
-  <!-- Dynamic Filter Panel — all filters from config with toggles -->
-  <div class="bg-[#191b22] rounded-xl mb-4 overflow-hidden">
-    <div class="flex items-center justify-between px-3 py-2 bg-[#1e1f26] border-b border-[#33343b]/20">
-      <div class="flex items-center gap-2">
-        <span class="material-symbols-outlined text-[#00d4aa] text-sm">tune</span>
-        <span class="text-xs font-bold text-slate-300">ACTIVE FILTERS</span>
-        <span id="filter-count" class="text-[9px] bg-[#00d4aa]/20 text-[#00d4aa] px-1.5 py-0.5 rounded-full font-bold">0/0</span>
-      </div>
-      <div class="flex items-center gap-2">
-        <button onclick="toggleAllFilters(true)" class="text-[9px] text-[#00d4aa] hover:underline">Enable All</button>
-        <span class="text-slate-600">|</span>
-        <button onclick="toggleAllFilters(false)" class="text-[9px] text-slate-400 hover:underline">Disable All</button>
-        <span class="text-slate-600">|</span>
-        <button onclick="toggleFilterPanel()" id="filter-toggle-btn" class="text-[9px] text-slate-400 hover:text-[#00d4aa] flex items-center gap-1">
-          <span class="material-symbols-outlined text-sm" id="filter-expand-icon">expand_more</span>
-        </button>
-      </div>
-    </div>
-    <div id="filter-panel" class="p-3 flex flex-wrap gap-2 items-center" style="max-height: 120px; overflow-y: auto; transition: max-height 0.3s;">
-      <!-- Populated dynamically by loadFilterPanel() -->
-      <span class="text-xs text-slate-500">Loading filters...</span>
-    </div>
-  </div>
-
-  <!-- Scope + Screen + Search -->
-  <div class="flex gap-2 mb-4 items-center">
-    <select id="scope-select" class="bg-[#191b22] border border-[#33343b] rounded-xl py-2.5 px-3 text-sm text-[#00d4aa] font-bold focus:ring-1 focus:ring-[#00d4aa]">
-      <option value="nifty200">Nifty 200</option>
-      <option value="nifty500" selected>Nifty 500</option>
-      <option value="all">All NSE</option>
-    </select>
-    <button onclick="runScreenAll()" id="scan-all-btn" class="bg-[#00d4aa] px-5 py-2.5 rounded-xl text-[#00382b] font-bold text-sm flex items-center gap-2 whitespace-nowrap">
-      <span class="material-symbols-outlined text-sm">radar</span> Screen
-    </button>
-    <div class="w-px h-8 bg-[#33343b]"></div>
-    <input id="symbols-input" class="flex-grow bg-[#191b22] border border-[#33343b] rounded-xl py-2.5 px-4 text-sm focus:ring-1 focus:ring-[#00d4aa]" placeholder="Or search: RELIANCE, TCS, HDFCBANK"/>
-    <button onclick="runScreen()" id="run-btn" class="bg-[#0566d9] px-4 py-2.5 rounded-xl text-white font-bold text-sm flex items-center gap-1 whitespace-nowrap">
-      <span class="material-symbols-outlined text-sm">bolt</span>
-    </button>
-  </div>
-
-  <!-- Loading -->
-  <div id="loading" class="loading justify-center py-8">
-    <div class="text-center">
-      <div class="animate-spin w-8 h-8 border-2 border-[#00d4aa] border-t-transparent rounded-full mx-auto mb-3"></div>
-      <p class="text-sm text-slate-400">Screening stocks...</p>
-      <button onclick="stopScreening()" class="mt-3 px-4 py-1.5 bg-red-500/20 text-red-400 text-xs font-bold rounded-lg hover:bg-red-500/30">Stop Screening</button>
-    </div>
-  </div>
-
-  <!-- Split layout: Tables left, Chart right (like Kite) -->
-  <div class="flex gap-0 h-[calc(100vh-280px)]" id="main-split">
-    <!-- LEFT: Tables (shrinks when chart is open) -->
-    <div id="tables-panel" class="flex flex-col gap-3 overflow-y-auto transition-all duration-300" style="width:100%;">
-      <!-- Stage 1 -->
-      <div class="bg-[#191b22] rounded-xl overflow-hidden">
-        <div class="p-2 bg-[#1e1f26] flex items-center justify-between border-b border-[#33343b]/30">
-          <h2 class="text-xs font-bold text-[#00d4aa] uppercase flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-[#00d4aa] animate-pulse"></span> Stage 1: Swing Base
-          </h2>
-          <span id="s1-count" class="text-[10px] text-slate-500 bg-[#33343b] px-2 py-0.5 rounded">0 results</span>
-        </div>
-        <div class="overflow-x-auto"><table class="w-full text-left text-[11px]">
-          <thead><tr class="text-slate-400 border-b border-[#33343b]/20">
-            <th class="px-2 py-1.5">#</th><th class="px-2 py-1.5">Stock</th><th class="px-2 py-1.5 text-right">Price</th>
-            <th class="px-2 py-1.5 text-right table-col-wide">PE</th><th class="px-2 py-1.5 text-right table-col-wide">RSI</th>
-            <th class="px-2 py-1.5 text-right table-col-wide">ROE%</th><th class="px-2 py-1.5 text-right">Score</th>
-            <th class="px-2 py-1.5 text-center">Status</th>
-          </tr></thead>
-          <tbody id="s1-body"></tbody>
-        </table></div>
-      </div>
-      <!-- Stage 2 -->
-      <div class="bg-[#191b22] rounded-xl overflow-hidden">
-        <div class="p-2 bg-[#1e1f26] flex items-center justify-between border-b border-[#33343b]/30">
-          <h2 class="text-xs font-bold text-[#adc6ff] uppercase flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-[#adc6ff]"></span> Stage 2: Breakout
-          </h2>
-          <span id="s2-count" class="text-[10px] text-slate-500 bg-[#33343b] px-2 py-0.5 rounded">0 results</span>
-        </div>
-        <div class="overflow-x-auto"><table class="w-full text-left text-[11px]">
-          <thead><tr class="text-slate-400 border-b border-[#33343b]/20">
-            <th class="px-2 py-1.5">#</th><th class="px-2 py-1.5">Stock</th><th class="px-2 py-1.5 text-right">Price</th>
-            <th class="px-2 py-1.5 text-right">SL</th><th class="px-2 py-1.5 text-right">Target</th>
-            <th class="px-2 py-1.5 text-center">R:R</th><th class="px-2 py-1.5 text-right">Score</th>
-            <th class="px-2 py-1.5 text-center">Status</th>
-          </tr></thead>
-          <tbody id="s2-body"></tbody>
-        </table></div>
-      </div>
-    </div>
-
-    <!-- RIGHT: Chart panel (hidden by default, shows on stock click) -->
-    <div id="chart-panel" class="bg-[#191b22] rounded-xl overflow-hidden border-l border-[#33343b]/30 flex-col" style="display:none; width:0;">
-      <div class="p-2 bg-[#1e1f26] flex items-center justify-between border-b border-[#33343b]/30">
-        <div class="flex items-center gap-2">
-          <span class="material-symbols-outlined text-[#00d4aa] text-sm">candlestick_chart</span>
-          <span id="chart-title" class="text-xs font-bold text-[#00d4aa]">CHART</span>
-          <span id="chart-price" class="text-xs text-slate-400"></span>
-        </div>
-        <div class="flex items-center gap-2">
-          <button onclick="openInsightsFromChart()" class="text-[9px] text-slate-400 hover:text-[#00d4aa] flex items-center gap-1">
-            <span class="material-symbols-outlined text-sm">psychology</span> Insights
-          </button>
-          <button onclick="closeChart()" class="material-symbols-outlined text-slate-400 hover:text-white text-sm">close</button>
+    <div id="auth-error" class="hidden text-xs text-error bg-error/10 border border-error/20 rounded-lg px-3 py-2 mb-4"></div>
+    <form class="space-y-4" onsubmit="handleAuth(event)">
+      <div class="space-y-1">
+        <label class="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold px-1">Username</label>
+        <div class="relative">
+          <input id="auth-username" class="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg py-3 px-4 text-on-surface placeholder:text-on-surface-variant/40 focus:ring-1 focus:ring-primary tabular-nums" placeholder="Your username" type="text" required/>
+          <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50 text-xl">person</span>
         </div>
       </div>
-      <!-- Candlestick chart -->
-      <div id="chart-container" style="height:60%;"></div>
-      <!-- RSI sub-panel -->
-      <div class="border-t border-[#33343b]/30">
-        <div class="px-2 py-1 text-[9px] text-slate-500 uppercase">RSI (14)</div>
-        <div id="rsi-container" style="height:80px;"></div>
+      <div class="space-y-1">
+        <label class="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold px-1">Password</label>
+        <div class="relative">
+          <input id="auth-password" class="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg py-3 px-4 text-on-surface placeholder:text-on-surface-variant/40 focus:ring-1 focus:ring-primary tabular-nums" placeholder="••••••••" type="password" required/>
+          <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50 text-xl">lock</span>
+        </div>
       </div>
-      <!-- Volume sub-panel -->
-      <div class="border-t border-[#33343b]/30">
-        <div class="px-2 py-1 text-[9px] text-slate-500 uppercase">Volume</div>
-        <div id="vol-container" style="height:60px;"></div>
+      <div class="space-y-1 hidden" id="auth-display-name-row">
+        <label class="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold px-1">Display Name</label>
+        <input id="auth-display-name" class="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg py-3 px-4 text-on-surface placeholder:text-on-surface-variant/40 focus:ring-1 focus:ring-primary" placeholder="Your name (optional)" type="text"/>
       </div>
-    </div>
-  </div>
-
-  <!-- Side Panel (for AI Insights — slides over chart) -->
-  <div id="side-panel" class="fixed right-0 top-14 h-[calc(100vh-56px)] w-[400px] bg-[#191b22] border-l border-[#33343b]/30 z-40 overflow-y-auto">
-    <div class="p-3 bg-[#1e1f26] flex items-center justify-between border-b border-[#33343b]/20">
-      <div class="flex items-center gap-2">
-        <span class="material-symbols-outlined text-[#00d4aa]" style="font-variation-settings:'FILL' 1;">psychology</span>
-        <h2 id="panel-title" class="text-sm font-bold uppercase">AI Insights</h2>
-      </div>
-      <button onclick="closePanel()" class="material-symbols-outlined text-slate-400 hover:text-white">close</button>
-    </div>
-    <div id="panel-content" class="p-4"></div>
+      <button class="w-full bg-primary-container text-on-primary font-bold py-3.5 rounded-lg hover:brightness-110 active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(0,229,160,0.2)] flex items-center justify-center gap-2" type="submit" id="auth-submit-btn">
+        <span class="material-symbols-outlined text-xl">login</span>
+        <span id="auth-submit-text">SIGN IN TO TERMINAL</span>
+      </button>
+    </form>
+    <p class="text-xs text-on-surface-variant text-center mt-6">Indian Markets | NSE/BSE Data</p>
   </div>
 </div>
 
-<!-- ==================== TAB 2: CONFIG ==================== -->
-<div id="tab-config" class="tab-content mt-14 p-6 h-[calc(100vh-56px)] overflow-y-auto">
-  <h1 class="text-2xl font-bold mb-2">Filter Configuration</h1>
-  <p class="text-sm text-slate-400 mb-6">Fine-tune your screening parameters.</p>
-  <div id="config-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-    <div class="text-slate-400 text-sm">Loading configuration...</div>
+<!-- ==================== TOP NAVIGATION BAR ==================== -->
+<header class="flex justify-between items-center w-full px-6 h-14 border-b border-outline-variant/20 bg-surface-container-lowest relative z-50">
+  <div class="flex items-center gap-8">
+    <span class="text-xl font-black tracking-tighter brand-gradient uppercase">YOINTELL</span>
+    <nav class="flex items-center gap-6 tabular-nums text-sm tracking-tight h-full" id="main-nav">
+      <a class="nav-tab text-primary border-b-2 border-primary font-bold h-14 flex items-center cursor-pointer" data-tab="screener" onclick="switchTab('screener')">Screener</a>
+      <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="config" onclick="switchTab('config')">Configuration</a>
+      <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="indicators" onclick="switchTab('indicators')">Indicators</a>
+      <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="watchlist" onclick="switchTab('watchlist')">Watchlist</a>
+    </nav>
   </div>
-  <!-- Preset bar -->
-  <div class="fixed bottom-0 left-0 right-0 h-16 bg-[#111319]/90 backdrop-blur-xl border-t border-[#33343b]/20 px-6 flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <input id="preset-name" class="bg-[#191b22] border-none rounded-lg text-sm py-2 px-3 w-48" placeholder="Preset name..."/>
-      <button onclick="savePreset()" class="bg-[#00d4aa] text-[#00382b] px-4 py-2 rounded-lg text-xs font-bold">Save Preset</button>
+  <div class="flex items-center gap-4">
+    <!-- Data Sync Ring -->
+    <div class="flex items-center gap-3 px-3 py-1.5 bg-surface-container-low rounded-full border border-outline-variant/10 cursor-pointer" onclick="triggerCatchup()" id="dl-btn">
+      <div class="relative w-6 h-6">
+        <svg class="w-full h-full transform -rotate-90">
+          <circle class="text-surface-container-highest" cx="12" cy="12" fill="transparent" r="10" stroke="currentColor" stroke-width="2"></circle>
+          <circle id="ring-fg" class="text-primary-container" cx="12" cy="12" fill="transparent" r="10" stroke="currentColor" stroke-dasharray="62.8" stroke-dashoffset="62.8" stroke-width="2"></circle>
+        </svg>
+        <span id="ring-text" class="absolute inset-0 flex items-center justify-center text-[8px] font-bold">0%</span>
+      </div>
+      <div class="flex flex-col">
+        <span id="data-status" class="text-[9px] uppercase font-bold leading-none text-on-surface-variant">Loading...</span>
+        <span id="data-detail" class="text-[10px] font-mono leading-none text-primary" id="dl-btn-text">SYNC</span>
+      </div>
+    </div>
+    <span id="data-date" class="text-[9px] text-on-surface-variant hidden"></span>
+    <button class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-variant/40 transition-colors" onclick="triggerCatchup()">
+      <span class="material-symbols-outlined text-primary">sync</span>
+    </button>
+    <!-- User -->
+    <div class="flex items-center gap-2 cursor-pointer" onclick="logout()" title="Logout">
+      <span class="material-symbols-outlined text-on-surface-variant">account_circle</span>
+      <span id="user-display" class="text-xs font-bold text-on-surface-variant"></span>
+    </div>
+  </div>
+</header>
+
+<!-- ==================== MAIN CONTENT ==================== -->
+<main class="flex flex-1 overflow-hidden">
+
+<!-- ==================== TAB: SCREENER ==================== -->
+<section class="tab-content active flex-col w-full" id="tab-screener">
+  <!-- FILTER PANEL -->
+  <div class="p-4 bg-surface-container-low border-b border-outline-variant/10">
+    <div class="flex items-center justify-between mb-3">
+      <div class="flex gap-4 items-center">
+        <span class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">TECHNICAL</span>
+        <span class="text-[10px] font-black uppercase tracking-[0.2em] text-secondary">FUNDAMENTAL</span>
+        <span class="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant">BREAKOUT & RISK</span>
+        <span id="filter-count" class="text-[10px] text-on-surface-variant font-mono ml-4">0/0</span>
+        <button onclick="toggleAllFilters(true)" class="text-[9px] text-primary hover:underline font-bold ml-3">ALL ON</button>
+        <button onclick="toggleAllFilters(false)" class="text-[9px] text-on-surface-variant hover:underline font-bold">ALL OFF</button>
+      </div>
+      <button class="flex items-center gap-2 text-[10px] font-bold text-on-surface-variant uppercase" onclick="toggleFilterPanel()">
+        Filters <span class="material-symbols-outlined text-xs" id="filter-expand-icon">expand_more</span>
+      </button>
+    </div>
+    <div id="filter-panel" class="flex flex-wrap gap-1.5 overflow-hidden transition-all duration-300" style="max-height:0px"></div>
+  </div>
+  <!-- ACTION BAR -->
+  <div class="px-6 py-3 flex items-center justify-between gap-4 bg-surface-container-lowest border-b border-outline-variant/10">
+    <div class="flex items-center flex-1 max-w-3xl gap-3">
+      <div class="flex-1 relative">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-sm text-on-surface-variant">search</span>
+        <input id="symbols-input" class="w-full pl-10 bg-surface-container-high border border-outline-variant/20 rounded-lg text-sm h-10 focus:ring-1 focus:ring-primary placeholder:text-on-surface-variant/40" placeholder="Search symbols (RELIANCE, HDFCBANK...)" type="text" onkeydown="if(event.key==='Enter')runScreen()"/>
+      </div>
+      <select id="scope-select" class="bg-surface-container-high border border-outline-variant/20 rounded-lg text-[10px] font-bold h-10 px-3 text-on-surface uppercase">
+        <option value="nifty200">Nifty 200</option>
+        <option value="nifty500" selected>Nifty 500</option>
+        <option value="all">All NSE</option>
+      </select>
+      <select id="screener-preset-select" class="bg-surface-container-high border border-outline-variant/20 rounded-lg text-[10px] font-bold h-10 px-3 text-on-surface" onchange="loadPreset(this.value)">
+        <option value="">Preset...</option>
+      </select>
+      <span id="active-preset-badge" class="hidden text-[10px] bg-primary/20 text-primary px-2 py-1 rounded-full font-bold cursor-pointer" onclick="clearActivePreset()"></span>
+      <button onclick="quickSavePreset()" class="text-[10px] text-on-surface-variant hover:text-primary font-bold uppercase" title="Save current filters as preset">
+        <span class="material-symbols-outlined text-sm">save</span>
+      </button>
     </div>
     <div class="flex items-center gap-3">
-      <select id="preset-select" class="bg-[#33343b] border-none rounded-lg text-xs py-2 px-3" onchange="loadPreset(this.value)">
+      <button id="scan-all-btn" onclick="runScreenAll()" class="flex items-center gap-2 h-10 px-4 bg-surface-container-high border border-outline-variant/20 rounded-lg text-[11px] font-black uppercase tracking-wider hover:bg-surface-container-highest">
+        <span class="material-symbols-outlined text-lg">radar</span> Screen
+      </button>
+      <button id="run-btn" onclick="runScreen()" class="flex items-center gap-2 h-10 px-6 bg-secondary-container text-on-secondary-container rounded-lg text-[11px] font-black uppercase tracking-wider shadow-lg shadow-secondary-container/20 active:scale-95 transition-transform">
+        <span class="material-symbols-outlined text-lg" style="font-variation-settings:'FILL' 1;">bolt</span> Run
+      </button>
+      <button onclick="stopScreening()" class="h-10 px-3 text-error hover:bg-error/10 rounded-lg text-[10px] font-bold uppercase hidden" id="stop-btn">
+        <span class="material-symbols-outlined text-sm">stop</span> Stop
+      </button>
+    </div>
+  </div>
+  <!-- Loading bar -->
+  <div id="loading" class="h-0.5 bg-surface-container-lowest"><div class="h-full bg-primary-container transition-all" style="width:0%"></div></div>
+  <!-- RESULTS LAYOUT -->
+  <div class="flex-1 flex overflow-hidden">
+    <!-- LEFT: DATA TABLES -->
+    <div id="tables-panel" class="flex-1 overflow-y-auto border-r border-outline-variant/10" style="width:100%">
+      <div class="p-6 space-y-8">
+        <!-- STAGE 1 -->
+        <section>
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xs font-black uppercase tracking-[0.2em] text-on-surface flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-primary-container"></span> STAGE 1: SIGNAL VALIDATION
+            </h3>
+            <span id="s1-count" class="text-[10px] text-on-surface-variant font-mono">0 results</span>
+          </div>
+          <div class="overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-low shadow-xl shadow-black/20">
+            <table class="w-full text-left tabular-nums">
+              <thead>
+                <tr class="bg-surface-container border-b border-outline-variant/20">
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">#</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">Stock</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Price</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">PE</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">RSI</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">ROE%</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Score</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">Status</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">
+                    <span class="material-symbols-outlined text-xs">bookmark</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="s1-body" class="text-xs">
+                <tr><td colspan="9" class="px-3 py-8 text-center text-on-surface-variant/50">Run a screen to see results</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <!-- STAGE 2 -->
+        <section>
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xs font-black uppercase tracking-[0.2em] text-on-surface flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-secondary"></span> STAGE 2: EXECUTION QUALITY
+            </h3>
+            <span id="s2-count" class="text-[10px] text-on-surface-variant font-mono">0 results</span>
+          </div>
+          <div class="overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-low shadow-xl shadow-black/20">
+            <table class="w-full text-left tabular-nums">
+              <thead>
+                <tr class="bg-surface-container border-b border-outline-variant/20">
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">#</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">Stock</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Price</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right text-error">SL</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right text-primary">Target</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">R:R</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Score</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">Status</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">
+                    <span class="material-symbols-outlined text-xs">bookmark</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="s2-body" class="text-xs">
+                <tr><td colspan="9" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 2 results appear after screening</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </div>
+    <!-- RIGHT: CHART PANEL -->
+    <div id="chart-panel" class="flex-col bg-surface-container-lowest border-l border-outline-variant/20" style="display:none;width:0">
+      <div class="h-10 border-b border-outline-variant/20 px-4 flex items-center justify-between bg-surface-container">
+        <div class="flex items-center gap-3">
+          <span class="text-[10px] font-black uppercase tracking-widest text-on-surface">
+            <span id="chart-title">--</span>
+            <span id="chart-price" class="text-primary font-mono ml-1"></span>
+          </span>
+          <!-- Candle interval -->
+          <div class="flex bg-surface-container-highest rounded-md p-0.5 gap-0.5" title="Candle interval">
+            <button onclick="changeChartInterval('1D',this)" class="chart-iv-btn px-2 py-0.5 text-[9px] font-bold rounded bg-surface-variant text-primary">D</button>
+            <button onclick="changeChartInterval('1W',this)" class="chart-iv-btn px-2 py-0.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">W</button>
+            <button onclick="changeChartInterval('1M',this)" class="chart-iv-btn px-2 py-0.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">M</button>
+          </div>
+          <div class="w-px h-5 bg-outline-variant/30"></div>
+          <div class="flex bg-surface-container-highest rounded-md p-0.5 gap-0.5" title="Date range">
+            <button onclick="changeChartTimeframe(30,this)" class="chart-tf-btn px-2 py-0.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">1M</button>
+            <button onclick="changeChartTimeframe(90,this)" class="chart-tf-btn px-2 py-0.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">3M</button>
+            <button onclick="changeChartTimeframe(180,this)" class="chart-tf-btn px-2 py-0.5 text-[9px] font-bold rounded bg-surface-variant text-primary">6M</button>
+            <button onclick="changeChartTimeframe(365,this)" class="chart-tf-btn px-2 py-0.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">1Y</button>
+          </div>
+        </div>
+        <div class="flex gap-2 items-center">
+          <div class="relative">
+            <button onclick="document.getElementById('chart-ind-dropdown').classList.toggle('hidden')" class="flex items-center gap-1 px-2 py-1 bg-surface-container-highest rounded text-[9px] font-bold text-on-surface-variant hover:text-primary uppercase tracking-wider">
+              <span class="material-symbols-outlined text-xs">show_chart</span> Indicators <span class="material-symbols-outlined text-xs">expand_more</span>
+            </button>
+            <div id="chart-ind-dropdown" class="hidden absolute right-0 top-8 w-56 max-h-[70vh] overflow-y-auto bg-surface-container border border-outline-variant/20 rounded-xl shadow-2xl z-50 p-3 space-y-1">
+              <div class="text-[8px] font-black text-on-surface-variant uppercase tracking-widest mb-2">Overlays</div>
+              <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" checked data-chart-ind="ema50" onchange="toggleChartIndicator('ema50',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#f59e0b] rounded inline-block"></span>EMA 50</label>
+              <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" checked data-chart-ind="ema200" onchange="toggleChartIndicator('ema200',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#3b82f6] rounded inline-block"></span>EMA 200</label>
+              <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" checked data-chart-ind="supertrend" onchange="toggleChartIndicator('supertrend',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#6effc0] rounded inline-block"></span>Supertrend</label>
+              <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-chart-ind="sma20" onchange="toggleChartIndicator('sma20',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#ec4899] rounded inline-block"></span>SMA 20</label>
+              <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-chart-ind="bollinger" onchange="toggleChartIndicator('bollinger',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#8b5cf6] rounded inline-block"></span>Bollinger Bands</label>
+              <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-chart-ind="vwap" onchange="toggleChartIndicator('vwap',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#06b6d4] rounded inline-block"></span>VWAP</label>
+              <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-chart-ind="vwap_sd" onchange="toggleChartIndicator('vwap_sd',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#06b6d4] rounded inline-block" style="opacity:0.5"></span>VWAP + SD Bands</label>
+              <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-chart-ind="ichimoku" onchange="toggleChartIndicator('ichimoku',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#ef4444] rounded inline-block"></span>Ichimoku Cloud</label>
+              <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-chart-ind="pivots" onchange="toggleChartIndicator('pivots',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#facc15] rounded inline-block"></span>Pivot Levels</label>
+              <div class="border-t border-outline-variant/20 mt-2 pt-2"><div class="text-[8px] font-black text-on-surface-variant uppercase tracking-widest mb-2">Panels</div></div>
+              <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" checked data-chart-ind="rsi" onchange="toggleChartIndicator('rsi',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#a855f7] rounded inline-block"></span>RSI (14)</label>
+              <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-chart-ind="macd" onchange="toggleChartIndicator('macd',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#f97316] rounded inline-block"></span>MACD</label>
+              <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-chart-ind="stoch_rsi" onchange="toggleChartIndicator('stoch_rsi',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#22d3ee] rounded inline-block"></span>Stochastic RSI</label>
+              <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-chart-ind="williams" onchange="toggleChartIndicator('williams',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#e879f9] rounded inline-block"></span>Williams %R</label>
+              <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-chart-ind="adx" onchange="toggleChartIndicator('adx',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#fb923c] rounded inline-block"></span>ADX</label>
+              <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-chart-ind="obv" onchange="toggleChartIndicator('obv',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#4ade80] rounded inline-block"></span>OBV</label>
+              <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-chart-ind="cmf" onchange="toggleChartIndicator('cmf',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#2dd4bf] rounded inline-block"></span>CMF</label>
+              <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-chart-ind="atr" onchange="toggleChartIndicator('atr',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#fbbf24] rounded inline-block"></span>ATR</label>
+              <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-chart-ind="ao" onchange="toggleChartIndicator('ao',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#34d399] rounded inline-block"></span>Awesome Oscillator</label>
+              <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-chart-ind="roc" onchange="toggleChartIndicator('roc',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#c084fc] rounded inline-block"></span>ROC</label>
+              <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-chart-ind="vortex" onchange="toggleChartIndicator('vortex',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#f472b6] rounded inline-block"></span>Vortex</label>
+            </div>
+          </div>
+          <span class="material-symbols-outlined text-sm cursor-pointer hover:text-primary" onclick="openInsightsFromChart()">psychology</span>
+          <span class="material-symbols-outlined text-sm cursor-pointer hover:text-error" onclick="closeChart()">close</span>
+        </div>
+      </div>
+      <div class="flex-1 flex flex-col p-2 gap-2">
+        <div id="chart-container" class="flex-[3] bg-surface-container rounded-lg relative overflow-hidden border border-outline-variant/10" style="min-height:300px"></div>
+        <div id="rsi-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:80px"></div>
+        <div id="macd-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:80px;display:none"></div>
+        <div id="sub-panels" class="flex flex-col gap-2"></div>
+        <div id="vol-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:60px"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== TAB: CONFIGURATION ==================== -->
+<section class="tab-content flex-col w-full overflow-y-auto" id="tab-config">
+  <div class="px-6 pt-6 pb-32">
+    <header class="mb-8">
+      <h1 class="text-3xl font-extrabold text-on-surface tracking-tighter uppercase mb-2">Engine Configuration</h1>
+      <p class="text-on-surface-variant max-w-2xl text-sm uppercase tracking-widest">Configure surgical entry parameters across 44 technical and fundamental vectors.</p>
+    </header>
+    <div id="config-grid-container" class="space-y-12">
+      <div class="text-center py-8 text-on-surface-variant/50">Loading configuration...</div>
+    </div>
+  </div>
+  <!-- Fixed Bottom Preset Bar -->
+  <footer class="fixed bottom-0 left-0 right-0 glass-panel h-16 px-8 flex items-center justify-between z-50 shadow-[0px_-10px_30px_rgba(0,0,0,0.5)] border-t border-outline-variant/20" id="config-footer" style="display:none">
+    <div class="flex items-center gap-6">
+      <div class="flex flex-col">
+        <span class="text-[10px] uppercase tracking-widest text-on-surface-variant">Active Configuration</span>
+        <span id="config-preset-name" class="text-primary font-bold text-sm tracking-tight">Default</span>
+      </div>
+      <div class="h-8 w-[1px] bg-outline-variant/30"></div>
+      <select id="preset-select" class="bg-surface-container-highest border border-outline-variant/20 rounded-lg text-[10px] font-bold px-3 py-2 text-on-surface" onchange="loadPreset(this.value)">
         <option value="">Load Preset...</option>
       </select>
-      <button onclick="resetConfig()" class="text-slate-400 hover:text-white text-xs flex items-center gap-1">
-        <span class="material-symbols-outlined text-sm">restart_alt</span> Reset
+    </div>
+    <div class="flex items-center gap-4">
+      <button onclick="loadConfig()" class="flex items-center gap-2 text-error hover:bg-error/10 px-4 py-2 rounded-lg text-[10px] uppercase font-bold tracking-widest transition-all">
+        <span class="material-symbols-outlined text-sm">refresh</span> Reset
+      </button>
+      <button onclick="saveConfigPreset()" class="bg-primary-container text-on-primary hover:brightness-110 px-8 py-2.5 rounded-xl text-xs uppercase font-black tracking-widest flex items-center gap-2 shadow-[0_0_20px_rgba(0,229,160,0.2)] active:scale-95 transition-all">
+        <span class="material-symbols-outlined text-sm">save</span> Save Preset
+      </button>
+    </div>
+  </footer>
+</section>
+
+<!-- ==================== TAB: INDICATORS ==================== -->
+<section class="tab-content flex-col w-full overflow-y-auto" id="tab-indicators">
+  <div class="px-6 pt-6 pb-12">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+      <div>
+        <h1 class="text-3xl font-extrabold tracking-tighter text-on-surface mb-2 uppercase">Indicators <span class="text-primary">Library</span></h1>
+        <p class="text-on-surface-variant max-w-xl text-sm">Deploy institutional-grade signals with 25 technical indicators.</p>
+        <span id="ind-count" class="text-[10px] text-on-surface-variant font-mono"></span>
+      </div>
+      <div class="flex gap-4">
+        <div class="flex items-center glass-panel px-4 py-2 rounded-lg border border-outline-variant/20">
+          <span class="material-symbols-outlined text-primary mr-2" style="font-variation-settings:'FILL' 1;">search</span>
+          <input id="ind-search" class="bg-transparent border-none focus:ring-0 text-xs font-bold tracking-widest text-on-surface placeholder:text-outline/50 uppercase w-40" placeholder="FILTER..." type="text" oninput="filterIndicatorCards()"/>
+        </div>
+      </div>
+    </div>
+    <!-- Category Tabs -->
+    <div class="flex gap-2 mb-8 overflow-x-auto pb-2" id="ind-type-tabs">
+      <button class="ind-type-tab px-5 py-2 rounded-full bg-primary-container text-on-primary font-bold text-xs uppercase tracking-widest whitespace-nowrap" data-type="all" onclick="filterIndicatorsByType('all')">All</button>
+    </div>
+    <!-- Indicator Cards Grid -->
+    <div id="indicators-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+      <div class="text-center py-8 text-on-surface-variant/50 col-span-full">Loading indicators...</div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== TAB: WATCHLIST ==================== -->
+<section class="tab-content flex-col w-full overflow-y-auto" id="tab-watchlist">
+  <div class="px-6 pt-6 pb-24">
+    <header class="flex flex-col md:flex-row justify-between items-start md:items-center py-4 gap-4">
+      <div>
+        <h1 class="text-3xl font-black text-on-surface tracking-tighter uppercase mb-1">Watchlist</h1>
+        <p class="text-sm text-on-surface-variant">Monitoring <span id="wl-count">0</span> assets with active breakout detection.</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="relative">
+          <input id="wl-add-input" class="bg-surface-container-highest border-none rounded-xl text-sm px-4 py-2.5 w-64 focus:ring-1 focus:ring-primary/50 placeholder:text-on-surface-variant/40" placeholder="Add symbol (e.g. RELIANCE, TCS)" type="text" onkeydown="if(event.key==='Enter')addToWatchlist()"/>
+          <button onclick="addToWatchlist()" class="absolute right-2 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary">
+            <span class="material-symbols-outlined">add</span>
+          </button>
+        </div>
+        <button id="wl-check-btn" onclick="checkWatchlistAlerts()" class="flex items-center gap-2 px-6 py-2.5 bg-primary-container text-on-primary font-bold rounded-xl active:scale-95 transition-transform">
+          <span class="material-symbols-outlined text-lg">notifications_active</span>
+          <span class="text-sm uppercase tracking-tighter">Check Alerts</span>
+        </button>
+        <span id="wl-triggered-count" class="hidden text-[10px] bg-primary/20 text-primary px-2 py-1 rounded-full font-bold animate-pulse-soft"></span>
+      </div>
+    </header>
+    <!-- Watchlist Table -->
+    <div class="bg-surface-container-low rounded-xl overflow-hidden shadow-2xl">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-surface-container/50 border-b border-outline-variant/5">
+              <th class="px-6 py-4 text-[0.65rem] font-bold uppercase tracking-widest text-on-surface-variant">Symbol</th>
+              <th class="px-6 py-4 text-[0.65rem] font-bold uppercase tracking-widest text-on-surface-variant text-right">Price</th>
+              <th class="px-6 py-4 text-[0.65rem] font-bold uppercase tracking-widest text-on-surface-variant text-right">Score</th>
+              <th class="px-6 py-4 text-[0.65rem] font-bold uppercase tracking-widest text-on-surface-variant text-center">Alerts</th>
+              <th class="px-6 py-4 text-[0.65rem] font-bold uppercase tracking-widest text-on-surface-variant text-center">Status</th>
+              <th class="px-6 py-4 text-[0.65rem] font-bold uppercase tracking-widest text-on-surface-variant text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="wl-body" class="divide-y divide-outline-variant/5 text-xs">
+            <tr><td colspan="6" class="px-6 py-8 text-center text-on-surface-variant/50">No stocks in watchlist. Add symbols above.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== AI INSIGHTS SIDE PANEL ==================== -->
+<div id="side-panel" class="fixed top-14 right-0 w-[380px] h-[calc(100vh-56px)] bg-surface-container border-l border-outline-variant/20 z-40 transform translate-x-full transition-transform duration-300 overflow-y-auto" style="translate:100%">
+  <div class="p-4 border-b border-outline-variant/20 flex justify-between items-center">
+    <h3 id="panel-title" class="text-xs font-black uppercase tracking-widest">AI Insights</h3>
+    <span class="material-symbols-outlined cursor-pointer hover:text-error" onclick="closePanel()">close</span>
+  </div>
+  <div id="panel-content" class="p-4"></div>
+</div>
+
+<!-- ==================== ALERT MODAL ==================== -->
+<div id="wl-alert-modal" class="fixed inset-0 z-[80] flex items-center justify-center bg-black/60" style="display:none">
+  <div class="w-[400px] glass-panel rounded-xl p-6 border border-outline-variant/20">
+    <div class="flex justify-between items-center mb-4">
+      <h3 id="wl-alert-modal-title" class="text-sm font-black uppercase text-on-surface">Add Alert</h3>
+      <span class="material-symbols-outlined cursor-pointer hover:text-error" onclick="closeAlertModal()">close</span>
+    </div>
+    <div class="space-y-4">
+      <div>
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold">Alert Type</label>
+        <select id="wl-alert-type" class="w-full bg-surface-container-highest border-none rounded-lg text-sm mt-1" onchange="updateAlertForm()">
+          <option value="indicator">Indicator</option>
+          <option value="price">Price</option>
+          <option value="preset">Preset Match</option>
+        </select>
+      </div>
+      <div id="wl-alert-indicator-fields">
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold">Indicator</label>
+        <select id="wl-alert-indicator" class="w-full bg-surface-container-highest border-none rounded-lg text-sm mt-1">
+          <option value="rsi">RSI</option><option value="macd">MACD</option><option value="supertrend">Supertrend</option>
+          <option value="ema">EMA</option><option value="adx">ADX</option><option value="obv">OBV</option>
+        </select>
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold mt-2 block">Condition</label>
+        <select id="wl-alert-condition" class="w-full bg-surface-container-highest border-none rounded-lg text-sm mt-1">
+          <option value="above">Above</option><option value="below">Below</option><option value="cross_up">Cross Up</option><option value="cross_down">Cross Down</option>
+        </select>
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold mt-2 block">Value</label>
+        <input id="wl-alert-value" type="number" class="w-full bg-surface-container-highest border-none rounded-lg text-sm mt-1" placeholder="e.g. 70"/>
+      </div>
+      <div id="wl-alert-price-fields" style="display:none">
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold">Condition</label>
+        <select id="wl-alert-price-condition" class="w-full bg-surface-container-highest border-none rounded-lg text-sm mt-1">
+          <option value="above">Price Above</option><option value="below">Price Below</option>
+        </select>
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold mt-2 block">Price</label>
+        <input id="wl-alert-price-value" type="number" class="w-full bg-surface-container-highest border-none rounded-lg text-sm mt-1" placeholder="e.g. 2500"/>
+      </div>
+      <div id="wl-alert-preset-fields" style="display:none">
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold">Preset</label>
+        <select id="wl-alert-preset-select" class="w-full bg-surface-container-highest border-none rounded-lg text-sm mt-1">
+          <option value="">Select preset...</option>
+        </select>
+      </div>
+      <button onclick="submitAlert()" class="w-full bg-primary-container text-on-primary font-bold py-3 rounded-lg active:scale-95 transition-transform">
+        Add Alert
       </button>
     </div>
   </div>
 </div>
 
-<!-- ==================== TAB 3: INDICATORS ==================== -->
-<div id="tab-indicators" class="tab-content mt-14 p-6 h-[calc(100vh-56px)] overflow-y-auto">
-  <h1 class="text-2xl font-bold mb-2">Available Indicators</h1>
-  <p class="text-sm text-slate-400 mb-6" id="ind-count">Loading...</p>
-  <div id="indicators-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+<!-- ==================== FLOATING CHAT AGENT ==================== -->
+<div class="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+  <div id="chat-window" class="w-[380px] h-[520px] glass-panel rounded-2xl border border-outline-variant/30 shadow-2xl flex-col overflow-hidden mb-4" style="display:none">
+    <header class="p-4 bg-primary-container text-on-primary flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-full bg-on-primary/10 flex items-center justify-center">
+          <span class="material-symbols-outlined text-lg" style="font-variation-settings:'FILL' 1;">smart_toy</span>
+        </div>
+        <div>
+          <h4 class="text-xs font-black uppercase tracking-wider">Yointell Assistant</h4>
+          <div class="flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-on-primary animate-pulse"></span>
+            <span class="text-[9px] font-bold opacity-80 uppercase">AI Engine Active</span>
+          </div>
+        </div>
+      </div>
+      <span class="material-symbols-outlined cursor-pointer hover:rotate-90 transition-transform" onclick="toggleChat()">close</span>
+    </header>
+    <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-4 text-sm scroll-smooth" style="max-height:380px">
+      <div class="flex gap-2">
+        <div class="w-6 h-6 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center border border-outline-variant/20">
+          <span class="material-symbols-outlined text-[14px]">psychology</span>
+        </div>
+        <div class="bg-surface-container p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl border border-outline-variant/10 text-on-surface-variant leading-relaxed">
+          Welcome to YOINTELL. Ask me to screen stocks, explain indicators, or run strategies. Try: "Show me stocks with RSI > 70"
+        </div>
+      </div>
+    </div>
+    <div class="p-4 border-t border-outline-variant/20 bg-surface-container/50">
+      <div class="flex gap-2">
+        <input id="chat-input" class="flex-1 bg-surface-container-highest border-none rounded-lg text-xs py-2.5 focus:ring-1 focus:ring-primary placeholder:text-on-surface-variant/40" placeholder="Query the AI engine..." type="text" onkeydown="if(event.key==='Enter')sendChat()"/>
+        <button onclick="sendChat()" class="w-10 h-10 flex items-center justify-center bg-primary-container text-on-primary rounded-lg">
+          <span class="material-symbols-outlined">send</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <button onclick="toggleChat()" class="w-14 h-14 bg-primary-container text-on-primary rounded-full shadow-lg shadow-primary-container/20 flex items-center justify-center hover:scale-110 active:scale-95 transition-all">
+    <span class="material-symbols-outlined text-2xl" style="font-variation-settings:'FILL' 1;">psychology</span>
+  </button>
 </div>
 
 <!-- ==================== JAVASCRIPT ==================== -->
 <script>
-const API = 'http://localhost:8000';
+const API = '';
 
-// Tab switching
-function switchTab(tab) {
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('text-[#00d4aa]','border-b-2','border-[#00d4aa]'); b.classList.add('text-slate-400'); });
-  document.getElementById('tab-' + tab).classList.add('active');
-  const btn = document.getElementById('tab-btn-' + tab);
-  btn.classList.add('text-[#00d4aa]','border-b-2','border-[#00d4aa]');
-  btn.classList.remove('text-slate-400');
-  if (tab === 'config') loadConfig();
-  if (tab === 'indicators') loadIndicators();
-}
-
-// ============ DYNAMIC FILTER PANEL ============
-let fullConfig = {};  // stores the complete config from API
+// ============ STATE ============
+let fullConfig = {};
+let currentTab = 'screener';
+let authToken = localStorage.getItem('yointell_token');
+let authMode = 'login';
 let filterExpanded = false;
+let activePresetName = null;
+let watchlistData = [];
+let alertModalSymbol = null;
+let currentChart = null, currentRsiChart = null, currentVolChart = null, currentMacdChart = null, currentChartSymbol = null;
+let chartOverlays = {}; // { key: series reference }
+let chartData = null; // stored chart API response for re-adding overlays
+let screenAbort = null;
+let downloadPolling = null;
+let totalExpected = 150;
+let allIndicators = [];
+const RING_CIRCUMFERENCE = 62.8;
 
-// Load all filters from config API and render as toggleable chips
-async function loadFilterPanel() {
-  try {
-    const res = await fetch(API + '/config/default');
-    const data = await res.json();
-    fullConfig = data.config;
-    renderFilterPanel();
-  } catch(e) { console.error('Failed to load filters:', e); }
-}
-
-// Filter categories
 const TECHNICAL_KEYS = ['ema','rsi','macd','volume_surge','supertrend','adx','obv','cmf','roc',
   'awesome_oscillator','anchored_vwap','pivot_levels','hidden_divergence','sector_performance',
   'fisher_transform','klinger_oscillator','chande_momentum','force_index','vortex'];
@@ -298,39 +602,126 @@ const FUNDAMENTAL_KEYS = ['roe','roce','debt_to_equity','eps','free_cash_flow',
 const BREAKOUT_KEYS = ['breakout_proximity','breakout_volume','breakout_rsi','breakout_candle',
   'supply_zone','institutional_flow','bb_squeeze','stochastic_rsi','williams_r','vwap_bands','ichimoku',
   'late_entry_stage1','late_entry_stage2','risk_management'];
-// The 3 highlighted indicators
 const HIGHLIGHTED = ['supertrend','vwap_bands','vortex'];
+
+// ============ AUTH ============
+function showAuthTab(mode) {
+  authMode = mode;
+  document.getElementById('auth-tab-login').className = mode === 'login'
+    ? 'flex-1 py-2 text-xs font-bold bg-primary-container text-on-primary rounded-md'
+    : 'flex-1 py-2 text-xs font-bold text-on-surface-variant hover:text-on-surface rounded-md';
+  document.getElementById('auth-tab-register').className = mode === 'register'
+    ? 'flex-1 py-2 text-xs font-bold bg-primary-container text-on-primary rounded-md'
+    : 'flex-1 py-2 text-xs font-bold text-on-surface-variant hover:text-on-surface rounded-md';
+  document.getElementById('auth-display-name-row').classList.toggle('hidden', mode === 'login');
+  document.getElementById('auth-submit-text').textContent = mode === 'login' ? 'SIGN IN TO TERMINAL' : 'CREATE ACCOUNT';
+  document.getElementById('auth-error').classList.add('hidden');
+}
+
+async function handleAuth(e) {
+  e.preventDefault();
+  const username = document.getElementById('auth-username').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  errEl.classList.add('hidden');
+
+  const endpoint = authMode === 'login' ? '/auth/login' : '/auth/register';
+  const body = { username, password };
+  if (authMode === 'register') body.display_name = document.getElementById('auth-display-name').value.trim();
+
+  try {
+    const res = await fetch(API + endpoint, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Authentication failed');
+    authToken = data.token;
+    localStorage.setItem('yointell_token', authToken);
+    document.getElementById('login-overlay').style.display = 'none';
+    document.getElementById('user-display').textContent = data.user?.display_name || data.user?.username || username;
+    initApp();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+  }
+}
+
+async function checkAuth() {
+  if (!authToken) { document.getElementById('login-overlay').style.display = 'flex'; return; }
+  try {
+    const res = await fetch(API + '/auth/me', { headers: { 'Authorization': 'Bearer ' + authToken } });
+    if (!res.ok) throw new Error('Token expired');
+    const user = await res.json();
+    document.getElementById('login-overlay').style.display = 'none';
+    document.getElementById('user-display').textContent = user.display_name || user.username || '';
+    initApp();
+  } catch {
+    localStorage.removeItem('yointell_token');
+    authToken = null;
+    document.getElementById('login-overlay').style.display = 'flex';
+  }
+}
+
+function logout() {
+  localStorage.removeItem('yointell_token');
+  authToken = null;
+  fetch(API + '/auth/logout', { method: 'POST' }).catch(() => {});
+  document.getElementById('login-overlay').style.display = 'flex';
+}
+
+// ============ TAB SWITCHING ============
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach(el => {
+    if (el.dataset.tab === tab) {
+      el.className = 'nav-tab text-primary border-b-2 border-primary font-bold h-14 flex items-center cursor-pointer';
+    } else {
+      el.className = 'nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer';
+    }
+  });
+  document.getElementById('config-footer').style.display = tab === 'config' ? 'flex' : 'none';
+  if (tab === 'config') loadConfig();
+  if (tab === 'indicators') loadIndicators();
+  if (tab === 'watchlist') loadWatchlist();
+}
+
+// ============ FILTER PANEL ============
+async function loadFilterPanel() {
+  try {
+    const res = await fetch(API + '/config/default');
+    const data = await res.json();
+    fullConfig = data.config;
+    renderFilterPanel();
+  } catch (e) { console.error('Failed to load filters:', e); }
+}
 
 function renderFilterPanel() {
   const panel = document.getElementById('filter-panel');
   let total = 0, enabled = 0;
-
-  // Count
   for (const [key, val] of Object.entries(fullConfig)) {
     if (typeof val !== 'object' || !('enabled' in val) || key === 'scoring') continue;
-    total++;
-    if (val.enabled) enabled++;
+    total++; if (val.enabled) enabled++;
   }
 
   function renderChip(key) {
     const val = fullConfig[key];
     if (!val || typeof val !== 'object' || !('enabled' in val)) return '';
-    const isOn = val.enabled;
-    const isHL = HIGHLIGHTED.includes(key);
+    const isOn = val.enabled, isHL = HIGHLIGHTED.includes(key);
     const params = Object.entries(val).filter(([k]) => k !== 'enabled');
     const mainParam = params.length > 0 ? params[0] : null;
     const label = key.replace(/_/g, ' ');
-    const hlBorder = isHL ? (isOn ? 'border-[#00d4aa] shadow-[0_0_8px_rgba(0,212,170,0.25)]' : 'border-[#00d4aa]/40') : (isOn ? 'border-[#00d4aa]/30' : 'border-[#33343b]');
-    const hlBg = isOn ? (isHL ? 'bg-[#00d4aa]/20' : 'bg-[#00d4aa]/10') : 'bg-[#33343b]/50';
-    let chip = `<div class="flex items-center gap-1 ${hlBg} ${hlBorder} border px-2 py-1 rounded-lg cursor-pointer transition-all" id="chip-${key}">`;
-    if (isHL) chip += `<span class="text-[8px]">⭐</span>`;
+    const hlBorder = isHL ? (isOn ? 'border-primary shadow-[0_0_8px_rgba(110,255,192,0.2)]' : 'border-primary/40') : (isOn ? 'border-primary/30' : 'border-outline-variant/20');
+    const hlBg = isOn ? (isHL ? 'bg-primary/20' : 'bg-primary/10') : 'bg-surface-container-highest';
+    let chip = `<div class="flex items-center gap-1 ${hlBg} ${hlBorder} border px-2 py-1 rounded-lg cursor-pointer transition-all">`;
+    if (isHL) chip += `<span class="text-[8px]" style="font-variation-settings:'FILL' 1;">&#11088;</span>`;
     chip += `<input type="checkbox" ${isOn ? 'checked' : ''} onchange="toggleFilter('${key}', this.checked)"
-        class="w-3 h-3 rounded text-[#00d4aa] bg-[#33343b] border-none focus:ring-0 cursor-pointer"/>
-      <span class="text-[9px] uppercase font-bold ${isOn ? 'text-[#00d4aa]' : 'text-slate-500'}" onclick="toggleFilter('${key}', !fullConfig['${key}'].enabled)">${label}</span>`;
+      class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0 cursor-pointer"/>
+      <span class="text-[9px] uppercase font-bold ${isOn ? 'text-primary' : 'text-on-surface-variant/50'}" onclick="toggleFilter('${key}', !fullConfig['${key}'].enabled)">${label}</span>`;
     if (mainParam) {
       const [pk, pv] = mainParam;
-      chip += `<input type="text" value="${pv}" data-filter="${key}" data-param="${pk}"
-        class="bg-transparent border-none p-0 text-[10px] font-bold ${isOn ? 'text-[#00d4aa]' : 'text-slate-600'} w-8 text-right focus:ring-0"
+      chip += `<input type="text" value="${pv}" class="bg-transparent border-none p-0 text-[10px] font-bold ${isOn ? 'text-primary' : 'text-on-surface-variant/40'} w-8 text-right focus:ring-0"
         onchange="updateFilterParam('${key}', '${pk}', this.value)"/>`;
     }
     chip += `</div>`;
@@ -338,606 +729,805 @@ function renderFilterPanel() {
   }
 
   let html = '';
-  // Technical section
-  html += `<div class="w-full mb-1"><span class="text-[9px] font-bold text-blue-400 uppercase tracking-wider">▎Technical</span></div>`;
-  html += `<div class="flex flex-wrap gap-1.5 w-full mb-2">`;
-  for (const k of TECHNICAL_KEYS) html += renderChip(k);
-  html += `</div>`;
-
-  // Fundamental section
-  html += `<div class="w-full mb-1"><span class="text-[9px] font-bold text-purple-400 uppercase tracking-wider">▎Fundamental</span></div>`;
-  html += `<div class="flex flex-wrap gap-1.5 w-full mb-2">`;
-  for (const k of FUNDAMENTAL_KEYS) html += renderChip(k);
-  html += `</div>`;
-
-  // Breakout section
-  html += `<div class="w-full mb-1"><span class="text-[9px] font-bold text-amber-400 uppercase tracking-wider">▎Breakout & Risk</span></div>`;
-  html += `<div class="flex flex-wrap gap-1.5 w-full">`;
-  for (const k of BREAKOUT_KEYS) html += renderChip(k);
-  html += `</div>`;
-
+  html += `<div class="w-full mb-1"><span class="text-[9px] font-bold text-primary uppercase tracking-wider">TECHNICAL</span></div>`;
+  html += `<div class="flex flex-wrap gap-1.5 w-full mb-2">${TECHNICAL_KEYS.map(renderChip).join('')}</div>`;
+  html += `<div class="w-full mb-1"><span class="text-[9px] font-bold text-secondary uppercase tracking-wider">FUNDAMENTAL</span></div>`;
+  html += `<div class="flex flex-wrap gap-1.5 w-full mb-2">${FUNDAMENTAL_KEYS.map(renderChip).join('')}</div>`;
+  html += `<div class="w-full mb-1"><span class="text-[9px] font-bold text-tertiary-fixed-dim uppercase tracking-wider">BREAKOUT & RISK</span></div>`;
+  html += `<div class="flex flex-wrap gap-1.5 w-full">${BREAKOUT_KEYS.map(renderChip).join('')}</div>`;
   panel.innerHTML = html;
   document.getElementById('filter-count').textContent = enabled + '/' + total;
 }
 
-function toggleFilter(key, enabled) {
-  if (fullConfig[key]) {
-    fullConfig[key].enabled = enabled;
-    renderFilterPanel();
-  }
+function toggleFilter(key, enabled) { if (fullConfig[key]) { fullConfig[key].enabled = enabled; renderFilterPanel(); } }
+function toggleAllFilters(enabled) { for (const key of Object.keys(fullConfig)) { if (typeof fullConfig[key]==='object'&&'enabled' in fullConfig[key]) fullConfig[key].enabled=enabled; } renderFilterPanel(); }
+function updateFilterParam(fk, pk, v) { if (fullConfig[fk]) { const n=parseFloat(v); fullConfig[fk][pk]=isNaN(n)?v:n; } }
+function toggleFilterPanel() { filterExpanded=!filterExpanded; document.getElementById('filter-panel').style.maxHeight=filterExpanded?'400px':'0px'; document.getElementById('filter-expand-icon').textContent=filterExpanded?'expand_less':'expand_more'; }
+function getFilterConfig() { const c={}; for(const[k,v] of Object.entries(fullConfig)){if(typeof v==='object'&&'enabled' in v)c[k]={...v};} return c; }
+
+// ============ SCREENING ============
+function stopScreening() { if(screenAbort){screenAbort.abort();screenAbort=null;} document.getElementById('loading').firstElementChild.style.width='0%'; document.getElementById('scan-all-btn').disabled=false; document.getElementById('run-btn').disabled=false; document.getElementById('stop-btn').classList.add('hidden'); }
+
+async function runScreenAll() {
+  const config = getFilterConfig(), scope = document.getElementById('scope-select').value;
+  document.getElementById('loading').firstElementChild.style.width='80%';
+  document.getElementById('scan-all-btn').disabled=true;
+  document.getElementById('stop-btn').classList.remove('hidden');
+  screenAbort = new AbortController();
+  try {
+    const res = await fetch(API+'/screen',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scan_all:true,config,scope,min_price:50,min_volume:100000}),signal:screenAbort.signal});
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.detail||'Screen failed');
+    renderResults(data);
+  } catch(e) { if(e.name!=='AbortError') alert('Error: '+e.message); }
+  finally { screenAbort=null; document.getElementById('loading').firstElementChild.style.width='0%'; document.getElementById('scan-all-btn').disabled=false; document.getElementById('stop-btn').classList.add('hidden'); }
 }
 
-function toggleAllFilters(enabled) {
-  for (const key of Object.keys(fullConfig)) {
-    if (typeof fullConfig[key] === 'object' && 'enabled' in fullConfig[key]) {
-      fullConfig[key].enabled = enabled;
-    }
-  }
-  renderFilterPanel();
+async function runScreen() {
+  const input=document.getElementById('symbols-input').value.trim();
+  if(!input){runScreenAll();return;}
+  const symbols=input.split(',').map(s=>s.trim().toUpperCase()).filter(s=>s);
+  const config=getFilterConfig();
+  document.getElementById('loading').firstElementChild.style.width='80%';
+  document.getElementById('run-btn').disabled=true;
+  screenAbort=new AbortController();
+  try {
+    const res=await fetch(API+'/screen',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbols,config}),signal:screenAbort.signal});
+    const data=await res.json();
+    if(!res.ok) throw new Error(data.detail||'Screen failed');
+    renderResults(data);
+  } catch(e){ if(e.name!=='AbortError') alert('Error: '+e.message); }
+  finally { screenAbort=null; document.getElementById('loading').firstElementChild.style.width='0%'; document.getElementById('run-btn').disabled=false; }
 }
 
-function updateFilterParam(filterKey, paramKey, value) {
-  if (fullConfig[filterKey]) {
-    // Try to parse as number
-    const num = parseFloat(value);
-    fullConfig[filterKey][paramKey] = isNaN(num) ? value : num;
-  }
+function renderResults(data) {
+  const s1=document.getElementById('s1-body');
+  document.getElementById('s1-count').textContent=data.stage1_results.length+' results (of '+data.total_screened+' screened)';
+  s1.innerHTML=data.stage1_results.map((r,i)=>{
+    const pe=r.fundamentals?.pe_ratio?.value||r.pe||'--';
+    const roe=r.fundamentals?.roe?.value||r.roe||'--';
+    const rsi=r.indicators?.find(x=>x.name.toLowerCase().includes('rsi'))?.value||'--';
+    return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" onclick="openChart('${r.symbol}')">
+      <td class="px-3 py-2.5 font-bold ${r.passed?'text-primary':'text-on-surface-variant'}">${r.rank||i+1}</td>
+      <td class="px-3 py-2.5"><div class="font-bold text-on-surface">${r.symbol}</div><div class="text-[9px] text-on-surface-variant">${r.sector||''}</div></td>
+      <td class="px-3 py-2.5 text-right text-on-surface">\u20b9${r.price||'--'}</td>
+      <td class="px-3 py-2.5 text-right text-on-surface-variant">${pe}</td>
+      <td class="px-3 py-2.5 text-right text-on-surface-variant">${rsi}</td>
+      <td class="px-3 py-2.5 text-right text-on-surface-variant">${roe}</td>
+      <td class="px-3 py-2.5 text-right"><span class="px-2 py-0.5 ${r.score>=60?'bg-primary/20 text-primary':r.score>=40?'bg-secondary/20 text-secondary':'bg-surface-container-highest text-on-surface-variant'} rounded-full text-[10px] font-black">${r.score}</span></td>
+      <td class="px-3 py-2.5 text-center"><span class="${r.passed?'bg-primary/10 text-primary':'bg-error/10 text-error'} text-[10px] px-2 py-0.5 rounded-full font-black uppercase">${r.passed?'PASS':'FAIL'}</span></td>
+      <td class="px-3 py-2.5 text-center"><button onclick="event.stopPropagation();addToWatchlist('${r.symbol}')" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined" style="font-size:14px;">bookmark_add</span></button></td>
+    </tr>`;
+  }).join('');
+
+  const s2=document.getElementById('s2-body');
+  document.getElementById('s2-count').textContent=data.stage2_results.length+' candidates';
+  s2.innerHTML=data.stage2_results.map((r,i)=>`
+    <tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" onclick="openChart('${r.symbol}')">
+      <td class="px-3 py-2.5 font-bold text-secondary">${r.rank||i+1}</td>
+      <td class="px-3 py-2.5 font-bold text-on-surface">${r.symbol}</td>
+      <td class="px-3 py-2.5 text-right text-on-surface">\u20b9${r.price||'--'}</td>
+      <td class="px-3 py-2.5 text-right text-error font-mono">${r.stop_loss?'\u20b9'+r.stop_loss:'--'}</td>
+      <td class="px-3 py-2.5 text-right text-primary font-mono">${r.target?'\u20b9'+r.target:'--'}</td>
+      <td class="px-3 py-2.5 text-center font-bold text-on-surface">1:${r.risk_reward||'--'}</td>
+      <td class="px-3 py-2.5 text-right"><span class="px-2 py-0.5 ${r.score>=60?'bg-primary/20 text-primary':'bg-surface-container-highest text-on-surface-variant'} rounded-full text-[10px] font-black">${r.score}</span></td>
+      <td class="px-3 py-2.5 text-center"><span class="${r.passed?'bg-primary/10 text-primary':'bg-error/10 text-error'} text-[10px] px-2 py-0.5 rounded-full font-black uppercase">${r.passed?'PASS':'FAIL'}</span></td>
+      <td class="px-3 py-2.5 text-center"><button onclick="event.stopPropagation();addToWatchlist('${r.symbol}')" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined" style="font-size:14px;">bookmark_add</span></button></td>
+    </tr>
+  `).join('');
 }
 
-function toggleFilterPanel() {
-  const panel = document.getElementById('filter-panel');
-  const icon = document.getElementById('filter-expand-icon');
-  filterExpanded = !filterExpanded;
-  panel.style.maxHeight = filterExpanded ? '400px' : '120px';
-  icon.textContent = filterExpanded ? 'expand_less' : 'expand_more';
-}
-
-// Build config from dynamic filter panel
-function getFilterConfig() {
-  // Return only the modified filters (enabled/disabled + changed params)
-  const config = {};
-  for (const [key, val] of Object.entries(fullConfig)) {
-    if (typeof val === 'object' && 'enabled' in val) {
-      config[key] = { ...val };
-    }
-  }
-  return config;
-}
-
-// ============ CANDLESTICK CHART (Kite-style) ============
-let currentChart = null;
-let currentRsiChart = null;
-let currentVolChart = null;
-let currentChartSymbol = null;
-
+// ============ CHART ============
 function openChart(symbol) {
-  currentChartSymbol = symbol;
-  const tables = document.getElementById('tables-panel');
-  const chart = document.getElementById('chart-panel');
-
-  // Shrink tables, expand chart
-  tables.style.width = '320px';
-  tables.style.minWidth = '320px';
-  chart.style.display = 'flex';
-  chart.style.width = 'calc(100% - 330px)';
-
-  document.getElementById('chart-title').textContent = symbol;
-  document.getElementById('chart-container').innerHTML = '';
-  document.getElementById('rsi-container').innerHTML = '';
-  document.getElementById('vol-container').innerHTML = '';
-
+  currentChartSymbol=symbol;
+  const tables=document.getElementById('tables-panel'),chart=document.getElementById('chart-panel');
+  tables.style.width='320px'; tables.style.minWidth='320px';
+  chart.style.display='flex'; chart.style.width='calc(100% - 330px)';
+  document.getElementById('chart-title').textContent=symbol;
+  document.getElementById('chart-container').innerHTML='';
+  document.getElementById('rsi-container').innerHTML='';
+  document.getElementById('vol-container').innerHTML='';
   loadChart(symbol);
 }
-
 function closeChart() {
-  const tables = document.getElementById('tables-panel');
-  const chart = document.getElementById('chart-panel');
-  tables.style.width = '100%';
-  tables.style.minWidth = '';
-  chart.style.display = 'none';
-  chart.style.width = '0';
-  currentChartSymbol = null;
+  const tables=document.getElementById('tables-panel'),chart=document.getElementById('chart-panel');
+  tables.style.width='100%'; tables.style.minWidth='';
+  chart.style.display='none'; chart.style.width='0';
+  currentChartSymbol=null;
 }
+function openInsightsFromChart() { if(currentChartSymbol) openStock(currentChartSymbol); }
 
-function openInsightsFromChart() {
-  if (currentChartSymbol) openStock(currentChartSymbol);
-}
+let currentChartDays = 180;
+let currentChartInterval = '1D';
 
-async function loadChart(symbol) {
+async function loadChart(symbol, days, interval) {
+  days = days || currentChartDays;
+  interval = interval || currentChartInterval;
+  currentChartDays = days;
+  currentChartInterval = interval;
   try {
-    const res = await fetch(API + '/chart/' + symbol);
-    const data = await res.json();
-    document.getElementById('chart-price').textContent = '₹' + data.price;
+    const res=await fetch(API+'/chart/'+symbol+'?days='+days+'&interval='+interval);
+    const data=await res.json();
+    document.getElementById('chart-price').textContent='\u20b9'+data.price;
     renderChart(data);
-  } catch(e) {
-    document.getElementById('chart-container').innerHTML = '<p class="text-red-400 p-4 text-sm">Chart error: ' + e.message + '</p>';
-  }
+  } catch(e) { document.getElementById('chart-container').innerHTML='<p class="text-error p-4 text-sm">Chart error: '+e.message+'</p>'; }
 }
+
+function changeChartInterval(interval, el) {
+  currentChartInterval = interval;
+  document.querySelectorAll('.chart-iv-btn').forEach(b=>{
+    b.className = 'chart-iv-btn px-2 py-0.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary';
+  });
+  if(el) el.className = 'chart-iv-btn px-2 py-0.5 text-[9px] font-bold rounded bg-surface-variant text-primary';
+  if(currentChartSymbol) loadChart(currentChartSymbol, currentChartDays, interval);
+}
+
+function changeChartTimeframe(days, el) {
+  currentChartDays = days;
+  document.querySelectorAll('.chart-tf-btn').forEach(b=>{
+    b.className = 'chart-tf-btn px-2 py-0.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary';
+  });
+  if(el) el.className = 'chart-tf-btn px-2 py-0.5 text-[9px] font-bold rounded bg-surface-variant text-primary';
+  if(currentChartSymbol) loadChart(currentChartSymbol, days, currentChartInterval);
+}
+
+const CHART_COLORS = { bg:'#171b28', text:'#bacbbf', grid:'#1b1f2c', border:'#3b4a41' };
+const OVERLAY_CONFIG = {
+  ema50:      { color:'#f59e0b', width:1, title:'EMA 50',    key:'ema50' },
+  ema200:     { color:'#3b82f6', width:1, title:'EMA 200',   key:'ema200' },
+  supertrend: { color:'#6effc0', width:2, title:'Supertrend', key:'supertrend' },
+  sma20:      { color:'#ec4899', width:1, title:'SMA 20',    key:'sma20' },
+  vwap:       { color:'#06b6d4', width:1, title:'VWAP',      key:'vwap' },
+  bb_upper:   { color:'#8b5cf6', width:1, title:'BB Upper',  key:'bb_upper', lineStyle:2 },
+  bb_mid:     { color:'#8b5cf680',width:1, title:'BB Mid',   key:'bb_mid', lineStyle:1 },
+  bb_lower:   { color:'#8b5cf6', width:1, title:'BB Lower',  key:'bb_lower', lineStyle:2 },
+  vwap_upper: { color:'#06b6d4', width:1, title:'VWAP +1σ',  key:'vwap_upper', lineStyle:2 },
+  vwap_lower: { color:'#06b6d4', width:1, title:'VWAP -1σ',  key:'vwap_lower', lineStyle:2 },
+  ichimoku_tenkan:   { color:'#ef4444', width:1, title:'Tenkan (9)',  key:'ichimoku_tenkan' },
+  ichimoku_kijun:    { color:'#3b82f6', width:1, title:'Kijun (26)',  key:'ichimoku_kijun' },
+  ichimoku_senkou_a: { color:'#22c55e', width:1, title:'Senkou A',    key:'ichimoku_senkou_a', lineStyle:2 },
+  ichimoku_senkou_b: { color:'#ef4444', width:1, title:'Senkou B',    key:'ichimoku_senkou_b', lineStyle:2 },
+};
+let subPanelCharts = {}; // { key: chart instance }
 
 function renderChart(data) {
-  const chartEl = document.getElementById('chart-container');
-  const rsiEl = document.getElementById('rsi-container');
-  const volEl = document.getElementById('vol-container');
+  chartData = data;
+  chartOverlays = {};
+  const chartEl=document.getElementById('chart-container'),rsiEl=document.getElementById('rsi-container'),volEl=document.getElementById('vol-container'),macdEl=document.getElementById('macd-container');
 
-  // Main candlestick chart
-  currentChart = LightweightCharts.createChart(chartEl, {
-    width: chartEl.clientWidth, height: chartEl.clientHeight,
-    layout: { background: { color: '#191b22' }, textColor: '#8b949e', fontSize: 10 },
-    grid: { vertLines: { color: '#1e1f26' }, horzLines: { color: '#1e1f26' } },
-    crosshair: { mode: 0 },
-    timeScale: { borderColor: '#33343b', timeVisible: false },
-    rightPriceScale: { borderColor: '#33343b' },
+  // Init sync tracking
+  window._chartSyncSeries = {};
+
+  // Main candlestick
+  currentChart=LightweightCharts.createChart(chartEl,{width:chartEl.clientWidth,height:chartEl.clientHeight,layout:{background:{color:CHART_COLORS.bg},textColor:CHART_COLORS.text,fontSize:10},grid:{vertLines:{color:CHART_COLORS.grid},horzLines:{color:CHART_COLORS.grid}},crosshair:{mode:0},timeScale:{borderColor:CHART_COLORS.border,timeVisible:false},rightPriceScale:{borderColor:CHART_COLORS.border,minimumWidth:65}});
+  const cs=currentChart.addCandlestickSeries({upColor:'#00e5a0',downColor:'#ff4757',borderUpColor:'#00e5a0',borderDownColor:'#ff4757',wickUpColor:'#00e5a0',wickDownColor:'#ff4757'});
+  cs.setData(data.candles);
+
+  // Clear old sub-panels
+  subPanelCharts = {};
+  document.getElementById('sub-panels').innerHTML = '';
+
+  // Re-add all indicators based on checkbox state
+  document.querySelectorAll('[data-chart-ind]').forEach(cb=>{
+    const key=cb.dataset.chartInd;
+    if(!cb.checked) return;
+    // Simple overlays
+    if(!['rsi','macd','bollinger','vwap_sd','ichimoku','pivots'].includes(key) && !SUB_PANEL_CONFIG[key]) {
+      addChartOverlay(key);
+    }
+    // Multi-line overlay groups
+    if(key==='bollinger') { addChartOverlay('bb_upper'); addChartOverlay('bb_mid'); addChartOverlay('bb_lower'); }
+    if(key==='vwap_sd') { addChartOverlay('vwap'); addChartOverlay('vwap_upper'); addChartOverlay('vwap_lower'); }
+    if(key==='ichimoku') { addChartOverlay('ichimoku_tenkan'); addChartOverlay('ichimoku_kijun'); addChartOverlay('ichimoku_senkou_a'); addChartOverlay('ichimoku_senkou_b'); }
+    if(key==='pivots' && chartData) {
+      const ov=chartData.overlays, t0=chartData.candles[0]?.time, t1=chartData.candles[chartData.candles.length-1]?.time;
+      if(t0&&t1) ['pivot_pp','pivot_r1','pivot_s1','pivot_r2','pivot_s2'].forEach(pk=>{
+        const v=ov[pk]; if(typeof v!=='number') return;
+        const col=pk.includes('r')?'#22c55e':pk.includes('s')?'#ef4444':'#facc15';
+        const s=currentChart.addLineSeries({color:col,lineWidth:1,lineStyle:2,title:pk.replace('pivot_','').toUpperCase()});
+        s.setData([{time:t0,value:v},{time:t1,value:v}]); chartOverlays['pivot_'+pk]=s;
+      });
+    }
+    // Sub-panels
+    if(SUB_PANEL_CONFIG[key]) addSubPanel(key);
   });
-
-  // Candles
-  const candleSeries = currentChart.addCandlestickSeries({
-    upColor: '#00d4aa', downColor: '#ff4757', borderUpColor: '#00d4aa', borderDownColor: '#ff4757',
-    wickUpColor: '#00d4aa', wickDownColor: '#ff4757',
-  });
-  candleSeries.setData(data.candles);
-
-  // EMA 50 (yellow)
-  if (data.overlays.ema50 && data.overlays.ema50.length) {
-    const ema50 = currentChart.addLineSeries({ color: '#f59e0b', lineWidth: 1, title: 'EMA50' });
-    ema50.setData(data.overlays.ema50);
-  }
-
-  // EMA 200 (blue)
-  if (data.overlays.ema200 && data.overlays.ema200.length) {
-    const ema200 = currentChart.addLineSeries({ color: '#3b82f6', lineWidth: 1, title: 'EMA200' });
-    ema200.setData(data.overlays.ema200);
-  }
-
-  // Supertrend (green line)
-  if (data.overlays.supertrend && data.overlays.supertrend.length) {
-    const st = currentChart.addLineSeries({ color: '#00d4aa', lineWidth: 2, lineStyle: 0, title: 'ST' });
-    st.setData(data.overlays.supertrend);
-  }
 
   currentChart.timeScale().fitContent();
 
-  // RSI chart
-  currentRsiChart = LightweightCharts.createChart(rsiEl, {
-    width: rsiEl.clientWidth, height: 80,
-    layout: { background: { color: '#191b22' }, textColor: '#8b949e', fontSize: 9 },
-    grid: { vertLines: { color: '#1e1f26' }, horzLines: { color: '#1e1f26' } },
-    timeScale: { visible: false }, rightPriceScale: { borderColor: '#33343b' },
-    crosshair: { mode: 0 },
-  });
-  const rsiLine = currentRsiChart.addLineSeries({ color: '#a855f7', lineWidth: 1.5 });
-  rsiLine.setData(data.panels.rsi);
-  // RSI levels
-  const rsi70 = currentRsiChart.addLineSeries({ color: '#ff475744', lineWidth: 1, lineStyle: 2 });
-  const rsi30 = currentRsiChart.addLineSeries({ color: '#00d4aa44', lineWidth: 1, lineStyle: 2 });
-  if (data.panels.rsi.length) {
-    rsi70.setData([{time: data.panels.rsi[0].time, value:70},{time: data.panels.rsi[data.panels.rsi.length-1].time, value:70}]);
-    rsi30.setData([{time: data.panels.rsi[0].time, value:30},{time: data.panels.rsi[data.panels.rsi.length-1].time, value:30}]);
-  }
-  currentRsiChart.timeScale().fitContent();
+  // RSI panel
+  const rsiCb = document.querySelector('[data-chart-ind="rsi"]');
+  if(rsiCb?.checked) {
+    rsiEl.style.display='block';
+    renderRsiPanel(data, rsiEl);
+  } else { rsiEl.style.display='none'; currentRsiChart=null; }
 
-  // Volume chart
-  currentVolChart = LightweightCharts.createChart(volEl, {
-    width: volEl.clientWidth, height: 60,
-    layout: { background: { color: '#191b22' }, textColor: '#8b949e', fontSize: 9 },
-    grid: { vertLines: { color: '#1e1f26' }, horzLines: { color: '#1e1f26' } },
-    timeScale: { visible: false }, rightPriceScale: { borderColor: '#33343b' },
-    crosshair: { mode: 0 },
-  });
-  const volSeries = currentVolChart.addHistogramSeries({ priceFormat: { type: 'volume' } });
-  volSeries.setData(data.volumes);
-  currentVolChart.timeScale().fitContent();
+  // MACD panel
+  const macdCb = document.querySelector('[data-chart-ind="macd"]');
+  if(macdCb?.checked) {
+    macdEl.style.display='block';
+    renderMacdPanel(data, macdEl);
+  } else { macdEl.style.display='none'; currentMacdChart=null; }
 
-  // Sync crosshairs
-  currentChart.timeScale().subscribeVisibleTimeRangeChange(tr => {
-    currentRsiChart.timeScale().setVisibleRange(tr);
-    currentVolChart.timeScale().setVisibleRange(tr);
+  // Volume
+  currentVolChart=LightweightCharts.createChart(volEl,{width:volEl.clientWidth,height:60,layout:{background:{color:CHART_COLORS.bg},textColor:CHART_COLORS.text,fontSize:9},grid:{vertLines:{color:CHART_COLORS.grid},horzLines:{color:CHART_COLORS.grid}},timeScale:{visible:false},rightPriceScale:{borderColor:CHART_COLORS.border,minimumWidth:65},crosshair:{mode:0},handleScroll:false,handleScale:false});
+  addTimeBaseline(currentVolChart);
+  const vs=currentVolChart.addHistogramSeries({priceFormat:{type:'volume'}});
+  vs.setData(data.volumes);
+  syncSubPanelToMain(currentVolChart);
+  currentVolChart._uniqueId='vol'; window._chartSyncSeries['vol']=vs;
+
+  // Sync all panels using logical range (bar-index-based = pixel-perfect alignment)
+  currentChart.timeScale().subscribeVisibleLogicalRangeChange(lr=>{
+    if(!lr) return;
+    if(currentRsiChart)try{currentRsiChart.timeScale().setVisibleLogicalRange(lr)}catch(e){}
+    if(currentMacdChart)try{currentMacdChart.timeScale().setVisibleLogicalRange(lr)}catch(e){}
+    if(currentVolChart)try{currentVolChart.timeScale().setVisibleLogicalRange(lr)}catch(e){}
+    for(const k in subPanelCharts){try{subPanelCharts[k].timeScale().setVisibleLogicalRange(lr)}catch(e){}}
   });
 
-  // Resize handler
-  new ResizeObserver(() => {
-    if (currentChart) currentChart.applyOptions({ width: chartEl.clientWidth });
-    if (currentRsiChart) currentRsiChart.applyOptions({ width: rsiEl.clientWidth });
-    if (currentVolChart) currentVolChart.applyOptions({ width: volEl.clientWidth });
+  // Sync crosshair vertical line across all panels
+  // We need to track the first series of each sub-chart for setCrosshairPosition
+  currentChart.subscribeCrosshairMove(param=>{
+    const subCharts = [];
+    if(currentRsiChart) subCharts.push(currentRsiChart);
+    if(currentMacdChart) subCharts.push(currentMacdChart);
+    if(currentVolChart) subCharts.push(currentVolChart);
+    for(const k in subPanelCharts) subCharts.push(subPanelCharts[k]);
+
+    subCharts.forEach(c=>{
+      try {
+        if(!param.time) { c.clearCrosshairPosition(); return; }
+        // Get the first series key from param to find a matching series
+        const series = window._chartSyncSeries[c._uniqueId || ''];
+        if(series) c.setCrosshairPosition(undefined, param.time, series);
+      } catch(e){}
+    });
+  });
+
+  // Force all sub-panels to match main chart's logical range after initial render
+  setTimeout(()=>{
+    try {
+      const lr = currentChart.timeScale().getVisibleLogicalRange();
+      if(lr) {
+        if(currentRsiChart)try{currentRsiChart.timeScale().setVisibleLogicalRange(lr)}catch(e){}
+        if(currentMacdChart)try{currentMacdChart.timeScale().setVisibleLogicalRange(lr)}catch(e){}
+        if(currentVolChart)try{currentVolChart.timeScale().setVisibleLogicalRange(lr)}catch(e){}
+        for(const k in subPanelCharts)try{subPanelCharts[k].timeScale().setVisibleLogicalRange(lr)}catch(e){}
+      }
+    } catch(e){}
+  }, 100);
+
+  new ResizeObserver(()=>{
+    if(currentChart)currentChart.applyOptions({width:chartEl.clientWidth});
+    if(currentRsiChart)currentRsiChart.applyOptions({width:rsiEl.clientWidth});
+    if(currentMacdChart)currentMacdChart.applyOptions({width:macdEl.clientWidth});
+    if(currentVolChart)currentVolChart.applyOptions({width:volEl.clientWidth});
   }).observe(chartEl);
 }
 
-let screenAbort = null;  // AbortController for cancelling
-
-// Stop screening
-function stopScreening() {
-  if (screenAbort) { screenAbort.abort(); screenAbort = null; }
-  document.getElementById('loading').classList.remove('active');
-  document.getElementById('scan-all-btn').disabled = false;
-  document.getElementById('scan-all-btn').innerHTML = '<span class="material-symbols-outlined text-sm">radar</span> Screen';
-  document.getElementById('run-btn').disabled = false;
+// Sync a sub-panel's logical range to the main chart (pixel-perfect)
+function syncSubPanelToMain(subChart) {
+  if(!currentChart || !subChart) return;
+  setTimeout(()=>{
+    try {
+      const lr = currentChart.timeScale().getVisibleLogicalRange();
+      if(lr) subChart.timeScale().setVisibleLogicalRange(lr);
+    } catch(e){}
+  }, 50);
 }
 
-// Screen stocks by scope (Nifty 200/500/All)
-async function runScreenAll() {
-  const config = getFilterConfig();
-  const scope = document.getElementById('scope-select').value;
-  document.getElementById('loading').classList.add('active');
-  document.getElementById('scan-all-btn').disabled = true;
-  document.getElementById('scan-all-btn').textContent = 'Scanning...';
+// Add hidden baseline series with candle timestamps so bar count matches main chart
+function addTimeBaseline(chart) {
+  if(!chartData?.candles?.length) return;
+  const bl=chart.addLineSeries({visible:false,priceScaleId:'baseline_hidden'});
+  bl.setData(chartData.candles.map(c=>({time:c.time,value:0})));
+}
 
-  screenAbort = new AbortController();
-  try {
-    const res = await fetch(API + '/screen', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ scan_all: true, config, scope, min_price: 50, min_volume: 100000 }),
-      signal: screenAbort.signal
-    });
-    const data = await res.json();
-    renderResults(data);
-  } catch(e) {
-    if (e.name !== 'AbortError') alert('Error: ' + e.message);
-  } finally {
-    screenAbort = null;
-    document.getElementById('loading').classList.remove('active');
-    document.getElementById('scan-all-btn').disabled = false;
-    document.getElementById('scan-all-btn').innerHTML = '<span class="material-symbols-outlined text-sm">radar</span> Screen';
+
+function renderRsiPanel(data, el) {
+  el.innerHTML='';
+  currentRsiChart=LightweightCharts.createChart(el,{width:el.clientWidth,height:80,layout:{background:{color:CHART_COLORS.bg},textColor:CHART_COLORS.text,fontSize:9},grid:{vertLines:{color:CHART_COLORS.grid},horzLines:{color:CHART_COLORS.grid}},timeScale:{visible:false},rightPriceScale:{borderColor:CHART_COLORS.border,minimumWidth:65},crosshair:{mode:0},handleScroll:false,handleScale:false});
+  addTimeBaseline(currentRsiChart);
+  const rsiLine=currentRsiChart.addLineSeries({color:'#a855f7',lineWidth:1.5,title:'RSI (14)'});
+  rsiLine.setData(data.panels.rsi);
+  if(data.panels.rsi.length){
+    const t0=data.candles[0].time, t1=data.candles[data.candles.length-1].time;
+    const r70=currentRsiChart.addLineSeries({color:'#ff475744',lineWidth:1,lineStyle:2});
+    const r30=currentRsiChart.addLineSeries({color:'#00e5a044',lineWidth:1,lineStyle:2});
+    r70.setData([{time:t0,value:70},{time:t1,value:70}]);
+    r30.setData([{time:t0,value:30},{time:t1,value:30}]);
   }
+  syncSubPanelToMain(currentRsiChart);
+  currentRsiChart._uniqueId='rsi'; window._chartSyncSeries['rsi']=rsiLine;
 }
 
-// Run screening for specific symbols
-async function runScreen() {
-  const input = document.getElementById('symbols-input').value.trim();
-  if (!input) { runScreenAll(); return; }
-  const symbols = input.split(',').map(s => s.trim().toUpperCase()).filter(s => s);
-  const config = getFilterConfig();
+function renderMacdPanel(data, el) {
+  if(!data.panels.macd) return;
+  el.innerHTML='';
+  currentMacdChart=LightweightCharts.createChart(el,{width:el.clientWidth,height:80,layout:{background:{color:CHART_COLORS.bg},textColor:CHART_COLORS.text,fontSize:9},grid:{vertLines:{color:CHART_COLORS.grid},horzLines:{color:CHART_COLORS.grid}},timeScale:{visible:false},rightPriceScale:{borderColor:CHART_COLORS.border,minimumWidth:65},crosshair:{mode:0},handleScroll:false,handleScale:false});
+  addTimeBaseline(currentMacdChart);
+  const macdLine=currentMacdChart.addLineSeries({color:'#f97316',lineWidth:1.5,title:'MACD'});
+  macdLine.setData(data.panels.macd);
+  const sigLine=currentMacdChart.addLineSeries({color:'#06b6d4',lineWidth:1,title:'Signal'});
+  sigLine.setData(data.panels.macd_signal);
+  const hist=currentMacdChart.addHistogramSeries({title:'Histogram'});
+  hist.setData(data.panels.macd_hist);
+  syncSubPanelToMain(currentMacdChart);
+  currentMacdChart._uniqueId='macd'; window._chartSyncSeries['macd']=macdLine;
+}
 
-  document.getElementById('loading').classList.add('active');
-  document.getElementById('run-btn').disabled = true;
+function addChartOverlay(key) {
+  if(!currentChart || !chartData || chartOverlays[key]) return;
+  const cfg = OVERLAY_CONFIG[key];
+  if(!cfg) return;
+  const d = chartData.overlays[cfg.key];
+  if(!d?.length) return;
+  const s = currentChart.addLineSeries({color:cfg.color, lineWidth:cfg.width, title:cfg.title, lineStyle:cfg.lineStyle||0});
+  s.setData(d);
+  chartOverlays[key] = s;
+}
 
-  screenAbort = new AbortController();
-  try {
-    const res = await fetch(API + '/screen', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ symbols, config }),
-      signal: screenAbort.signal
-    });
-    const data = await res.json();
-    renderResults(data);
-  } catch(e) {
-    if (e.name !== 'AbortError') alert('Error: ' + e.message);
-  } finally {
-    screenAbort = null;
-    document.getElementById('loading').classList.remove('active');
-    document.getElementById('run-btn').disabled = false;
+function removeChartOverlay(key) {
+  if(!currentChart || !chartOverlays[key]) return;
+  currentChart.removeSeries(chartOverlays[key]);
+  delete chartOverlays[key];
+}
+
+// Sub-panel config: { panelKey: { dataKeys, colors, titles, type('line'|'hist') } }
+const SUB_PANEL_CONFIG = {
+  stoch_rsi: { lines:[{key:'stoch_k',color:'#22d3ee',title:'Stoch %K'},{key:'stoch_d',color:'#f97316',title:'Stoch %D'}], levels:[80,20] },
+  williams:  { lines:[{key:'williams',color:'#e879f9',title:'Williams %R'}], levels:[-20,-80] },
+  adx:       { lines:[{key:'adx',color:'#fb923c',title:'ADX'}], levels:[25] },
+  obv:       { lines:[{key:'obv',color:'#4ade80',title:'OBV'}] },
+  cmf:       { lines:[{key:'cmf',color:'#2dd4bf',title:'CMF'}], levels:[0] },
+  atr:       { lines:[{key:'atr',color:'#fbbf24',title:'ATR'}] },
+  ao:        { hist:{key:'ao',title:'AO'} },
+  roc:       { lines:[{key:'roc',color:'#c084fc',title:'ROC'}], levels:[0] },
+  vortex:    { lines:[{key:'vortex_plus',color:'#4ade80',title:'VI+'},{key:'vortex_minus',color:'#f87171',title:'VI-'}], levels:[1] },
+};
+
+function addSubPanel(key) {
+  if(!chartData || subPanelCharts[key]) return;
+  const cfg = SUB_PANEL_CONFIG[key];
+  if(!cfg) return;
+  const container = document.getElementById('sub-panels');
+  const div = document.createElement('div');
+  div.id = 'subpanel-'+key;
+  div.className = 'bg-surface-container rounded-lg border border-outline-variant/10';
+  div.style.height = '80px';
+  container.appendChild(div);
+  const chart = LightweightCharts.createChart(div, {width:div.clientWidth,height:80,layout:{background:{color:CHART_COLORS.bg},textColor:CHART_COLORS.text,fontSize:9},grid:{vertLines:{color:CHART_COLORS.grid},horzLines:{color:CHART_COLORS.grid}},timeScale:{visible:false},rightPriceScale:{borderColor:CHART_COLORS.border,minimumWidth:65},crosshair:{mode:0},handleScroll:false,handleScale:false});
+  addTimeBaseline(chart);
+  let firstSeries = null;
+  if(cfg.lines) cfg.lines.forEach(l=>{const d=chartData.panels[l.key];if(d?.length){const s=chart.addLineSeries({color:l.color,lineWidth:1.5,title:l.title});s.setData(d);if(!firstSeries)firstSeries=s;}});
+  if(cfg.hist) {const d=chartData.panels[cfg.hist.key];if(d?.length){const s=chart.addHistogramSeries({title:cfg.hist.title});s.setData(d);if(!firstSeries)firstSeries=s;}}
+  if(cfg.levels&&cfg.lines) {const d=chartData.panels[cfg.lines[0].key];if(d?.length) cfg.levels.forEach(lv=>{const s=chart.addLineSeries({color:'#ffffff22',lineWidth:1,lineStyle:2});s.setData([{time:d[0].time,value:lv},{time:d[d.length-1].time,value:lv}]);});}
+  syncSubPanelToMain(chart);
+  chart._uniqueId='sub_'+key; if(firstSeries) window._chartSyncSeries['sub_'+key]=firstSeries;
+  subPanelCharts[key] = chart;
+  new ResizeObserver(()=>{if(subPanelCharts[key])subPanelCharts[key].applyOptions({width:div.clientWidth});}).observe(div);
+}
+
+function removeSubPanel(key) {
+  const div = document.getElementById('subpanel-'+key);
+  if(div) div.remove();
+  delete subPanelCharts[key];
+}
+
+function toggleChartIndicator(key, checked) {
+  // Multi-line overlays
+  if(key==='bollinger') {
+    if(checked){ addChartOverlay('bb_upper'); addChartOverlay('bb_mid'); addChartOverlay('bb_lower'); }
+    else { removeChartOverlay('bb_upper'); removeChartOverlay('bb_mid'); removeChartOverlay('bb_lower'); }
+    return;
   }
+  if(key==='vwap_sd') {
+    if(checked){ addChartOverlay('vwap'); addChartOverlay('vwap_upper'); addChartOverlay('vwap_lower'); }
+    else { removeChartOverlay('vwap_upper'); removeChartOverlay('vwap_lower'); }
+    return;
+  }
+  if(key==='ichimoku') {
+    if(checked){ addChartOverlay('ichimoku_tenkan'); addChartOverlay('ichimoku_kijun'); addChartOverlay('ichimoku_senkou_a'); addChartOverlay('ichimoku_senkou_b'); }
+    else { removeChartOverlay('ichimoku_tenkan'); removeChartOverlay('ichimoku_kijun'); removeChartOverlay('ichimoku_senkou_a'); removeChartOverlay('ichimoku_senkou_b'); }
+    return;
+  }
+  if(key==='pivots') {
+    if(checked && chartData) {
+      const ov = chartData.overlays;
+      const t0 = chartData.candles[0]?.time, t1 = chartData.candles[chartData.candles.length-1]?.time;
+      if(t0 && t1) {
+        ['pivot_pp','pivot_r1','pivot_s1','pivot_r2','pivot_s2'].forEach(pk=>{
+          const v = ov[pk]; if(typeof v!=='number') return;
+          const col = pk.includes('r')?'#22c55e':pk.includes('s')?'#ef4444':'#facc15';
+          const s = currentChart.addLineSeries({color:col,lineWidth:1,lineStyle:2,title:pk.replace('pivot_','').toUpperCase()});
+          s.setData([{time:t0,value:v},{time:t1,value:v}]);
+          chartOverlays['pivot_'+pk] = s;
+        });
+      }
+    } else {
+      ['pivot_pp','pivot_r1','pivot_s1','pivot_r2','pivot_s2'].forEach(pk=>{removeChartOverlay('pivot_'+pk);});
+    }
+    return;
+  }
+  // RSI/MACD dedicated panels
+  if(key==='rsi') {
+    const el=document.getElementById('rsi-container');
+    if(checked){ el.style.display='block'; if(chartData) renderRsiPanel(chartData, el); }
+    else { el.style.display='none'; currentRsiChart=null; }
+    return;
+  }
+  if(key==='macd') {
+    const el=document.getElementById('macd-container');
+    if(checked){ el.style.display='block'; if(chartData) renderMacdPanel(chartData, el); }
+    else { el.style.display='none'; currentMacdChart=null; }
+    return;
+  }
+  // Generic sub-panels
+  if(SUB_PANEL_CONFIG[key]) {
+    if(checked) addSubPanel(key);
+    else removeSubPanel(key);
+    return;
+  }
+  // Simple overlays
+  if(checked) addChartOverlay(key);
+  else removeChartOverlay(key);
 }
 
-// Render screening results
-function renderResults(data) {
-  // Stage 1
-  const s1 = document.getElementById('s1-body');
-  document.getElementById('s1-count').textContent = data.stage1_results.length + ' results';
-  s1.innerHTML = data.stage1_results.map((r,i) => `
-    <tr class="hover:bg-[#33343b]/30 cursor-pointer border-b border-[#33343b]/10" onclick="openChart('${r.symbol}')">
-      <td class="px-2 py-2 font-bold ${r.passed?'text-[#00d4aa]':'text-slate-500'}">#${r.rank}</td>
-      <td class="px-2 py-2"><div class="font-bold">${r.symbol}</div><div class="text-[9px] text-slate-500">${r.sector||''}</div></td>
-      <td class="px-2 py-2 text-right">₹${r.price||'--'}</td>
-      <td class="px-2 py-2 text-right table-col-wide">${r.pe||'--'}</td>
-      <td class="px-2 py-2 text-right table-col-wide">${r.fundamentals?.pe_ratio?.value||'--'}</td>
-      <td class="px-2 py-2 text-right table-col-wide">${r.roe||'--'}%</td>
-      <td class="px-2 py-2 text-right font-bold">${r.score}</td>
-      <td class="px-2 py-2 text-center"><span class="${r.passed?'badge-pass':'badge-fail'} text-[10px] px-2 py-0.5 rounded-full font-bold">${r.passed?'PASS':'FAIL'}</span></td>
-    </tr>
-  `).join('');
-
-  // Stage 2
-  const s2 = document.getElementById('s2-body');
-  document.getElementById('s2-count').textContent = data.stage2_results.length + ' results';
-  s2.innerHTML = data.stage2_results.map((r,i) => `
-    <tr class="hover:bg-[#33343b]/30 cursor-pointer border-b border-[#33343b]/10" onclick="openChart('${r.symbol}')">
-      <td class="px-2 py-2 font-bold text-[#adc6ff]">#${r.rank}</td>
-      <td class="px-2 py-2 font-bold">${r.symbol}</td>
-      <td class="px-2 py-2 text-right">₹${r.price||'--'}</td>
-      <td class="px-2 py-2 text-right text-red-400">${r.stop_loss||'--'}</td>
-      <td class="px-2 py-2 text-right text-[#00d4aa]">${r.target||'--'}</td>
-      <td class="px-2 py-2 text-center font-bold">1:${r.risk_reward||'--'}</td>
-      <td class="px-2 py-2 text-right font-bold">${r.score}</td>
-      <td class="px-2 py-2 text-center"><span class="${r.passed?'badge-pass':'badge-fail'} text-[10px] px-2 py-0.5 rounded-full font-bold">${r.passed?'PASS':'FAIL'}</span></td>
-    </tr>
-  `).join('');
-}
-
-// Open stock side panel with insights
+// ============ INSIGHTS PANEL ============
 async function openStock(symbol) {
-  document.getElementById('panel-title').textContent = 'AI Insights: ' + symbol;
-  document.getElementById('panel-content').innerHTML = '<div class="text-center py-8"><div class="animate-spin w-6 h-6 border-2 border-[#00d4aa] border-t-transparent rounded-full mx-auto"></div></div>';
-  document.getElementById('side-panel').classList.add('open');
-
+  document.getElementById('panel-title').textContent='AI Insights: '+symbol;
+  document.getElementById('panel-content').innerHTML='<div class="text-center py-8"><div class="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full mx-auto"></div></div>';
+  document.getElementById('side-panel').style.translate='0%';
   try {
-    const res = await fetch(API + '/stock/' + symbol);
-    const data = await res.json();
+    const res=await fetch(API+'/stock/'+symbol);
+    const data=await res.json();
     renderPanel(data);
-  } catch(e) {
-    document.getElementById('panel-content').innerHTML = '<p class="text-red-400">Error loading: ' + e.message + '</p>';
-  }
+  } catch(e) { document.getElementById('panel-content').innerHTML='<p class="text-error">Error: '+e.message+'</p>'; }
 }
 
-function closePanel() { document.getElementById('side-panel').classList.remove('open'); }
+function closePanel() { document.getElementById('side-panel').style.translate='100%'; }
 
 function renderPanel(data) {
-  const ins = data.insights || {};
-  const badgeColor = ins.overall_outlook==='Bullish'?'bg-[#00d4aa]/20 text-[#00d4aa]':
-                     ins.overall_outlook==='Bearish'?'bg-red-500/20 text-red-400':'bg-slate-500/20 text-slate-300';
-
-  let html = `
-    <div class="p-4 rounded-xl border border-[#00d4aa]/20 bg-[#33343b]/20 mb-4">
-      <div class="flex items-center justify-between mb-3">
-        <span class="${badgeColor} text-[10px] px-2 py-1 rounded-full font-bold uppercase">${ins.overall_outlook||'N/A'}</span>
-        <span class="text-xs text-slate-400">Confidence: <b class="text-[#00d4aa]">${ins.confidence||'N/A'}</b></span>
-      </div>
-      <p class="text-sm leading-relaxed mb-3">${ins.summary||''}</p>
-      <div class="pt-3 border-t border-[#33343b]/30">
-        <span class="text-[10px] text-slate-400 uppercase block mb-1">Action</span>
-        <span class="text-[#00d4aa] font-bold text-sm">${ins.action||'N/A'}</span>
-      </div>
-    </div>
-    <div class="grid grid-cols-2 gap-3 mb-4">
-      <div class="p-3 bg-[#1e1f26] rounded-lg">
-        <div class="flex items-center gap-1 text-[#00d4aa] mb-2"><span class="material-symbols-outlined text-sm">verified</span><span class="text-[10px] font-bold uppercase">Strengths (${ins.bull_count||0})</span></div>
-        <ul class="text-[10px] text-slate-300 space-y-1.5">${(ins.strengths||[]).map(s=>'<li>+ '+s+'</li>').join('')}</ul>
-      </div>
-      <div class="p-3 bg-[#1e1f26] rounded-lg">
-        <div class="flex items-center gap-1 text-red-400 mb-2"><span class="material-symbols-outlined text-sm">warning</span><span class="text-[10px] font-bold uppercase">Risks (${ins.bear_count||0})</span></div>
-        <ul class="text-[10px] text-slate-300 space-y-1.5">${(ins.weaknesses||[]).map(w=>'<li>- '+w+'</li>').join('')}</ul>
-      </div>
-    </div>`;
-
-  // Indicator analysis
-  if (ins.indicator_insights && ins.indicator_insights.length) {
-    html += '<h3 class="text-[10px] font-bold text-slate-400 uppercase mb-2 tracking-widest">Indicator Analysis</h3><div class="space-y-2">';
-    ins.indicator_insights.forEach(i => {
-      const color = i.signal==='bullish'?'border-[#00d4aa]':i.signal==='bearish'?'border-red-400':'border-slate-500';
-      html += `<div class="p-3 bg-[#1e1f26] rounded-lg border-l-2 ${color}">
-        <div class="font-bold text-xs mb-1">${i.indicator}</div>
-        <div class="text-[10px] text-slate-400 leading-relaxed">${i.interpretation}</div>
-      </div>`;
-    });
-    html += '</div>';
-  }
-
-  // Inspector
-  if (data.inspector) {
-    html += '<h3 class="text-[10px] font-bold text-slate-400 uppercase mt-4 mb-2 tracking-widest">Filter Inspector</h3><div class="space-y-1">';
-    data.inspector.forEach(f => {
-      const cls = f.status==='PASS'?'badge-pass':f.status==='FAIL'?'badge-fail':f.status==='BORDERLINE'?'badge-borderline':'badge-skipped';
-      html += `<div class="flex items-center justify-between py-1.5 px-2 rounded hover:bg-[#33343b]/20 text-[10px]">
-        <span class="w-32 truncate">${f.filter_name}</span>
-        <span class="${cls} px-1.5 py-0.5 rounded text-[9px] font-bold">${f.status}</span>
-        <span class="w-24 text-right text-slate-400 truncate">${f.actual_value}</span>
-      </div>`;
-    });
-    html += '</div>';
-  }
-
-  document.getElementById('panel-content').innerHTML = html;
+  const ins=data.insights||{};
+  const badgeColor=ins.overall_outlook==='Bullish'?'bg-primary/20 text-primary':ins.overall_outlook==='Bearish'?'bg-error/20 text-error':'bg-surface-variant text-on-surface-variant';
+  let html=`<div class="p-4 rounded-xl border border-primary/20 bg-surface-container-highest/20 mb-4">
+    <div class="flex items-center justify-between mb-3"><span class="${badgeColor} text-[10px] px-2 py-1 rounded-full font-bold uppercase">${ins.overall_outlook||'N/A'}</span><span class="text-xs text-on-surface-variant">Confidence: <b class="text-primary">${ins.confidence||'N/A'}</b></span></div>
+    <p class="text-sm leading-relaxed mb-3">${ins.summary||''}</p>
+    <div class="pt-3 border-t border-outline-variant/20"><span class="text-[10px] text-on-surface-variant uppercase block mb-1">Action</span><span class="text-primary font-bold text-sm">${ins.action||'N/A'}</span></div>
+  </div>
+  <div class="grid grid-cols-2 gap-3 mb-4">
+    <div class="p-3 bg-surface-container-low rounded-lg"><div class="flex items-center gap-1 text-primary mb-2"><span class="material-symbols-outlined text-sm">verified</span><span class="text-[10px] font-bold uppercase">Strengths (${ins.bull_count||0})</span></div><ul class="text-[10px] text-on-surface-variant space-y-1.5">${(ins.strengths||[]).map(s=>'<li>+ '+s+'</li>').join('')}</ul></div>
+    <div class="p-3 bg-surface-container-low rounded-lg"><div class="flex items-center gap-1 text-error mb-2"><span class="material-symbols-outlined text-sm">warning</span><span class="text-[10px] font-bold uppercase">Risks (${ins.bear_count||0})</span></div><ul class="text-[10px] text-on-surface-variant space-y-1.5">${(ins.weaknesses||[]).map(w=>'<li>- '+w+'</li>').join('')}</ul></div>
+  </div>`;
+  if(ins.indicator_insights?.length){html+='<h3 class="text-[10px] font-bold text-on-surface-variant uppercase mb-2 tracking-widest">Indicator Analysis</h3><div class="space-y-2">';ins.indicator_insights.forEach(i=>{const c=i.signal==='bullish'?'border-primary':i.signal==='bearish'?'border-error':'border-outline-variant';html+=`<div class="p-3 bg-surface-container-low rounded-lg border-l-2 ${c}"><div class="font-bold text-xs mb-1">${i.indicator}</div><div class="text-[10px] text-on-surface-variant leading-relaxed">${i.interpretation}</div></div>`;});html+='</div>';}
+  if(data.inspector){html+='<h3 class="text-[10px] font-bold text-on-surface-variant uppercase mt-4 mb-2 tracking-widest">Filter Inspector</h3><div class="space-y-1">';data.inspector.forEach(f=>{const cls=f.status==='PASS'?'bg-primary/10 text-primary':f.status==='FAIL'?'bg-error/10 text-error':f.status==='BORDERLINE'?'bg-secondary/10 text-secondary':'bg-surface-variant text-on-surface-variant';html+=`<div class="flex items-center justify-between py-1.5 px-2 rounded hover:bg-surface-container-highest/20 text-[10px]"><span class="w-32 truncate">${f.filter_name}</span><span class="${cls} px-1.5 py-0.5 rounded text-[9px] font-bold">${f.status}</span><span class="w-24 text-right text-on-surface-variant truncate">${f.actual_value}</span></div>`;});html+='</div>';}
+  document.getElementById('panel-content').innerHTML=html;
 }
 
-// Load indicators tab
-async function loadIndicators() {
-  try {
-    const res = await fetch(API + '/indicators/available');
-    const data = await res.json();
-    document.getElementById('ind-count').textContent = data.total + ' indicators available';
-    const grid = document.getElementById('indicators-grid');
-    grid.innerHTML = data.indicators.map(ind => {
-      const isHighlighted = ind.highlighted;
-      const tier = ind.precision_tier;
-      const tierBadge = tier==='most_precise'?'<span class="text-[10px] text-[#f59e0b] bg-[#f59e0b]/10 px-1.5 py-0.5 rounded-full font-bold">Most Precise</span>'
-        : tier==='hidden_gem'?'<span class="text-[10px] text-purple-400 bg-purple-400/10 px-1.5 py-0.5 rounded-full font-bold">Hidden Gem</span>'
-        : '<span class="text-[10px] text-slate-500 italic">Standard</span>';
-      return `<div class="bg-[#1a1d27] rounded-xl p-4 ${isHighlighted?'glow-green':''} hover:bg-[#1e1f26] transition-all">
-        <div class="flex justify-between items-start mb-3">
-          <div><span class="text-[10px] text-slate-400 uppercase">${ind.type}</span><h3 class="text-sm font-bold">${ind.name}</h3></div>
-        </div>
-        <p class="text-[10px] text-slate-400 mb-3 line-clamp-2">${ind.description}</p>
-        <div class="flex flex-wrap gap-1 mb-3">${Object.entries(ind.default_params).map(([k,v])=>`<span class="text-[9px] bg-[#191b22] px-1.5 py-0.5 rounded text-slate-400">${k}: <b class="text-[#00d4aa]">${v}</b></span>`).join('')}</div>
-        ${tierBadge}
-      </div>`;
-    }).join('');
-  } catch(e) { console.error(e); }
-}
-
-// Load config tab
+// ============ CONFIG PAGE ============
 async function loadConfig() {
   try {
-    const res = await fetch(API + '/config/default');
-    const data = await res.json();
-    const grid = document.getElementById('config-grid');
-    grid.innerHTML = '';
-    const config = data.config;
-    for (const [key, val] of Object.entries(config)) {
-      if (typeof val !== 'object' || key === 'scoring') continue;
-      const card = document.createElement('div');
-      card.className = 'bg-[#1e1f26] p-4 rounded-xl border border-[#33343b]/10';
-      let fields = '';
-      for (const [pk, pv] of Object.entries(val)) {
-        if (pk === 'enabled') continue;
-        fields += `<div class="flex justify-between items-center py-1"><span class="text-[10px] text-slate-400">${pk}</span><input class="bg-[#33343b] border-none rounded text-xs text-[#00d4aa] w-20 text-right py-1 px-2" value="${pv}"/></div>`;
+    const res=await fetch(API+'/config/default');
+    const data=await res.json();
+    const config=data.config;
+    const container=document.getElementById('config-grid-container');
+
+    // Group by category
+    const cats = { 'Technical Filters': { keys: TECHNICAL_KEYS, color: 'primary' },
+                   'Fundamental Screening': { keys: FUNDAMENTAL_KEYS, color: 'secondary' },
+                   'Breakout Detection': { keys: BREAKOUT_KEYS, color: 'primary-fixed-dim' } };
+    let html = '';
+    for (const [catName, cat] of Object.entries(cats)) {
+      html += `<section><div class="flex items-center gap-4 mb-6"><div class="h-[1px] flex-1 bg-gradient-to-r from-${cat.color}/40 to-transparent"></div><h2 class="text-${cat.color} font-bold tracking-widest uppercase text-xs">${catName}</h2><div class="h-[1px] flex-1 bg-gradient-to-l from-${cat.color}/40 to-transparent"></div></div>`;
+      html += '<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">';
+      for (const key of cat.keys) {
+        const val = config[key];
+        if (!val || typeof val !== 'object') continue;
+        const isOn = val.enabled;
+        let fields = '';
+        for (const [pk, pv] of Object.entries(val)) {
+          if (pk === 'enabled') continue;
+          fields += `<div><label class="block text-[9px] uppercase text-on-surface-variant mb-1">${pk.replace(/_/g,' ')}</label><input class="w-full bg-surface-container-highest border-none text-primary text-xs font-mono px-2 py-1.5 rounded-lg tabular-nums ghost-border" type="text" value="${pv}" data-config-key="${key}" data-config-param="${pk}" onchange="updateConfigParam(this)"/></div>`;
+        }
+        html += `<div class="bg-surface-container-low hover:bg-surface-container p-4 rounded-xl border border-transparent hover:border-${cat.color}/20 transition-all">
+          <div class="flex justify-between items-start mb-4"><div><h3 class="text-primary font-bold text-xs uppercase tracking-wider">${key.replace(/_/g,' ')}</h3></div>
+          <input type="checkbox" ${isOn?'checked':''} data-config-toggle="${key}" onchange="toggleConfigFilter(this)" class="w-10 h-5 bg-surface-container-highest rounded-full appearance-none checked:bg-primary-container relative cursor-pointer transition-colors before:content-[''] before:absolute before:w-4 before:h-4 before:bg-on-surface before:rounded-full before:top-0.5 before:left-0.5 checked:before:translate-x-5 before:transition-transform"/></div>
+          <div class="grid grid-cols-2 gap-3">${fields}</div></div>`;
       }
-      card.innerHTML = `<div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold capitalize">${key.replace(/_/g,' ')}</h3>
-        <span class="text-[10px] ${val.enabled?'text-[#00d4aa]':'text-slate-500'}">${val.enabled?'ON':'OFF'}</span></div>${fields}`;
-      grid.appendChild(card);
+      html += '</div></section>';
     }
-    // Load presets
-    const pRes = await fetch(API + '/presets/list');
-    const pData = await pRes.json();
-    const sel = document.getElementById('preset-select');
-    sel.innerHTML = '<option value="">Load Preset...</option>' + pData.presets.map(p=>`<option value="${p}">${p}</option>`).join('');
-  } catch(e) { console.error(e); }
+    container.innerHTML = html;
+    populatePresetDropdowns();
+  } catch(e) { console.error('Config load error:', e); }
 }
 
-async function savePreset() {
-  const name = document.getElementById('preset-name').value.trim();
-  if (!name) { alert('Enter preset name'); return; }
-  const config = getFilterConfig();
-  await fetch(API+'/presets/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,config})});
-  alert('Preset saved: '+name);
-  loadConfig();
+function updateConfigParam(el) { const k=el.dataset.configKey, p=el.dataset.configParam; if(fullConfig[k]){const n=parseFloat(el.value);fullConfig[k][p]=isNaN(n)?el.value:n;} }
+function toggleConfigFilter(el) { const k=el.dataset.configToggle; if(fullConfig[k])fullConfig[k].enabled=el.checked; }
+function saveConfigPreset() { const name=prompt('Save preset as:'); if(!name||!name.trim())return; const config=getFilterConfig(); fetch(API+'/presets/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name.trim(),config})}).then(()=>{alert('Preset saved: '+name);populatePresetDropdowns();}); }
+
+// ============ INDICATORS PAGE ============
+async function loadIndicators() {
+  try {
+    const res=await fetch(API+'/indicators/available');
+    const data=await res.json();
+    allIndicators=data.indicators;
+    document.getElementById('ind-count').textContent=data.total+' indicators available';
+
+    // Build type tabs
+    const types=new Set(data.indicators.map(i=>i.type));
+    const tabsEl=document.getElementById('ind-type-tabs');
+    tabsEl.innerHTML='<button class="ind-type-tab px-5 py-2 rounded-full bg-primary-container text-on-primary font-bold text-xs uppercase tracking-widest whitespace-nowrap" data-type="all" onclick="filterIndicatorsByType(\'all\')">All</button>';
+    types.forEach(t=>{tabsEl.innerHTML+=`<button class="ind-type-tab px-5 py-2 rounded-full bg-surface-container-high text-on-surface-variant font-bold text-xs uppercase tracking-widest whitespace-nowrap hover:text-on-surface transition-colors" data-type="${t}" onclick="filterIndicatorsByType('${t}')">${t}</button>`;});
+    renderIndicatorCards(data.indicators);
+  } catch(e) { console.error('Indicators load error:', e); }
+}
+
+function renderIndicatorCards(indicators) {
+  const grid=document.getElementById('indicators-grid');
+  const iconMap = { trend: 'show_chart', oscillator: 'trending_up', volatility: 'insights', volume: 'analytics', momentum: 'speed', composite: 'star_half', breakout: 'flash_on' };
+  // Sort: highlighted first
+  const sorted = [...indicators].sort((a,b)=>(b.highlighted?1:0)-(a.highlighted?1:0));
+  grid.innerHTML=sorted.map(ind=>{
+    const isHL=ind.highlighted;
+    const tier=ind.precision_tier;
+    const tierBadge=tier==='most_precise'?'<div class="bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-tighter border border-primary/20">Most Precise</div>'
+      :tier==='hidden_gem'?'<div class="bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-tighter border border-purple-500/30">Hidden Gem</div>'
+      :`<span class="text-[10px] text-outline font-bold uppercase tracking-widest">${ind.type}</span>`;
+    const borderCls=isHL?'border-primary/40 shadow-[0_0_20px_rgba(110,255,192,0.1)]':'border-outline-variant/10';
+    const icon=iconMap[ind.type?.toLowerCase()]||'auto_graph';
+    const params=Object.entries(ind.default_params||{}).slice(0,3);
+    return `<div class="group relative bg-surface-container p-5 rounded-xl border ${borderCls} hover:bg-surface-container-high transition-all duration-300 hover:-translate-y-1" data-ind-name="${ind.name}" data-ind-type="${ind.type}">
+      <div class="flex justify-between items-start mb-4"><span class="material-symbols-outlined ${isHL?'text-primary':'text-on-surface-variant'} text-3xl">${icon}</span>${tierBadge}</div>
+      <h3 class="text-lg font-black text-on-surface uppercase tracking-tight mb-1">${ind.name}</h3>
+      <p class="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest mb-4">${ind.description?.substring(0,40)||ind.type}</p>
+      <div class="space-y-2 mb-4">${params.map(([k,v])=>`<div class="flex justify-between text-[11px] tabular-nums"><span class="text-outline uppercase">${k}</span><span class="text-on-surface font-bold">${v}</span></div>`).join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+function filterIndicatorsByType(type) {
+  document.querySelectorAll('.ind-type-tab').forEach(b=>{b.className=b.dataset.type===type?'ind-type-tab px-5 py-2 rounded-full bg-primary-container text-on-primary font-bold text-xs uppercase tracking-widest whitespace-nowrap':'ind-type-tab px-5 py-2 rounded-full bg-surface-container-high text-on-surface-variant font-bold text-xs uppercase tracking-widest whitespace-nowrap hover:text-on-surface transition-colors';});
+  const filtered=type==='all'?allIndicators:allIndicators.filter(i=>i.type===type);
+  renderIndicatorCards(filtered);
+}
+
+function filterIndicatorCards() {
+  const q=document.getElementById('ind-search').value.toLowerCase();
+  document.querySelectorAll('#indicators-grid > div').forEach(card=>{card.style.display=card.dataset.indName?.toLowerCase().includes(q)?'':'none';});
+}
+
+// ============ PRESETS ============
+async function populatePresetDropdowns() {
+  try {
+    const res=await fetch(API+'/presets/list');
+    const data=await res.json();
+    const opts=data.presets.map(p=>`<option value="${p}">${p}</option>`).join('');
+    const s=document.getElementById('screener-preset-select');if(s)s.innerHTML='<option value="">Preset...</option>'+opts;
+    const c=document.getElementById('preset-select');if(c)c.innerHTML='<option value="">Load Preset...</option>'+opts;
+  } catch(e){console.error('Preset load error:',e);}
 }
 
 async function loadPreset(name) {
-  if (!name) return;
-  const res = await fetch(API+'/presets/'+name);
-  const data = await res.json();
-  alert('Loaded preset: '+name);
+  if(!name)return;
+  try {
+    const res=await fetch(API+'/presets/'+name);
+    const data=await res.json();
+    // First disable ALL filters, then apply preset values (so only preset filters are ON)
+    for(const[k,v] of Object.entries(fullConfig)){if(typeof v==='object'&&'enabled' in v) v.enabled=false;}
+    for(const[k,v] of Object.entries(data.config)){if(k in fullConfig&&typeof fullConfig[k]==='object'&&typeof v==='object')Object.assign(fullConfig[k],v);else fullConfig[k]=v;}
+    activePresetName=name;
+    renderFilterPanel();
+    updatePresetBadge();
+    document.getElementById('config-preset-name').textContent=name;
+  } catch(e){console.error('Preset load error:',e);}
 }
 
-function resetConfig() { loadConfig(); }
+function updatePresetBadge() { const b=document.getElementById('active-preset-badge'); if(activePresetName){b.textContent=activePresetName+' \u00d7';b.classList.remove('hidden');}else b.classList.add('hidden'); }
+function clearActivePreset() { activePresetName=null; updatePresetBadge(); document.querySelectorAll('select').forEach(s=>{if(s.id.includes('preset'))s.value='';}); }
+function quickSavePreset() { const n=prompt('Preset name:');if(!n||!n.trim())return; fetch(API+'/presets/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n.trim(),config:getFilterConfig()})}).then(()=>{activePresetName=n.trim().replace(/ /g,'_').toLowerCase();updatePresetBadge();populatePresetDropdowns();}); }
 
-// ============ DATA DOWNLOAD & PROGRESS RING ============
+// ============ WATCHLIST ============
+async function loadWatchlist() {
+  try {
+    const res=await fetch(API+'/watchlist');
+    const data=await res.json();
+    watchlistData=data.items||[];
+    document.getElementById('wl-count').textContent=watchlistData.length;
+    renderWatchlist();
+    if(watchlistData.some(i=>i.alerts?.length>0))checkWatchlistAlerts();
+  } catch(e){console.error('Watchlist error:',e);}
+}
 
-const RING_CIRCUMFERENCE = 94.25; // 2 * PI * 15
-let downloadPolling = null;
-let totalExpected = 150; // expected stock count
+function renderWatchlist() {
+  const body=document.getElementById('wl-body');
+  if(!watchlistData.length){body.innerHTML='<tr><td colspan="6" class="px-6 py-8 text-center text-on-surface-variant/50">No stocks in watchlist. Add symbols above.</td></tr>';return;}
+  body.innerHTML=watchlistData.map(item=>{
+    const alertCount=item.alerts?.length||0;
+    const triggered=item._triggered||0;
+    const statusBadge=triggered>0?`<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary text-[0.65rem] font-black uppercase rounded-full animate-pulse-soft"><span class="w-1.5 h-1.5 bg-primary rounded-full"></span>TRIGGERED</span>`
+      :alertCount>0?`<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-surface-variant text-on-surface-variant text-[0.65rem] font-black uppercase rounded-full">WATCHING</span>`
+      :`<span class="text-[0.65rem] text-on-surface-variant/50">No alerts</span>`;
+    const price=item._price?'\u20b9'+parseFloat(item._price).toFixed(2):'--';
+    const score=item._score!=null?item._score:'--';
+    const scoreColor=score>=60?'text-primary':score>=40?'text-secondary':'text-on-surface-variant';
 
+    let alertDetails='';
+    if(item._alert_results?.length){
+      alertDetails=`<tr class="bg-surface-container/40 border-l-2 border-primary"><td colspan="6" class="px-8 py-3"><div class="space-y-1.5">`+
+        item._alert_results.map((ar,i)=>{
+          const badge=ar.triggered?`<span class="bg-primary/20 text-primary text-[9px] px-1.5 py-0.5 rounded-full font-bold">TRIGGERED</span>`:`<span class="bg-surface-variant text-on-surface-variant text-[9px] px-1.5 py-0.5 rounded-full font-bold">WAITING</span>`;
+          return `<div class="flex items-center gap-2 text-[10px]">${badge}<span class="text-on-surface-variant">${ar.message}</span><span class="text-on-surface-variant/50">${ar.details||''}</span>
+            <button onclick="removeAlertFromWatchlist('${item.symbol}',${ar.alert_index})" class="ml-auto text-on-surface-variant/50 hover:text-error"><span class="material-symbols-outlined" style="font-size:12px;">close</span></button></div>`;
+        }).join('')+`</div></td></tr>`;
+    }
+
+    return `<tr class="group hover:bg-surface-container-highest/30 transition-colors cursor-pointer ${triggered>0?'bg-primary/5':''}">
+      <td class="px-6 py-4"><div class="flex flex-col"><span class="text-sm font-bold text-on-surface" onclick="viewWatchlistStock('${item.symbol}')">${item.symbol}</span><span class="text-[0.65rem] text-on-surface-variant/60">${item.added_date?new Date(item.added_date).toLocaleDateString():''}</span></div></td>
+      <td class="px-6 py-4 text-right"><span class="text-sm tabular-nums font-mono text-on-surface font-medium">${price}</span></td>
+      <td class="px-6 py-4 text-right"><span class="text-xs font-bold ${scoreColor} tabular-nums">${score}</span></td>
+      <td class="px-6 py-4 text-center"><span class="text-[0.65rem] font-bold px-2 py-0.5 bg-surface-variant/30 border border-outline-variant/10 rounded">${alertCount}</span></td>
+      <td class="px-6 py-4 text-center">${statusBadge}</td>
+      <td class="px-6 py-4 text-center"><div class="flex gap-2 justify-center">
+        <button onclick="openAlertModal('${item.symbol}')" class="text-on-surface-variant hover:text-primary" title="Add alert"><span class="material-symbols-outlined text-sm">add_alert</span></button>
+        <button onclick="viewWatchlistStock('${item.symbol}')" class="text-on-surface-variant hover:text-primary" title="Chart"><span class="material-symbols-outlined text-sm">candlestick_chart</span></button>
+        <button onclick="removeFromWatchlist('${item.symbol}')" class="text-on-surface-variant hover:text-error" title="Remove"><span class="material-symbols-outlined text-sm">delete</span></button>
+      </div></td>
+    </tr>${alertDetails}`;
+  }).join('');
+}
+
+function viewWatchlistStock(symbol) { switchTab('screener'); setTimeout(()=>openChart(symbol),100); }
+
+async function addToWatchlist(symbolOverride) {
+  let symbols;
+  if(symbolOverride){symbols=[symbolOverride];}
+  else{const input=document.getElementById('wl-add-input').value.trim();if(!input)return;symbols=input.split(',').map(s=>s.trim().toUpperCase()).filter(s=>s);document.getElementById('wl-add-input').value='';}
+  try{await fetch(API+'/watchlist/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbols})});if(currentTab==='watchlist')await loadWatchlist();}catch(e){console.error('Add watchlist error:',e);}
+}
+
+async function removeFromWatchlist(symbol) { try{await fetch(API+'/watchlist/'+symbol,{method:'DELETE'});await loadWatchlist();}catch(e){console.error(e);} }
+
+function openAlertModal(symbol) {
+  alertModalSymbol=symbol;
+  document.getElementById('wl-alert-modal-title').textContent='Add Alert: '+symbol;
+  document.getElementById('wl-alert-modal').style.display='flex';
+  document.getElementById('wl-alert-type').value='indicator';
+  updateAlertForm();
+  const src=document.getElementById('screener-preset-select');
+  const dest=document.getElementById('wl-alert-preset-select');
+  if(src&&dest)dest.innerHTML=src.innerHTML;
+}
+
+function closeAlertModal() { document.getElementById('wl-alert-modal').style.display='none'; alertModalSymbol=null; }
+
+function updateAlertForm() {
+  const t=document.getElementById('wl-alert-type').value;
+  document.getElementById('wl-alert-indicator-fields').style.display=t==='indicator'?'block':'none';
+  document.getElementById('wl-alert-price-fields').style.display=t==='price'?'block':'none';
+  document.getElementById('wl-alert-preset-fields').style.display=t==='preset'?'block':'none';
+}
+
+async function submitAlert() {
+  if(!alertModalSymbol)return;
+  const type=document.getElementById('wl-alert-type').value;
+  let alertData={type};
+  if(type==='indicator'){alertData.indicator=document.getElementById('wl-alert-indicator').value;alertData.condition=document.getElementById('wl-alert-condition').value;const v=parseFloat(document.getElementById('wl-alert-value').value);if(!isNaN(v))alertData.value=v;}
+  else if(type==='price'){alertData.condition=document.getElementById('wl-alert-price-condition').value;alertData.value=parseFloat(document.getElementById('wl-alert-price-value').value)||0;}
+  else if(type==='preset'){alertData.preset_name=document.getElementById('wl-alert-preset-select').value;if(!alertData.preset_name)return;}
+  try{await fetch(API+'/watchlist/'+alertModalSymbol+'/alert',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(alertData)});closeAlertModal();await loadWatchlist();}catch(e){console.error(e);}
+}
+
+async function checkWatchlistAlerts() {
+  const btn=document.getElementById('wl-check-btn');
+  btn.disabled=true;btn.innerHTML='<span class="material-symbols-outlined text-lg animate-spin">sync</span><span class="text-sm uppercase tracking-tighter">Checking...</span>';
+  try {
+    const res=await fetch(API+'/watchlist/check');
+    const data=await res.json();
+    for(const result of data.results){const item=watchlistData.find(i=>i.symbol===result.symbol);if(item){item._price=result.price;item._score=result.score;item._triggered=result.alerts_triggered;item._alert_results=result.alert_results||[];}}
+    watchlistData.sort((a,b)=>(b._triggered||0)-(a._triggered||0)||(b._score||0)-(a._score||0));
+    renderWatchlist();
+    const triggered=data.total_triggered||0;
+    const badge=document.getElementById('wl-triggered-count');
+    if(triggered>0){badge.textContent=triggered+' triggered';badge.classList.remove('hidden');}else badge.classList.add('hidden');
+  } catch(e){console.error(e);}
+  finally{btn.disabled=false;btn.innerHTML='<span class="material-symbols-outlined text-lg">notifications_active</span><span class="text-sm uppercase tracking-tighter">Check Alerts</span>';}
+}
+
+async function removeAlertFromWatchlist(symbol,index) { try{await fetch(API+'/watchlist/'+symbol+'/alert/'+index,{method:'DELETE'});await loadWatchlist();}catch(e){console.error(e);} }
+
+// ============ DATA SYNC ============
 function updateRing(percent) {
-  const offset = RING_CIRCUMFERENCE - (percent / 100) * RING_CIRCUMFERENCE;
-  document.getElementById('ring-fg').style.strokeDashoffset = offset;
-  document.getElementById('ring-text').textContent = Math.round(percent) + '%';
-  // Color changes
-  const fg = document.getElementById('ring-fg');
-  if (percent >= 100) fg.style.stroke = '#00d4aa';
-  else if (percent > 0) fg.style.stroke = '#46f1c5';
-  else fg.style.stroke = '#33343b';
+  const offset=RING_CIRCUMFERENCE-(percent/100)*RING_CIRCUMFERENCE;
+  document.getElementById('ring-fg').style.strokeDashoffset=offset;
+  document.getElementById('ring-text').textContent=Math.round(percent)+'%';
+  const fg=document.getElementById('ring-fg');
+  if(percent>=100)fg.style.stroke='#00e5a0';else if(percent>0)fg.style.stroke='#6effc0';else fg.style.stroke='#313442';
 }
 
 async function checkDataStatus() {
   try {
-    const res = await fetch(API + '/data/status');
-    const data = await res.json();
-    const count = data.today_downloaded || 0;
-    const ready = data.ready_for_screening;
-    const inProgress = data.download_in_progress;
-
-    document.getElementById('data-status').textContent = count + ' stocks cached';
-
-    // Show data date
-    const dataDate = data.data_as_of || data.history_latest_date || '';
-    if (dataDate && dataDate !== 'N/A') {
-      document.getElementById('data-date').textContent = 'Data as of: ' + dataDate;
-    }
-
-    const bars = data.bars_per_stock || 0;
-    const needsHistory = data.needs_history;
-
-    if (ready && !needsHistory) {
-      updateRing(100);
-      document.getElementById('ring-text').textContent = '\u2713';
-      document.getElementById('data-detail').textContent = count.toLocaleString() + ' stocks | ' + bars + ' days';
-      document.getElementById('dl-btn-text').textContent = 'Synced';
-      document.getElementById('dl-btn').classList.remove('text-primary');
-      document.getElementById('dl-btn').classList.add('text-slate-500');
-      if (downloadPolling) { clearInterval(downloadPolling); downloadPolling = null; }
-    } else if (needsHistory && !inProgress) {
-      // Has stocks but not enough history — needs full download
-      updateRing(30);
-      document.getElementById('ring-text').textContent = bars + 'd';
-      document.getElementById('data-detail').textContent = 'Need 200+ days (have ' + bars + '). Click Sync.';
-      document.getElementById('dl-btn-text').textContent = 'Download History';
-      document.getElementById('dl-btn').classList.add('text-primary');
-    } else if (inProgress) {
-      const pct = Math.min((count / totalExpected) * 100, 95);
-      updateRing(pct);
-      document.getElementById('data-detail').textContent = 'Downloading...';
-      document.getElementById('dl-btn-text').textContent = 'Downloading...';
-    } else if (count === 0) {
-      updateRing(0);
-      document.getElementById('data-detail').textContent = 'No data — click to download';
-      document.getElementById('dl-btn-text').textContent = 'Download Data';
-      document.getElementById('dl-btn').classList.add('text-primary');
-    } else {
-      const pct = Math.min((count / totalExpected) * 100, 99);
-      updateRing(pct);
-      document.getElementById('data-detail').textContent = count + ' / ~' + totalExpected + ' stocks';
-    }
-
+    const res=await fetch(API+'/data/status');
+    const data=await res.json();
+    const count=data.today_downloaded||0;
+    const ready=data.ready_for_screening;
+    const inProgress=data.download_in_progress;
+    document.getElementById('data-status').textContent=count+' stocks';
+    const dataDate=data.data_as_of||data.history_latest_date||'';
+    if(dataDate&&dataDate!=='N/A'){const dd=document.getElementById('data-date');dd.textContent='Data: '+dataDate;dd.classList.remove('hidden');}
+    const bars=data.bars_per_stock||0;
+    if(ready&&!data.needs_history){updateRing(100);document.getElementById('ring-text').textContent='\u2713';document.getElementById('data-detail').textContent=count+' stocks | '+bars+'d';if(downloadPolling){clearInterval(downloadPolling);downloadPolling=null;}}
+    else if(data.needs_history&&!inProgress){updateRing(30);document.getElementById('ring-text').textContent=bars+'d';document.getElementById('data-detail').textContent='Need 200+ days';}
+    else if(inProgress){updateRing(Math.min((count/totalExpected)*100,95));document.getElementById('data-detail').textContent='Syncing...';}
+    else if(count===0){updateRing(0);document.getElementById('data-detail').textContent='Click to sync';}
+    else{updateRing(Math.min((count/totalExpected)*100,99));document.getElementById('data-detail').textContent=count+'/~'+totalExpected;}
     return data;
-  } catch(e) {
-    document.getElementById('data-status').textContent = 'Server offline';
-    document.getElementById('data-detail').textContent = 'Start: python3 run_server.py';
-    updateRing(0);
-    return null;
-  }
+  } catch(e){document.getElementById('data-status').textContent='Offline';document.getElementById('data-detail').textContent='Start server';updateRing(0);return null;}
 }
 
-// Smart catch-up: detects gap and downloads only missing days
 async function triggerCatchup() {
-  const status = await checkDataStatus();
-  if (status && status.download_in_progress) return;
-
+  const status=await checkDataStatus();
+  if(status&&status.download_in_progress)return;
   try {
-    document.getElementById('dl-btn-text').textContent = 'Syncing...';
-
-    // Use catch-up endpoint — auto-detects gap
-    const res = await fetch(API + '/data/catchup', { method: 'POST' });
-    const data = await res.json();
-
-    if (data.status === 'up_to_date') {
-      document.getElementById('dl-btn-text').textContent = 'Up to date';
-      updateRing(100);
-      return;
-    }
-
-    document.getElementById('data-detail').textContent = 'Catching up ' + (data.gap_days || '') + ' days...';
-
-    if (!downloadPolling) {
-      downloadPolling = setInterval(checkDataStatus, 3000);
-    }
-  } catch(e) {
-    // Fallback to basic download
-    try {
-      await fetch(API + '/data/download', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ use_fallback: true })
-      });
-      if (!downloadPolling) downloadPolling = setInterval(checkDataStatus, 3000);
-    } catch(e2) {
-      alert('Download failed: ' + e2.message);
-    }
-  }
+    document.getElementById('data-detail').textContent='Syncing...';
+    const res=await fetch(API+'/data/catchup',{method:'POST'});
+    const data=await res.json();
+    if(data.status==='up_to_date'){document.getElementById('data-detail').textContent='Up to date';updateRing(100);return;}
+    if(!downloadPolling)downloadPolling=setInterval(checkDataStatus,3000);
+  } catch(e){try{await fetch(API+'/data/download',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({use_fallback:true})});if(!downloadPolling)downloadPolling=setInterval(checkDataStatus,3000);}catch(e2){console.error(e2);}}
 }
 
-// Full history setup (first time only)
-async function triggerFullSetup(days) {
-  try {
-    document.getElementById('dl-btn-text').textContent = 'Full setup...';
-    await fetch(API + '/data/setup', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ days: days || 370 })
-    });
-    if (!downloadPolling) downloadPolling = setInterval(checkDataStatus, 3000);
-  } catch(e) {
-    alert('Setup failed: ' + e.message);
-  }
-}
-
-// Auto-check on load, auto-trigger downloads as needed
 async function initData() {
-  const status = await checkDataStatus();
-  if (!status) return;
-
-  if (status.download_in_progress) {
-    downloadPolling = setInterval(checkDataStatus, 3000);
-  } else if (status.needs_history) {
-    // Has stocks but < 200 bars — auto-trigger full 1-year download
-    console.log('History insufficient (' + (status.bars_per_stock||0) + ' bars), triggering full download...');
-    triggerCatchup();
-  } else if (!status.ready_for_screening && status.today_downloaded < 10) {
-    // No data at all
-    triggerCatchup();
-  }
+  const status=await checkDataStatus();
+  if(!status)return;
+  if(status.download_in_progress)downloadPolling=setInterval(checkDataStatus,3000);
+  else if(status.needs_history)triggerCatchup();
+  else if(!status.ready_for_screening&&status.today_downloaded<10)triggerCatchup();
 }
 
-// Init
-loadFilterPanel();
-initData();
+// ============ CHAT ============
+function toggleChat() {
+  const w=document.getElementById('chat-window');
+  w.style.display=w.style.display==='none'?'flex':'none';
+}
+
+async function sendChat() {
+  const input=document.getElementById('chat-input');
+  const msg=input.value.trim();
+  if(!msg)return;
+  input.value='';
+  const container=document.getElementById('chat-messages');
+  container.innerHTML+=`<div class="flex gap-2 justify-end"><div class="bg-primary-container/10 p-3 rounded-tl-xl rounded-bl-xl rounded-br-xl border border-primary/20 text-on-surface leading-relaxed max-w-[80%]">${msg}</div></div>`;
+  container.scrollTop=container.scrollHeight;
+
+  try {
+    const res=await fetch(API+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,config:getFilterConfig()})});
+    const data=await res.json();
+    let reply=data.reply||'I couldn\'t understand that.';
+    container.innerHTML+=`<div class="flex gap-2"><div class="w-6 h-6 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center border border-outline-variant/20"><span class="material-symbols-outlined text-[14px]">psychology</span></div><div class="bg-surface-container p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl border border-outline-variant/10 text-on-surface-variant leading-relaxed max-w-[80%]">${reply}</div></div>`;
+
+    // Execute actions from chat
+    if(data.actions){
+      for(const action of data.actions){
+        if(action.type==='apply_config'&&action.config){
+          for(const[k,v] of Object.entries(action.config)){if(k in fullConfig&&typeof fullConfig[k]==='object'&&typeof v==='object')Object.assign(fullConfig[k],v);else fullConfig[k]=v;}
+          renderFilterPanel();
+        }
+        if(action.type==='run_screen'){runScreenAll();}
+        if(action.type==='switch_tab'){switchTab(action.tab);}
+      }
+    }
+  } catch(e){container.innerHTML+=`<div class="flex gap-2"><div class="w-6 h-6 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center border border-outline-variant/20"><span class="material-symbols-outlined text-[14px]">psychology</span></div><div class="bg-error/10 p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl border border-error/20 text-error leading-relaxed">Error: ${e.message}</div></div>`;}
+  container.scrollTop=container.scrollHeight;
+}
+
+// ============ INIT ============
+function initApp() {
+  loadFilterPanel();
+  populatePresetDropdowns();
+  initData();
+}
+
+checkAuth();
 </script>
 </body>
 </html>

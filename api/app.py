@@ -16,6 +16,9 @@ from api.routes_presets import router as presets_router
 from api.routes_config import router as config_router
 from api.routes_data import router as data_router
 from api.routes_chart import router as chart_router
+from api.routes_watchlist import router as watchlist_router
+from api.routes_chat import router as chat_router
+from api.routes_auth import router as auth_router
 
 app = FastAPI(
     title="NSE Screener API",
@@ -41,6 +44,9 @@ app.include_router(presets_router, tags=["Presets"])
 app.include_router(config_router, tags=["Configuration"])
 app.include_router(data_router, tags=["Data Management"])
 app.include_router(chart_router, tags=["Chart"])
+app.include_router(watchlist_router, tags=["Watchlist"])
+app.include_router(chat_router, tags=["Chat Agent"])
+app.include_router(auth_router, tags=["Authentication"])
 
 
 # Serve frontend
