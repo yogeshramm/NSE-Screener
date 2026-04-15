@@ -28,6 +28,8 @@ def get_chart_data(symbol: str, days: int = 200, interval: str = "1D"):
 
     # Use ALL data for indicator computation, limit display range later
     df = df_full.copy()
+    # Remove duplicate indices (can happen from data downloads) — lightweight-charts requires unique timestamps
+    df = df[~df.index.duplicated(keep='last')]
 
     # Resample to weekly or monthly if requested
     if interval == "1W":
