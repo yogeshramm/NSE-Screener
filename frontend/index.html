@@ -1780,7 +1780,47 @@ async function initData() {
   if(status.download_in_progress)downloadPolling=setInterval(checkDataStatus,3000);
   else if(status.needs_history)triggerCatchup();
   else if(!status.ready_for_screening&&status.today_downloaded<10)triggerCatchup();
+  // Auto-sync fundamentals for Nifty 500
+  setTimeout(()=>checkAndSyncFundamentals(), 3000);
 }
+
+// ============ FUNDAMENTAL SYNC ============
+let faSyncPolling=null;
+async function checkAndSyncFundamentals() {
+  try {
+    const res=await fetch(API+'/data/fa-status');
+    const d=await res.json();
+    if(d.sync_complete||d.missing_count===0) { hideFaBadge(); return; }
+    if(!d.sync_running) {
+      // Start sync
+      await fetch(API+'/data/fa-sync',{method:'POST'});
+      showFaBadge(0,d.missing_count);
+      faSyncPolling=setInterval(pollFaSync,5000);
+    } else {
+      showFaBadge(d.sync_done,d.sync_total);
+      if(!faSyncPolling) faSyncPolling=setInterval(pollFaSync,5000);
+    }
+  } catch(e){}
+}
+async function pollFaSync() {
+  try {
+    const res=await fetch(API+'/data/fa-status');
+    const d=await res.json();
+    if(d.sync_complete||!d.sync_running) { clearInterval(faSyncPolling);faSyncPolling=null;hideFaBadge();return; }
+    showFaBadge(d.sync_done,d.sync_total);
+  } catch(e){}
+}
+function showFaBadge(done,total) {
+  let badge=document.getElementById('fa-sync-badge');
+  if(!badge) {
+    badge=document.createElement('div');badge.id='fa-sync-badge';
+    badge.className='flex items-center gap-1.5 px-2 py-1 bg-surface-container rounded-full border border-outline-variant/20 text-[9px] font-bold text-on-surface-variant';
+    const syncArea=document.querySelector('header .flex.items-center.gap-4');
+    if(syncArea) syncArea.insertBefore(badge,syncArea.firstChild);
+  }
+  badge.innerHTML=`<span class="material-symbols-outlined text-xs text-primary animate-spin">sync</span>FA ${done}/${total}`;
+}
+function hideFaBadge() { document.getElementById('fa-sync-badge')?.remove(); }
 
 // ============ CHAT ============
 let chatMode = 'simple'; // 'simple' or 'ollama'

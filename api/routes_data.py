@@ -323,3 +323,86 @@ def list_dates():
         count = len(get_downloaded_symbols(d))
         result.append({"date": d, "stocks": count})
     return {"dates": result}
+
+
+# ============ FUNDAMENTAL SYNC (screener.in) ============
+
+@router.get("/data/fa-status")
+def fa_status():
+    """Check fundamental data sync status."""
+    import os
+    fund_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data_store", "fundamentals")
+    fund_count = len([f for f in os.listdir(fund_dir) if f.endswith('.pkl')]) if os.path.exists(fund_dir) else 0
+
+    try:
+        nifty500 = get_nifty500_live()
+    except Exception:
+        nifty500 = list(NIFTY_500_FALLBACK)
+
+    fund_syms = set(f.replace('.pkl','') for f in os.listdir(fund_dir) if f.endswith('.pkl')) if os.path.exists(fund_dir) else set()
+    missing = [s for s in nifty500 if s not in fund_syms]
+
+    return {
+        "nifty500_count": len(nifty500),
+        "fundamentals_count": fund_count,
+        "missing_count": len(missing),
+        "sync_running": _fa_sync["running"],
+        "sync_done": _fa_sync["done"],
+        "sync_total": _fa_sync["total"],
+        "sync_complete": _fa_sync["complete"] or len(missing) == 0,
+    }
+
+
+@router.post("/data/fa-sync")
+def fa_sync():
+    """Start fetching missing fundamental data from screener.in for Nifty 500."""
+    if _fa_sync["running"]:
+        return {"message": "Already running", "done": _fa_sync["done"], "total": _fa_sync["total"]}
+
+    import os
+    fund_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data_store", "fundamentals")
+    os.makedirs(fund_dir, exist_ok=True)
+    fund_syms = set(f.replace('.pkl','') for f in os.listdir(fund_dir) if f.endswith('.pkl'))
+
+    try:
+        nifty500 = get_nifty500_live()
+    except Exception:
+        nifty500 = list(NIFTY_500_FALLBACK)
+
+    missing = [s for s in nifty500 if s not in fund_syms]
+    if not missing:
+        _fa_sync["complete"] = True
+        return {"message": "All Nifty 500 fundamentals are up to date", "missing": 0}
+
+    _fa_sync["running"] = True
+    _fa_sync["done"] = 0
+    _fa_sync["total"] = len(missing)
+    _fa_sync["complete"] = False
+
+    def _run_sync():
+        import pickle
+        from data.screener_in import fetch_from_screener
+        import time
+
+        for i, sym in enumerate(missing):
+            try:
+                data = fetch_from_screener(sym, use_cache=False)
+                if data and "error" not in data:
+                    fpath = os.path.join(fund_dir, f"{sym}.pkl")
+                    with open(fpath, "wb") as f:
+                        pickle.dump(data, f)
+                _fa_sync["done"] = i + 1
+            except Exception as e:
+                print(f"  FA sync error for {sym}: {e}")
+                _fa_sync["done"] = i + 1
+            if i < len(missing) - 1:
+                time.sleep(1.5)
+
+        _fa_sync["running"] = False
+        _fa_sync["complete"] = True
+        print(f"  FA sync complete: {_fa_sync['done']}/{_fa_sync['total']}")
+
+    thread = threading.Thread(target=_run_sync, daemon=True)
+    thread.start()
+
+    return {"message": f"Syncing {len(missing)} stocks from screener.in", "missing": len(missing)}
