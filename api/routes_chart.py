@@ -99,8 +99,11 @@ def get_chart_data(symbol: str, days: int = 200, interval: str = "1D"):
         else:
             st.iloc[i] = lower.iloc[i] if df["Close"].iloc[i] >= lower.iloc[i] else upper.iloc[i]
             direction.iloc[i] = 1 if df["Close"].iloc[i] >= lower.iloc[i] else -1
-    st_data = [{"time": int(idx.timestamp()), "value": round(v, 2)}
-               for idx, v in st.items() if not pd.isna(v)]
+    # Build supertrend data with direction; use positional index to avoid duplicate-index issues
+    st_indices = [i for i, v in enumerate(st) if not pd.isna(v)]
+    st_data = [{"time": int(st.index[i].timestamp()), "value": round(st.iloc[i], 2),
+                "direction": int(direction.iloc[i])}
+               for i in st_indices]
 
     # RSI
     delta = df["Close"].diff()

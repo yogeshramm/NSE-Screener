@@ -69,22 +69,56 @@ tailwind.config = {
 }
 </script>
 <style>
-body { font-family: 'Inter', sans-serif; background-color: #0a0e1a; color: #dfe2f3; }
+/* ========== THEME CSS VARIABLES ========== */
+:root {
+  --bg: #f5f7fa; --surface: #ffffff; --surface-container: #f0f2f5; --surface-container-low: #f8f9fb;
+  --surface-container-high: #e8eaed; --surface-container-highest: #dde0e4; --surface-container-lowest: #f5f7fa;
+  --on-surface: #1a1a2e; --on-surface-variant: #5f6368; --on-background: #1a1a2e;
+  --outline-variant: #c4c7cc; --outline-variant-alpha: rgba(0,0,0,0.08);
+  --primary: #00a868; --primary-container: #00a868; --on-primary: #ffffff;
+  --chart-bg: #ffffff; --chart-text: #5f6368; --chart-grid: #f0f2f5; --chart-border: #e0e0e0;
+  --candle-up: #00a868; --candle-down: #e53935;
+  --glass-bg: rgba(255,255,255,0.75); --glass-border: rgba(0,0,0,0.08);
+  --mesh-c1: rgba(0,168,104,0.06); --mesh-c2: rgba(2,103,184,0.06);
+  --scrollbar-thumb: #c4c7cc; --brand-start: #00a868; --brand-end: #006c49;
+  --login-bg: #f5f7fa; --error-bg: rgba(229,57,53,0.08);
+}
+.dark {
+  --bg: #0a0e1a; --surface: #0f131f; --surface-container: #1b1f2c; --surface-container-low: #171b28;
+  --surface-container-high: #262a37; --surface-container-highest: #313442; --surface-container-lowest: #0a0e1a;
+  --on-surface: #dfe2f3; --on-surface-variant: #bacbbf; --on-background: #dfe2f3;
+  --outline-variant: #3b4a41; --outline-variant-alpha: rgba(59,74,65,0.2);
+  --primary: #6effc0; --primary-container: #00e5a0; --on-primary: #003824;
+  --chart-bg: #171b28; --chart-text: #bacbbf; --chart-grid: #1b1f2c; --chart-border: #3b4a41;
+  --candle-up: #00e5a0; --candle-down: #ff4757;
+  --glass-bg: rgba(49,52,66,0.6); --glass-border: rgba(59,74,65,0.2);
+  --mesh-c1: rgba(0,229,160,0.15); --mesh-c2: rgba(2,103,184,0.15);
+  --scrollbar-thumb: #3b4a41; --brand-start: #6effc0; --brand-end: #00e5a0;
+  --login-bg: #0a0e1a; --error-bg: rgba(255,71,87,0.08);
+}
+
+body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--on-surface); }
 .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
 .tabular-nums { font-variant-numeric: tabular-nums; }
-.glass-panel { background: rgba(49,52,66,0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
-.mesh-gradient { background: radial-gradient(at 0% 0%, rgba(0,229,160,0.15) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(2,103,184,0.15) 0px, transparent 50%); }
+.glass-panel { background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+.mesh-gradient { background: radial-gradient(at 0% 0%, var(--mesh-c1) 0px, transparent 50%), radial-gradient(at 100% 100%, var(--mesh-c2) 0px, transparent 50%); }
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #3b4a41; border-radius: 10px; }
-.ghost-border { outline: 1px solid rgba(59,74,65,0.2); }
-input:focus { outline: 1px solid #6effc0; box-shadow: 0 0 4px rgba(110,255,192,0.1); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 10px; }
+.ghost-border { outline: 1px solid var(--outline-variant-alpha); }
+input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,255,192,0.1); }
 .tab-content { display: none; }
 .tab-content.active { display: flex; }
 @keyframes pulse-soft { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.7;transform:scale(1.05)} }
 .animate-pulse-soft { animation: pulse-soft 2s cubic-bezier(0.4,0,0.6,1) infinite; }
-.brand-gradient { background: linear-gradient(135deg, #6effc0 0%, #00e5a0 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.top-glow { position:absolute; top:0; left:50%; transform:translateX(-50%); width:80%; height:1px; background:linear-gradient(90deg,transparent,#6effc0,transparent); filter:blur(1px); }
+.brand-gradient { background: linear-gradient(135deg, var(--brand-start) 0%, var(--brand-end) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.top-glow { position:absolute; top:0; left:50%; transform:translateX(-50%); width:80%; height:1px; background:linear-gradient(90deg,transparent,var(--primary),transparent); filter:blur(1px); }
+
+/* ========== RESIZE HANDLES ========== */
+.panel-resize-handle { height:6px; cursor:row-resize; background:transparent; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+.panel-resize-handle:hover, .panel-resize-handle.active { background: var(--outline-variant-alpha); }
+.panel-resize-handle::after { content:''; width:30px; height:2px; border-radius:1px; background:transparent; }
+.panel-resize-handle:hover::after, .panel-resize-handle.active::after { background: var(--primary); opacity:0.5; }
 </style>
 </head>
 <body class="overflow-hidden h-screen flex flex-col bg-surface-container-lowest">
@@ -164,6 +198,9 @@ input:focus { outline: 1px solid #6effc0; box-shadow: 0 0 4px rgba(110,255,192,0
     <span id="data-date" class="text-[9px] text-on-surface-variant hidden"></span>
     <button class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-variant/40 transition-colors" onclick="triggerCatchup()">
       <span class="material-symbols-outlined text-primary">sync</span>
+    </button>
+    <button id="theme-toggle" onclick="toggleTheme()" class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-variant/40 transition-colors" title="Toggle theme">
+      <span class="material-symbols-outlined text-on-surface-variant" id="theme-icon">light_mode</span>
     </button>
     <!-- User -->
     <div class="flex items-center gap-2 cursor-pointer" onclick="logout()" title="Logout">
@@ -871,13 +908,32 @@ function changeChartTimeframe(days, el) {
   if(currentChartSymbol) loadChart(currentChartSymbol, days, currentChartInterval);
 }
 
-const CHART_COLORS = { bg:'#171b28', text:'#bacbbf', grid:'#1b1f2c', border:'#3b4a41' };
+function getChartColors() {
+  const s = getComputedStyle(document.documentElement);
+  const g = k => s.getPropertyValue(k).trim();
+  return { bg:g('--chart-bg'), text:g('--chart-text'), grid:g('--chart-grid'), border:g('--chart-border') };
+}
+function getCandleColors() {
+  const s = getComputedStyle(document.documentElement);
+  const up = s.getPropertyValue('--candle-up').trim();
+  const down = s.getPropertyValue('--candle-down').trim();
+  return { up, down };
+}
+function toggleTheme() {
+  const html = document.documentElement;
+  const isDark = html.classList.contains('dark');
+  if(isDark) { html.classList.remove('dark'); localStorage.setItem('yointell_theme','light'); }
+  else { html.classList.add('dark'); localStorage.setItem('yointell_theme','dark'); }
+  document.getElementById('theme-icon').textContent = isDark ? 'dark_mode' : 'light_mode';
+  if(currentChartSymbol && chartData) renderChart(chartData);
+}
+(function initTheme(){ const t=localStorage.getItem('yointell_theme'); if(t==='light'){document.documentElement.classList.remove('dark');const i=document.getElementById('theme-icon');if(i)i.textContent='dark_mode';} })();
 const OVERLAY_CONFIG = {
-  ema50:      { color:'#f59e0b', width:1, title:'EMA 50',    key:'ema50' },
-  ema200:     { color:'#3b82f6', width:1, title:'EMA 200',   key:'ema200' },
+  ema50:      { color:'#f59e0b', width:1.5, title:'EMA 50',    key:'ema50' },
+  ema200:     { color:'#3b82f6', width:1.5, title:'EMA 200',   key:'ema200' },
   supertrend: { color:'#6effc0', width:2, title:'Supertrend', key:'supertrend' },
-  sma20:      { color:'#ec4899', width:1, title:'SMA 20',    key:'sma20' },
-  vwap:       { color:'#06b6d4', width:1, title:'VWAP',      key:'vwap' },
+  sma20:      { color:'#ec4899', width:1.5, title:'SMA 20',    key:'sma20' },
+  vwap:       { color:'#06b6d4', width:1.5, title:'VWAP',      key:'vwap' },
   bb_upper:   { color:'#8b5cf6', width:1, title:'BB Upper',  key:'bb_upper', lineStyle:2 },
   bb_mid:     { color:'#8b5cf680',width:1, title:'BB Mid',   key:'bb_mid', lineStyle:1 },
   bb_lower:   { color:'#8b5cf6', width:1, title:'BB Lower',  key:'bb_lower', lineStyle:2 },
@@ -899,8 +955,9 @@ function renderChart(data) {
   window._chartSyncSeries = {};
 
   // Main candlestick
-  currentChart=LightweightCharts.createChart(chartEl,{width:chartEl.clientWidth,height:chartEl.clientHeight,layout:{background:{color:CHART_COLORS.bg},textColor:CHART_COLORS.text,fontSize:10},grid:{vertLines:{color:CHART_COLORS.grid},horzLines:{color:CHART_COLORS.grid}},crosshair:{mode:0},timeScale:{borderColor:CHART_COLORS.border,timeVisible:false},rightPriceScale:{borderColor:CHART_COLORS.border,minimumWidth:65}});
-  const cs=currentChart.addCandlestickSeries({upColor:'#00e5a0',downColor:'#ff4757',borderUpColor:'#00e5a0',borderDownColor:'#ff4757',wickUpColor:'#00e5a0',wickDownColor:'#ff4757'});
+  currentChart=LightweightCharts.createChart(chartEl,{width:chartEl.clientWidth,height:chartEl.clientHeight,layout:{background:{color:getChartColors().bg},textColor:getChartColors().text,fontSize:10},grid:{vertLines:{color:getChartColors().grid},horzLines:{color:getChartColors().grid}},crosshair:{mode:0},timeScale:{borderColor:getChartColors().border,timeVisible:false},rightPriceScale:{borderColor:getChartColors().border,minimumWidth:65}});
+  const cc=getCandleColors();
+  const cs=currentChart.addCandlestickSeries({upColor:cc.up,downColor:cc.down,borderUpColor:cc.up,borderDownColor:cc.down,wickUpColor:cc.up,wickDownColor:cc.down});
   cs.setData(data.candles);
 
   // Clear old sub-panels
@@ -918,7 +975,7 @@ function renderChart(data) {
     // Multi-line overlay groups
     if(key==='bollinger') { addChartOverlay('bb_upper'); addChartOverlay('bb_mid'); addChartOverlay('bb_lower'); }
     if(key==='vwap_sd') { addChartOverlay('vwap'); addChartOverlay('vwap_upper'); addChartOverlay('vwap_lower'); }
-    if(key==='ichimoku') { addChartOverlay('ichimoku_tenkan'); addChartOverlay('ichimoku_kijun'); addChartOverlay('ichimoku_senkou_a'); addChartOverlay('ichimoku_senkou_b'); }
+    if(key==='ichimoku') { addChartOverlay('ichimoku_tenkan'); addChartOverlay('ichimoku_kijun'); addChartOverlay('ichimoku_cloud'); }
     if(key==='pivots' && chartData) {
       const ov=chartData.overlays, t0=chartData.candles[0]?.time, t1=chartData.candles[chartData.candles.length-1]?.time;
       if(t0&&t1) ['pivot_pp','pivot_r1','pivot_s1','pivot_r2','pivot_s2'].forEach(pk=>{
@@ -949,7 +1006,7 @@ function renderChart(data) {
   } else { macdEl.style.display='none'; currentMacdChart=null; }
 
   // Volume
-  currentVolChart=LightweightCharts.createChart(volEl,{width:volEl.clientWidth,height:60,layout:{background:{color:CHART_COLORS.bg},textColor:CHART_COLORS.text,fontSize:9},grid:{vertLines:{color:CHART_COLORS.grid},horzLines:{color:CHART_COLORS.grid}},timeScale:{visible:false},rightPriceScale:{borderColor:CHART_COLORS.border,minimumWidth:65},crosshair:{mode:0},handleScroll:false,handleScale:false});
+  currentVolChart=LightweightCharts.createChart(volEl,{width:volEl.clientWidth,height:60,layout:{background:{color:getChartColors().bg},textColor:getChartColors().text,fontSize:9},grid:{vertLines:{color:getChartColors().grid},horzLines:{color:getChartColors().grid}},timeScale:{visible:false},rightPriceScale:{borderColor:getChartColors().border,minimumWidth:65},crosshair:{mode:0},handleScroll:false,handleScale:false});
   addTimeBaseline(currentVolChart);
   const vs=currentVolChart.addHistogramSeries({priceFormat:{type:'volume'}});
   vs.setData(data.volumes);
@@ -1003,6 +1060,9 @@ function renderChart(data) {
     if(currentMacdChart)currentMacdChart.applyOptions({width:macdEl.clientWidth});
     if(currentVolChart)currentVolChart.applyOptions({width:volEl.clientWidth});
   }).observe(chartEl);
+
+  // Inject resize handles between panels
+  setTimeout(()=>injectResizeHandles(), 150);
 }
 
 // Sync a sub-panel's logical range to the main chart (pixel-perfect)
@@ -1026,7 +1086,7 @@ function addTimeBaseline(chart) {
 
 function renderRsiPanel(data, el) {
   el.innerHTML='';
-  currentRsiChart=LightweightCharts.createChart(el,{width:el.clientWidth,height:80,layout:{background:{color:CHART_COLORS.bg},textColor:CHART_COLORS.text,fontSize:9},grid:{vertLines:{color:CHART_COLORS.grid},horzLines:{color:CHART_COLORS.grid}},timeScale:{visible:false},rightPriceScale:{borderColor:CHART_COLORS.border,minimumWidth:65},crosshair:{mode:0},handleScroll:false,handleScale:false});
+  currentRsiChart=LightweightCharts.createChart(el,{width:el.clientWidth,height:80,layout:{background:{color:getChartColors().bg},textColor:getChartColors().text,fontSize:9},grid:{vertLines:{color:getChartColors().grid},horzLines:{color:getChartColors().grid}},timeScale:{visible:false},rightPriceScale:{borderColor:getChartColors().border,minimumWidth:65},crosshair:{mode:0},handleScroll:false,handleScale:false});
   addTimeBaseline(currentRsiChart);
   const rsiLine=currentRsiChart.addLineSeries({color:'#a855f7',lineWidth:1.5,title:'RSI (14)'});
   rsiLine.setData(data.panels.rsi);
@@ -1044,7 +1104,7 @@ function renderRsiPanel(data, el) {
 function renderMacdPanel(data, el) {
   if(!data.panels.macd) return;
   el.innerHTML='';
-  currentMacdChart=LightweightCharts.createChart(el,{width:el.clientWidth,height:80,layout:{background:{color:CHART_COLORS.bg},textColor:CHART_COLORS.text,fontSize:9},grid:{vertLines:{color:CHART_COLORS.grid},horzLines:{color:CHART_COLORS.grid}},timeScale:{visible:false},rightPriceScale:{borderColor:CHART_COLORS.border,minimumWidth:65},crosshair:{mode:0},handleScroll:false,handleScale:false});
+  currentMacdChart=LightweightCharts.createChart(el,{width:el.clientWidth,height:80,layout:{background:{color:getChartColors().bg},textColor:getChartColors().text,fontSize:9},grid:{vertLines:{color:getChartColors().grid},horzLines:{color:getChartColors().grid}},timeScale:{visible:false},rightPriceScale:{borderColor:getChartColors().border,minimumWidth:65},crosshair:{mode:0},handleScroll:false,handleScale:false});
   addTimeBaseline(currentMacdChart);
   const macdLine=currentMacdChart.addLineSeries({color:'#f97316',lineWidth:1.5,title:'MACD'});
   macdLine.setData(data.panels.macd);
@@ -1058,6 +1118,63 @@ function renderMacdPanel(data, el) {
 
 function addChartOverlay(key) {
   if(!currentChart || !chartData || chartOverlays[key]) return;
+
+  // ===== Bollinger Bands: area fill =====
+  if(key==='bb_upper') {
+    const d=chartData.overlays.bb_upper; if(!d?.length) return;
+    const s=currentChart.addAreaSeries({topColor:'rgba(139,92,246,0.0)',bottomColor:'rgba(139,92,246,0.08)',lineColor:'#8b5cf6',lineWidth:1,lineStyle:2,title:'BB Upper',priceScaleId:'right',crosshairMarkerVisible:false});
+    s.setData(d); chartOverlays[key]=s; return;
+  }
+  if(key==='bb_lower') {
+    const d=chartData.overlays.bb_lower; if(!d?.length) return;
+    const s=currentChart.addAreaSeries({topColor:'rgba(139,92,246,0.08)',bottomColor:'rgba(139,92,246,0.0)',lineColor:'#8b5cf6',lineWidth:1,lineStyle:2,title:'BB Lower',priceScaleId:'right',crosshairMarkerVisible:false});
+    s.setData(d); chartOverlays[key]=s; return;
+  }
+
+  // ===== VWAP Bands: area fill =====
+  if(key==='vwap_upper') {
+    const d=chartData.overlays.vwap_upper; if(!d?.length) return;
+    const s=currentChart.addAreaSeries({topColor:'rgba(6,182,212,0.0)',bottomColor:'rgba(6,182,212,0.06)',lineColor:'#06b6d4',lineWidth:1,lineStyle:2,title:'VWAP +1\u03c3',priceScaleId:'right',crosshairMarkerVisible:false});
+    s.setData(d); chartOverlays[key]=s; return;
+  }
+  if(key==='vwap_lower') {
+    const d=chartData.overlays.vwap_lower; if(!d?.length) return;
+    const s=currentChart.addAreaSeries({topColor:'rgba(6,182,212,0.06)',bottomColor:'rgba(6,182,212,0.0)',lineColor:'#06b6d4',lineWidth:1,lineStyle:2,title:'VWAP -1\u03c3',priceScaleId:'right',crosshairMarkerVisible:false});
+    s.setData(d); chartOverlays[key]=s; return;
+  }
+
+  // ===== Ichimoku Cloud: filled area =====
+  if(key==='ichimoku_cloud') {
+    const sa=chartData.overlays.ichimoku_senkou_a, sb=chartData.overlays.ichimoku_senkou_b;
+    if(!sa?.length||!sb?.length) return;
+    const sA=currentChart.addAreaSeries({topColor:'rgba(34,197,94,0.12)',bottomColor:'rgba(34,197,94,0.0)',lineColor:'rgba(34,197,94,0.3)',lineWidth:0,priceScaleId:'right',crosshairMarkerVisible:false,lastValueVisible:false,priceLineVisible:false});
+    sA.setData(sa); chartOverlays['ichimoku_cloud_a']=sA;
+    const sB=currentChart.addAreaSeries({topColor:'rgba(239,68,68,0.12)',bottomColor:'rgba(239,68,68,0.0)',lineColor:'rgba(239,68,68,0.3)',lineWidth:0,priceScaleId:'right',crosshairMarkerVisible:false,lastValueVisible:false,priceLineVisible:false});
+    sB.setData(sb); chartOverlays['ichimoku_cloud_b']=sB;
+    return;
+  }
+
+  // ===== Supertrend: two-color (green bullish / red bearish) =====
+  if(key==='supertrend') {
+    const d=chartData.overlays.supertrend; if(!d?.length) return;
+    const bull=[], bear=[];
+    for(let i=0;i<d.length;i++){
+      const pt=d[i], dir=pt.direction||1;
+      if(dir===1){
+        bull.push({time:pt.time,value:pt.value});
+        if(i>0&&(d[i-1].direction||-1)===-1) bear.push({time:pt.time,value:pt.value});
+      } else {
+        bear.push({time:pt.time,value:pt.value});
+        if(i>0&&(d[i-1].direction||1)===1) bull.push({time:pt.time,value:pt.value});
+      }
+    }
+    if(bull.length){const s=currentChart.addLineSeries({color:'#00e5a0',lineWidth:2,title:'',lastValueVisible:false,priceLineVisible:false});s.setData(bull);chartOverlays['supertrend_bull']=s;}
+    if(bear.length){const s=currentChart.addLineSeries({color:'#ff4757',lineWidth:2,title:'',lastValueVisible:false,priceLineVisible:false});s.setData(bear);chartOverlays['supertrend_bear']=s;}
+    chartOverlays['supertrend']=true;
+    return;
+  }
+
+  // ===== Default: line series =====
   const cfg = OVERLAY_CONFIG[key];
   if(!cfg) return;
   const d = chartData.overlays[cfg.key];
@@ -1068,9 +1185,79 @@ function addChartOverlay(key) {
 }
 
 function removeChartOverlay(key) {
-  if(!currentChart || !chartOverlays[key]) return;
-  currentChart.removeSeries(chartOverlays[key]);
+  if(!currentChart) return;
+  // Composite overlays
+  if(key==='supertrend'){
+    ['supertrend_bull','supertrend_bear'].forEach(k=>{if(chartOverlays[k]&&chartOverlays[k]!==true){try{currentChart.removeSeries(chartOverlays[k])}catch(e){}} delete chartOverlays[k];});
+    delete chartOverlays['supertrend']; return;
+  }
+  if(key==='ichimoku_cloud'){
+    ['ichimoku_cloud_a','ichimoku_cloud_b'].forEach(k=>{if(chartOverlays[k]){try{currentChart.removeSeries(chartOverlays[k])}catch(e){}} delete chartOverlays[k];}); return;
+  }
+  if(!chartOverlays[key]||chartOverlays[key]===true) return;
+  try{currentChart.removeSeries(chartOverlays[key])}catch(e){}
   delete chartOverlays[key];
+}
+
+// ===== RESIZABLE PANELS =====
+let resizeState=null;
+function injectResizeHandles(){
+  document.querySelectorAll('.panel-resize-handle').forEach(h=>h.remove());
+  const container=document.querySelector('#chart-panel .flex-1');
+  if(!container) return;
+  const panels=Array.from(container.children).filter(el=>el.style.display!=='none'&&el.id&&!el.classList.contains('panel-resize-handle'));
+  for(let i=0;i<panels.length-1;i++){
+    const h=document.createElement('div'); h.className='panel-resize-handle';
+    h.dataset.above=panels[i].id; h.dataset.below=panels[i+1].id;
+    panels[i].after(h); h.addEventListener('mousedown',startPanelResize);
+  }
+  // Also handle sub-panels container children
+  const sp=document.getElementById('sub-panels');
+  if(sp){
+    const subs=Array.from(sp.children).filter(el=>!el.classList.contains('panel-resize-handle'));
+    for(let i=0;i<subs.length-1;i++){
+      const h=document.createElement('div'); h.className='panel-resize-handle';
+      h.dataset.above=subs[i].id; h.dataset.below=subs[i+1].id;
+      subs[i].after(h); h.addEventListener('mousedown',startPanelResize);
+    }
+  }
+}
+function startPanelResize(e){
+  e.preventDefault();
+  const h=e.currentTarget, a=document.getElementById(h.dataset.above), b=document.getElementById(h.dataset.below);
+  if(!a||!b) return;
+  h.classList.add('active');
+  resizeState={handle:h,a,b,startY:e.clientY,aH:a.offsetHeight,bH:b.offsetHeight};
+  document.addEventListener('mousemove',doPanelResize);
+  document.addEventListener('mouseup',stopPanelResize);
+  document.body.style.cursor='row-resize'; document.body.style.userSelect='none';
+}
+function doPanelResize(e){
+  if(!resizeState) return;
+  const delta=e.clientY-resizeState.startY;
+  const isMainA=resizeState.a.id==='chart-container', isMainB=resizeState.b.id==='chart-container';
+  const minA=isMainA?150:40, minB=isMainB?150:40, maxA=isMainA?600:300, maxB=isMainB?600:300;
+  let nA=Math.max(minA,Math.min(maxA,resizeState.aH+delta));
+  let nB=Math.max(minB,Math.min(maxB,resizeState.bH-delta));
+  if(nA<minA||nB<minB||nA>maxA||nB>maxB) return;
+  if(isMainA){resizeState.a.style.flex='none';resizeState.a.style.height=nA+'px';resizeState.a.style.minHeight=nA+'px';}
+  else resizeState.a.style.height=nA+'px';
+  if(isMainB){resizeState.b.style.flex='none';resizeState.b.style.height=nB+'px';resizeState.b.style.minHeight=nB+'px';}
+  else resizeState.b.style.height=nB+'px';
+  updateChartH(resizeState.a.id,nA); updateChartH(resizeState.b.id,nB);
+}
+function stopPanelResize(){
+  if(resizeState){resizeState.handle.classList.remove('active');resizeState=null;}
+  document.removeEventListener('mousemove',doPanelResize);
+  document.removeEventListener('mouseup',stopPanelResize);
+  document.body.style.cursor=''; document.body.style.userSelect='';
+}
+function updateChartH(id,h){
+  if(id==='chart-container'&&currentChart)currentChart.applyOptions({height:h});
+  else if(id==='rsi-container'&&currentRsiChart)currentRsiChart.applyOptions({height:h});
+  else if(id==='macd-container'&&currentMacdChart)currentMacdChart.applyOptions({height:h});
+  else if(id==='vol-container'&&currentVolChart)currentVolChart.applyOptions({height:h});
+  else if(id.startsWith('subpanel-')){const k=id.replace('subpanel-','');if(subPanelCharts[k])subPanelCharts[k].applyOptions({height:h});}
 }
 
 // Sub-panel config: { panelKey: { dataKeys, colors, titles, type('line'|'hist') } }
@@ -1096,7 +1283,7 @@ function addSubPanel(key) {
   div.className = 'bg-surface-container rounded-lg border border-outline-variant/10';
   div.style.height = '80px';
   container.appendChild(div);
-  const chart = LightweightCharts.createChart(div, {width:div.clientWidth,height:80,layout:{background:{color:CHART_COLORS.bg},textColor:CHART_COLORS.text,fontSize:9},grid:{vertLines:{color:CHART_COLORS.grid},horzLines:{color:CHART_COLORS.grid}},timeScale:{visible:false},rightPriceScale:{borderColor:CHART_COLORS.border,minimumWidth:65},crosshair:{mode:0},handleScroll:false,handleScale:false});
+  const chart = LightweightCharts.createChart(div, {width:div.clientWidth,height:80,layout:{background:{color:getChartColors().bg},textColor:getChartColors().text,fontSize:9},grid:{vertLines:{color:getChartColors().grid},horzLines:{color:getChartColors().grid}},timeScale:{visible:false},rightPriceScale:{borderColor:getChartColors().border,minimumWidth:65},crosshair:{mode:0},handleScroll:false,handleScale:false});
   addTimeBaseline(chart);
   let firstSeries = null;
   if(cfg.lines) cfg.lines.forEach(l=>{const d=chartData.panels[l.key];if(d?.length){const s=chart.addLineSeries({color:l.color,lineWidth:1.5,title:l.title});s.setData(d);if(!firstSeries)firstSeries=s;}});
@@ -1127,8 +1314,8 @@ function toggleChartIndicator(key, checked) {
     return;
   }
   if(key==='ichimoku') {
-    if(checked){ addChartOverlay('ichimoku_tenkan'); addChartOverlay('ichimoku_kijun'); addChartOverlay('ichimoku_senkou_a'); addChartOverlay('ichimoku_senkou_b'); }
-    else { removeChartOverlay('ichimoku_tenkan'); removeChartOverlay('ichimoku_kijun'); removeChartOverlay('ichimoku_senkou_a'); removeChartOverlay('ichimoku_senkou_b'); }
+    if(checked){ addChartOverlay('ichimoku_tenkan'); addChartOverlay('ichimoku_kijun'); addChartOverlay('ichimoku_cloud'); }
+    else { removeChartOverlay('ichimoku_tenkan'); removeChartOverlay('ichimoku_kijun'); removeChartOverlay('ichimoku_cloud'); }
     return;
   }
   if(key==='pivots') {
@@ -1154,19 +1341,19 @@ function toggleChartIndicator(key, checked) {
     const el=document.getElementById('rsi-container');
     if(checked){ el.style.display='block'; if(chartData) renderRsiPanel(chartData, el); }
     else { el.style.display='none'; currentRsiChart=null; }
-    return;
+    setTimeout(()=>injectResizeHandles(),100); return;
   }
   if(key==='macd') {
     const el=document.getElementById('macd-container');
     if(checked){ el.style.display='block'; if(chartData) renderMacdPanel(chartData, el); }
     else { el.style.display='none'; currentMacdChart=null; }
-    return;
+    setTimeout(()=>injectResizeHandles(),100); return;
   }
   // Generic sub-panels
   if(SUB_PANEL_CONFIG[key]) {
     if(checked) addSubPanel(key);
     else removeSubPanel(key);
-    return;
+    setTimeout(()=>injectResizeHandles(),100); return;
   }
   // Simple overlays
   if(checked) addChartOverlay(key);
