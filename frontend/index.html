@@ -256,9 +256,13 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
         <option value="nifty500" selected>Nifty 500</option>
         <option value="all">All NSE</option>
       </select>
-      <select id="screener-preset-select" class="bg-surface-container-high border border-outline-variant/20 rounded-lg text-[10px] font-bold h-10 px-3 text-on-surface" onchange="loadPreset(this.value)">
-        <option value="">Preset...</option>
-      </select>
+      <div class="relative">
+        <button onclick="document.getElementById('preset-dropdown').classList.toggle('hidden')" class="bg-surface-container-high border border-outline-variant/20 rounded-lg text-[10px] font-bold h-10 px-3 text-on-surface flex items-center gap-2 min-w-[120px]">
+          <span id="preset-btn-text">Preset...</span>
+          <span class="material-symbols-outlined text-xs">expand_more</span>
+        </button>
+        <div id="preset-dropdown" class="hidden absolute left-0 top-11 w-52 max-h-60 overflow-y-auto bg-surface-container border border-outline-variant/20 rounded-xl shadow-2xl z-50 p-1.5"></div>
+      </div>
       <span id="active-preset-badge" class="hidden text-[10px] bg-primary/20 text-primary px-2 py-1 rounded-full font-bold cursor-pointer" onclick="clearActivePreset()"></span>
       <button onclick="quickSavePreset()" class="text-[10px] text-on-surface-variant hover:text-primary font-bold uppercase" title="Save current filters as preset">
         <span class="material-symbols-outlined text-sm">save</span>
@@ -1555,10 +1559,25 @@ async function populatePresetDropdowns() {
   try {
     const res=await fetch(API+'/presets/list');
     const data=await res.json();
-    const opts=data.presets.map(p=>`<option value="${p}">${p}</option>`).join('');
-    const s=document.getElementById('screener-preset-select');if(s)s.innerHTML='<option value="">Preset...</option>'+opts;
-    const c=document.getElementById('preset-select');if(c)c.innerHTML='<option value="">Load Preset...</option>'+opts;
+    // Custom dropdown with delete buttons
+    const dd=document.getElementById('preset-dropdown');
+    if(dd) {
+      if(!data.presets.length) { dd.innerHTML='<div class="text-[10px] text-on-surface-variant/50 p-2 text-center">No presets saved</div>'; }
+      else { dd.innerHTML=data.presets.map(p=>`<div class="flex items-center justify-between hover:bg-surface-container-highest/60 rounded-lg px-2 py-1.5 group cursor-pointer"><span class="text-[10px] font-bold text-on-surface flex-1" onclick="loadPreset('${p}');document.getElementById('preset-dropdown').classList.add('hidden')">${p}</span><span class="material-symbols-outlined text-[12px] text-on-surface-variant/30 group-hover:text-error cursor-pointer" onclick="event.stopPropagation();deletePreset('${p}')" title="Delete preset">close</span></div>`).join(''); }
+    }
+    // Config tab select
+    const c=document.getElementById('preset-select');
+    if(c) c.innerHTML='<option value="">Load Preset...</option>'+data.presets.map(p=>`<option value="${p}">${p}</option>`).join('');
   } catch(e){console.error('Preset load error:',e);}
+}
+
+async function deletePreset(name) {
+  if(!confirm('Delete preset "'+name+'"?')) return;
+  try {
+    await fetch(API+'/presets/'+name,{method:'DELETE'});
+    populatePresetDropdowns();
+    if(activePresetName===name){activePresetName=null;updatePresetBadge();}
+  } catch(e){alert('Delete failed: '+e.message);}
 }
 
 async function loadPreset(name) {
@@ -1572,6 +1591,7 @@ async function loadPreset(name) {
     activePresetName=name;
     renderFilterPanel();
     updatePresetBadge();
+    const btn=document.getElementById('preset-btn-text');if(btn)btn.textContent=name;
     document.getElementById('config-preset-name').textContent=name;
   } catch(e){console.error('Preset load error:',e);}
 }
@@ -1803,6 +1823,13 @@ function initApp() {
   loadFilterPanel();
   populatePresetDropdowns();
   initData();
+  // Close dropdowns on outside click
+  document.addEventListener('click',e=>{
+    const pd=document.getElementById('preset-dropdown');
+    if(pd&&!pd.classList.contains('hidden')&&!e.target.closest('#preset-dropdown')&&!e.target.closest('[onclick*="preset-dropdown"]')) pd.classList.add('hidden');
+    const cd=document.getElementById('chart-ind-dropdown');
+    if(cd&&!cd.classList.contains('hidden')&&!e.target.closest('#chart-ind-dropdown')&&!e.target.closest('[onclick*="chart-ind-dropdown"]')) cd.classList.add('hidden');
+  });
 }
 
 checkAuth();
