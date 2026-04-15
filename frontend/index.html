@@ -475,6 +475,13 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
     <div class="flex gap-2 mb-8 overflow-x-auto pb-2" id="ind-type-tabs">
       <button class="ind-type-tab px-5 py-2 rounded-full bg-primary-container text-on-primary font-bold text-xs uppercase tracking-widest whitespace-nowrap" data-type="all" onclick="filterIndicatorsByType('all')">All</button>
     </div>
+    <!-- Sort Options -->
+    <div class="flex items-center gap-2 mb-4">
+      <span class="text-[9px] text-on-surface-variant font-bold uppercase tracking-wider">Sort by:</span>
+      <button class="ind-sort-btn px-3 py-1 rounded text-[9px] font-bold uppercase bg-primary/20 text-primary" data-sort="accuracy" onclick="sortIndicators('accuracy')">Accuracy</button>
+      <button class="ind-sort-btn px-3 py-1 rounded text-[9px] font-bold uppercase text-on-surface-variant hover:text-on-surface" data-sort="name" onclick="sortIndicators('name')">Name</button>
+      <button class="ind-sort-btn px-3 py-1 rounded text-[9px] font-bold uppercase text-on-surface-variant hover:text-on-surface" data-sort="highlighted" onclick="sortIndicators('highlighted')">Featured</button>
+    </div>
     <!-- Indicator Cards Grid -->
     <div id="indicators-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
       <div class="text-center py-8 text-on-surface-variant/50 col-span-full">Loading indicators...</div>
@@ -1561,12 +1568,19 @@ async function loadIndicators() {
   } catch(e) { console.error('Indicators load error:', e); }
 }
 
+let indSortBy='accuracy'; // accuracy|name|type
 function renderIndicatorCards(indicators) {
   const grid=document.getElementById('indicators-grid');
   const iconMap = { trend: 'show_chart', oscillator: 'trending_up', volatility: 'insights', volume: 'analytics', momentum: 'speed', composite: 'star_half', breakout: 'flash_on' };
-  // Sort: highlighted first
-  const sorted = [...indicators].sort((a,b)=>(b.highlighted?1:0)-(a.highlighted?1:0));
-  grid.innerHTML=sorted.map(ind=>{
+  // Sort
+  const sorted = [...indicators].sort((a,b)=>{
+    if(indSortBy==='accuracy') return (b.accuracy_score||0)-(a.accuracy_score||0);
+    if(indSortBy==='name') return a.name.localeCompare(b.name);
+    return (b.highlighted?1:0)-(a.highlighted?1:0);
+  });
+  const scoreColor=(s)=>s>=80?'text-primary':s>=75?'text-blue-400':s>=70?'text-yellow-400':'text-red-400';
+  const scoreBg=(s)=>s>=80?'bg-primary/15 border-primary/30':s>=75?'bg-blue-500/15 border-blue-500/30':s>=70?'bg-yellow-500/15 border-yellow-500/30':'bg-red-500/15 border-red-500/30';
+  grid.innerHTML=sorted.map((ind,idx)=>{
     const isHL=ind.highlighted;
     const tier=ind.precision_tier;
     const tierBadge=tier==='most_precise'?'<div class="bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-tighter border border-primary/20">Most Precise</div>'
@@ -1574,14 +1588,33 @@ function renderIndicatorCards(indicators) {
       :`<span class="text-[10px] text-outline font-bold uppercase tracking-widest">${ind.type}</span>`;
     const borderCls=isHL?'border-primary/40 shadow-[0_0_20px_rgba(110,255,192,0.1)]':'border-outline-variant/10';
     const icon=iconMap[ind.type?.toLowerCase()]||'auto_graph';
-    const params=Object.entries(ind.default_params||{}).slice(0,3);
-    return `<div class="group relative bg-surface-container p-5 rounded-xl border ${borderCls} hover:bg-surface-container-high transition-all duration-300 hover:-translate-y-1" data-ind-name="${ind.name}" data-ind-type="${ind.type}">
-      <div class="flex justify-between items-start mb-4"><span class="material-symbols-outlined ${isHL?'text-primary':'text-on-surface-variant'} text-3xl">${icon}</span>${tierBadge}</div>
-      <h3 class="text-lg font-black text-on-surface uppercase tracking-tight mb-1">${ind.name}</h3>
-      <p class="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest mb-4">${ind.description?.substring(0,40)||ind.type}</p>
-      <div class="space-y-2 mb-4">${params.map(([k,v])=>`<div class="flex justify-between text-[11px] tabular-nums"><span class="text-outline uppercase">${k}</span><span class="text-on-surface font-bold">${v}</span></div>`).join('')}</div>
+    const score=ind.accuracy_score||'?';
+    const uid='ind-detail-'+idx;
+    return `<div class="group relative bg-surface-container p-5 rounded-xl border ${borderCls} hover:bg-surface-container-high transition-all duration-300" data-ind-name="${ind.name}" data-ind-type="${ind.type}" data-accuracy="${score}">
+      <div class="flex justify-between items-start mb-3">
+        <span class="material-symbols-outlined ${isHL?'text-primary':'text-on-surface-variant'} text-2xl">${icon}</span>
+        <div class="flex items-center gap-2">${tierBadge}<div class="${scoreBg(score)} ${scoreColor(score)} px-2 py-0.5 rounded text-[11px] font-black border">${score}/100</div></div>
+      </div>
+      <h3 class="text-sm font-black text-on-surface uppercase tracking-tight mb-1">${ind.name}</h3>
+      <p class="text-[9px] text-on-surface-variant/70 mb-2">${ind.best_for||ind.type}</p>
+      <p class="text-[10px] text-on-surface-variant leading-relaxed mb-3">${ind.description?.substring(0,60)||''}</p>
+      <button onclick="document.getElementById('${uid}').classList.toggle('hidden')" class="text-[9px] text-primary font-bold uppercase tracking-wider flex items-center gap-1 hover:underline">
+        <span class="material-symbols-outlined text-[12px]">expand_more</span> Signals & Details
+      </button>
+      <div id="${uid}" class="hidden mt-3 space-y-2 border-t border-outline-variant/10 pt-3">
+        ${ind.bull_signal?`<div class="text-[10px]"><span class="text-primary font-black">▲ BULL:</span> <span class="text-on-surface-variant leading-relaxed">${ind.bull_signal}</span></div>`:''}
+        ${ind.bear_signal?`<div class="text-[10px]"><span class="text-error font-black">▼ BEAR:</span> <span class="text-on-surface-variant leading-relaxed">${ind.bear_signal}</span></div>`:''}
+        ${ind.what_to_watch?`<div class="text-[10px] mt-2"><span class="text-yellow-400 font-black">👁 WATCH:</span> <span class="text-on-surface-variant leading-relaxed">${ind.what_to_watch}</span></div>`:''}
+      </div>
     </div>`;
   }).join('');
+}
+function sortIndicators(by) {
+  indSortBy=by;
+  document.querySelectorAll('.ind-sort-btn').forEach(b=>b.className=b.dataset.sort===by?'ind-sort-btn px-3 py-1 rounded text-[9px] font-bold uppercase bg-primary/20 text-primary':'ind-sort-btn px-3 py-1 rounded text-[9px] font-bold uppercase text-on-surface-variant hover:text-on-surface');
+  const type=document.querySelector('.ind-type-tab.bg-primary-container')?.dataset?.type||'all';
+  const filtered=type==='all'?allIndicators:allIndicators.filter(i=>i.type===type);
+  renderIndicatorCards(filtered);
 }
 
 function filterIndicatorsByType(type) {

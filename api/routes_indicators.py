@@ -9,6 +9,7 @@ from typing import Optional
 
 from indicators.registry import list_indicators, register_custom_indicator, get_all_indicators
 from indicators.base import BaseIndicator
+from indicators.accuracy_data import INDICATOR_ACCURACY
 
 router = APIRouter()
 
@@ -26,6 +27,16 @@ def get_available_indicators(
     - highlighted_only: True to show only the 3 highlighted indicators
     """
     indicators = list_indicators()
+
+    # Enrich with accuracy data
+    for ind in indicators:
+        key = ind.get("name", "").lower().replace(" ", "_")
+        acc = INDICATOR_ACCURACY.get(key, {})
+        ind["accuracy_score"] = acc.get("accuracy_score", None)
+        ind["bull_signal"] = acc.get("bull_signal", "")
+        ind["bear_signal"] = acc.get("bear_signal", "")
+        ind["what_to_watch"] = acc.get("what_to_watch", "")
+        ind["best_for"] = acc.get("best_for", "")
 
     if tier:
         indicators = [i for i in indicators if i.get("precision_tier") == tier]
