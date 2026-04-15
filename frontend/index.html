@@ -1278,24 +1278,15 @@ function addChartOverlay(key) {
     return;
   }
 
-  // ===== Supertrend: two-color (green bullish / red bearish) =====
+  // ===== Supertrend: single line with per-point color (TradingView style) =====
   if(key==='supertrend') {
     const d=chartData.overlays.supertrend; if(!d?.length) return;
-    const bull=[], bear=[];
-    for(let i=0;i<d.length;i++){
-      const pt=d[i], dir=pt.direction||1;
-      if(dir===1){
-        bull.push({time:pt.time,value:pt.value});
-        if(i>0&&(d[i-1].direction||-1)===-1) bear.push({time:pt.time,value:pt.value});
-      } else {
-        bear.push({time:pt.time,value:pt.value});
-        if(i>0&&(d[i-1].direction||1)===1) bull.push({time:pt.time,value:pt.value});
-      }
-    }
     const lastDir=d[d.length-1]?.direction||1;
-    if(bull.length){const s=currentChart.addLineSeries({color:'#26a69a',lineWidth:2,title:lastDir===1?'Supertrend':'',lastValueVisible:lastDir===1,priceLineVisible:false});s.setData(bull);chartOverlays['supertrend_bull']=s;}
-    if(bear.length){const s=currentChart.addLineSeries({color:'#ef5350',lineWidth:2,title:lastDir===-1?'Supertrend':'',lastValueVisible:lastDir===-1,priceLineVisible:false});s.setData(bear);chartOverlays['supertrend_bear']=s;}
-    chartOverlays['supertrend']=true;
+    const lastColor=lastDir===1?'#26a69a':'#ef5350';
+    const s=currentChart.addLineSeries({color:lastColor,lineWidth:2,title:'Supertrend',lastValueVisible:true,priceLineVisible:false});
+    // Set data with per-point color
+    s.setData(d.map(pt=>({time:pt.time,value:pt.value,color:pt.direction===1?'#26a69a':'#ef5350'})));
+    chartOverlays['supertrend']=s;
     return;
   }
 
@@ -1312,10 +1303,6 @@ function addChartOverlay(key) {
 function removeChartOverlay(key) {
   if(!currentChart) return;
   // Composite overlays
-  if(key==='supertrend'){
-    ['supertrend_bull','supertrend_bear'].forEach(k=>{if(chartOverlays[k]&&chartOverlays[k]!==true){try{currentChart.removeSeries(chartOverlays[k])}catch(e){}} delete chartOverlays[k];});
-    delete chartOverlays['supertrend']; return;
-  }
   if(key==='ichimoku_cloud'){
     ['ichimoku_cloud_a','ichimoku_cloud_b'].forEach(k=>{if(chartOverlays[k]){try{currentChart.removeSeries(chartOverlays[k])}catch(e){}} delete chartOverlays[k];}); return;
   }
