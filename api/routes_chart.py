@@ -78,7 +78,7 @@ def get_chart_data(symbol: str, days: int = 200, interval: str = "1D"):
     ema200_data = [{"time": int(idx.timestamp()), "value": round(v, 2)}
                    for idx, v in ema200.items() if not __import__('math').isnan(v)]
 
-    # Supertrend (simplified — just the line)
+    # Supertrend (standard algorithm with band ratcheting)
     import pandas as pd
     period, mult = 7, 3.0
     hl2 = (df["High"] + df["Low"]) / 2
@@ -86,20 +86,39 @@ def get_chart_data(symbol: str, days: int = 200, interval: str = "1D"):
                      (df["High"] - df["Close"].shift()).abs(),
                      (df["Low"] - df["Close"].shift()).abs()], axis=1).max(axis=1)
     atr = tr.ewm(alpha=1/period, min_periods=period).mean()
-    upper = hl2 + mult * atr
-    lower = hl2 - mult * atr
+    basic_upper = hl2 + mult * atr
+    basic_lower = hl2 - mult * atr
+
+    # Ratcheted bands + direction
+    final_upper = basic_upper.copy()
+    final_lower = basic_lower.copy()
     st = pd.Series(index=df.index, dtype=float)
     direction = pd.Series(1, index=df.index)
+
     for i in range(period, len(df)):
-        if i == period:
-            st.iloc[i] = lower.iloc[i]
-        elif st.iloc[i-1] == upper.iloc[i-1]:
-            st.iloc[i] = upper.iloc[i] if df["Close"].iloc[i] <= upper.iloc[i] else lower.iloc[i]
-            direction.iloc[i] = -1 if df["Close"].iloc[i] <= upper.iloc[i] else 1
+        # Ratchet lower band: only increase (never decrease during uptrend)
+        if basic_lower.iloc[i] > final_lower.iloc[i-1] or df["Close"].iloc[i-1] < final_lower.iloc[i-1]:
+            final_lower.iloc[i] = basic_lower.iloc[i]
         else:
-            st.iloc[i] = lower.iloc[i] if df["Close"].iloc[i] >= lower.iloc[i] else upper.iloc[i]
-            direction.iloc[i] = 1 if df["Close"].iloc[i] >= lower.iloc[i] else -1
-    # Build supertrend data with direction; use positional index to avoid duplicate-index issues
+            final_lower.iloc[i] = final_lower.iloc[i-1]
+
+        # Ratchet upper band: only decrease (never increase during downtrend)
+        if basic_upper.iloc[i] < final_upper.iloc[i-1] or df["Close"].iloc[i-1] > final_upper.iloc[i-1]:
+            final_upper.iloc[i] = basic_upper.iloc[i]
+        else:
+            final_upper.iloc[i] = final_upper.iloc[i-1]
+
+        # Direction logic
+        if i == period:
+            direction.iloc[i] = 1 if df["Close"].iloc[i] > final_upper.iloc[i] else -1
+        elif direction.iloc[i-1] == 1:  # was bullish
+            direction.iloc[i] = -1 if df["Close"].iloc[i] < final_lower.iloc[i] else 1
+        else:  # was bearish
+            direction.iloc[i] = 1 if df["Close"].iloc[i] > final_upper.iloc[i] else -1
+
+        st.iloc[i] = final_lower.iloc[i] if direction.iloc[i] == 1 else final_upper.iloc[i]
+
+    # Build supertrend data with direction
     st_indices = [i for i, v in enumerate(st) if not pd.isna(v)]
     st_data = [{"time": int(st.index[i].timestamp()), "value": round(st.iloc[i], 2),
                 "direction": int(direction.iloc[i])}

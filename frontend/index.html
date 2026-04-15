@@ -114,6 +114,16 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 .brand-gradient { background: linear-gradient(135deg, var(--brand-start) 0%, var(--brand-end) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .top-glow { position:absolute; top:0; left:50%; transform:translateX(-50%); width:80%; height:1px; background:linear-gradient(90deg,transparent,var(--primary),transparent); filter:blur(1px); }
 
+/* ========== CHART PANEL THEME OVERRIDES ========== */
+#chart-panel { background: var(--bg); }
+#chart-panel .bg-surface-container { background: var(--surface-container) !important; }
+#chart-ind-dropdown { background: var(--surface-container) !important; color: var(--on-surface); border-color: var(--outline-variant) !important; }
+#chart-ind-dropdown label { color: var(--on-surface) !important; }
+#chart-ind-dropdown div { color: var(--on-surface-variant) !important; }
+#chart-panel .text-on-surface { color: var(--on-surface) !important; }
+#chart-panel .text-on-surface-variant { color: var(--on-surface-variant) !important; }
+#chart-panel .text-primary { color: var(--primary) !important; }
+
 /* ========== RESIZE HANDLES ========== */
 .panel-resize-handle { height:6px; cursor:row-resize; background:transparent; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
 .panel-resize-handle:hover, .panel-resize-handle.active { background: var(--outline-variant-alpha); }
@@ -925,12 +935,12 @@ function toggleTheme() {
   if(isDark) { html.classList.remove('dark'); localStorage.setItem('yointell_theme','light'); }
   else { html.classList.add('dark'); localStorage.setItem('yointell_theme','dark'); }
   document.getElementById('theme-icon').textContent = isDark ? 'dark_mode' : 'light_mode';
-  // Update chart colors in-place without re-rendering (preserves indicators + panels)
-  applyThemeToCharts();
+  // Update chart colors in-place — delay to let CSS variables recompute
+  setTimeout(()=>applyThemeToCharts(), 50);
 }
 function applyThemeToCharts() {
   const c = getChartColors();
-  const opts = {layout:{background:{color:c.bg},textColor:c.text},grid:{vertLines:{color:c.grid},horzLines:{color:c.grid}},timeScale:{borderColor:c.border},rightPriceScale:{borderColor:c.border}};
+  const opts = {layout:{background:{type:'solid',color:c.bg},textColor:c.text},grid:{vertLines:{color:c.grid},horzLines:{color:c.grid}},timeScale:{borderColor:c.border},rightPriceScale:{borderColor:c.border}};
   if(currentChart) currentChart.applyOptions(opts);
   if(currentRsiChart) currentRsiChart.applyOptions(opts);
   if(currentMacdChart) currentMacdChart.applyOptions(opts);
@@ -945,7 +955,7 @@ const OVERLAY_CONFIG = {
   sma20:      { color:'#ec4899', width:1.5, title:'SMA 20',    key:'sma20' },
   vwap:       { color:'#06b6d4', width:1.5, title:'VWAP',      key:'vwap' },
   bb_upper:   { color:'#8b5cf6', width:1, title:'BB Upper',  key:'bb_upper', lineStyle:2 },
-  bb_mid:     { color:'#8b5cf680',width:1, title:'BB Mid',   key:'bb_mid', lineStyle:1 },
+  bb_mid:     { color:'#8b5cf680',width:1, title:'',   key:'bb_mid', lineStyle:1 },
   bb_lower:   { color:'#8b5cf6', width:1, title:'BB Lower',  key:'bb_lower', lineStyle:2 },
   vwap_upper: { color:'#06b6d4', width:1, title:'VWAP +1σ',  key:'vwap_upper', lineStyle:2 },
   vwap_lower: { color:'#06b6d4', width:1, title:'VWAP -1σ',  key:'vwap_lower', lineStyle:2 },
@@ -1141,27 +1151,27 @@ function renderMacdPanel(data, el) {
 function addChartOverlay(key) {
   if(!currentChart || !chartData || chartOverlays[key]) return;
 
-  // ===== Bollinger Bands: area fill =====
+  // ===== Bollinger Bands: solid lines + translucent fill (TradingView style) =====
   if(key==='bb_upper') {
     const d=chartData.overlays.bb_upper; if(!d?.length) return;
-    const s=currentChart.addAreaSeries({topColor:'rgba(139,92,246,0.0)',bottomColor:'rgba(139,92,246,0.08)',lineColor:'#8b5cf6',lineWidth:1,lineStyle:2,title:'BB Upper',priceScaleId:'right',crosshairMarkerVisible:false});
+    const s=currentChart.addAreaSeries({topColor:'rgba(139,92,246,0.0)',bottomColor:'rgba(139,92,246,0.12)',lineColor:'#8b5cf6',lineWidth:1.5,title:'',priceScaleId:'right',crosshairMarkerVisible:false,lastValueVisible:false,priceLineVisible:false});
     s.setData(d); chartOverlays[key]=s; return;
   }
   if(key==='bb_lower') {
     const d=chartData.overlays.bb_lower; if(!d?.length) return;
-    const s=currentChart.addAreaSeries({topColor:'rgba(139,92,246,0.08)',bottomColor:'rgba(139,92,246,0.0)',lineColor:'#8b5cf6',lineWidth:1,lineStyle:2,title:'BB Lower',priceScaleId:'right',crosshairMarkerVisible:false});
+    const s=currentChart.addAreaSeries({topColor:'rgba(139,92,246,0.12)',bottomColor:'rgba(139,92,246,0.0)',lineColor:'#8b5cf6',lineWidth:1.5,title:'',priceScaleId:'right',crosshairMarkerVisible:false,lastValueVisible:false,priceLineVisible:false});
     s.setData(d); chartOverlays[key]=s; return;
   }
 
-  // ===== VWAP Bands: area fill =====
+  // ===== VWAP Bands: solid lines + translucent fill =====
   if(key==='vwap_upper') {
     const d=chartData.overlays.vwap_upper; if(!d?.length) return;
-    const s=currentChart.addAreaSeries({topColor:'rgba(6,182,212,0.0)',bottomColor:'rgba(6,182,212,0.06)',lineColor:'#06b6d4',lineWidth:1,lineStyle:2,title:'VWAP +1\u03c3',priceScaleId:'right',crosshairMarkerVisible:false});
+    const s=currentChart.addAreaSeries({topColor:'rgba(6,182,212,0.0)',bottomColor:'rgba(6,182,212,0.08)',lineColor:'#06b6d480',lineWidth:1,title:'',priceScaleId:'right',crosshairMarkerVisible:false,lastValueVisible:false,priceLineVisible:false});
     s.setData(d); chartOverlays[key]=s; return;
   }
   if(key==='vwap_lower') {
     const d=chartData.overlays.vwap_lower; if(!d?.length) return;
-    const s=currentChart.addAreaSeries({topColor:'rgba(6,182,212,0.06)',bottomColor:'rgba(6,182,212,0.0)',lineColor:'#06b6d4',lineWidth:1,lineStyle:2,title:'VWAP -1\u03c3',priceScaleId:'right',crosshairMarkerVisible:false});
+    const s=currentChart.addAreaSeries({topColor:'rgba(6,182,212,0.08)',bottomColor:'rgba(6,182,212,0.0)',lineColor:'#06b6d480',lineWidth:1,title:'',priceScaleId:'right',crosshairMarkerVisible:false,lastValueVisible:false,priceLineVisible:false});
     s.setData(d); chartOverlays[key]=s; return;
   }
 
@@ -1190,8 +1200,8 @@ function addChartOverlay(key) {
         if(i>0&&(d[i-1].direction||1)===1) bull.push({time:pt.time,value:pt.value});
       }
     }
-    if(bull.length){const s=currentChart.addLineSeries({color:'#00e5a0',lineWidth:2,title:'',lastValueVisible:false,priceLineVisible:false});s.setData(bull);chartOverlays['supertrend_bull']=s;}
-    if(bear.length){const s=currentChart.addLineSeries({color:'#ff4757',lineWidth:2,title:'',lastValueVisible:false,priceLineVisible:false});s.setData(bear);chartOverlays['supertrend_bear']=s;}
+    if(bull.length){const s=currentChart.addLineSeries({color:'#26a69a',lineWidth:2,title:'Supertrend',lastValueVisible:true,priceLineVisible:false});s.setData(bull);chartOverlays['supertrend_bull']=s;}
+    if(bear.length){const s=currentChart.addLineSeries({color:'#ef5350',lineWidth:2,title:'Supertrend',lastValueVisible:true,priceLineVisible:false});s.setData(bear);chartOverlays['supertrend_bear']=s;}
     chartOverlays['supertrend']=true;
     return;
   }
@@ -1332,7 +1342,7 @@ function toggleChartIndicator(key, checked) {
   }
   if(key==='vwap_sd') {
     if(checked){ addChartOverlay('vwap'); addChartOverlay('vwap_upper'); addChartOverlay('vwap_lower'); }
-    else { removeChartOverlay('vwap_upper'); removeChartOverlay('vwap_lower'); }
+    else { removeChartOverlay('vwap'); removeChartOverlay('vwap_upper'); removeChartOverlay('vwap_lower'); }
     return;
   }
   if(key==='ichimoku') {
