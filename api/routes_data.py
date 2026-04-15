@@ -396,7 +396,7 @@ def fa_sync():
                 print(f"  FA sync error for {sym}: {e}")
                 _fa_sync["done"] = i + 1
             if i < len(missing) - 1:
-                time.sleep(1.5)
+                time.sleep(1.0)
 
         _fa_sync["running"] = False
         _fa_sync["complete"] = True
