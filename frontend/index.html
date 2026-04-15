@@ -249,7 +249,8 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
     <div class="flex items-center flex-1 max-w-3xl gap-3">
       <div class="flex-1 relative">
         <span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-sm text-on-surface-variant">search</span>
-        <input id="symbols-input" class="w-full pl-10 bg-surface-container-high border border-outline-variant/20 rounded-lg text-sm h-10 focus:ring-1 focus:ring-primary placeholder:text-on-surface-variant/40" placeholder="Search symbols (RELIANCE, HDFCBANK...)" type="text" onkeydown="if(event.key==='Enter')runScreen()"/>
+        <input id="symbols-input" class="w-full pl-10 bg-surface-container-high border border-outline-variant/20 rounded-lg text-sm h-10 focus:ring-1 focus:ring-primary placeholder:text-on-surface-variant/40" placeholder="Search symbols (RELIANCE, HDFCBANK...)" type="text" onkeydown="if(event.key==='Enter'){hideSearchDropdown();runScreen();}" oninput="onSearchInput(this.value)" autocomplete="off"/>
+        <div id="search-dropdown" class="hidden absolute left-0 top-11 w-full max-h-60 overflow-y-auto bg-surface-container border border-outline-variant/20 rounded-xl shadow-2xl z-50 p-1"></div>
       </div>
       <select id="scope-select" class="bg-surface-container-high border border-outline-variant/20 rounded-lg text-[10px] font-bold h-10 px-3 text-on-surface uppercase">
         <option value="nifty200">Nifty 200</option>
@@ -827,6 +828,29 @@ async function runScreenAll() {
   } catch(e) { if(e.name!=='AbortError') alert('Error: '+e.message); }
   finally { screenAbort=null; document.getElementById('loading').firstElementChild.style.width='0%'; document.getElementById('scan-all-btn').disabled=false; document.getElementById('stop-btn').classList.add('hidden'); }
 }
+
+// ============ SEARCH AUTOCOMPLETE ============
+let searchTimeout=null;
+function onSearchInput(val) {
+  clearTimeout(searchTimeout);
+  const dd=document.getElementById('search-dropdown');
+  if(!val||val.length<1){dd.classList.add('hidden');return;}
+  searchTimeout=setTimeout(async()=>{
+    try {
+      const res=await fetch(API+'/data/search?q='+encodeURIComponent(val));
+      const data=await res.json();
+      if(!data.results.length){dd.innerHTML='<div class="text-[10px] text-on-surface-variant/50 p-3 text-center">No matches</div>';dd.classList.remove('hidden');return;}
+      dd.innerHTML=data.results.map(r=>`<div class="flex items-center justify-between hover:bg-surface-container-highest/60 rounded-lg px-3 py-2 cursor-pointer" onclick="selectSearchResult('${r.symbol}')"><span class="text-xs font-bold text-primary">${r.symbol}</span><span class="text-[10px] text-on-surface-variant truncate ml-2">${r.name!==r.symbol?r.name:''}</span></div>`).join('');
+      dd.classList.remove('hidden');
+    } catch(e){}
+  }, 200);
+}
+function selectSearchResult(sym) {
+  document.getElementById('symbols-input').value=sym;
+  hideSearchDropdown();
+  runScreen();
+}
+function hideSearchDropdown() { document.getElementById('search-dropdown')?.classList.add('hidden'); }
 
 async function runScreen() {
   const input=document.getElementById('symbols-input').value.trim();
@@ -1829,6 +1853,8 @@ function initApp() {
     if(pd&&!pd.classList.contains('hidden')&&!e.target.closest('#preset-dropdown')&&!e.target.closest('[onclick*="preset-dropdown"]')) pd.classList.add('hidden');
     const cd=document.getElementById('chart-ind-dropdown');
     if(cd&&!cd.classList.contains('hidden')&&!e.target.closest('#chart-ind-dropdown')&&!e.target.closest('[onclick*="chart-ind-dropdown"]')) cd.classList.add('hidden');
+    const sd=document.getElementById('search-dropdown');
+    if(sd&&!sd.classList.contains('hidden')&&!e.target.closest('#search-dropdown')&&!e.target.closest('#symbols-input')) sd.classList.add('hidden');
   });
 }
 

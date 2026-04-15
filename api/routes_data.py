@@ -74,6 +74,64 @@ def data_status():
     }
 
 
+@router.get("/data/search")
+def search_symbols(q: str = ""):
+    """Search symbols by partial match. Returns up to 15 results."""
+    if not q or len(q) < 1:
+        return {"results": []}
+    q_upper = q.strip().upper()
+
+    # Get symbols from history pickle files
+    import os
+    hist_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data_store", "history")
+    if os.path.exists(hist_dir):
+        symbols = [f.replace('.pkl','') for f in os.listdir(hist_dir) if f.endswith('.pkl')]
+    else:
+        symbols = list(get_downloaded_symbols())
+
+    # Try to load cached fundamentals for company names
+    import os, pickle
+    fund_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data_store", "fundamentals")
+    results = []
+    for sym in sorted(symbols):
+        name = sym
+        # Check if partial match on symbol
+        if q_upper in sym:
+            # Try cached fundamentals for company name
+            try:
+                fpath = os.path.join(fund_dir, f"{sym}.pkl")
+                if os.path.exists(fpath):
+                    with open(fpath, "rb") as f:
+                        fund = pickle.load(f)
+                    name = fund.get("short_name", sym)
+            except Exception:
+                pass
+            results.append({"symbol": sym, "name": name})
+            if len(results) >= 15:
+                break
+
+    # If few results by symbol, also search by company name
+    if len(results) < 10:
+        q_lower = q.strip().lower()
+        for sym in sorted(symbols):
+            if any(r["symbol"] == sym for r in results):
+                continue
+            try:
+                fpath = os.path.join(fund_dir, f"{sym}.pkl")
+                if os.path.exists(fpath):
+                    with open(fpath, "rb") as f:
+                        fund = pickle.load(f)
+                    name = fund.get("short_name", "")
+                    if q_lower in name.lower():
+                        results.append({"symbol": sym, "name": name})
+                        if len(results) >= 15:
+                            break
+            except Exception:
+                continue
+
+    return {"results": results}
+
+
 class DownloadRequest(BaseModel):
     symbols: Optional[list[str]] = None
     use_fallback: bool = False
