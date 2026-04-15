@@ -71,17 +71,18 @@ tailwind.config = {
 <style>
 /* ========== THEME CSS VARIABLES ========== */
 :root {
-  --bg: #f5f7fa; --surface: #ffffff; --surface-container: #f0f2f5; --surface-container-low: #f8f9fb;
+  --bg: #f5f7fa; --surface: #ffffff; --surface-container: #f0f3fa; --surface-container-low: #f8f9fb;
   --surface-container-high: #e8eaed; --surface-container-highest: #dde0e4; --surface-container-lowest: #f5f7fa;
-  --on-surface: #1a1a2e; --on-surface-variant: #5f6368; --on-background: #1a1a2e;
-  --outline-variant: #c4c7cc; --outline-variant-alpha: rgba(0,0,0,0.08);
-  --primary: #00a868; --primary-container: #00a868; --on-primary: #ffffff;
-  --chart-bg: #ffffff; --chart-text: #5f6368; --chart-grid: #f0f2f5; --chart-border: #e0e0e0;
-  --candle-up: #00a868; --candle-down: #e53935;
-  --glass-bg: rgba(255,255,255,0.75); --glass-border: rgba(0,0,0,0.08);
-  --mesh-c1: rgba(0,168,104,0.06); --mesh-c2: rgba(2,103,184,0.06);
-  --scrollbar-thumb: #c4c7cc; --brand-start: #00a868; --brand-end: #006c49;
-  --login-bg: #f5f7fa; --error-bg: rgba(229,57,53,0.08);
+  --on-surface: #131722; --on-surface-variant: #787b86; --on-background: #131722;
+  --outline-variant: #e0e3eb; --outline-variant-alpha: rgba(0,0,0,0.06);
+  --primary: #2962ff; --primary-container: #2962ff; --on-primary: #ffffff;
+  --chart-bg: #ffffff; --chart-text: #131722; --chart-grid: #f0f3fa; --chart-border: #e0e3eb;
+  --candle-up: #26a69a; --candle-down: #ef5350;
+  --vol-up: rgba(38,166,154,0.5); --vol-down: rgba(239,83,80,0.5);
+  --glass-bg: rgba(255,255,255,0.85); --glass-border: rgba(0,0,0,0.06);
+  --mesh-c1: rgba(41,98,255,0.04); --mesh-c2: rgba(41,98,255,0.02);
+  --scrollbar-thumb: #c4c7cc; --brand-start: #2962ff; --brand-end: #1e88e5;
+  --login-bg: #f5f7fa; --error-bg: rgba(239,83,80,0.08);
 }
 .dark {
   --bg: #0a0e1a; --surface: #0f131f; --surface-container: #1b1f2c; --surface-container-low: #171b28;
@@ -91,6 +92,7 @@ tailwind.config = {
   --primary: #6effc0; --primary-container: #00e5a0; --on-primary: #003824;
   --chart-bg: #171b28; --chart-text: #bacbbf; --chart-grid: #1b1f2c; --chart-border: #3b4a41;
   --candle-up: #00e5a0; --candle-down: #ff4757;
+  --vol-up: rgba(0,229,160,0.5); --vol-down: rgba(255,71,87,0.5);
   --glass-bg: rgba(49,52,66,0.6); --glass-border: rgba(59,74,65,0.2);
   --mesh-c1: rgba(0,229,160,0.15); --mesh-c2: rgba(2,103,184,0.15);
   --scrollbar-thumb: #3b4a41; --brand-start: #6effc0; --brand-end: #00e5a0;
@@ -939,6 +941,9 @@ function toggleTheme() {
   setTimeout(()=>applyThemeToCharts(), 50);
 }
 function applyThemeToCharts() {
+  // Full re-render to pick up new candle + chart colors (preserves indicator checkboxes)
+  if(currentChartSymbol && chartData) { renderChart(chartData); return; }
+  // Fallback: update chart options in-place
   const c = getChartColors();
   const opts = {layout:{background:{type:'solid',color:c.bg},textColor:c.text},grid:{vertLines:{color:c.grid},horzLines:{color:c.grid}},timeScale:{borderColor:c.border},rightPriceScale:{borderColor:c.border}};
   if(currentChart) currentChart.applyOptions(opts);
@@ -992,6 +997,28 @@ function renderChart(data) {
   const cs=currentChart.addCandlestickSeries({upColor:cc.up,downColor:cc.down,borderUpColor:cc.up,borderDownColor:cc.down,wickUpColor:cc.up,wickDownColor:cc.down});
   cs.setData(data.candles);
 
+  // Volume integrated into main chart (TradingView style — bottom 20%)
+  const volSeries=currentChart.addHistogramSeries({
+    priceFormat:{type:'volume'},
+    priceScaleId:'vol',
+    lastValueVisible:false,
+    priceLineVisible:false,
+  });
+  currentChart.priceScale('vol').applyOptions({
+    scaleMargins:{top:0.8,bottom:0},
+  });
+  // Apply theme-aware volume colors
+  const s=getComputedStyle(document.documentElement);
+  const vUp=s.getPropertyValue('--vol-up').trim()||'rgba(0,229,160,0.5)';
+  const vDown=s.getPropertyValue('--vol-down').trim()||'rgba(255,71,87,0.5)';
+  const themedVols=data.volumes.map(v=>{
+    const isUp=data.candles.find(c=>c.time===v.time);
+    const up=isUp?isUp.close>=isUp.open:true;
+    return {...v, color: up?vUp:vDown};
+  });
+  volSeries.setData(themedVols);
+  chartOverlays['_volume']=volSeries;
+
   // Clear old sub-panels
   subPanelCharts = {};
   document.getElementById('sub-panels').innerHTML = '';
@@ -1037,13 +1064,9 @@ function renderChart(data) {
     renderMacdPanel(data, macdEl);
   } else { macdEl.style.display='none'; currentMacdChart=null; }
 
-  // Volume
-  currentVolChart=LightweightCharts.createChart(volEl,{width:volEl.clientWidth,height:60,layout:{background:{color:getChartColors().bg},textColor:getChartColors().text,fontSize:9},grid:{vertLines:{color:getChartColors().grid},horzLines:{color:getChartColors().grid}},timeScale:{visible:false},rightPriceScale:{borderColor:getChartColors().border,minimumWidth:65},crosshair:{mode:0},handleScroll:false,handleScale:false});
-  addTimeBaseline(currentVolChart);
-  const vs=currentVolChart.addHistogramSeries({priceFormat:{type:'volume'}});
-  vs.setData(data.volumes);
-  syncSubPanelToMain(currentVolChart);
-  currentVolChart._uniqueId='vol'; window._chartSyncSeries['vol']=vs;
+  // Volume is now integrated into main chart — hide separate panel
+  volEl.style.display='none';
+  currentVolChart=null;
 
   // Sync all panels using logical range (bar-index-based = pixel-perfect alignment)
   currentChart.timeScale().subscribeVisibleLogicalRangeChange(lr=>{
