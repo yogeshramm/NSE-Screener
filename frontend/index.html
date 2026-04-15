@@ -409,7 +409,9 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
         </div>
       </div>
       <div class="flex-1 flex flex-col p-2 gap-2 overflow-y-auto">
-        <div id="chart-container" class="bg-surface-container rounded-lg relative overflow-hidden border border-outline-variant/10" style="min-height:300px;height:350px;flex-shrink:0"></div>
+        <div id="chart-container" class="bg-surface-container rounded-lg relative overflow-hidden border border-outline-variant/10" style="min-height:300px;height:350px;flex-shrink:0">
+          <div id="ohlc-overlay" class="absolute top-2 left-2 z-10 flex gap-3 text-[10px] font-mono pointer-events-none" style="text-shadow:0 0 3px rgba(0,0,0,0.5)"></div>
+        </div>
         <div id="rsi-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:80px"></div>
         <div id="macd-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:80px;display:none"></div>
         <div id="sub-panels" class="flex flex-col gap-2"></div>
@@ -829,6 +831,15 @@ async function runScreenAll() {
   finally { screenAbort=null; document.getElementById('loading').firstElementChild.style.width='0%'; document.getElementById('scan-all-btn').disabled=false; document.getElementById('stop-btn').classList.add('hidden'); }
 }
 
+// ============ OHLC OVERLAY ============
+function updateOhlcOverlay(candle) {
+  const el=document.getElementById('ohlc-overlay');
+  if(!el||!candle) return;
+  const isUp=candle.close>=candle.open;
+  const color=isUp?'var(--candle-up)':'var(--candle-down)';
+  el.innerHTML=`<span style="color:var(--on-surface-variant)">O</span><span style="color:${color}">${candle.open.toFixed(2)}</span> <span style="color:var(--on-surface-variant)">H</span><span style="color:${color}">${candle.high.toFixed(2)}</span> <span style="color:var(--on-surface-variant)">L</span><span style="color:${color}">${candle.low.toFixed(2)}</span> <span style="color:var(--on-surface-variant)">C</span><span style="color:${color}">${candle.close.toFixed(2)}</span>`;
+}
+
 // ============ SEARCH AUTOCOMPLETE ============
 let searchTimeout=null;
 function onSearchInput(val) {
@@ -1031,6 +1042,13 @@ function renderChart(data) {
   // Init sync tracking
   window._chartSyncSeries = {};
 
+  // OHLC overlay (re-create after innerHTML clear)
+  const ohlcDiv=document.createElement('div');
+  ohlcDiv.id='ohlc-overlay';
+  ohlcDiv.className='absolute top-2 left-2 z-10 flex gap-3 text-[10px] font-mono pointer-events-none';
+  ohlcDiv.style.textShadow='0 0 3px rgba(0,0,0,0.5)';
+  chartEl.appendChild(ohlcDiv);
+
   // Main candlestick
   currentChart=LightweightCharts.createChart(chartEl,{width:chartEl.clientWidth,height:chartEl.clientHeight,layout:{background:{color:getChartColors().bg},textColor:getChartColors().text,fontSize:10},grid:{vertLines:{color:getChartColors().grid},horzLines:{color:getChartColors().grid}},crosshair:{mode:0},timeScale:{borderColor:getChartColors().border,timeVisible:false},rightPriceScale:{borderColor:getChartColors().border,minimumWidth:65}});
   const cc=getCandleColors();
@@ -1119,7 +1137,18 @@ function renderChart(data) {
 
   // Sync crosshair vertical line across all panels
   // We need to track the first series of each sub-chart for setCrosshairPosition
+  // Show latest candle OHLC by default
+  if(data.candles.length) updateOhlcOverlay(data.candles[data.candles.length-1]);
+
   currentChart.subscribeCrosshairMove(param=>{
+    // Update OHLC overlay
+    if(param.time && chartData) {
+      const candle = chartData.candles.find(c=>c.time===param.time);
+      if(candle) updateOhlcOverlay(candle);
+    } else if(chartData?.candles?.length) {
+      updateOhlcOverlay(chartData.candles[chartData.candles.length-1]);
+    }
+
     const subCharts = [];
     if(currentRsiChart) subCharts.push(currentRsiChart);
     if(currentMacdChart) subCharts.push(currentMacdChart);
@@ -1129,7 +1158,6 @@ function renderChart(data) {
     subCharts.forEach(c=>{
       try {
         if(!param.time) { c.clearCrosshairPosition(); return; }
-        // Get the first series key from param to find a matching series
         const series = window._chartSyncSeries[c._uniqueId || ''];
         if(series) c.setCrosshairPosition(undefined, param.time, series);
       } catch(e){}
