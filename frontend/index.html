@@ -959,7 +959,19 @@ let subPanelCharts = {}; // { key: chart instance }
 function renderChart(data) {
   chartData = data;
   chartOverlays = {};
+
+  // Destroy existing charts before recreating
+  if(currentChart) { try{currentChart.remove()}catch(e){} currentChart=null; }
+  if(currentRsiChart) { try{currentRsiChart.remove()}catch(e){} currentRsiChart=null; }
+  if(currentMacdChart) { try{currentMacdChart.remove()}catch(e){} currentMacdChart=null; }
+  if(currentVolChart) { try{currentVolChart.remove()}catch(e){} currentVolChart=null; }
+  for(const k in subPanelCharts) { try{subPanelCharts[k].remove()}catch(e){} }
+  subPanelCharts = {};
+
   const chartEl=document.getElementById('chart-container'),rsiEl=document.getElementById('rsi-container'),volEl=document.getElementById('vol-container'),macdEl=document.getElementById('macd-container');
+  chartEl.innerHTML=''; rsiEl.innerHTML=''; volEl.innerHTML='';
+  document.getElementById('macd-container').innerHTML='';
+  document.getElementById('sub-panels').innerHTML='';
 
   // Init sync tracking
   window._chartSyncSeries = {};
