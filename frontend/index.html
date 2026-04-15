@@ -391,8 +391,8 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
           <span class="material-symbols-outlined text-sm cursor-pointer hover:text-error" onclick="closeChart()">close</span>
         </div>
       </div>
-      <div class="flex-1 flex flex-col p-2 gap-2">
-        <div id="chart-container" class="flex-[3] bg-surface-container rounded-lg relative overflow-hidden border border-outline-variant/10" style="min-height:300px"></div>
+      <div class="flex-1 flex flex-col p-2 gap-2 overflow-y-auto">
+        <div id="chart-container" class="bg-surface-container rounded-lg relative overflow-hidden border border-outline-variant/10" style="min-height:300px;height:350px;flex-shrink:0"></div>
         <div id="rsi-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:80px"></div>
         <div id="macd-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:80px;display:none"></div>
         <div id="sub-panels" class="flex flex-col gap-2"></div>
@@ -925,7 +925,17 @@ function toggleTheme() {
   if(isDark) { html.classList.remove('dark'); localStorage.setItem('yointell_theme','light'); }
   else { html.classList.add('dark'); localStorage.setItem('yointell_theme','dark'); }
   document.getElementById('theme-icon').textContent = isDark ? 'dark_mode' : 'light_mode';
-  if(currentChartSymbol && chartData) renderChart(chartData);
+  // Update chart colors in-place without re-rendering (preserves indicators + panels)
+  applyThemeToCharts();
+}
+function applyThemeToCharts() {
+  const c = getChartColors();
+  const opts = {layout:{background:{color:c.bg},textColor:c.text},grid:{vertLines:{color:c.grid},horzLines:{color:c.grid}},timeScale:{borderColor:c.border},rightPriceScale:{borderColor:c.border}};
+  if(currentChart) currentChart.applyOptions(opts);
+  if(currentRsiChart) currentRsiChart.applyOptions(opts);
+  if(currentMacdChart) currentMacdChart.applyOptions(opts);
+  if(currentVolChart) currentVolChart.applyOptions(opts);
+  for(const k in subPanelCharts) if(subPanelCharts[k]) subPanelCharts[k].applyOptions(opts);
 }
 (function initTheme(){ const t=localStorage.getItem('yointell_theme'); if(t==='light'){document.documentElement.classList.remove('dark');const i=document.getElementById('theme-icon');if(i)i.textContent='dark_mode';} })();
 const OVERLAY_CONFIG = {
