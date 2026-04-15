@@ -28,9 +28,24 @@ def get_available_indicators(
     """
     indicators = list_indicators()
 
+    # Name-to-key mapping for accuracy data lookup
+    _name_map = {
+        "ehlers fisher transform": "fisher_transform",
+        "elder force index": "force_index",
+        "klinger volume oscillator": "klinger_oscillator",
+        "chande momentum oscillator": "chande_momentum",
+        "vortex indicator": "vortex",
+        "hidden bullish divergence": "hidden_divergence",
+        "bollinger band squeeze": "bb_squeeze",
+        "williams %r": "williams_r",
+        "ichimoku cloud": "ichimoku",
+        "atr": "atr",
+    }
+
     # Enrich with accuracy data
     for ind in indicators:
-        key = ind.get("name", "").lower().replace(" ", "_")
+        name_lower = ind.get("name", "").lower()
+        key = _name_map.get(name_lower, name_lower.replace(" ", "_"))
         acc = INDICATOR_ACCURACY.get(key, {})
         ind["accuracy_score"] = acc.get("accuracy_score", None)
         ind["bull_signal"] = acc.get("bull_signal", "")

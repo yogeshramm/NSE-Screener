@@ -67,6 +67,13 @@ INDICATOR_ACCURACY = {
         "what_to_watch": "ROC divergence — price at new high but ROC lower = momentum failing. Extreme ROC values signal mean reversion. Better for contrarian trades than trend following.",
         "best_for": "Momentum measurement",
     },
+    "atr": {
+        "accuracy_score": 71,
+        "bull_signal": "Rising ATR = increasing volatility, trend accelerating. High ATR on breakout = strong momentum confirmation.",
+        "bear_signal": "Falling ATR = decreasing volatility, trend weakening. Very low ATR = volatility compression, big move coming.",
+        "what_to_watch": "ATR measures volatility, not direction. Use for position sizing (higher ATR = wider stops needed). ATR squeeze (low values) often precedes major moves. Best combined with directional indicators.",
+        "best_for": "Volatility measurement & position sizing",
+    },
     "awesome_oscillator": {
         "accuracy_score": 75,
         "bull_signal": "AO crossing from negative to positive = trend reversal. 'Saucer' pattern (green-red-green in positive territory) = high-probability entry.",
