@@ -13,9 +13,12 @@ from data.batch_downloader import (
     get_downloaded_symbols, get_available_dates,
     is_today_downloaded, run_batch_download
 )
-from data.nse_symbols import NIFTY_500_FALLBACK
+from data.nse_symbols import NIFTY_500_FALLBACK, get_nifty500_live
 
 router = APIRouter()
+
+# Track fundamental sync state
+_fa_sync = {"running": False, "done": 0, "total": 0, "complete": False}
 
 # Track if a download is in progress
 _download_in_progress = False

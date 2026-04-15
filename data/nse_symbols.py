@@ -94,3 +94,24 @@ def get_nse_stock_list(source: str = "bhavcopy") -> list[str]:
     # Fallback
     print(f"  Using curated fallback list: {len(NIFTY_500_FALLBACK)} stocks")
     return list(NIFTY_500_FALLBACK)
+
+
+def get_nifty500_live():
+    """Fetch the current Nifty 500 constituent list from NSE archives."""
+    url = "https://archives.nseindia.com/content/indices/ind_nifty500list.csv"
+    try:
+        r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+        if r.status_code == 200:
+            lines = r.text.strip().split("\n")
+            symbols = []
+            for line in lines[1:]:
+                parts = line.split(",")
+                if len(parts) >= 3:
+                    symbols.append(parts[2].strip().strip('"'))
+            if len(symbols) > 400:
+                print(f"  Fetched {len(symbols)} Nifty 500 symbols from NSE")
+                return symbols
+    except Exception as e:
+        print(f"  Nifty 500 live fetch failed: {e}")
+    # Fallback to curated list
+    return list(NIFTY_500_FALLBACK)
