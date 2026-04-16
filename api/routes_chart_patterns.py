@@ -1,21 +1,95 @@
 """Chart Patterns API: advanced multi-bar breakout patterns."""
+import time
 from fastapi import APIRouter
 from pydantic import BaseModel
 from engine.chart_patterns import list_patterns, scan, _DETECTORS, PATTERNS, _load
 
 router = APIRouter()
 
+# In-memory analyze cache: {symbol: (ts, result)} — 30 min TTL
+_ANALYZE_CACHE = {}
+_ANALYZE_TTL = 1800
+
 
 # Per-pattern "breakout trigger" field — the price level that confirms the breakout.
 TRIG_FIELDS = {
-    "rectangle": "top",
-    "ascending_triangle": "resistance",
-    "bull_flag": "flag_high",
-    "cup_handle": "cup_high",
-    "high_tight_flag": "peak",
-    "darvas_box": "top",
+    "rectangle": "top", "ascending_triangle": "resistance", "bull_flag": "flag_high",
+    "cup_handle": "cup_high", "high_tight_flag": "peak", "darvas_box": "top",
     "pivot_breakout": "pivot",
 }
+
+
+@router.get("/chart-patterns/analyze/{symbol}")
+def chart_patterns_analyze(symbol: str, days: int = 200, step: int = 2, cooldown: int = 8,
+                            forward_bars: int = 10, win_pct: float = 3.0):
+    """Unified endpoint: historical hits (with outcome, no pending) + active patterns
+    (with trigger level) + stock-specific summary. Cached 30 min per symbol."""
+    sym = symbol.upper()
+    now = time.time()
+    cached = _ANALYZE_CACHE.get(sym)
+    if cached and now - cached[0] < _ANALYZE_TTL:
+        return cached[1]
+    df = _load(sym)
+    if df is None or len(df) < 40:
+        out = {"symbol": sym, "hits": [], "active": [], "summary": {}}
+        _ANALYZE_CACHE[sym] = (now, out); return out
+    df = df.tail(max(60, days + 20))
+    n = len(df)
+    acc = {p["key"]: p["accuracy"] for p in PATTERNS}
+    name = {p["key"]: p["name"] for p in PATTERNS}
+    hits, last_idx_for = [], {}
+    idxs = list(range(30, n, max(1, step)))
+    if idxs and idxs[-1] != n - 1:
+        idxs.append(n - 1)
+    for i in idxs:
+        sub = df.iloc[:i + 1]
+        for k, det in _DETECTORS.items():
+            if i - last_idx_for.get(k, -999) < cooldown:
+                continue
+            try:
+                r = det(sub)
+                if not r:
+                    continue
+                # Only keep hits that have enough forward data (drop pending)
+                if i + forward_bars >= n:
+                    last_idx_for[k] = i
+                    continue
+                entry = float(df["Close"].iloc[i])
+                fh = float(df["High"].iloc[i+1:i+1+forward_bars].max())
+                fl = float(df["Low"].iloc[i+1:i+1+forward_bars].min())
+                up = (fh - entry) / entry * 100 if entry else 0
+                dn = (fl - entry) / entry * 100 if entry else 0
+                outcome = "win" if up >= win_pct else ("loss" if dn <= -win_pct else "neutral")
+                t = int(sub.index[-1].timestamp()) if hasattr(sub.index[-1], "timestamp") else 0
+                hits.append({"time": t, "key": k, "name": name.get(k, k), "outcome": outcome})
+                last_idx_for[k] = i
+            except Exception:
+                continue
+    # Active patterns on current bar, with trigger levels
+    active = []
+    for k, det in _DETECTORS.items():
+        try:
+            r = det(df)
+            if r:
+                trig = r.get(TRIG_FIELDS.get(k, "")) if k in TRIG_FIELDS else None
+                active.append({"key": k, "name": name.get(k, k), "accuracy": acc.get(k, 0),
+                               "confidence": r.get("confidence", 0), "trigger": trig})
+        except Exception:
+            continue
+    active.sort(key=lambda h: h.get("confidence", 0), reverse=True)
+    # Per-pattern summary from completed hits
+    summary = {}
+    for h in hits:
+        b = summary.setdefault(h["key"], {"name": h["name"], "wins": 0, "losses": 0, "neutral": 0, "n": 0})
+        b["n"] += 1
+        if h["outcome"] == "win": b["wins"] += 1
+        elif h["outcome"] == "loss": b["losses"] += 1
+        else: b["neutral"] += 1
+    for k, b in summary.items():
+        b["rate"] = round(b["wins"] / b["n"] * 100, 1) if b["n"] else 0
+    out = {"symbol": sym, "hits": hits, "active": active, "summary": summary}
+    _ANALYZE_CACHE[sym] = (now, out)
+    return out
 
 
 @router.get("/chart-patterns/detect/{symbol}")

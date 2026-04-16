@@ -438,6 +438,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
         </div>
       </div>
       <div class="flex-1 flex flex-col p-2 gap-2 overflow-y-auto">
+        <div id="sc-help-summary" class="hidden bg-surface-container-highest rounded-lg px-3 py-1.5 border border-outline-variant/20 flex flex-wrap items-center"></div>
         <div id="sc-briefing-panel" class="hidden bg-surface-container-highest rounded-lg p-3 text-xs border border-outline-variant/20">
           <div class="flex items-center justify-between mb-2">
             <span class="text-[10px] font-black uppercase tracking-widest text-primary">Stock Briefing</span>
@@ -1578,8 +1579,8 @@ function closeChart() {
   scClear52WLines();
   scClearTriggerLines();
   window._scCandleSeries=null;
-  scBreakoutCache = {};
-  scBreakoutHistCache = {};
+  scAnalyzeCache = {};
+  const hs=document.getElementById('sc-help-summary'); if(hs){hs.classList.add('hidden');hs.innerHTML='';}
 }
 function openInsightsFromChart() { if(currentChartSymbol) openStock(currentChartSymbol); }
 
@@ -2417,23 +2418,22 @@ function scClear52WLines() {
   if (cs && sc52LoLine) { try { cs.removePriceLine(sc52LoLine); } catch(e){} sc52LoLine = null; }
 }
 
-let scBreakoutCache = {};        // {symbol: {hits, triggerLines[]}}
-let scBreakoutHistCache = {};    // {symbol: {hits, stock_accuracy}}
-let scTriggerLines = [];         // active price lines on chart
+let scAnalyzeCache = {};         // {symbol: {hits, active, summary}}
+let scTriggerLines = [];
 async function toggleScreenerHelp() {
   scHelpOn = !scHelpOn;
   const btn = document.getElementById('sc-help-btn');
   btn.className = scHelpOn
     ? 'text-[9px] font-bold text-on-primary bg-primary-container px-2 py-0.5 rounded'
     : 'text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
-  if (scHelpOn && currentChartSymbol) {
-    const s = currentChartSymbol;
-    const tasks = [];
-    if (!scBreakoutHistCache[s]) tasks.push(fetch(API + '/chart-patterns/detect-history/' + s).then(r=>r.json()).then(d => { scBreakoutHistCache[s] = d; }).catch(() => { scBreakoutHistCache[s] = {hits:[],stock_accuracy:{}}; }));
-    if (!scBreakoutCache[s]) tasks.push(fetch(API + '/chart-patterns/detect/' + s).then(r=>r.json()).then(d => { scBreakoutCache[s] = d; }).catch(() => { scBreakoutCache[s] = {hits:[]}; }));
-    if (tasks.length) await Promise.all(tasks);
+  if (scHelpOn && currentChartSymbol && !scAnalyzeCache[currentChartSymbol]) {
+    try {
+      const r = await fetch(API + '/chart-patterns/analyze/' + currentChartSymbol);
+      scAnalyzeCache[currentChartSymbol] = await r.json();
+    } catch(e) { scAnalyzeCache[currentChartSymbol] = {hits:[], active:[], summary:{}}; }
   }
   scDrawTriggerLines();
+  scRenderSummaryBadge();
   scApplyMarkers();
 }
 
@@ -2448,16 +2448,35 @@ function scDrawTriggerLines() {
   if (!scHelpOn) return;
   const cs = window._scCandleSeries;
   if (!cs || !currentChartSymbol) return;
-  const cur = scBreakoutCache[currentChartSymbol]?.hits || [];
-  for (const h of cur) {
-    if (h.trigger && h.trigger > 0) {
-      const col = h.accuracy >= 70 ? '#00e5a0' : h.accuracy >= 60 ? '#facc15' : '#94a3b8';
-      try {
-        const ln = cs.createPriceLine({ price: h.trigger, color: col, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'Br ' + h.name.split(' ')[0] });
-        scTriggerLines.push(ln);
-      } catch(e){}
-    }
+  const data = scAnalyzeCache[currentChartSymbol] || {};
+  const active = data.active || [];
+  const summary = data.summary || {};
+  for (const h of active) {
+    if (!h.trigger || h.trigger <= 0) continue;
+    // Use stock-specific win rate if ≥3 samples, else hide grading (white line)
+    const s = summary[h.key];
+    const rate = s && s.n >= 3 ? s.rate : null;
+    const col = rate === null ? '#94a3b8' : rate >= 60 ? '#00e5a0' : rate >= 40 ? '#facc15' : '#ff4757';
+    try {
+      const ln = cs.createPriceLine({ price: h.trigger, color: col, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'Br ' + h.name.split(' ')[0] });
+      scTriggerLines.push(ln);
+    } catch(e){}
   }
+}
+
+function scRenderSummaryBadge() {
+  // Attach one-line summary in the briefing panel or OHLC area
+  const el = document.getElementById('sc-help-summary');
+  if (!el) return;
+  if (!scHelpOn || !currentChartSymbol) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  const s = scAnalyzeCache[currentChartSymbol]?.summary || {};
+  const rows = Object.entries(s).filter(([, v]) => v.n >= 3).sort((a,b) => b[1].rate - a[1].rate);
+  if (!rows.length) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  el.innerHTML = '<span class="text-[9px] uppercase text-on-surface-variant font-bold mr-2">Patterns this stock respects:</span>' + rows.slice(0, 5).map(([k, v]) => {
+    const col = v.rate >= 60 ? 'text-[#00e5a0]' : v.rate >= 40 ? 'text-yellow-400' : 'text-[#ff4757]';
+    return `<span class="text-[10px] font-mono ${col} mr-3">${v.name.split(' ')[0]} ${v.rate}% <span class="opacity-60">(${v.wins}/${v.n})</span></span>`;
+  }).join('');
+  el.classList.remove('hidden');
 }
 
 async function toggleScreenerEvents() {
@@ -2480,22 +2499,16 @@ function scApplyMarkers() {
   const cs = window._scCandleSeries;
   if (!cs || !chartData) return;
   const markers = [];
-  // HELP: historical breakout patterns + outcome + stock-specific accuracy
+  // HELP: historical pattern markers — color purely by OUTCOME (no pending hits)
   if (scHelpOn && currentChartSymbol && chartData.candles?.length) {
-    const hist = scBreakoutHistCache[currentChartSymbol] || {};
-    const stockAcc = hist.stock_accuracy || {};
-    const brCol = (h) => {
-      // Use stock-specific rate if available (>=3 samples), else global accuracy
-      const sa = stockAcc[h.key];
-      const a = sa ? sa.rate : h.accuracy;
-      return a >= 70 ? '#00e5a0' : a >= 60 ? '#facc15' : a >= 45 ? '#94a3b8' : '#64748b';
-    };
-    const outIco = { win: ' \u2713', loss: ' \u2717', neutral: ' \u00b7', pending: '' };
+    const data = scAnalyzeCache[currentChartSymbol] || {};
+    const outCol = { win: '#00e5a0', loss: '#ff4757', neutral: '#94a3b8' };
+    const outIco = { win: ' \u2713', loss: ' \u2717', neutral: ' \u00b7' };
     const tMin = chartData.candles[0].time, tMax = chartData.candles[chartData.candles.length - 1].time;
-    for (const h of (hist.hits || [])) {
+    for (const h of (data.hits || [])) {
       if (h.time < tMin || h.time > tMax) continue;
       const short = h.name.split(' ')[0];
-      markers.push({ time: h.time, position: 'belowBar', color: brCol(h), shape: 'circle', text: `Br ${short}${outIco[h.outcome] || ''}` });
+      markers.push({ time: h.time, position: 'belowBar', color: outCol[h.outcome] || '#94a3b8', shape: 'circle', text: `Br ${short}${outIco[h.outcome] || ''}` });
     }
   }
   // EVENTS: corporate event markers (on matching candle dates)
