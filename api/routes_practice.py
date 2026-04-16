@@ -23,6 +23,8 @@ class StartRequest(BaseModel):
     symbol: Optional[str] = None
     universe: str = "nifty500"  # "nifty500" or "next500"
     max_days: int = 60  # 30, 60, or 90
+    mode: str = "free"  # "free", "daily", or "replay"
+    start_idx: Optional[int] = None  # for replay
 
 
 class TradeRequest(BaseModel):
@@ -44,7 +46,13 @@ def list_practice_stocks(universe: str = "nifty500"):
 @router.post("/practice/start")
 def practice_start(req: StartRequest):
     """Start a new practice round."""
-    result = start_round(symbol=req.symbol, universe=req.universe, max_days=req.max_days)
+    result = start_round(
+        symbol=req.symbol,
+        universe=req.universe,
+        max_days=req.max_days,
+        mode=req.mode,
+        start_idx_override=req.start_idx,
+    )
     if "error" in result:
         return result
 
@@ -55,6 +63,8 @@ def practice_start(req: StartRequest):
         "symbol": result["symbol"],
         "difficulty": result.get("difficulty", "Medium"),
         "briefing": result.get("briefing"),
+        "mode": result.get("mode", "free"),
+        "start_idx": result.get("start_idx"),
         "purse": result["purse"],
         "max_days": result["max_days"],
         "day": 0,

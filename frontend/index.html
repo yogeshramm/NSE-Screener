@@ -591,9 +591,17 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
               <button onclick="setPracticeMaxDays(90,this)" class="prac-days-btn px-4 py-2 text-[10px] font-black rounded-md text-on-surface-variant hover:text-primary">90 Days</button>
             </div>
           </div>
-          <button onclick="startPracticeRound()" class="px-8 py-3 bg-primary-container text-on-primary font-bold rounded-xl text-sm uppercase active:scale-95 transition-transform">
-            Start Round
-          </button>
+          <div class="flex items-center gap-3">
+            <button onclick="startPracticeRound('free')" class="px-8 py-3 bg-primary-container text-on-primary font-bold rounded-xl text-sm uppercase active:scale-95 transition-transform">
+              Start Round
+            </button>
+            <button onclick="startPracticeRound('daily')" class="px-5 py-3 bg-surface-container-highest text-on-surface font-bold rounded-xl text-xs uppercase active:scale-95 transition-transform hover:bg-surface-variant" title="Everyone gets the same stock today — compete on the leaderboard">
+              <span class="material-symbols-outlined text-sm align-middle mr-1">emoji_events</span>Daily Challenge
+            </button>
+            <button id="prac-replay-btn" onclick="replayLastRound()" class="hidden px-5 py-3 bg-surface-container-highest text-on-surface font-bold rounded-xl text-xs uppercase active:scale-95 transition-transform hover:bg-surface-variant" title="Replay same stock + start date with current strategy">
+              <span class="material-symbols-outlined text-sm align-middle mr-1">replay</span>Replay
+            </button>
+          </div>
           <!-- History + Leaderboard -->
           <div id="prac-history-section" class="mt-8 text-left hidden">
             <div class="flex items-center gap-2 mb-3">
@@ -619,6 +627,8 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
             <span id="prac-symbol" class="text-[10px] font-black uppercase tracking-widest text-on-surface"></span>
             <span id="prac-price" class="text-primary font-mono text-xs font-bold"></span>
             <button id="prac-briefing-btn" onclick="toggleBriefing()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded" title="Stock briefing">INFO</button>
+            <button id="prac-help-btn" onclick="toggleHelpMode()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded" title="Show candlestick pattern annotations">HELP</button>
+            <button id="prac-news-btn" onclick="toggleNewsMode()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded" title="Mark candles with moves unexplained by indicators">NEWS</button>
             <div id="prac-ohlc" class="flex gap-2 text-[9px] font-mono text-on-surface-variant"></div>
             <div class="flex-1"></div>
             <div id="prac-warn-55" class="hidden items-center gap-1 px-2 py-1 bg-error/10 rounded text-[9px] text-error font-bold">
@@ -2258,6 +2268,10 @@ let pracAudioCtx = null;
 let pracAutoPlayTimer = null;
 let pracAutoPlaySpeed = 1; // 1x = 1 candle/sec
 let pracBriefing = null;
+let pracHelpMode = false;   // candle pattern detection HELP toggle
+let pracNewsMode = false;   // news anomaly markers
+let pracLastRound = null;   // {universe, max_days, symbol, start_idx} for replay
+let pracRoundMode = 'free'; // 'free' | 'daily' | 'replay'
 
 // ---- PROFILE ----
 function getPracticeProfile() {
@@ -2350,6 +2364,12 @@ function resetPracticeTab() {
   pracIndicators = {};
   pracBriefing = null;
   const bp = document.getElementById('prac-briefing-panel'); if (bp) bp.classList.add('hidden');
+  // Turn off HELP/NEWS toggles visually
+  pracHelpMode = false; pracNewsMode = false;
+  const hb = document.getElementById('prac-help-btn');
+  if (hb) hb.className = 'text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
+  const nb = document.getElementById('prac-news-btn');
+  if (nb) nb.className = 'text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
 
   // Return to welcome state
   const game = document.getElementById('prac-game');
@@ -2394,8 +2414,9 @@ function setPracticeUniverse(u, el) {
   });
 }
 
-async function startPracticeRound() {
+async function startPracticeRound(mode = 'free') {
   if (!ensurePracticeProfile()) return;
+  pracRoundMode = mode;
   // Cleanup previous
   destroyPracticeCharts();
   pracMarkers = [];
@@ -2415,9 +2436,16 @@ async function startPracticeRound() {
   document.getElementById('prac-purse-display').classList.remove('hidden');
 
   try {
+    const payload = { universe: practiceUniverse, max_days: practiceMaxDays, mode };
+    if (mode === 'replay' && pracLastRound) {
+      payload.universe = pracLastRound.universe;
+      payload.max_days = pracLastRound.max_days;
+      payload.symbol = pracLastRound.symbol;
+      payload.start_idx = pracLastRound.start_idx;
+    }
     const res = await fetch(API + '/practice/start', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ universe: practiceUniverse, max_days: practiceMaxDays })
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (data.error) { showPracticeToast(data.error, 'err'); return; }
@@ -2436,6 +2464,16 @@ async function startPracticeRound() {
     };
     pracBriefing = data.briefing || null;
     renderBriefing();
+
+    // Remember round parameters so the user can Replay later
+    pracLastRound = {
+      symbol: data.symbol,
+      universe: practiceUniverse,
+      max_days: data.max_days,
+      start_idx: data.start_idx,
+    };
+    const rb = document.getElementById('prac-replay-btn');
+    if (rb) rb.classList.remove('hidden');
     pracVisibleCandles = [...data.warmup_candles];
     pracVisibleVolumes = [...data.warmup_volumes];
     pracIndicators = data.indicators || {};
@@ -2449,7 +2487,8 @@ async function startPracticeRound() {
     renderPracticeChart();
     document.getElementById('prac-btn-buy').disabled = true;
     document.getElementById('prac-btn-sell').disabled = true;
-    showPracticeToast(`New round: ${data.symbol} · ${practiceState.difficulty}`, 'ok');
+    const modeTag = mode === 'daily' ? 'Daily Challenge · ' : (mode === 'replay' ? 'Replay · ' : '');
+    showPracticeToast(`${modeTag}${data.symbol} · ${practiceState.difficulty}`, 'ok');
   } catch(e) {
     showPracticeToast('Failed to start round: ' + e.message, 'err');
   }
@@ -2516,6 +2555,217 @@ function setAutoPlaySpeed(speed, el) {
       : 'prac-speed-btn px-1.5 py-1 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary';
   });
   if (pracAutoPlayTimer) { stopAutoPlay(); startAutoPlay(); }
+}
+
+function replayLastRound() {
+  if (!pracLastRound) { showPracticeToast('No round to replay yet', 'warn'); return; }
+  startPracticeRound('replay');
+}
+
+// ============ HELP MODE: Candlestick pattern annotations ============
+const PRAC_PATTERNS = [
+  { k: 'hammer',      name: 'Hammer',            signal: 'Bullish reversal',     note: 'After downtrend; confirm with next green candle + volume' },
+  { k: 'shooting_star', name: 'Shooting Star',   signal: 'Bearish reversal',     note: 'After uptrend; confirm with next red candle + volume' },
+  { k: 'bull_engulfing', name: 'Bullish Engulfing', signal: 'Bullish reversal',  note: '~65% accuracy after downtrend; volume spike confirms' },
+  { k: 'bear_engulfing', name: 'Bearish Engulfing', signal: 'Bearish reversal',  note: '~65% accuracy after uptrend; volume spike confirms' },
+  { k: 'morning_star', name: 'Morning Star',     signal: 'Strong bullish reversal', note: '~78% accuracy; one of the most reliable bottom reversals' },
+  { k: 'evening_star', name: 'Evening Star',     signal: 'Strong bearish reversal', note: '~72% accuracy; classic top reversal' },
+  { k: 'doji',         name: 'Doji',             signal: 'Indecision',           note: 'Wait for confirmation from next candle + indicators' },
+  { k: 'three_white',  name: 'Three White Soldiers', signal: 'Strong continuation', note: '~82% accuracy; powerful bullish momentum' },
+  { k: 'three_black',  name: 'Three Black Crows', signal: 'Strong continuation',  note: '~78% accuracy; powerful bearish momentum' },
+];
+
+function detectPatterns(candles) {
+  // Returns array of {index, key, name, signal, note}
+  const out = [];
+  if (!candles || candles.length < 3) return out;
+  const body = (c) => Math.abs(c.close - c.open);
+  const range = (c) => c.high - c.low;
+  const upperWick = (c) => c.high - Math.max(c.open, c.close);
+  const lowerWick = (c) => Math.min(c.open, c.close) - c.low;
+  const isGreen = (c) => c.close > c.open;
+  const isRed = (c) => c.close < c.open;
+
+  for (let i = 0; i < candles.length; i++) {
+    const c = candles[i];
+    const b = body(c);
+    const r = range(c);
+    if (r === 0) continue;
+
+    // Doji: body tiny relative to range
+    if (b <= r * 0.1) { out.push({ index: i, ...PRAC_PATTERNS.find(p => p.k === 'doji') }); continue; }
+
+    // Hammer: small body near top, long lower wick (>=2× body), minimal upper wick
+    if (lowerWick(c) >= 2 * b && upperWick(c) <= b * 0.3 && b >= r * 0.15) {
+      out.push({ index: i, ...PRAC_PATTERNS.find(p => p.k === 'hammer') });
+      continue;
+    }
+    // Shooting Star: small body near bottom, long upper wick, minimal lower wick
+    if (upperWick(c) >= 2 * b && lowerWick(c) <= b * 0.3 && b >= r * 0.15) {
+      out.push({ index: i, ...PRAC_PATTERNS.find(p => p.k === 'shooting_star') });
+      continue;
+    }
+
+    if (i >= 1) {
+      const p = candles[i - 1];
+      // Bullish Engulfing: prev red, curr green, curr body engulfs prev body
+      if (isRed(p) && isGreen(c) && c.open <= p.close && c.close >= p.open && body(c) > body(p)) {
+        out.push({ index: i, ...PRAC_PATTERNS.find(pp => pp.k === 'bull_engulfing') });
+        continue;
+      }
+      // Bearish Engulfing
+      if (isGreen(p) && isRed(c) && c.open >= p.close && c.close <= p.open && body(c) > body(p)) {
+        out.push({ index: i, ...PRAC_PATTERNS.find(pp => pp.k === 'bear_engulfing') });
+        continue;
+      }
+    }
+
+    if (i >= 2) {
+      const a = candles[i - 2];
+      const bb = candles[i - 1];
+      // Morning Star: red big body, small middle body gapping down, green body closing past midpoint of first
+      if (isRed(a) && body(bb) <= body(a) * 0.5 && isGreen(c) && c.close > (a.open + a.close) / 2) {
+        out.push({ index: i, ...PRAC_PATTERNS.find(p => p.k === 'morning_star') });
+        continue;
+      }
+      // Evening Star
+      if (isGreen(a) && body(bb) <= body(a) * 0.5 && isRed(c) && c.close < (a.open + a.close) / 2) {
+        out.push({ index: i, ...PRAC_PATTERNS.find(p => p.k === 'evening_star') });
+        continue;
+      }
+      // Three White Soldiers: three consecutive green, each closing higher, with real bodies
+      if (isGreen(a) && isGreen(bb) && isGreen(c) && bb.close > a.close && c.close > bb.close
+          && body(a) > range(a) * 0.4 && body(bb) > range(bb) * 0.4 && body(c) > range(c) * 0.4) {
+        out.push({ index: i, ...PRAC_PATTERNS.find(p => p.k === 'three_white') });
+        continue;
+      }
+      // Three Black Crows
+      if (isRed(a) && isRed(bb) && isRed(c) && bb.close < a.close && c.close < bb.close
+          && body(a) > range(a) * 0.4 && body(bb) > range(bb) * 0.4 && body(c) > range(c) * 0.4) {
+        out.push({ index: i, ...PRAC_PATTERNS.find(p => p.k === 'three_black') });
+        continue;
+      }
+    }
+  }
+  return out;
+}
+
+function toggleHelpMode() {
+  pracHelpMode = !pracHelpMode;
+  const btn = document.getElementById('prac-help-btn');
+  btn.className = pracHelpMode
+    ? 'text-[9px] font-bold text-on-primary bg-primary-container px-2 py-0.5 rounded'
+    : 'text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
+  refreshMarkers();
+}
+
+// ============ NEWS MODE: Anomaly detection ============
+// Flag a candle if |% move| > 2× ATR% AND direction disagrees with trend indicators.
+function detectNewsAnomalies(candles, volumes) {
+  const out = [];
+  const n = candles.length;
+  if (n < 20) return out;
+  const closes = candles.map(c => c.close);
+  const highs = candles.map(c => c.high);
+  const lows = candles.map(c => c.low);
+
+  // ATR% (14)
+  const tr = [highs[0] - lows[0]];
+  for (let i = 1; i < n; i++) tr.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i-1]), Math.abs(lows[i] - closes[i-1])));
+  const atr = new Array(n).fill(null);
+  if (n >= 14) {
+    let s = 0;
+    for (let i = 0; i < 14; i++) s += tr[i];
+    atr[13] = s / 14;
+    for (let i = 14; i < n; i++) atr[i] = (atr[i-1] * 13 + tr[i]) / 14;
+  }
+
+  // SMA 20 for trend
+  const sma = pracComputeSMA(closes, 20);
+  // RSI 14 direction
+  const rsi = pracComputeRSI(closes, 14);
+
+  for (let i = 1; i < n; i++) {
+    if (atr[i] === null || sma[i] === null) continue;
+    const prevC = closes[i - 1];
+    const move = closes[i] - prevC;
+    const movePct = Math.abs(move) / prevC;
+    const atrPct = atr[i] / prevC;
+    if (atrPct <= 0) continue;
+    if (movePct < 2 * atrPct) continue; // not unusual enough
+
+    // Check if direction aligns with indicators
+    const up = move > 0;
+    const smaAlign = up ? closes[i] > sma[i] : closes[i] < sma[i];
+    let rsiAlign = false;
+    if (i >= 1 && rsi[i] !== null && rsi[i-1] !== null) {
+      rsiAlign = up ? rsi[i] > rsi[i-1] : rsi[i] < rsi[i-1];
+    }
+    // Volume surge is another explanation — if this was accompanied by volume spike, that supports the move (news often has volume too, but if low volume + big move, very suspicious)
+    let volConfirm = false;
+    if (volumes && volumes[i] && i >= 20) {
+      const avgV = volumes.slice(i - 20, i).reduce((a, b) => a + (b.value || 0), 0) / 20;
+      volConfirm = (volumes[i].value || 0) > avgV * 1.5;
+    }
+
+    // If no indicator supports the move AND volume doesn't confirm, flag as news anomaly
+    if (!smaAlign && !rsiAlign) {
+      out.push({
+        index: i,
+        move_pct: (move / prevC * 100),
+        atr_pct: atrPct * 100,
+        volume_confirmed: volConfirm,
+        direction: up ? 'up' : 'down',
+      });
+    }
+  }
+  return out;
+}
+
+function toggleNewsMode() {
+  pracNewsMode = !pracNewsMode;
+  const btn = document.getElementById('prac-news-btn');
+  btn.className = pracNewsMode
+    ? 'text-[9px] font-bold text-on-primary bg-primary-container px-2 py-0.5 rounded'
+    : 'text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
+  refreshMarkers();
+}
+
+// Unified marker refresher: merge trade markers + HELP patterns + NEWS anomalies
+function refreshMarkers() {
+  if (!pracCandleSeries) return;
+  const merged = [...pracMarkers];
+  if (pracHelpMode && pracVisibleCandles.length) {
+    const patterns = detectPatterns(pracVisibleCandles);
+    for (const p of patterns) {
+      const c = pracVisibleCandles[p.index];
+      if (!c) continue;
+      merged.push({
+        time: c.time,
+        position: p.signal.startsWith('Bull') || p.signal.startsWith('Strong bull') ? 'belowBar' : 'aboveBar',
+        color: p.signal.startsWith('Bull') || p.signal.startsWith('Strong bull') ? '#facc15' : p.signal.startsWith('Bear') || p.signal.startsWith('Strong bear') ? '#facc15' : '#64748b',
+        shape: 'circle',
+        text: p.name,
+      });
+    }
+  }
+  if (pracNewsMode && pracVisibleCandles.length) {
+    const anoms = detectNewsAnomalies(pracVisibleCandles, pracVisibleVolumes);
+    for (const a of anoms) {
+      const c = pracVisibleCandles[a.index];
+      if (!c) continue;
+      merged.push({
+        time: c.time,
+        position: 'aboveBar',
+        color: '#f472b6',
+        shape: 'square',
+        text: `\ud83d\udcf0 ${a.direction === 'up' ? '+' : ''}${a.move_pct.toFixed(1)}% unexplained`,
+      });
+    }
+  }
+  // setMarkers replaces all; sort by time to avoid warnings
+  merged.sort((a, b) => a.time - b.time);
+  try { pracCandleSeries.setMarkers(merged); } catch(e) {}
 }
 
 function updateDifficultyBadge(diff) {
@@ -3324,6 +3574,8 @@ async function practiceNextDay() {
 
     // Refresh all active indicators with the new candle
     refreshPracticeIndicators();
+    // Re-run HELP/NEWS detection with the new candle
+    if (pracHelpMode || pracNewsMode) refreshMarkers();
 
     // Update OHLC + price
     updatePracticeOhlc(data.candle);
@@ -3354,7 +3606,7 @@ async function practiceNextDay() {
         shape: 'arrowDown',
         text: `${ax.reason} @ \u20b9${ax.price}`,
       });
-      if (pracCandleSeries) pracCandleSeries.setMarkers([...pracMarkers]);
+      refreshMarkers();
       document.getElementById('prac-position-card').classList.add('hidden');
       const win = ax.pnl >= 0;
       playPracticeTone(win ? 1200 : 440, 140);
@@ -3506,7 +3758,7 @@ async function confirmBuy() {
       position: 'belowBar', color: '#00e5a0', shape: 'arrowUp',
       text: 'BUY ' + data.qty + '@' + data.price.toFixed(0),
     });
-    if (pracCandleSeries) pracCandleSeries.setMarkers([...pracMarkers]);
+    refreshMarkers();
     drawSlTpLines();
 
     updatePracticePurse();
@@ -3561,7 +3813,7 @@ async function practiceSell() {
       position: 'aboveBar', color: '#ff4757', shape: 'arrowDown',
       text: 'SELL ' + (data.pnl >= 0 ? '+' : '') + '\u20b9' + data.pnl.toFixed(0),
     });
-    if (pracCandleSeries) pracCandleSeries.setMarkers([...pracMarkers]);
+    refreshMarkers();
 
     updatePracticePurse();
     document.getElementById('prac-position-card').classList.add('hidden');

@@ -43,11 +43,11 @@ def get_available_stocks(universe="nifty500"):
         return sorted(all_hist - nifty)
 
 
-def start_round(symbol=None, universe="nifty500", max_days=MAX_DAYS_DEFAULT):
+def start_round(symbol=None, universe="nifty500", max_days=MAX_DAYS_DEFAULT, mode="free", start_idx_override=None):
     """
     Start a new practice round.
-    max_days: number of game days (30, 60, or 90).
-    Returns: game state dict with first batch of warmup candles.
+    mode: "free" (random), "daily" (deterministic from today's date), or "replay".
+    start_idx_override: when replaying, the exact start_idx from a prior round.
     """
     # Clamp max_days to allowed values
     try:
@@ -60,15 +60,23 @@ def start_round(symbol=None, universe="nifty500", max_days=MAX_DAYS_DEFAULT):
     warmup_bars = 60
     needed = warmup_bars + max_days
 
+    # For daily challenge, seed the RNG from date+universe+max_days so all players get the same setup.
+    # Use a local Random instance so we don't poison the global RNG.
+    rng = random
+    if mode == "daily":
+        seed_str = f"{datetime.utcnow().strftime('%Y%m%d')}|{universe}|{max_days}"
+        rng = random.Random(seed_str)
+
     stocks = get_available_stocks(universe)
     if not stocks:
         return {"error": "No stocks available for practice"}
 
     # Pick random stock if not specified
     if not symbol:
-        random.shuffle(stocks)
+        shuffled = list(stocks)
+        rng.shuffle(shuffled)
         symbol = None
-        for s in stocks:
+        for s in shuffled:
             try:
                 df = _load_history(s)
                 if df is not None and len(df) >= needed:
@@ -91,7 +99,14 @@ def start_round(symbol=None, universe="nifty500", max_days=MAX_DAYS_DEFAULT):
     if max_start <= min_start:
         return {"error": f"{symbol} doesn't have enough data for a {max_days}-day game"}
 
-    start_idx = random.randint(min_start, max_start)
+    if start_idx_override is not None:
+        try:
+            start_idx = int(start_idx_override)
+            start_idx = max(min_start, min(max_start, start_idx))
+        except Exception:
+            start_idx = rng.randint(min_start, max_start)
+    else:
+        start_idx = rng.randint(min_start, max_start)
 
     # Build warmup candles (visible from start) + hidden future candles
     warmup = _build_candles(df, start_idx - warmup_bars, start_idx)
@@ -109,6 +124,8 @@ def start_round(symbol=None, universe="nifty500", max_days=MAX_DAYS_DEFAULT):
         "universe": universe,
         "difficulty": difficulty,
         "briefing": briefing,
+        "mode": mode,
+        "start_idx": start_idx,
         "purse": PURSE_SIZE,
         "max_days": max_days,
         "day": 0,
