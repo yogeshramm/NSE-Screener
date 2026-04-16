@@ -5667,22 +5667,24 @@ function _drawAVWAP(anchorTime) {
 }
 
 // ============ INSIGHTS POPUP (Tier 1 Feature 4) ============
+// Dock: no backdrop, sits at bottom of viewport, body collapsible, pointer-events pass through outside panel.
 function _ipHTML() {
-  return `<div id="ip-backdrop" class="fixed inset-0 bg-black/50 z-[60] hidden" onclick="closeInsightsPro()"></div>
-  <div id="ip-panel" class="fixed left-0 right-0 bottom-0 z-[70] translate-y-full transition-transform duration-300 bg-surface-container-low border-t border-outline-variant/30 shadow-2xl max-h-[85vh] overflow-y-auto rounded-t-2xl">
-    <div class="sticky top-0 bg-surface-container-low border-b border-outline-variant/20 px-6 py-3 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <span class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">INSIGHTS PRO</span>
+  return `<div id="ip-panel" class="fixed left-0 right-0 bottom-0 z-[70] translate-y-full transition-transform duration-300 bg-surface-container-low/95 backdrop-blur border-t border-outline-variant/30 shadow-2xl rounded-t-2xl">
+    <div id="ip-header" class="bg-surface-container-low border-b border-outline-variant/20 px-5 py-2 flex items-center justify-between cursor-pointer" onclick="toggleInsightsPro()">
+      <div class="flex items-center gap-3 flex-wrap">
+        <span class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">INSIGHTS</span>
         <span id="ip-symbol" class="text-sm font-black text-on-surface"></span>
         <span id="ip-verdict" class="px-3 py-0.5 rounded-full text-[10px] font-black uppercase"></span>
         <span id="ip-score" class="font-mono text-xs text-on-surface-variant"></span>
+        <span id="ip-mini" class="font-mono text-[10px] text-on-surface-variant hidden md:inline"></span>
       </div>
       <div class="flex items-center gap-2">
-        <button id="ip-chart-btn" class="text-[10px] font-bold text-primary hover:underline">Open Chart</button>
-        <button onclick="closeInsightsPro()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-lg">close</span></button>
+        <button id="ip-chart-btn" onclick="event.stopPropagation();" class="text-[10px] font-bold text-primary hover:underline">Open Chart</button>
+        <button id="ip-collapse-btn" onclick="event.stopPropagation();toggleInsightsPro()" class="text-on-surface-variant hover:text-on-surface"><span id="ip-chev" class="material-symbols-outlined text-lg">expand_less</span></button>
+        <button onclick="event.stopPropagation();closeInsightsPro()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-lg">close</span></button>
       </div>
     </div>
-    <div id="ip-body" class="p-6"></div>
+    <div id="ip-body" class="px-5 py-4 overflow-y-auto" style="max-height:45vh"></div>
   </div>`;
 }
 function _ipMount() {
@@ -5690,18 +5692,30 @@ function _ipMount() {
   const d = document.createElement('div'); d.innerHTML = _ipHTML();
   while (d.firstChild) document.body.appendChild(d.firstChild);
 }
+function toggleInsightsPro() {
+  const body = document.getElementById('ip-body');
+  const chev = document.getElementById('ip-chev');
+  if (!body) return;
+  const collapsed = body.classList.toggle('hidden');
+  chev.textContent = collapsed ? 'expand_more' : 'expand_less';
+}
 async function openInsightsPro(symbol) {
   _ipMount();
   const panel = document.getElementById('ip-panel');
-  const bd = document.getElementById('ip-backdrop');
   const body = document.getElementById('ip-body');
   document.getElementById('ip-symbol').textContent = symbol;
   document.getElementById('ip-verdict').textContent = '…';
   document.getElementById('ip-verdict').className = 'px-3 py-0.5 rounded-full text-[10px] font-black uppercase bg-surface-container-highest text-on-surface-variant';
   document.getElementById('ip-score').textContent = '';
-  body.innerHTML = '<div class="text-center py-12 text-on-surface-variant">Loading insights…</div>';
-  bd.classList.remove('hidden'); panel.classList.remove('translate-y-full');
-  document.getElementById('ip-chart-btn').onclick = () => { closeInsightsPro(); openChart(symbol); };
+  document.getElementById('ip-mini').textContent = '';
+  body.classList.remove('hidden'); document.getElementById('ip-chev').textContent='expand_less';
+  body.innerHTML = '<div class="text-center py-8 text-on-surface-variant text-sm">Loading insights…</div>';
+  panel.classList.remove('translate-y-full');
+  // Also open chart in background so user can reference both
+  if (typeof openChart === 'function' && (typeof currentChartSymbol === 'undefined' || currentChartSymbol !== symbol)) {
+    try { openChart(symbol); } catch(e){}
+  }
+  document.getElementById('ip-chart-btn').onclick = (e) => { e.stopPropagation(); openChart(symbol); };
   try {
     const [rPro, rMtf] = await Promise.all([
       fetch(API + '/stock/' + symbol + '/insights-pro').then(x => x.ok ? x.json() : Promise.reject('HTTP ' + x.status)),
@@ -5709,14 +5723,20 @@ async function openInsightsPro(symbol) {
     ]);
     rPro.mtf = rMtf;
     _ipRender(rPro);
+    // Mini summary in header so collapsed view still shows key info
+    const t = rPro.technicals || {};
+    const bits = [];
+    if (t.rsi != null) bits.push(`RSI ${t.rsi}`);
+    if (rPro.mtf && !rPro.mtf.error) bits.push(`MTF ${rPro.mtf.total>=0?'+':''}${rPro.mtf.total}`);
+    if (rPro.multi_factor?.score != null) bits.push(`MFS ${rPro.multi_factor.score}`);
+    document.getElementById('ip-mini').textContent = bits.join(' · ');
   } catch (e) {
     body.innerHTML = `<div class="text-error text-sm">Failed: ${e.message || e}</div>`;
   }
 }
 function closeInsightsPro() {
-  const p = document.getElementById('ip-panel'), b = document.getElementById('ip-backdrop');
+  const p = document.getElementById('ip-panel');
   if (p) p.classList.add('translate-y-full');
-  if (b) b.classList.add('hidden');
 }
 function _ipRender(d) {
   const verd = d.verdict || 'HOLD';
