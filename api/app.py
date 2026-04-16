@@ -31,6 +31,7 @@ from api.routes_institutional import router as institutional_router
 from api.routes_news import router as news_router
 from api.routes_factor import router as factor_router
 from api.routes_insights_pro import router as insights_pro_router
+from api.routes_mtf import router as mtf_router
 
 app = FastAPI(
     title="NSE Screener API",
@@ -71,6 +72,7 @@ app.include_router(institutional_router, tags=["Institutional Radar"])
 app.include_router(news_router, tags=["News"])
 app.include_router(factor_router, tags=["Multi-Factor Score"])
 app.include_router(insights_pro_router, tags=["Insights Pro"])
+app.include_router(mtf_router, tags=["Multi-Timeframe Confluence"])
 
 
 # Serve frontend

@@ -355,6 +355,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">RSI</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">ROE%</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right" title="Multi-Factor Score: Momentum + Quality + Value + Growth (1-99 percentile). Click header to sort.">MFS</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center" title="Multi-Timeframe Confluence (1D·1W·1M). Green up, red down.">MTF</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Score</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">Status</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">
@@ -363,7 +364,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
                 </tr>
               </thead>
               <tbody id="s1-body" class="text-xs">
-                <tr><td colspan="10" class="px-3 py-8 text-center text-on-surface-variant/50">Run a screen to see results</td></tr>
+                <tr><td colspan="11" class="px-3 py-8 text-center text-on-surface-variant/50">Run a screen to see results</td></tr>
               </tbody>
             </table>
           </div>
@@ -387,6 +388,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right text-primary">Target</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">R:R</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right" title="Multi-Factor Score: Momentum + Quality + Value + Growth (1-99 percentile).">MFS</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center" title="Multi-Timeframe Confluence (1D·1W·1M).">MTF</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Score</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">Status</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">
@@ -395,7 +397,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
                 </tr>
               </thead>
               <tbody id="s2-body" class="text-xs">
-                <tr><td colspan="10" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 2 results appear after screening</td></tr>
+                <tr><td colspan="11" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 2 results appear after screening</td></tr>
               </tbody>
             </table>
           </div>
@@ -1552,6 +1554,7 @@ function renderResults(data) {
       <td class="px-3 py-2.5 text-right text-on-surface-variant">${rsi}</td>
       <td class="px-3 py-2.5 text-right text-on-surface-variant">${roe}</td>
       <td class="px-3 py-2.5 text-right mfs-cell" data-sym="${r.symbol}">—</td>
+      <td class="px-3 py-2.5 text-center mtf-cell" data-sym="${r.symbol}">—</td>
       <td class="px-3 py-2.5 text-right"><span class="px-2 py-0.5 ${r.score>=60?'bg-primary/20 text-primary':r.score>=40?'bg-secondary/20 text-secondary':'bg-surface-container-highest text-on-surface-variant'} rounded-full text-[10px] font-black">${r.score}</span></td>
       <td class="px-3 py-2.5 text-center"><span class="${r.passed?'bg-primary/10 text-primary':'bg-error/10 text-error'} text-[10px] px-2 py-0.5 rounded-full font-black uppercase">${r.passed?'PASS':'FAIL'}</span></td>
       <td class="px-3 py-2.5 text-center"><button onclick="event.stopPropagation();addToWatchlist('${r.symbol}')" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined" style="font-size:14px;">bookmark_add</span></button></td>
@@ -1569,13 +1572,14 @@ function renderResults(data) {
       <td class="px-3 py-2.5 text-right text-primary font-mono">${r.target?'\u20b9'+r.target:'--'}</td>
       <td class="px-3 py-2.5 text-center font-bold text-on-surface">1:${r.risk_reward||'--'}</td>
       <td class="px-3 py-2.5 text-right mfs-cell" data-sym="${r.symbol}">—</td>
+      <td class="px-3 py-2.5 text-center mtf-cell" data-sym="${r.symbol}">—</td>
       <td class="px-3 py-2.5 text-right"><span class="px-2 py-0.5 ${r.score>=60?'bg-primary/20 text-primary':'bg-surface-container-highest text-on-surface-variant'} rounded-full text-[10px] font-black">${r.score}</span></td>
       <td class="px-3 py-2.5 text-center"><span class="${r.passed?'bg-primary/10 text-primary':'bg-error/10 text-error'} text-[10px] px-2 py-0.5 rounded-full font-black uppercase">${r.passed?'PASS':'FAIL'}</span></td>
       <td class="px-3 py-2.5 text-center"><button onclick="event.stopPropagation();addToWatchlist('${r.symbol}')" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined" style="font-size:14px;">bookmark_add</span></button></td>
     </tr>
   `).join('');
 
-  // Async fetch MFS scores & populate cells
+  // Async fetch MFS + MTF & populate cells
   const syms = [...new Set([...data.stage1_results.map(r=>r.symbol), ...data.stage2_results.map(r=>r.symbol)])];
   _fetchMFS(syms).then(scores => {
     document.querySelectorAll('.mfs-cell').forEach(td => {
@@ -1591,6 +1595,31 @@ function renderResults(data) {
       }
     });
   });
+  _fetchMTF(syms).then(mtf => {
+    document.querySelectorAll('.mtf-cell').forEach(td => {
+      const m = mtf[td.dataset.sym];
+      td.innerHTML = _mtfBadge(m);
+      if (m) td.title = `1D ${m.d1.score>=0?'+':''}${m.d1.score} · 1W ${m.w1.score>=0?'+':''}${m.w1.score} · 1M ${m.m1.score>=0?'+':''}${m.m1.score}`;
+    });
+  });
+}
+async function _fetchMTF(symbols) {
+  if (!symbols.length) return {};
+  try {
+    const r = await fetch(API + '/mtf', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbols})});
+    const d = await r.json(); return d.mtf || {};
+  } catch(e) { return {}; }
+}
+function _mtfBadge(m) {
+  if (!m) return '<span class="text-on-surface-variant/30">—</span>';
+  const t = m.total;
+  const col = t >= 6 ? 'bg-[#00e5a0]/20 text-[#00e5a0]' : t >= 3 ? 'bg-primary/15 text-primary' :
+              t >= 1 ? 'bg-primary/10 text-primary' : t <= -6 ? 'bg-[#ff4757]/20 text-[#ff4757]' :
+              t <= -3 ? 'bg-[#ff4757]/10 text-[#ff4757]' : t <= -1 ? 'bg-yellow-400/15 text-yellow-400' :
+              'bg-surface-container-highest text-on-surface-variant';
+  // tri-arrow glyph per TF
+  const a = s => s>=2?'▲':s>=1?'△':s<=-2?'▼':s<=-1?'▽':'·';
+  return `<span class="px-2 py-0.5 ${col} rounded-full text-[10px] font-black tabular-nums">${a(m.d1.score)}${a(m.w1.score)}${a(m.m1.score)} ${t>=0?'+':''}${t}</span>`;
 }
 
 // ============ CHART ============
@@ -1611,9 +1640,9 @@ function resetScreenerTab() {
   const inp = document.getElementById('symbols-input'); if (inp) inp.value = '';
   const dd = document.getElementById('search-dropdown'); if (dd) dd.classList.add('hidden');
   const s1 = document.getElementById('s1-body');
-  if (s1) s1.innerHTML = '<tr><td colspan="10" class="px-3 py-8 text-center text-on-surface-variant/50">Run a screen to see results</td></tr>';
+  if (s1) s1.innerHTML = '<tr><td colspan="11" class="px-3 py-8 text-center text-on-surface-variant/50">Run a screen to see results</td></tr>';
   const s2 = document.getElementById('s2-body');
-  if (s2) s2.innerHTML = '<tr><td colspan="10" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 2 results appear after screening</td></tr>';
+  if (s2) s2.innerHTML = '<tr><td colspan="11" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 2 results appear after screening</td></tr>';
   const s1c = document.getElementById('s1-count'); if (s1c) s1c.textContent = '0 results';
   const s2c = document.getElementById('s2-count'); if (s2c) s2c.textContent = '0 results';
   // Abort any in-flight screen
@@ -5478,12 +5507,14 @@ async function openInsightsPro(symbol) {
   bd.classList.remove('hidden'); panel.classList.remove('translate-y-full');
   document.getElementById('ip-chart-btn').onclick = () => { closeInsightsPro(); openChart(symbol); };
   try {
-    const r = await fetch(API + '/stock/' + symbol + '/insights-pro');
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const d = await r.json();
-    _ipRender(d);
+    const [rPro, rMtf] = await Promise.all([
+      fetch(API + '/stock/' + symbol + '/insights-pro').then(x => x.ok ? x.json() : Promise.reject('HTTP ' + x.status)),
+      fetch(API + '/mtf/' + symbol).then(x => x.json()).catch(() => null),
+    ]);
+    rPro.mtf = rMtf;
+    _ipRender(rPro);
   } catch (e) {
-    body.innerHTML = `<div class="text-error text-sm">Failed: ${e.message}</div>`;
+    body.innerHTML = `<div class="text-error text-sm">Failed: ${e.message || e}</div>`;
   }
 }
 function closeInsightsPro() {
@@ -5550,6 +5581,20 @@ function _ipRender(d) {
           <div class="flex justify-between"><span class="text-on-surface-variant">From 52W High</span><span class="font-mono ${pctCol(t.pct_from_52wh)}">${num(t.pct_from_52wh)}%</span></div>
           <div class="flex justify-between"><span class="text-on-surface-variant">ATR %</span><span class="font-mono">${num(t.atr_pct)}%</span></div>
         </div>
+      </div>
+      <div class="bg-surface-container/40 rounded-lg p-4">
+        <div class="text-[10px] font-black uppercase tracking-wider text-primary mb-3">Multi-Timeframe Confluence</div>
+        ${(() => {
+          const mt = d.mtf;
+          if (!mt || mt.error) return '<div class="text-[10px] text-on-surface-variant">—</div>';
+          const col = mt.total >= 3 ? 'text-[#00e5a0]' : mt.total >= 1 ? 'text-primary' : mt.total <= -3 ? 'text-[#ff4757]' : mt.total <= -1 ? 'text-yellow-400' : 'text-on-surface-variant';
+          const row = (tf, k) => {
+            const v = mt[k]; if (!v) return '';
+            const sc = v.score; const sCol = sc>=2?'text-[#00e5a0]':sc>=1?'text-primary':sc<=-2?'text-[#ff4757]':sc<=-1?'text-yellow-400':'text-on-surface-variant';
+            return `<div class="flex justify-between py-0.5 text-[11px]"><span class="text-on-surface-variant">${tf}</span><span class="font-mono ${sCol} font-bold">${sc>=0?'+':''}${sc} · ${v.label}${v.rsi!=null?' · RSI '+v.rsi:''}</span></div>`;
+          };
+          return `<div class="flex justify-between pb-2 mb-2 border-b border-outline-variant/10"><span class="font-bold text-xs">${mt.label}</span><span class="font-mono font-black ${col}">${mt.total>=0?'+':''}${mt.total}</span></div>` + row('Daily','d1') + row('Weekly','w1') + row('Monthly','m1');
+        })()}
       </div>
       <div class="bg-surface-container/40 rounded-lg p-4">
         <div class="text-[10px] font-black uppercase tracking-wider text-primary mb-3">Multi-Factor Score</div>
