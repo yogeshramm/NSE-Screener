@@ -150,7 +150,7 @@ _UP = re.compile(r"\b(upgrade[ds]?|raise[ds]? target|hike[ds]? target|buy call|r
 _DN = re.compile(r"\b(downgrade[ds]?|cut target|reduce target|slash(?:ed)? target|sell call|re-?rate[ds]? lower)\b", re.I)
 
 
-def _rss_activity(symbol: str) -> Optional[Dict[str, Any]]:
+def _rss_activity(symbol: str, days: int = 30) -> Optional[Dict[str, Any]]:
     try:
         from data.stock_news import _fetch_all_feeds, _aliases, _match_symbol
     except Exception: return None
@@ -159,7 +159,6 @@ def _rss_activity(symbol: str) -> Optional[Dict[str, Any]]:
         aliases = _aliases(symbol)
         up = dn = 0
         samples_up, samples_dn = [], []
-        cutoff = time.time() - 30 * 86400
         for it in items:
             text = f"{it.get('title','')} {it.get('desc','')}"
             if not _match_symbol(text, symbol, aliases): continue
@@ -170,7 +169,31 @@ def _rss_activity(symbol: str) -> Optional[Dict[str, Any]]:
                 dn += 1
                 if len(samples_dn) < 2: samples_dn.append(it.get("title", ""))
         if up == 0 and dn == 0: return None
-        return {"upgrades_30d": up, "downgrades_30d": dn, "sample_up": samples_up, "sample_dn": samples_dn}
+        return {"window_days": days, "upgrades": up, "downgrades": dn, "sample_up": samples_up, "sample_dn": samples_dn}
+    except Exception: return None
+
+
+def _yf_rating_history(symbol: str, days: int) -> Optional[Dict[str, Any]]:
+    """Analyst rating changes in the last `days` days from yfinance upgrades_downgrades."""
+    try:
+        import yfinance as yf
+        t = yf.Ticker(symbol + ".NS")
+        df = getattr(t, "upgrades_downgrades", None)
+        if df is None or len(df) == 0: return None
+        import pandas as pd
+        cutoff = pd.Timestamp.utcnow() - pd.Timedelta(days=days)
+        if df.index.tz is None:
+            try: df.index = df.index.tz_localize("UTC")
+            except Exception: pass
+        try: recent = df[df.index >= cutoff]
+        except Exception: recent = df
+        if len(recent) == 0: return None
+        grades = recent.get("ToGrade") if "ToGrade" in recent.columns else None
+        counts = {}
+        if grades is not None:
+            for g in grades.astype(str):
+                counts[g] = counts.get(g, 0) + 1
+        return {"window_days": days, "changes": int(len(recent)), "grade_counts": counts}
     except Exception: return None
 
 
@@ -204,24 +227,34 @@ def _composite(mc, et, yf_, rss) -> Dict[str, Any]:
     return {"rating": round(mean, 2), "label": label, "inputs": len(parts), "target_avg": target_avg}
 
 
-def get_analyst_signal(symbol: str) -> Dict[str, Any]:
+_TF_DAYS = {"1m": 30, "3m": 90, "6m": 180, "1y": 365}
+
+
+def get_analyst_signal(symbol: str, tf: str = "1y") -> Dict[str, Any]:
     symbol = symbol.upper().strip()
-    cache_f = os.path.join(CACHE_DIR, f"{symbol}.json")
+    tf = tf if tf in _TF_DAYS else "1y"
+    days = _TF_DAYS[tf]
+    cache_f = os.path.join(CACHE_DIR, f"{symbol}__{tf}.json")
     if os.path.exists(cache_f) and time.time() - os.path.getmtime(cache_f) < TTL:
         try: return json.load(open(cache_f))
         except Exception: pass
-    mc = _mc_consensus(symbol)
-    et = _et_consensus(symbol)
-    yf_ = _yf_rating(symbol)
-    rss = _rss_activity(symbol)
+    mc = _mc_consensus(symbol)  # static 12M target
+    et = _et_consensus(symbol)  # static 12M target
+    yf_ = _yf_rating(symbol)    # static 12M target
+    rss = _rss_activity(symbol, days=days)
+    yf_hist = _yf_rating_history(symbol, days=days)
     result = {
         "symbol": symbol,
+        "timeframe": tf,
+        "window_days": days,
+        "target_horizon": "12M",  # industry standard, labeled for clarity
         "moneycontrol": mc,
         "et_markets": et,
         "yfinance": yf_,
+        "yfinance_history": yf_hist,
         "news_activity": rss,
         "composite": _composite(mc, et, yf_, rss),
-        "sources_used": [n for n, v in [("moneycontrol", mc), ("et_markets", et), ("yfinance", yf_), ("news", rss)] if v],
+        "sources_used": [n for n, v in [("moneycontrol", mc), ("et_markets", et), ("yfinance", yf_), ("yf_history", yf_hist), ("news", rss)] if v],
     }
     try: json.dump(result, open(cache_f, "w"))
     except Exception: pass

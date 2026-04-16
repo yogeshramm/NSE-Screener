@@ -6,5 +6,5 @@ router = APIRouter()
 
 
 @router.get("/analyst/{symbol}")
-def analyst_signal(symbol: str):
-    return get_analyst_signal(symbol)
+def analyst_signal(symbol: str, tf: str = "1y"):
+    return get_analyst_signal(symbol, tf=tf)
