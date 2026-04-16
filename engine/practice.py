@@ -12,8 +12,11 @@ from datetime import datetime
 
 HISTORY_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data_store", "history")
 PURSE_SIZE = 100000  # ₹1,00,000
-MAX_DAYS = 60
-MIN_HISTORY = 120  # Need at least 120 bars (60 for warmup + 60 for game)
+MAX_DAYS_DEFAULT = 60
+MIN_HISTORY = 120  # conservative floor; real min = 60 warmup + requested max_days
+# India equity delivery costs (round-trip approximation)
+BROKER_PCT = 0.001   # 0.1% brokerage applied on both buy and sell
+STT_PCT = 0.00025    # 0.025% STT on sell side only
 
 
 def get_available_stocks(universe="nifty500"):
@@ -40,11 +43,23 @@ def get_available_stocks(universe="nifty500"):
         return sorted(all_hist - nifty)
 
 
-def start_round(symbol=None, universe="nifty500"):
+def start_round(symbol=None, universe="nifty500", max_days=MAX_DAYS_DEFAULT):
     """
     Start a new practice round.
+    max_days: number of game days (30, 60, or 90).
     Returns: game state dict with first batch of warmup candles.
     """
+    # Clamp max_days to allowed values
+    try:
+        max_days = int(max_days)
+    except Exception:
+        max_days = MAX_DAYS_DEFAULT
+    if max_days not in (30, 60, 90):
+        max_days = MAX_DAYS_DEFAULT
+
+    warmup_bars = 60
+    needed = warmup_bars + max_days
+
     stocks = get_available_stocks(universe)
     if not stocks:
         return {"error": "No stocks available for practice"}
@@ -56,32 +71,31 @@ def start_round(symbol=None, universe="nifty500"):
         for s in stocks:
             try:
                 df = _load_history(s)
-                if df is not None and len(df) >= MIN_HISTORY:
+                if df is not None and len(df) >= needed:
                     symbol = s
                     break
             except Exception:
                 continue
         if not symbol:
-            return {"error": "No stocks with enough history found"}
+            return {"error": f"No stocks with enough history ({needed} bars) found"}
     else:
         symbol = symbol.upper()
 
     df = _load_history(symbol)
-    if df is None or len(df) < MIN_HISTORY:
-        return {"error": f"{symbol} has insufficient history ({len(df) if df is not None else 0} bars, need {MIN_HISTORY})"}
+    if df is None or len(df) < needed:
+        return {"error": f"{symbol} has insufficient history ({len(df) if df is not None else 0} bars, need {needed})"}
 
-    # Pick random start point (need 60 warmup bars before + 60 game bars after)
-    max_start = len(df) - MAX_DAYS - 1
-    warmup_bars = 60
+    # Pick random start point (need warmup bars before + max_days game bars after)
+    max_start = len(df) - max_days - 1
     min_start = warmup_bars
     if max_start <= min_start:
-        return {"error": f"{symbol} doesn't have enough data for a full game"}
+        return {"error": f"{symbol} doesn't have enough data for a {max_days}-day game"}
 
     start_idx = random.randint(min_start, max_start)
 
     # Build warmup candles (visible from start) + hidden future candles
     warmup = _build_candles(df, start_idx - warmup_bars, start_idx)
-    all_future = _build_candles(df, start_idx, min(start_idx + MAX_DAYS, len(df)))
+    all_future = _build_candles(df, start_idx, min(start_idx + max_days, len(df)))
 
     # Compute indicators for warmup candles
     warmup_df = df.iloc[start_idx - warmup_bars:start_idx]
@@ -94,16 +108,17 @@ def start_round(symbol=None, universe="nifty500"):
         "universe": universe,
         "difficulty": difficulty,
         "purse": PURSE_SIZE,
-        "max_days": MAX_DAYS,
+        "max_days": max_days,
         "day": 0,
         "warmup_candles": warmup,
         "warmup_volumes": _build_volumes(df, start_idx - warmup_bars, start_idx),
         "indicators": indicators,
         "future_candles": all_future,  # Server holds this — NOT sent to frontend
-        "future_volumes": _build_volumes(df, start_idx, min(start_idx + MAX_DAYS, len(df))),
+        "future_volumes": _build_volumes(df, start_idx, min(start_idx + max_days, len(df))),
         "trades": [],
-        "position": None,  # {entry_price, qty, entry_day}
+        "position": None,  # {entry_price, qty, entry_day, sl, tp}
         "cash": PURSE_SIZE,
+        "total_commissions": 0.0,
         "start_idx": start_idx,
         "total_bars": len(all_future),
     }
@@ -111,7 +126,7 @@ def start_round(symbol=None, universe="nifty500"):
 
 def next_day(game_state):
     """
-    Reveal next candle. Returns the new candle + updated indicators.
+    Reveal next candle. Returns the new candle + updated indicators + auto-exit info.
     """
     day = game_state["day"]
     if day >= len(game_state["future_candles"]):
@@ -121,10 +136,32 @@ def next_day(game_state):
     volume = game_state["future_volumes"][day]
     game_state["day"] = day + 1
 
-    # Recompute indicators including this new candle
-    # (We send all visible candles' indicator data)
-    all_visible = game_state["warmup_candles"] + game_state["future_candles"][:game_state["day"]]
-    all_volumes = game_state["warmup_volumes"] + game_state["future_volumes"][:game_state["day"]]
+    auto_exit = None
+    pos = game_state.get("position")
+    if pos:
+        sl = pos.get("sl")
+        tp = pos.get("tp")
+        high = candle["high"]
+        low = candle["low"]
+        exit_price = None
+        exit_reason = None
+        # Stop-loss: triggered if the candle's low falls to/below SL
+        if sl is not None and low <= sl:
+            exit_price = sl
+            exit_reason = "SL hit"
+        # Take-profit: triggered if the candle's high reaches/exceeds TP
+        # If both hit in same candle, treat SL as pessimistic default
+        if tp is not None and high >= tp and exit_reason is None:
+            exit_price = tp
+            exit_reason = "Target hit"
+        if exit_reason is not None:
+            # Force-sell at exit_price
+            trade_result = _sell_at_price(game_state, exit_price, auto=True, reason=exit_reason)
+            auto_exit = {
+                "reason": exit_reason,
+                "price": exit_price,
+                **trade_result,
+            }
 
     return {
         "candle": candle,
@@ -132,20 +169,77 @@ def next_day(game_state):
         "day": game_state["day"],
         "days_remaining": game_state["total_bars"] - game_state["day"],
         "game_over": game_state["day"] >= game_state["total_bars"],
+        "auto_exit": auto_exit,
     }
 
 
-def execute_trade(game_state, action):
+def _sell_at_price(game_state, price, auto=False, reason=None):
+    """Internal: force-sell position at given price, apply costs, record trade."""
+    pos = game_state["position"]
+    if not pos:
+        return {"error": "No position"}
+    qty = pos["qty"]
+    gross = qty * price
+    # Sell-side costs: brokerage + STT
+    broker = gross * BROKER_PCT
+    stt = gross * STT_PCT
+    costs = round(broker + stt, 2)
+    proceeds = round(gross - costs, 2)
+    pnl = round(proceeds - pos["cost"], 2)
+    pnl_pct = round((pnl / pos["cost"]) * 100, 2) if pos["cost"] else 0.0
+    holding_days = game_state["day"] - pos["entry_day"]
+
+    trade = {
+        "entry_price": pos["entry_price"],
+        "exit_price": price,
+        "qty": qty,
+        "entry_day": pos["entry_day"],
+        "exit_day": game_state["day"],
+        "holding_days": holding_days,
+        "pnl": pnl,
+        "pnl_pct": pnl_pct,
+        "cost": pos["cost"],
+        "proceeds": proceeds,
+        "costs": costs,
+        "auto": auto,
+        "reason": reason,
+        "sl": pos.get("sl"),
+        "tp": pos.get("tp"),
+        "note": pos.get("note"),
+        "conviction": pos.get("conviction"),
+    }
+    game_state["trades"].append(trade)
+    game_state["cash"] = round(game_state["cash"] + proceeds, 2)
+    game_state["total_commissions"] = round(game_state.get("total_commissions", 0) + costs, 2)
+    game_state["position"] = None
+
+    return {
+        "action": "sell",
+        "price": price,
+        "qty": qty,
+        "proceeds": proceeds,
+        "pnl": pnl,
+        "pnl_pct": pnl_pct,
+        "holding_days": holding_days,
+        "cash_remaining": game_state["cash"],
+        "day": game_state["day"],
+        "costs": costs,
+    }
+
+
+def execute_trade(game_state, action, qty=None, sl=None, tp=None, note=None, conviction=None):
     """
     Execute BUY or SELL.
-    action: "buy" or "sell"
-    Returns updated position and purse.
+    BUY:
+      qty: optional integer shares (defaults to max affordable with cash).
+      sl / tp: optional stop-loss / target prices for auto-exit.
+      note / conviction: journal fields stored with position.
+    SELL: discretionary exit at current close.
     """
     day = game_state["day"]
     if day == 0:
         return {"error": "Advance at least one day before trading"}
 
-    # Current price = close of last revealed candle
     current_candle = game_state["future_candles"][day - 1]
     price = current_candle["close"]
 
@@ -153,65 +247,66 @@ def execute_trade(game_state, action):
         if game_state["position"]:
             return {"error": "Already holding a position. Sell first."}
 
-        qty = math.floor(game_state["cash"] / price)
-        if qty == 0:
+        # Determine qty
+        cash = game_state["cash"]
+        # Max shares considering buy-side brokerage: qty * price * (1 + BROKER_PCT) <= cash
+        max_qty = math.floor(cash / (price * (1 + BROKER_PCT)))
+        if max_qty < 1:
             return {"error": "Not enough cash to buy even 1 share"}
 
-        cost = round(qty * price, 2)
+        if qty is None:
+            q = max_qty
+        else:
+            try:
+                q = int(qty)
+            except Exception:
+                return {"error": "Invalid qty"}
+            if q < 1:
+                return {"error": "Qty must be at least 1"}
+            if q > max_qty:
+                return {"error": f"Not enough cash for {q} shares (max {max_qty})"}
+
+        gross = q * price
+        broker = gross * BROKER_PCT
+        cost = round(gross + broker, 2)
+
+        # Validate SL/TP relative to price (ignore if invalid rather than error)
+        sl_val = float(sl) if sl not in (None, "") else None
+        tp_val = float(tp) if tp not in (None, "") else None
+        if sl_val is not None and sl_val >= price:
+            sl_val = None
+        if tp_val is not None and tp_val <= price:
+            tp_val = None
+
         game_state["position"] = {
             "entry_price": price,
-            "qty": qty,
+            "qty": q,
             "entry_day": day,
             "cost": cost,
+            "sl": sl_val,
+            "tp": tp_val,
+            "note": (note or "")[:200] or None,
+            "conviction": int(conviction) if conviction not in (None, "") else None,
         }
-        game_state["cash"] = round(game_state["cash"] - cost, 2)
+        game_state["cash"] = round(cash - cost, 2)
+        game_state["total_commissions"] = round(game_state.get("total_commissions", 0) + broker, 2)
 
         return {
             "action": "buy",
             "price": price,
-            "qty": qty,
+            "qty": q,
             "cost": cost,
+            "broker": round(broker, 2),
             "cash_remaining": game_state["cash"],
             "day": day,
+            "sl": sl_val,
+            "tp": tp_val,
         }
 
     elif action == "sell":
         if not game_state["position"]:
             return {"error": "No position to sell"}
-
-        pos = game_state["position"]
-        proceeds = round(pos["qty"] * price, 2)
-        pnl = round(proceeds - pos["cost"], 2)
-        pnl_pct = round((pnl / pos["cost"]) * 100, 2)
-        holding_days = day - pos["entry_day"]
-
-        trade = {
-            "entry_price": pos["entry_price"],
-            "exit_price": price,
-            "qty": pos["qty"],
-            "entry_day": pos["entry_day"],
-            "exit_day": day,
-            "holding_days": holding_days,
-            "pnl": pnl,
-            "pnl_pct": pnl_pct,
-            "cost": pos["cost"],
-            "proceeds": proceeds,
-        }
-        game_state["trades"].append(trade)
-        game_state["cash"] = round(game_state["cash"] + proceeds, 2)
-        game_state["position"] = None
-
-        return {
-            "action": "sell",
-            "price": price,
-            "qty": trade["qty"],
-            "proceeds": proceeds,
-            "pnl": pnl,
-            "pnl_pct": pnl_pct,
-            "holding_days": holding_days,
-            "cash_remaining": game_state["cash"],
-            "day": day,
-        }
+        return _sell_at_price(game_state, price, auto=False, reason="Manual")
 
     return {"error": f"Unknown action: {action}"}
 
@@ -236,12 +331,18 @@ def end_round(game_state):
         }
 
     total_pnl = sum(t["pnl"] for t in trades)
-    total_cost = sum(t["cost"] for t in trades)
     total_pnl_pct = round((total_pnl / PURSE_SIZE) * 100, 2) if PURSE_SIZE else 0
     winning = [t for t in trades if t["pnl"] > 0]
     losing = [t for t in trades if t["pnl"] <= 0]
     win_rate = round(len(winning) / len(trades) * 100, 1) if trades else 0
     avg_holding = round(sum(t["holding_days"] for t in trades) / len(trades), 1) if trades else 0
+
+    # Benchmark: buy-and-hold over the revealed window
+    benchmark_pct = _compute_benchmark(game_state)
+    alpha = round(total_pnl_pct - benchmark_pct, 2) if benchmark_pct is not None else None
+
+    # Pro metrics
+    pro = _compute_pro_metrics(trades)
 
     # Mistake analysis
     mistakes = _analyze_mistakes(game_state)
@@ -256,10 +357,76 @@ def end_round(game_state):
         "total_pnl_pct": total_pnl_pct,
         "final_purse": round(game_state["cash"], 2),
         "avg_holding_days": avg_holding,
+        "benchmark_pct": benchmark_pct,
+        "alpha": alpha,
+        "total_commissions": round(game_state.get("total_commissions", 0), 2),
+        "sharpe": pro["sharpe"],
+        "max_drawdown": pro["max_drawdown"],
+        "profit_factor": pro["profit_factor"],
+        "avg_win": pro["avg_win"],
+        "avg_loss": pro["avg_loss"],
         "best_trade": max(trades, key=lambda t: t["pnl"]) if trades else None,
         "worst_trade": min(trades, key=lambda t: t["pnl"]) if trades else None,
         "trades": trades,
         "mistakes": mistakes,
+    }
+
+
+def _compute_benchmark(game_state):
+    """Buy-and-hold % return over the game window (day 1 close to last revealed close)."""
+    revealed = game_state["future_candles"][:game_state["day"]]
+    if len(revealed) < 2:
+        return None
+    first = revealed[0]["close"]
+    last = revealed[-1]["close"]
+    if first == 0:
+        return None
+    return round((last - first) / first * 100, 2)
+
+
+def _compute_pro_metrics(trades):
+    """Sharpe-ish ratio from trade pnl_pct sequence, max drawdown, profit factor."""
+    if not trades:
+        return {"sharpe": None, "max_drawdown": 0.0, "profit_factor": None, "avg_win": 0.0, "avg_loss": 0.0}
+
+    import statistics
+    pcts = [t["pnl_pct"] for t in trades]
+    # Sharpe-ish: mean / stdev (per-trade, not annualized)
+    if len(pcts) >= 2:
+        try:
+            sd = statistics.pstdev(pcts)
+            sharpe = round(statistics.mean(pcts) / sd, 2) if sd > 0 else None
+        except Exception:
+            sharpe = None
+    else:
+        sharpe = None
+
+    # Max drawdown on running P&L
+    running = 0.0
+    peak = 0.0
+    max_dd = 0.0
+    for t in trades:
+        running += t["pnl"]
+        if running > peak:
+            peak = running
+        dd = peak - running
+        if dd > max_dd:
+            max_dd = dd
+
+    wins = [t["pnl"] for t in trades if t["pnl"] > 0]
+    losses = [t["pnl"] for t in trades if t["pnl"] < 0]
+    gross_win = sum(wins)
+    gross_loss = abs(sum(losses))
+    profit_factor = round(gross_win / gross_loss, 2) if gross_loss > 0 else None
+    avg_win = round(statistics.mean(wins), 2) if wins else 0.0
+    avg_loss = round(statistics.mean(losses), 2) if losses else 0.0
+
+    return {
+        "sharpe": sharpe,
+        "max_drawdown": round(max_dd, 2),
+        "profit_factor": profit_factor,
+        "avg_win": avg_win,
+        "avg_loss": avg_loss,
     }
 
 

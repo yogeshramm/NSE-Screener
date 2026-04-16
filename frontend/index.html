@@ -583,6 +583,14 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
           <span class="material-symbols-outlined text-6xl text-primary/30 mb-4 block">sports_esports</span>
           <h2 class="text-2xl font-black text-on-surface tracking-tighter mb-2">Practice Trading</h2>
           <p class="text-sm text-on-surface-variant mb-6">Trade real historical stocks candle-by-candle with a &#8377;1,00,000 purse. Test your skills without risking real money.</p>
+          <div class="flex flex-col items-center gap-3 mb-4">
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant">Round Length</span>
+            <div class="flex bg-surface-container-highest rounded-lg p-1 gap-1">
+              <button onclick="setPracticeMaxDays(30,this)" class="prac-days-btn px-4 py-2 text-[10px] font-black rounded-md text-on-surface-variant hover:text-primary">30 Days</button>
+              <button onclick="setPracticeMaxDays(60,this)" class="prac-days-btn px-4 py-2 text-[10px] font-black rounded-md bg-surface-variant text-primary">60 Days</button>
+              <button onclick="setPracticeMaxDays(90,this)" class="prac-days-btn px-4 py-2 text-[10px] font-black rounded-md text-on-surface-variant hover:text-primary">90 Days</button>
+            </div>
+          </div>
           <button onclick="startPracticeRound()" class="px-8 py-3 bg-primary-container text-on-primary font-bold rounded-xl text-sm uppercase active:scale-95 transition-transform">
             Start Round
           </button>
@@ -693,6 +701,71 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
     </div>
   </div>
 </section>
+
+<!-- ==================== PRACTICE BUY MODAL ==================== -->
+<div id="prac-buy-modal" class="fixed inset-0 z-[85] flex items-center justify-center bg-black/60" style="display:none">
+  <div class="w-[440px] glass-panel rounded-2xl border border-outline-variant/20 overflow-hidden">
+    <div class="p-5 border-b border-outline-variant/20 flex items-center justify-between">
+      <div>
+        <h3 class="text-sm font-black uppercase text-on-surface tracking-widest">Place BUY Order</h3>
+        <span class="text-[10px] text-on-surface-variant">
+          <span id="prac-buy-symbol"></span> &middot; <span id="prac-buy-price" class="text-primary font-mono"></span>
+        </span>
+      </div>
+      <span class="material-symbols-outlined cursor-pointer hover:text-error" onclick="closeBuyModal()">close</span>
+    </div>
+    <div class="p-5 space-y-4 text-xs">
+      <!-- Position Size -->
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Position Size</label>
+          <span class="text-[9px] font-mono text-on-surface-variant">Cash: <span id="prac-buy-cash">&#8377;0</span></span>
+        </div>
+        <div class="flex gap-1 mb-2">
+          <button onclick="setBuyPct(25)" class="prac-buy-pct flex-1 py-1.5 bg-surface-container-highest text-on-surface-variant font-bold rounded text-[10px] hover:text-primary">25%</button>
+          <button onclick="setBuyPct(50)" class="prac-buy-pct flex-1 py-1.5 bg-surface-container-highest text-on-surface-variant font-bold rounded text-[10px] hover:text-primary">50%</button>
+          <button onclick="setBuyPct(75)" class="prac-buy-pct flex-1 py-1.5 bg-surface-container-highest text-on-surface-variant font-bold rounded text-[10px] hover:text-primary">75%</button>
+          <button onclick="setBuyPct(100)" class="prac-buy-pct flex-1 py-1.5 bg-surface-variant text-primary font-bold rounded text-[10px]" id="prac-buy-pct-100">100%</button>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-[9px] text-on-surface-variant uppercase w-10">Qty</label>
+          <input id="prac-buy-qty" type="number" min="1" class="flex-1 bg-surface-container-highest border-none rounded py-2 px-3 text-on-surface font-mono text-xs focus:ring-1 focus:ring-primary" onchange="onBuyQtyChange()"/>
+          <span id="prac-buy-total" class="text-[10px] font-mono text-on-surface-variant">&#8377;0</span>
+        </div>
+      </div>
+      <!-- SL / TP -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider block mb-1">Stop Loss (optional)</label>
+          <input id="prac-buy-sl" type="number" step="0.01" placeholder="e.g. 450" class="w-full bg-surface-container-highest border-none rounded py-2 px-3 text-[#ff4757] font-mono text-xs focus:ring-1 focus:ring-[#ff4757]" onchange="onBuyRiskChange()"/>
+          <div id="prac-buy-risk" class="text-[9px] text-on-surface-variant mt-1">&mdash;</div>
+        </div>
+        <div>
+          <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider block mb-1">Target (optional)</label>
+          <input id="prac-buy-tp" type="number" step="0.01" placeholder="e.g. 520" class="w-full bg-surface-container-highest border-none rounded py-2 px-3 text-[#00e5a0] font-mono text-xs focus:ring-1 focus:ring-[#00e5a0]" onchange="onBuyRiskChange()"/>
+          <div id="prac-buy-reward" class="text-[9px] text-on-surface-variant mt-1">&mdash;</div>
+        </div>
+      </div>
+      <div id="prac-buy-rr" class="text-[10px] text-on-surface-variant font-mono text-center">R:R &mdash;</div>
+      <!-- Journal: reason + conviction -->
+      <div>
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider block mb-1">Why are you buying? (optional)</label>
+        <input id="prac-buy-note" type="text" maxlength="200" placeholder="e.g. RSI oversold + SMA20 bounce" class="w-full bg-surface-container-highest border-none rounded py-2 px-3 text-on-surface text-xs focus:ring-1 focus:ring-primary"/>
+      </div>
+      <div>
+        <div class="flex items-center justify-between mb-1">
+          <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Conviction</label>
+          <span id="prac-buy-conv-label" class="text-[10px] font-bold text-primary">3 &middot; Moderate</span>
+        </div>
+        <input id="prac-buy-conv" type="range" min="1" max="5" value="3" class="w-full accent-primary" oninput="onBuyConvChange(this.value)"/>
+      </div>
+    </div>
+    <div class="p-4 border-t border-outline-variant/20 flex justify-between">
+      <button onclick="closeBuyModal()" class="px-5 py-2 text-on-surface-variant font-bold text-xs uppercase hover:text-on-surface">Cancel</button>
+      <button onclick="confirmBuy()" class="px-5 py-2 bg-[#00e5a0]/20 text-[#00e5a0] font-bold rounded-lg text-xs uppercase active:scale-95 transition-transform hover:bg-[#00e5a0]/30">Confirm BUY</button>
+    </div>
+  </div>
+</div>
 
 <!-- ==================== PRACTICE PROFILE MODAL ==================== -->
 <div id="prac-profile-modal" class="fixed inset-0 z-[85] flex items-center justify-center bg-black/60" style="display:none">
@@ -2151,7 +2224,9 @@ let pracRsiLine = null;
 let pracVisibleCandles = [], pracVisibleVolumes = [];
 let pracIndicators = {}; // from server (legacy, unused)
 let practiceUniverse = 'nifty500';
+let practiceMaxDays = 60;
 let pracMarkers = [];
+let pracSlLine = null, pracTpLine = null; // price lines on main chart
 let pracPnlTrail = []; // running P&L per day since entry (for sparkline)
 let pracActiveInd = {};
 let pracSubPanels = {};
@@ -2271,6 +2346,15 @@ function resetPracticeTab() {
   loadPracticeHistory();
 }
 
+function setPracticeMaxDays(days, el) {
+  practiceMaxDays = days;
+  document.querySelectorAll('.prac-days-btn').forEach(b => {
+    b.className = b === el
+      ? 'prac-days-btn px-4 py-2 text-[10px] font-black rounded-md bg-surface-variant text-primary'
+      : 'prac-days-btn px-4 py-2 text-[10px] font-black rounded-md text-on-surface-variant hover:text-primary';
+  });
+}
+
 function setPracticeUniverse(u, el) {
   practiceUniverse = u;
   document.querySelectorAll('.prac-uni-btn').forEach(b => {
@@ -2303,7 +2387,7 @@ async function startPracticeRound() {
   try {
     const res = await fetch(API + '/practice/start', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ universe: practiceUniverse })
+      body: JSON.stringify({ universe: practiceUniverse, max_days: practiceMaxDays })
     });
     const data = await res.json();
     if (data.error) { showPracticeToast(data.error, 'err'); return; }
@@ -3150,7 +3234,38 @@ async function practiceNextDay() {
     document.getElementById('prac-price').textContent = '\u20b9' + data.candle.close.toFixed(2);
 
     updatePracticeDay(data.day);
-    updatePracticePosition(data.candle.close);
+
+    // Handle auto-exit from SL/TP
+    if (data.auto_exit) {
+      const ax = data.auto_exit;
+      practiceState.trades.push({
+        entry_price: practiceState.position.entry_price,
+        exit_price: ax.price,
+        qty: ax.qty, pnl: ax.pnl, pnl_pct: ax.pnl_pct,
+        holding_days: ax.holding_days,
+        entry_day: practiceState.position.entry_day,
+        exit_day: ax.day,
+        auto: true, reason: ax.reason,
+      });
+      practiceState.position = null;
+      practiceState.cash = ax.cash_remaining;
+      pracPnlTrail = [];
+      clearSlTpLines();
+      pracMarkers.push({
+        time: data.candle.time,
+        position: 'aboveBar',
+        color: ax.reason === 'SL hit' ? '#ff4757' : '#00e5a0',
+        shape: 'arrowDown',
+        text: `${ax.reason} @ \u20b9${ax.price}`,
+      });
+      if (pracCandleSeries) pracCandleSeries.setMarkers([...pracMarkers]);
+      document.getElementById('prac-position-card').classList.add('hidden');
+      const win = ax.pnl >= 0;
+      playPracticeTone(win ? 1200 : 440, 140);
+      showPracticeToast(`${ax.reason} · ${win ? '+' : ''}\u20b9${ax.pnl.toFixed(0)} (${ax.pnl_pct.toFixed(1)}%)`, win ? 'ok' : 'err');
+    } else {
+      updatePracticePosition(data.candle.close);
+    }
 
     // Enable buy button (sell only if holding)
     document.getElementById('prac-btn-buy').disabled = !!practiceState.position;
@@ -3171,19 +3286,123 @@ async function practiceNextDay() {
   } catch(e) { alert('Error: ' + e.message); }
 }
 
-async function practiceBuy() {
+// Open BUY modal with defaults from current state
+function practiceBuy() {
   if (!practiceState || practiceState.position) return;
+  if (!pracVisibleCandles.length) return;
+  const price = pracVisibleCandles[pracVisibleCandles.length - 1].close;
+  const cash = practiceState.cash;
+  document.getElementById('prac-buy-symbol').textContent = practiceState.symbol;
+  document.getElementById('prac-buy-price').textContent = '\u20b9' + price.toFixed(2);
+  document.getElementById('prac-buy-cash').textContent = '\u20b9' + cash.toLocaleString('en-IN');
+  document.getElementById('prac-buy-sl').value = '';
+  document.getElementById('prac-buy-tp').value = '';
+  document.getElementById('prac-buy-note').value = '';
+  document.getElementById('prac-buy-conv').value = 3;
+  document.getElementById('prac-buy-conv-label').textContent = '3 · Moderate';
+  setBuyPct(100);
+  onBuyRiskChange();
+  document.getElementById('prac-buy-modal').style.display = 'flex';
+}
+function closeBuyModal() { document.getElementById('prac-buy-modal').style.display = 'none'; }
+
+function buyMaxQty() {
+  if (!practiceState || !pracVisibleCandles.length) return 0;
+  const price = pracVisibleCandles[pracVisibleCandles.length - 1].close;
+  // Account for 0.1% brokerage on buy side
+  return Math.floor(practiceState.cash / (price * 1.001));
+}
+
+function setBuyPct(pct) {
+  const maxQty = buyMaxQty();
+  const q = Math.max(1, Math.floor(maxQty * pct / 100));
+  document.getElementById('prac-buy-qty').value = q;
+  document.querySelectorAll('.prac-buy-pct').forEach(b => {
+    b.className = 'prac-buy-pct flex-1 py-1.5 bg-surface-container-highest text-on-surface-variant font-bold rounded text-[10px] hover:text-primary';
+  });
+  const btn = [...document.querySelectorAll('.prac-buy-pct')].find(b => b.textContent.trim() === pct + '%');
+  if (btn) btn.className = 'prac-buy-pct flex-1 py-1.5 bg-surface-variant text-primary font-bold rounded text-[10px]';
+  onBuyQtyChange();
+}
+
+function onBuyQtyChange() {
+  const q = parseInt(document.getElementById('prac-buy-qty').value) || 0;
+  const price = pracVisibleCandles[pracVisibleCandles.length - 1].close;
+  const gross = q * price;
+  const total = gross * 1.001; // include buy brokerage
+  document.getElementById('prac-buy-total').textContent = '\u20b9' + Math.round(total).toLocaleString('en-IN');
+  onBuyRiskChange();
+}
+
+function onBuyRiskChange() {
+  const q = parseInt(document.getElementById('prac-buy-qty').value) || 0;
+  const price = pracVisibleCandles[pracVisibleCandles.length - 1].close;
+  const sl = parseFloat(document.getElementById('prac-buy-sl').value);
+  const tp = parseFloat(document.getElementById('prac-buy-tp').value);
+  const riskEl = document.getElementById('prac-buy-risk');
+  const rewardEl = document.getElementById('prac-buy-reward');
+  const rrEl = document.getElementById('prac-buy-rr');
+  let riskAmt = null, rewardAmt = null;
+
+  if (!isNaN(sl) && sl > 0 && sl < price) {
+    riskAmt = (price - sl) * q;
+    const riskPct = (riskAmt / practiceState.purse) * 100;
+    riskEl.innerHTML = `Risk: <span class="text-[#ff4757] font-mono">\u20b9${Math.round(riskAmt).toLocaleString('en-IN')}</span> (${riskPct.toFixed(1)}% of purse)`;
+  } else {
+    riskEl.textContent = sl ? 'SL must be below price' : '—';
+  }
+
+  if (!isNaN(tp) && tp > price) {
+    rewardAmt = (tp - price) * q;
+    rewardEl.innerHTML = `Reward: <span class="text-[#00e5a0] font-mono">\u20b9${Math.round(rewardAmt).toLocaleString('en-IN')}</span>`;
+  } else {
+    rewardEl.textContent = tp ? 'TP must be above price' : '—';
+  }
+
+  if (riskAmt && rewardAmt) {
+    const rr = rewardAmt / riskAmt;
+    const rrCol = rr >= 2 ? 'text-[#00e5a0]' : rr >= 1 ? 'text-yellow-400' : 'text-[#ff4757]';
+    rrEl.innerHTML = `R:R <span class="${rrCol} font-bold">${rr.toFixed(2)}</span> ${rr >= 2 ? '· Good' : rr >= 1 ? '· Fair' : '· Poor'}`;
+  } else {
+    rrEl.textContent = 'R:R —';
+  }
+}
+
+function onBuyConvChange(v) {
+  const labels = { 1: 'Low', 2: 'Low-Moderate', 3: 'Moderate', 4: 'High', 5: 'Very High' };
+  document.getElementById('prac-buy-conv-label').textContent = `${v} · ${labels[v]}`;
+}
+
+async function confirmBuy() {
+  const q = parseInt(document.getElementById('prac-buy-qty').value);
+  const sl = parseFloat(document.getElementById('prac-buy-sl').value);
+  const tp = parseFloat(document.getElementById('prac-buy-tp').value);
+  const note = document.getElementById('prac-buy-note').value.trim();
+  const conv = parseInt(document.getElementById('prac-buy-conv').value);
+
+  if (!q || q < 1) { showPracticeToast('Invalid quantity', 'err'); return; }
+
+  const payload = { action: 'buy', qty: q };
+  if (!isNaN(sl) && sl > 0) payload.sl = sl;
+  if (!isNaN(tp) && tp > 0) payload.tp = tp;
+  if (note) payload.note = note;
+  if (conv) payload.conviction = conv;
+
   try {
     const res = await fetch(API + '/practice/trade', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ action: 'buy' })
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (data.error) { showPracticeToast(data.error, 'err'); return; }
 
-    practiceState.position = { entry_price: data.price, qty: data.qty, entry_day: data.day, cost: data.cost };
+    practiceState.position = {
+      entry_price: data.price, qty: data.qty, entry_day: data.day,
+      cost: data.cost, sl: data.sl, tp: data.tp,
+      note, conviction: conv,
+    };
     practiceState.cash = data.cash_remaining;
     pracPnlTrail = [0];
+    closeBuyModal();
 
     pracMarkers.push({
       time: pracVisibleCandles[pracVisibleCandles.length - 1].time,
@@ -3191,6 +3410,7 @@ async function practiceBuy() {
       text: 'BUY ' + data.qty + '@' + data.price.toFixed(0),
     });
     if (pracCandleSeries) pracCandleSeries.setMarkers([...pracMarkers]);
+    drawSlTpLines();
 
     updatePracticePurse();
     updatePracticePosition(data.price);
@@ -3198,8 +3418,22 @@ async function practiceBuy() {
     document.getElementById('prac-btn-buy').disabled = true;
     document.getElementById('prac-btn-sell').disabled = false;
     playPracticeTone(880, 100);
-    showPracticeToast(`BUY ${data.qty} @ \u20b9${data.price.toFixed(2)}`, 'ok');
+    const slTxt = data.sl ? ` · SL \u20b9${data.sl}` : '';
+    const tpTxt = data.tp ? ` · TP \u20b9${data.tp}` : '';
+    showPracticeToast(`BUY ${data.qty} @ \u20b9${data.price.toFixed(2)}${slTxt}${tpTxt}`, 'ok');
   } catch(e) { showPracticeToast('Error: ' + e.message, 'err'); }
+}
+
+function drawSlTpLines() {
+  clearSlTpLines();
+  if (!practiceState?.position || !pracCandleSeries) return;
+  const { sl, tp } = practiceState.position;
+  if (sl) pracSlLine = pracCandleSeries.createPriceLine({ price: sl, color: '#ff4757', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'SL' });
+  if (tp) pracTpLine = pracCandleSeries.createPriceLine({ price: tp, color: '#00e5a0', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'TP' });
+}
+function clearSlTpLines() {
+  if (pracCandleSeries && pracSlLine) { try { pracCandleSeries.removePriceLine(pracSlLine); } catch(e){} pracSlLine = null; }
+  if (pracCandleSeries && pracTpLine) { try { pracCandleSeries.removePriceLine(pracTpLine); } catch(e){} pracTpLine = null; }
 }
 
 async function practiceSell() {
@@ -3223,6 +3457,7 @@ async function practiceSell() {
     practiceState.position = null;
     practiceState.cash = data.cash_remaining;
     pracPnlTrail = [];
+    clearSlTpLines();
 
     pracMarkers.push({
       time: pracVisibleCandles[pracVisibleCandles.length - 1].time,
@@ -3347,6 +3582,45 @@ function showPracticeSummary(data) {
       <div class="text-[8px] uppercase text-on-surface-variant font-bold mb-1">Avg Hold</div>
       <div class="text-lg font-black text-on-surface">${data.avg_holding_days || 0}d</div>
     </div>`;
+
+  // Benchmark + Pro Metrics row
+  const bench = data.benchmark_pct, alpha = data.alpha;
+  const alphaCol = alpha === null || alpha === undefined ? 'text-on-surface-variant' : (alpha >= 0 ? 'text-[#00e5a0]' : 'text-[#ff4757]');
+  const benchCol = bench === null || bench === undefined ? 'text-on-surface-variant' : (bench >= 0 ? 'text-[#00e5a0]' : 'text-[#ff4757]');
+  const ddText = data.max_drawdown ? '\u20b9' + Math.round(data.max_drawdown).toLocaleString('en-IN') : '—';
+  const sharpeText = data.sharpe !== null && data.sharpe !== undefined ? data.sharpe : '—';
+  const pfText = data.profit_factor !== null && data.profit_factor !== undefined ? data.profit_factor : '—';
+  const commText = data.total_commissions ? '\u20b9' + Math.round(data.total_commissions).toLocaleString('en-IN') : '\u20b90';
+  statsEl.insertAdjacentHTML('afterend', `
+    <div class="grid grid-cols-6 gap-2 text-[10px]" id="prac-sum-pro">
+      <div class="bg-surface-container-highest rounded p-2 text-center">
+        <div class="text-[8px] uppercase text-on-surface-variant font-bold">Benchmark (B&H)</div>
+        <div class="font-black ${benchCol}">${bench !== null && bench !== undefined ? (bench >= 0 ? '+' : '') + bench + '%' : '—'}</div>
+      </div>
+      <div class="bg-surface-container-highest rounded p-2 text-center">
+        <div class="text-[8px] uppercase text-on-surface-variant font-bold">Alpha</div>
+        <div class="font-black ${alphaCol}">${alpha !== null && alpha !== undefined ? (alpha >= 0 ? '+' : '') + alpha + '%' : '—'}</div>
+      </div>
+      <div class="bg-surface-container-highest rounded p-2 text-center">
+        <div class="text-[8px] uppercase text-on-surface-variant font-bold">Sharpe</div>
+        <div class="font-black text-on-surface">${sharpeText}</div>
+      </div>
+      <div class="bg-surface-container-highest rounded p-2 text-center">
+        <div class="text-[8px] uppercase text-on-surface-variant font-bold">Max DD</div>
+        <div class="font-black text-on-surface">${ddText}</div>
+      </div>
+      <div class="bg-surface-container-highest rounded p-2 text-center">
+        <div class="text-[8px] uppercase text-on-surface-variant font-bold">Profit Factor</div>
+        <div class="font-black text-on-surface">${pfText}</div>
+      </div>
+      <div class="bg-surface-container-highest rounded p-2 text-center">
+        <div class="text-[8px] uppercase text-on-surface-variant font-bold">Commissions</div>
+        <div class="font-black text-on-surface">${commText}</div>
+      </div>
+    </div>`);
+  // Remove any previous pro row before inserting new one
+  const prev = document.querySelectorAll('#prac-sum-pro');
+  if (prev.length > 1) prev[0].remove();
 
   // Best / Worst trade
   const hlEl = document.getElementById('prac-sum-highlights');

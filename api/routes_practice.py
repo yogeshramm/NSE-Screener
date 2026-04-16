@@ -22,10 +22,16 @@ _active_game = {"state": None}
 class StartRequest(BaseModel):
     symbol: Optional[str] = None
     universe: str = "nifty500"  # "nifty500" or "next500"
+    max_days: int = 60  # 30, 60, or 90
 
 
 class TradeRequest(BaseModel):
     action: str  # "buy" or "sell"
+    qty: Optional[int] = None
+    sl: Optional[float] = None
+    tp: Optional[float] = None
+    note: Optional[str] = None
+    conviction: Optional[int] = None
 
 
 @router.get("/practice/stocks")
@@ -38,7 +44,7 @@ def list_practice_stocks(universe: str = "nifty500"):
 @router.post("/practice/start")
 def practice_start(req: StartRequest):
     """Start a new practice round."""
-    result = start_round(symbol=req.symbol, universe=req.universe)
+    result = start_round(symbol=req.symbol, universe=req.universe, max_days=req.max_days)
     if "error" in result:
         return result
 
@@ -74,7 +80,15 @@ def practice_trade(req: TradeRequest):
     if not _active_game["state"]:
         return {"error": "No active game. Start a new round first."}
 
-    result = execute_trade(_active_game["state"], req.action)
+    result = execute_trade(
+        _active_game["state"],
+        req.action,
+        qty=req.qty,
+        sl=req.sl,
+        tp=req.tp,
+        note=req.note,
+        conviction=req.conviction,
+    )
     return result
 
 
