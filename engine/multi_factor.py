@@ -64,19 +64,28 @@ def _sector(sym):
     except Exception: return "Other"
 
 
+def _universe_symbols() -> List[str]:
+    if not os.path.isdir(HIST_DIR): return []
+    return sorted(f[:-4] for f in os.listdir(HIST_DIR) if f.endswith(".pkl"))
+
+
 def compute_factor_scores(symbols: List[str]) -> Dict[str, Dict[str, Any]]:
-    """Returns {sym: {score, momentum, quality, value, growth}} as 1-99 percentiles."""
-    # Cache check
+    """Returns {sym: {score, momentum, quality, value, growth}} as 1-99 percentiles.
+    Percentiles always rank against the FULL universe (all stocks with history),
+    not just the requested subset — so a 5-stock screen still gets meaningful scores."""
+    # Cache check — only trust cache that covers the full universe
+    universe = _universe_symbols()
     if os.path.exists(CACHE_F) and time.time() - os.path.getmtime(CACHE_F) < TTL:
         try:
             cached = pickle.load(open(CACHE_F, "rb"))
-            if set(symbols).issubset(cached.keys()):
-                return {s: cached[s] for s in symbols}
+            # Require cache to cover >= 80% of universe (guards against small-sample caches)
+            if len(cached) >= max(100, int(0.8 * len(universe))):
+                return {s: cached[s] for s in symbols if s in cached}
         except Exception: pass
 
-    # Raw metrics per symbol
+    # Raw metrics per symbol — compute across the FULL universe
     raw = {}
-    for s in symbols:
+    for s in universe:
         df = _load_hist(s); fa = _load_fa(s)
         if df is None: continue
         roe = fa.get("roe_pct") or fa.get("roe")
@@ -125,7 +134,8 @@ def compute_factor_scores(symbols: List[str]) -> Dict[str, Dict[str, Any]]:
             "growth": growth_rk.get(s),
         }
 
-    # Cache entire computation (covers any subset next time)
+    # Cache entire universe computation (covers any subset next time)
     try: pickle.dump(out, open(CACHE_F, "wb"))
     except Exception: pass
-    return out
+    # Return only requested subset
+    return {s: out[s] for s in symbols if s in out}
