@@ -191,6 +191,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
       <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="indicators" onclick="switchTab('indicators')">Indicators</a>
       <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="watchlist" onclick="switchTab('watchlist')">Watchlist</a>
       <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="breakouts" onclick="switchTab('breakouts')">Breakouts</a>
+      <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="backtest" onclick="switchTab('backtest')">Backtester</a>
       <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="practice" onclick="switchTab('practice')">Practice</a>
     </nav>
   </div>
@@ -619,6 +620,106 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 </section>
 
 <!-- ==================== TAB: PRACTICE ==================== -->
+<!-- ==================== TAB: BACKTESTER ==================== -->
+<section class="tab-content flex-col w-full overflow-y-auto" id="tab-backtest">
+  <div class="px-6 pt-6 pb-20">
+    <header class="mb-6">
+      <h1 class="text-3xl font-black text-on-surface tracking-tighter uppercase mb-1">Strategy <span class="text-primary">Backtester</span></h1>
+      <p class="text-sm text-on-surface-variant max-w-2xl">"What if I bought X when Y?" — test entry/exit rules on any stock's full history with SL/TP and hold-bar timeouts. Does not touch the Screener chart.</p>
+    </header>
+    <!-- Strategy builder -->
+    <div class="bg-surface-container-low rounded-xl p-5 mb-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div>
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider block mb-1">Symbol</label>
+        <input id="bt-symbol" type="text" placeholder="e.g. RELIANCE" class="w-full bg-surface-container-highest border-none rounded py-2 px-3 text-on-surface font-mono text-xs focus:ring-1 focus:ring-primary"/>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider block mb-1">Start (optional)</label>
+          <input id="bt-start" type="date" class="w-full bg-surface-container-highest border-none rounded py-2 px-3 text-on-surface text-xs"/>
+        </div>
+        <div>
+          <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider block mb-1">End (optional)</label>
+          <input id="bt-end" type="date" class="w-full bg-surface-container-highest border-none rounded py-2 px-3 text-on-surface text-xs"/>
+        </div>
+      </div>
+      <!-- Entry rule -->
+      <div class="col-span-1 md:col-span-2 bg-surface-container-highest/40 p-3 rounded-lg">
+        <div class="text-[10px] text-[#00e5a0] font-black uppercase mb-2">▶ ENTRY RULE — Buy when…</div>
+        <div class="grid grid-cols-3 gap-2">
+          <select id="bt-entry-ind" class="bg-surface-container-highest border-none rounded text-xs py-2">
+            <option value="rsi">RSI (14)</option>
+            <option value="price_vs_sma20">Price vs SMA 20 (%)</option>
+            <option value="price_vs_sma50">Price vs SMA 50 (%)</option>
+            <option value="price_vs_ema50">Price vs EMA 50 (%)</option>
+            <option value="macd">MACD</option>
+            <option value="macd_hist">MACD Histogram</option>
+            <option value="pct_change">Day % Change</option>
+            <option value="volume_ratio">Volume Ratio (vs 20D avg)</option>
+          </select>
+          <select id="bt-entry-cond" class="bg-surface-container-highest border-none rounded text-xs py-2">
+            <option value="below">is below</option>
+            <option value="above">is above</option>
+            <option value="cross_above">crosses above</option>
+            <option value="cross_below">crosses below</option>
+          </select>
+          <input id="bt-entry-val" type="number" step="any" value="30" class="bg-surface-container-highest border-none rounded text-xs py-2 px-3 font-mono"/>
+        </div>
+      </div>
+      <!-- Exit rule -->
+      <div class="col-span-1 md:col-span-2 bg-surface-container-highest/40 p-3 rounded-lg">
+        <div class="flex items-center gap-2 mb-2">
+          <label class="text-[10px] text-[#ff4757] font-black uppercase">■ EXIT RULE</label>
+          <label class="text-[10px] text-on-surface-variant"><input type="checkbox" id="bt-exit-enabled" onchange="document.getElementById('bt-exit-row').style.opacity=this.checked?'1':'0.3'"/> Enable</label>
+        </div>
+        <div id="bt-exit-row" class="grid grid-cols-3 gap-2" style="opacity:0.3">
+          <select id="bt-exit-ind" class="bg-surface-container-highest border-none rounded text-xs py-2">
+            <option value="rsi">RSI (14)</option>
+            <option value="price_vs_sma20">Price vs SMA 20 (%)</option>
+            <option value="macd">MACD</option>
+            <option value="macd_hist">MACD Histogram</option>
+            <option value="pct_change">Day % Change</option>
+          </select>
+          <select id="bt-exit-cond" class="bg-surface-container-highest border-none rounded text-xs py-2">
+            <option value="above">is above</option>
+            <option value="below">is below</option>
+            <option value="cross_above">crosses above</option>
+            <option value="cross_below">crosses below</option>
+          </select>
+          <input id="bt-exit-val" type="number" step="any" value="70" class="bg-surface-container-highest border-none rounded text-xs py-2 px-3 font-mono"/>
+        </div>
+      </div>
+      <div class="grid grid-cols-3 gap-2 col-span-1 md:col-span-2">
+        <div>
+          <label class="text-[10px] text-on-surface-variant uppercase font-bold block mb-1">Stop Loss %</label>
+          <input id="bt-sl" type="number" step="0.5" placeholder="e.g. 5" class="w-full bg-surface-container-highest border-none rounded py-2 px-3 text-[#ff4757] font-mono text-xs"/>
+        </div>
+        <div>
+          <label class="text-[10px] text-on-surface-variant uppercase font-bold block mb-1">Target %</label>
+          <input id="bt-tp" type="number" step="0.5" placeholder="e.g. 10" class="w-full bg-surface-container-highest border-none rounded py-2 px-3 text-[#00e5a0] font-mono text-xs"/>
+        </div>
+        <div>
+          <label class="text-[10px] text-on-surface-variant uppercase font-bold block mb-1">Max Hold (bars)</label>
+          <input id="bt-hold" type="number" value="20" class="w-full bg-surface-container-highest border-none rounded py-2 px-3 text-on-surface font-mono text-xs"/>
+        </div>
+      </div>
+      <div class="col-span-1 md:col-span-2 flex justify-end">
+        <button onclick="runBacktest()" class="px-6 py-2.5 bg-primary-container text-on-primary font-bold rounded-lg text-xs uppercase tracking-wider active:scale-95 transition-transform">
+          <span class="material-symbols-outlined text-sm align-middle mr-1">play_arrow</span> Run Backtest
+        </button>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div id="bt-results" class="hidden">
+      <div id="bt-stats" class="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4"></div>
+      <div class="bg-surface-container-low rounded-xl overflow-hidden">
+        <div id="bt-trades" class="overflow-x-auto"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ==================== TAB: BREAKOUTS ==================== -->
 <section class="tab-content flex-col w-full overflow-y-auto" id="tab-breakouts">
   <div class="px-6 pt-6 pb-20">
@@ -1987,6 +2088,90 @@ function toggleConfigFilter(el) { const k=el.dataset.configToggle; if(fullConfig
 function saveConfigPreset() { const name=prompt('Save preset as:'); if(!name||!name.trim())return; const config=getFilterConfig(); fetch(API+'/presets/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name.trim(),config})}).then(()=>{alert('Preset saved: '+name);populatePresetDropdowns();}); }
 
 // ============ INDICATORS PAGE ============
+// ============ BACKTESTER ============
+async function runBacktest() {
+  const sym = document.getElementById('bt-symbol').value.trim().toUpperCase();
+  if (!sym) { alert('Enter a symbol'); return; }
+  const payload = {
+    symbol: sym,
+    entry: {
+      indicator: document.getElementById('bt-entry-ind').value,
+      condition: document.getElementById('bt-entry-cond').value,
+      value: parseFloat(document.getElementById('bt-entry-val').value) || 0,
+    },
+    hold_bars: parseInt(document.getElementById('bt-hold').value) || 20,
+  };
+  if (document.getElementById('bt-exit-enabled').checked) {
+    payload.exit = {
+      indicator: document.getElementById('bt-exit-ind').value,
+      condition: document.getElementById('bt-exit-cond').value,
+      value: parseFloat(document.getElementById('bt-exit-val').value) || 0,
+    };
+  }
+  const sl = parseFloat(document.getElementById('bt-sl').value);
+  const tp = parseFloat(document.getElementById('bt-tp').value);
+  if (!isNaN(sl) && sl > 0) payload.sl_pct = sl;
+  if (!isNaN(tp) && tp > 0) payload.tp_pct = tp;
+  const sd = document.getElementById('bt-start').value;
+  const ed = document.getElementById('bt-end').value;
+  if (sd) payload.start_date = sd;
+  if (ed) payload.end_date = ed;
+
+  const res = document.getElementById('bt-results');
+  res.classList.remove('hidden');
+  document.getElementById('bt-stats').innerHTML = '<div class="col-span-full text-center py-6 text-on-surface-variant">Running backtest…</div>';
+  document.getElementById('bt-trades').innerHTML = '';
+  try {
+    const r = await fetch(API + '/backtest/run', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d = await r.json();
+    if (d.error) { document.getElementById('bt-stats').innerHTML = `<div class="col-span-full text-error text-center py-4">${d.error}</div>`; return; }
+    if (!d.trades?.length) { document.getElementById('bt-stats').innerHTML = `<div class="col-span-full text-on-surface-variant text-center py-4">${d.message || 'No trades triggered.'}</div>`; return; }
+
+    const pnlCol = d.total_pnl_pct >= 0 ? 'text-[#00e5a0]' : 'text-[#ff4757]';
+    const alphaCol = d.alpha_pct >= 0 ? 'text-[#00e5a0]' : 'text-[#ff4757]';
+    document.getElementById('bt-stats').innerHTML = `
+      <div class="bg-surface-container-highest rounded-lg p-3 text-center"><div class="text-[8px] uppercase text-on-surface-variant font-bold">Trades</div><div class="text-lg font-black text-on-surface">${d.total_trades}</div><div class="text-[9px] text-on-surface-variant">${d.winning_trades}W / ${d.total_trades - d.winning_trades}L</div></div>
+      <div class="bg-surface-container-highest rounded-lg p-3 text-center"><div class="text-[8px] uppercase text-on-surface-variant font-bold">Win Rate</div><div class="text-lg font-black text-on-surface">${d.win_rate}%</div></div>
+      <div class="bg-surface-container-highest rounded-lg p-3 text-center"><div class="text-[8px] uppercase text-on-surface-variant font-bold">Total P&L</div><div class="text-lg font-black ${pnlCol}">${d.total_pnl_pct >= 0 ? '+' : ''}${d.total_pnl_pct}%</div><div class="text-[9px] text-on-surface-variant">cmpd ${d.compounded_return_pct}%</div></div>
+      <div class="bg-surface-container-highest rounded-lg p-3 text-center"><div class="text-[8px] uppercase text-on-surface-variant font-bold">vs Buy&Hold</div><div class="text-lg font-black ${alphaCol}">${d.alpha_pct >= 0 ? '+' : ''}${d.alpha_pct}%</div><div class="text-[9px] text-on-surface-variant">B&H ${d.buy_hold_pct}%</div></div>
+      <div class="bg-surface-container-highest rounded-lg p-3 text-center"><div class="text-[8px] uppercase text-on-surface-variant font-bold">Max DD</div><div class="text-lg font-black text-[#ff4757]">${d.max_drawdown_pct}%</div><div class="text-[9px] text-on-surface-variant">Sharpe ${d.sharpe || '—'}</div></div>`;
+
+    document.getElementById('bt-trades').innerHTML = `
+      <table class="w-full text-left border-collapse">
+        <thead class="bg-surface-container/50 border-b border-outline-variant/5">
+          <tr>
+            <th class="px-4 py-3 text-[9px] uppercase font-bold text-on-surface-variant">#</th>
+            <th class="px-4 py-3 text-[9px] uppercase font-bold text-on-surface-variant">Entry Date</th>
+            <th class="px-4 py-3 text-[9px] uppercase font-bold text-on-surface-variant">Exit Date</th>
+            <th class="px-4 py-3 text-[9px] uppercase font-bold text-on-surface-variant text-right">Entry ₹</th>
+            <th class="px-4 py-3 text-[9px] uppercase font-bold text-on-surface-variant text-right">Exit ₹</th>
+            <th class="px-4 py-3 text-[9px] uppercase font-bold text-on-surface-variant text-right">Bars</th>
+            <th class="px-4 py-3 text-[9px] uppercase font-bold text-on-surface-variant text-right">P&L %</th>
+            <th class="px-4 py-3 text-[9px] uppercase font-bold text-on-surface-variant text-center">Reason</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-outline-variant/5 text-xs font-mono">
+          ${d.trades.map((t, i) => {
+            const c = t.pnl_pct >= 0 ? 'text-[#00e5a0]' : 'text-[#ff4757]';
+            const rc = t.reason === 'TP' ? 'text-[#00e5a0]' : t.reason === 'SL' ? 'text-[#ff4757]' : 'text-on-surface-variant';
+            return `<tr class="hover:bg-surface-container-highest/30">
+              <td class="px-4 py-2 text-on-surface-variant">${i+1}</td>
+              <td class="px-4 py-2">${t.entry_date}</td>
+              <td class="px-4 py-2">${t.exit_date}</td>
+              <td class="px-4 py-2 text-right">${t.entry_price}</td>
+              <td class="px-4 py-2 text-right">${t.exit_price}</td>
+              <td class="px-4 py-2 text-right">${t.hold_bars}</td>
+              <td class="px-4 py-2 text-right font-bold ${c}">${t.pnl_pct >= 0 ? '+' : ''}${t.pnl_pct}%</td>
+              <td class="px-4 py-2 text-center ${rc} font-bold">${t.reason}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  } catch(e) {
+    document.getElementById('bt-stats').innerHTML = `<div class="col-span-full text-error text-center py-4">Backtest failed: ${e.message}</div>`;
+  }
+}
+
 // ============ MARKET PULSE (Screener top) ============
 let mpLoaded = false;
 async function toggleMarketPulse() {
