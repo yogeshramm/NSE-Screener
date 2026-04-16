@@ -251,6 +251,28 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
           <div id="mp-rs" class="space-y-1 max-h-[280px] overflow-y-auto text-xs"></div>
         </div>
       </div>
+      <!-- INSTITUTIONAL RADAR (Tier 1) -->
+      <div class="mt-4 pt-4 border-t border-outline-variant/10">
+        <div class="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-3">Institutional Radar</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="bg-surface-container/40 rounded p-3">
+            <div class="text-[9px] font-bold text-on-surface-variant uppercase mb-2">FII / DII Flows (₹ Cr)</div>
+            <div id="ir-flows" class="text-xs"></div>
+          </div>
+          <div class="bg-surface-container/40 rounded p-3">
+            <div class="text-[9px] font-bold text-on-surface-variant uppercase mb-2">Market Breadth</div>
+            <div id="ir-breadth" class="text-xs"></div>
+          </div>
+          <div class="bg-surface-container/40 rounded p-3">
+            <div class="text-[9px] font-bold text-on-surface-variant uppercase mb-2">Bulk / Block Deals (7d)</div>
+            <div id="ir-deals" class="text-xs max-h-[160px] overflow-y-auto"></div>
+          </div>
+          <div class="bg-surface-container/40 rounded p-3">
+            <div class="text-[9px] font-bold text-on-surface-variant uppercase mb-2">Delivery % Leaders</div>
+            <div id="ir-deliv" class="text-xs max-h-[160px] overflow-y-auto"></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   <!-- FILTER PANEL -->
@@ -2559,15 +2581,72 @@ async function toggleMarketPulse() {
 }
 async function loadMarketPulse() {
   try {
-    const [hmRes, rsRes] = await Promise.all([
+    const [hmRes, rsRes, irRes] = await Promise.all([
       fetch(API + '/market/sector-heatmap?universe=nifty500').then(r => r.json()),
       fetch(API + '/market/rs?universe=nifty500').then(r => r.json()),
+      fetch(API + '/market/institutional').then(r => r.json()).catch(() => ({})),
     ]);
     renderSectorHeatmap(hmRes.sectors || []);
     renderTopRS(rsRes.rs || {});
+    renderInstitutional(irRes || {});
   } catch(e) {
     document.getElementById('mp-heatmap').innerHTML = `<div class="text-error text-xs">Failed: ${e.message}</div>`;
   }
+}
+function renderInstitutional(d) {
+  const fmt = v => v == null ? '—' : (v >= 0 ? '+' : '') + Math.round(v).toLocaleString('en-IN');
+  const col = v => v == null ? 'text-on-surface-variant' : v >= 0 ? 'text-[#00e5a0]' : 'text-[#ff4757]';
+  // Flows
+  const f = d.flows || {};
+  const fiiN = f.total_fii_net, diiN = f.total_dii_net;
+  document.getElementById('ir-flows').innerHTML = f.days_available
+    ? `<div class="flex justify-between py-0.5"><span>FII Net</span><span class="font-mono font-bold ${col(fiiN)}">${fmt(fiiN)}</span></div>
+       <div class="flex justify-between py-0.5"><span>DII Net</span><span class="font-mono font-bold ${col(diiN)}">${fmt(diiN)}</span></div>
+       <div class="flex justify-between py-0.5 border-t border-outline-variant/10 mt-1 pt-1"><span class="font-bold">Net</span><span class="font-mono font-bold ${col(f.combined_net)}">${fmt(f.combined_net)}</span></div>
+       <div class="text-[9px] text-on-surface-variant mt-1">${f.days_available}d · ${(f.daily_data||[])[0]?.date||''}</div>`
+    : '<div class="text-[10px] text-on-surface-variant">Unavailable</div>';
+  // Breadth
+  const b = d.breadth || {};
+  if (!b.total) {
+    document.getElementById('ir-breadth').innerHTML = '<div class="text-[10px] text-on-surface-variant">—</div>';
+  } else {
+    const abovePct = b.above_200dma_pct || 0;
+    const abv = abovePct >= 60 ? 'text-[#00e5a0]' : abovePct >= 40 ? 'text-yellow-400' : 'text-[#ff4757]';
+    document.getElementById('ir-breadth').innerHTML =
+      `<div class="flex justify-between py-0.5"><span>% &gt; 200 DMA</span><span class="font-mono font-bold ${abv}">${abovePct}%</span></div>
+       <div class="flex justify-between py-0.5"><span>New 52W High</span><span class="font-mono font-bold text-[#00e5a0]">${b.new_52w_high||0}</span></div>
+       <div class="flex justify-between py-0.5"><span>New 52W Low</span><span class="font-mono font-bold text-[#ff4757]">${b.new_52w_low||0}</span></div>
+       <div class="flex justify-between py-0.5"><span>Adv / Dec</span><span class="font-mono font-bold">${b.advances||0} / ${b.declines||0}</span></div>
+       <div class="flex justify-between py-0.5"><span>A/D Ratio</span><span class="font-mono font-bold ${col((b.ad_ratio||1)-1)}">${b.ad_ratio||'—'}</span></div>
+       <div class="text-[9px] text-on-surface-variant mt-1">${b.total} stocks</div>`;
+  }
+  // Deals (bulk + block merged)
+  const deals = [...(d.bulk_deals||[]).map(x => ({...x, type:'BULK'})), ...(d.block_deals||[]).map(x => ({...x, type:'BLOCK'}))]
+    .sort((a,b) => (b.date||'').localeCompare(a.date||'')).slice(0, 25);
+  document.getElementById('ir-deals').innerHTML = deals.length
+    ? deals.map(x => {
+        const ac = (x.action||'').toUpperCase().startsWith('B') ? 'text-[#00e5a0]' : 'text-[#ff4757]';
+        const val = (x.qty * x.price / 1e7).toFixed(1);
+        return `<div class="flex items-center justify-between py-0.5 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-1 rounded" onclick="openChart('${x.symbol}')">
+          <span class="font-bold truncate max-w-[80px]">${x.symbol}</span>
+          <span class="${ac} font-mono">${x.action}</span>
+          <span class="font-mono text-on-surface-variant truncate max-w-[70px]" title="${x.client}">${(x.client||'').slice(0,10)}</span>
+          <span class="font-mono font-bold">${val}Cr</span>
+        </div>`;
+      }).join('')
+    : '<div class="text-[10px] text-on-surface-variant">No deals</div>';
+  // Delivery
+  const dv = d.delivery_leaders || [];
+  document.getElementById('ir-deliv').innerHTML = dv.length
+    ? dv.slice(0, 20).map(x => {
+        const pc = x.pchange >= 0 ? 'text-[#00e5a0]' : 'text-[#ff4757]';
+        return `<div class="flex items-center justify-between py-0.5 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-1 rounded" onclick="openChart('${x.symbol}')">
+          <span class="font-bold truncate max-w-[90px]">${x.symbol}</span>
+          <span class="font-mono font-bold text-primary">${x.deliv_pct}%</span>
+          <span class="font-mono ${pc}">${x.pchange>=0?'+':''}${x.pchange.toFixed(1)}%</span>
+        </div>`;
+      }).join('')
+    : '<div class="text-[10px] text-on-surface-variant">Unavailable</div>';
 }
 function renderSectorHeatmap(sectors) {
   const el = document.getElementById('mp-heatmap');
