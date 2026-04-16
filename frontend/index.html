@@ -190,6 +190,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
       <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="config" onclick="switchTab('config')">Configuration</a>
       <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="indicators" onclick="switchTab('indicators')">Indicators</a>
       <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="watchlist" onclick="switchTab('watchlist')">Watchlist</a>
+      <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="breakouts" onclick="switchTab('breakouts')">Breakouts</a>
       <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="practice" onclick="switchTab('practice')">Practice</a>
     </nav>
   </div>
@@ -596,6 +597,36 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 </section>
 
 <!-- ==================== TAB: PRACTICE ==================== -->
+<!-- ==================== TAB: BREAKOUTS ==================== -->
+<section class="tab-content flex-col w-full overflow-y-auto" id="tab-breakouts">
+  <div class="px-6 pt-6 pb-20">
+    <header class="mb-6">
+      <h1 class="text-3xl font-black text-on-surface tracking-tighter uppercase mb-1">Breakout <span class="text-primary">Scanners</span></h1>
+      <p class="text-sm text-on-surface-variant max-w-2xl">Four tactical setups for swing traders. Results ranked by confidence score.</p>
+    </header>
+    <div class="flex items-center gap-3 mb-6 flex-wrap">
+      <div class="flex bg-surface-container-highest rounded-md p-0.5 gap-0.5" id="bo-mode-tabs">
+        <button onclick="setBOMode('pre_breakout',this)" class="bo-mode-btn px-4 py-2 text-[10px] font-bold rounded bg-surface-variant text-primary">Pre-Breakout</button>
+        <button onclick="setBOMode('fresh',this)" class="bo-mode-btn px-4 py-2 text-[10px] font-bold rounded text-on-surface-variant hover:text-primary">Fresh Breakouts</button>
+        <button onclick="setBOMode('pullback',this)" class="bo-mode-btn px-4 py-2 text-[10px] font-bold rounded text-on-surface-variant hover:text-primary">Pullback to Support</button>
+        <button onclick="setBOMode('peg',this)" class="bo-mode-btn px-4 py-2 text-[10px] font-bold rounded text-on-surface-variant hover:text-primary">Power Earnings Gap</button>
+      </div>
+      <div class="flex bg-surface-container-highest rounded-md p-0.5 gap-0.5">
+        <button onclick="setBOUniverse('nifty500',this)" class="bo-uni-btn px-3 py-1.5 text-[9px] font-bold rounded bg-surface-variant text-primary">Nifty 500</button>
+        <button onclick="setBOUniverse('next500',this)" class="bo-uni-btn px-3 py-1.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">Next 500</button>
+      </div>
+      <button onclick="runBOScan()" class="flex items-center gap-2 px-5 py-2 bg-primary-container text-on-primary font-bold rounded-lg text-xs uppercase tracking-wider active:scale-95 transition-transform">
+        <span class="material-symbols-outlined text-sm">radar</span> Scan
+      </button>
+      <span id="bo-count" class="text-[10px] text-on-surface-variant font-mono"></span>
+    </div>
+    <div id="bo-description" class="mb-4 p-3 rounded-lg bg-surface-container-highest text-[11px] text-on-surface-variant"></div>
+    <div id="bo-results" class="bg-surface-container-low rounded-xl overflow-hidden shadow-2xl">
+      <div class="text-center py-12 text-on-surface-variant/50 text-sm">Click <span class="text-primary font-bold">Scan</span> to find setups.</div>
+    </div>
+  </div>
+</section>
+
 <section class="tab-content flex-col w-full" id="tab-practice">
   <div class="flex flex-col h-full">
     <!-- TOP BAR -->
@@ -1139,6 +1170,10 @@ function switchTab(tab) {
   if (tab === 'watchlist') loadWatchlist();
   if (tab === 'screener') { closeChart(); document.getElementById('symbols-input').value=''; }
   if (tab === 'practice') resetPracticeTab();
+  if (tab === 'breakouts') {
+    const desc = document.getElementById('bo-description');
+    if (desc && !desc.textContent) desc.textContent = BO_DESC[boMode] || '';
+  }
 }
 
 // ============ FILTER PANEL ============
@@ -1930,6 +1965,70 @@ function toggleConfigFilter(el) { const k=el.dataset.configToggle; if(fullConfig
 function saveConfigPreset() { const name=prompt('Save preset as:'); if(!name||!name.trim())return; const config=getFilterConfig(); fetch(API+'/presets/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name.trim(),config})}).then(()=>{alert('Preset saved: '+name);populatePresetDropdowns();}); }
 
 // ============ INDICATORS PAGE ============
+// ============ BREAKOUTS TAB ============
+let boMode = 'pre_breakout';
+let boUniverse = 'nifty500';
+const BO_DESC = {
+  pre_breakout: 'Stocks within 4% of 52W high, Bollinger width contracting, volume drying up, RSI 50-70. About to break out.',
+  fresh: 'Stocks that broke 52W high in last 3 bars OR broke above Bollinger upper with 1.3× volume today. Entry window.',
+  pullback: 'Stocks that recently broke out and are now pulling back to SMA 20 (within 3%). Buy-the-dip setup after breakout.',
+  peg: 'Power Earnings Gap — today\'s move ≥4% with volume ≥2× average. Classic O\'Neil post-earnings entry.',
+};
+function setBOMode(m, el) {
+  boMode = m;
+  document.querySelectorAll('.bo-mode-btn').forEach(b => {
+    b.className = b === el ? 'bo-mode-btn px-4 py-2 text-[10px] font-bold rounded bg-surface-variant text-primary' : 'bo-mode-btn px-4 py-2 text-[10px] font-bold rounded text-on-surface-variant hover:text-primary';
+  });
+  document.getElementById('bo-description').textContent = BO_DESC[m] || '';
+}
+function setBOUniverse(u, el) {
+  boUniverse = u;
+  document.querySelectorAll('.bo-uni-btn').forEach(b => {
+    b.className = b === el ? 'bo-uni-btn px-3 py-1.5 text-[9px] font-bold rounded bg-surface-variant text-primary' : 'bo-uni-btn px-3 py-1.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary';
+  });
+}
+async function runBOScan() {
+  const res = document.getElementById('bo-results');
+  res.innerHTML = '<div class="text-center py-12 text-on-surface-variant">Scanning…</div>';
+  document.getElementById('bo-count').textContent = '';
+  try {
+    const r = await fetch(API + '/breakouts/scan', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:boMode,universe:boUniverse})});
+    const d = await r.json();
+    const hits = d.hits || [];
+    document.getElementById('bo-count').textContent = `${d.count} matches`;
+    if (!hits.length) { res.innerHTML = '<div class="text-center py-12 text-on-surface-variant/50 text-sm">No matches for this setup right now.</div>'; return; }
+    // Column set varies by mode
+    const modeCols = {
+      pre_breakout: [['pct_from_high','From 52W High %'],['bb_squeeze','BB Squeeze %'],['vol_ratio','Vol Ratio'],['rsi','RSI']],
+      fresh: [['trigger','Trigger'],['w52_high','52W High'],['vol_ratio','Vol Ratio'],['rsi','RSI']],
+      pullback: [['recent_high','Recent High'],['sma20','SMA 20'],['dist_to_sma20','Dist % SMA20'],['rsi','RSI']],
+      peg: [['move_pct','Today %'],['vol_ratio','Vol Ratio'],['rsi','RSI']],
+    }[boMode] || [];
+    const thead = `<thead class="bg-surface-container/50 border-b border-outline-variant/5"><tr>
+      <th class="px-4 py-3 text-[9px] font-bold uppercase tracking-wider text-on-surface-variant">Symbol</th>
+      <th class="px-4 py-3 text-[9px] font-bold uppercase tracking-wider text-on-surface-variant text-right">Close</th>
+      <th class="px-4 py-3 text-[9px] font-bold uppercase tracking-wider text-on-surface-variant text-right">Score</th>
+      ${modeCols.map(([k,l]) => `<th class="px-4 py-3 text-[9px] font-bold uppercase tracking-wider text-on-surface-variant text-right">${l}</th>`).join('')}
+      <th class="px-4 py-3 text-[9px] font-bold uppercase tracking-wider text-on-surface-variant text-center">Chart</th>
+    </tr></thead>`;
+    const tbody = `<tbody class="divide-y divide-outline-variant/5 text-xs font-mono">${hits.map(h => {
+      const sc = h.score || 0;
+      const scCol = sc >= 100 ? 'text-[#00e5a0]' : sc >= 60 ? 'text-yellow-400' : 'text-on-surface-variant';
+      const fmt = (v) => v === null || v === undefined ? '—' : typeof v === 'number' ? v : v;
+      return `<tr class="hover:bg-surface-container-highest/30">
+        <td class="px-4 py-2.5 font-bold text-on-surface">${h.symbol}</td>
+        <td class="px-4 py-2.5 text-right">\u20b9${h.close}</td>
+        <td class="px-4 py-2.5 text-right font-bold ${scCol}">${sc}</td>
+        ${modeCols.map(([k]) => `<td class="px-4 py-2.5 text-right">${fmt(h[k])}</td>`).join('')}
+        <td class="px-4 py-2.5 text-center"><span class="material-symbols-outlined text-sm cursor-pointer hover:text-primary" onclick="switchTab('screener'); setTimeout(()=>openChart('${h.symbol}'),100);">bar_chart</span></td>
+      </tr>`;
+    }).join('')}</tbody>`;
+    res.innerHTML = `<div class="overflow-x-auto"><table class="w-full text-left border-collapse">${thead}${tbody}</table></div>`;
+  } catch(e) {
+    res.innerHTML = `<div class="text-center py-12 text-error">Scan failed: ${e.message}</div>`;
+  }
+}
+
 // ============ PATTERN LIBRARY ============
 let patternUniverse = 'nifty500';
 let patternsData = [];
