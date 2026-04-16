@@ -5829,6 +5829,29 @@ function _ipRender(d) {
           <div class="flex justify-between"><span class="text-on-surface-variant">Mkt Cap</span><span class="font-mono">₹${f.market_cap_cr?Math.round(f.market_cap_cr).toLocaleString('en-IN'):'—'} Cr</span></div>
         </div>
       </div>
+      <div class="bg-surface-container/40 rounded-lg p-4">
+        <div class="text-[10px] font-black uppercase tracking-wider text-primary mb-3">Analyst Signal</div>
+        ${(() => {
+          const a = d.analyst; if (!a || !a.composite || a.composite.rating == null) return '<div class="text-[10px] text-on-surface-variant">No analyst data</div>';
+          const lbl = a.composite.label;
+          const lblCol = lbl === 'STRONG BUY' ? 'text-[#00e5a0]' : lbl === 'BUY' ? 'text-primary' : lbl === 'HOLD' ? 'text-yellow-400' : lbl === 'REDUCE' ? 'text-orange-400' : 'text-[#ff4757]';
+          const tgt = a.composite.target_avg, price = d.technicals?.price;
+          const upside = (tgt && price) ? ((tgt - price) / price * 100) : null;
+          const upCol = upside == null ? 'text-on-surface-variant' : upside > 0 ? 'text-[#00e5a0]' : 'text-[#ff4757]';
+          const mc = a.moneycontrol, et = a.et_markets, yf = a.yfinance, rss = a.news_activity;
+          const srcRow = (name, v) => v ? `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">${name}</span><span class="font-mono text-on-surface">${v}</span></div>` : '';
+          return `<div class="flex justify-between pb-2 mb-2 border-b border-outline-variant/10">
+              <span class="font-bold text-xs ${lblCol}">${lbl}</span>
+              <span class="font-mono text-xs text-on-surface">${a.composite.rating} / 5</span>
+            </div>
+            ${tgt ? `<div class="flex justify-between py-0.5 text-[11px]"><span class="text-on-surface-variant">Avg Target</span><span class="font-mono font-bold">₹${tgt}${upside!=null?` <span class="${upCol}">(${upside>=0?'+':''}${upside.toFixed(1)}%)</span>`:''}</span></div>`:''}
+            <div class="mt-2 pt-2 border-t border-outline-variant/10 text-[9px] uppercase font-bold text-on-surface-variant mb-1">Sources · ${a.composite.inputs}/4</div>
+            ${srcRow('yfinance', yf ? `${yf.key||'—'} · ${yf.analysts||0}a · ₹${yf.target_mean||'—'}` : null)}
+            ${srcRow('Moneycontrol', mc ? `B${mc.buy} H${mc.hold} S${mc.sell}${mc.target_price?` · ₹${mc.target_price}`:''}` : null)}
+            ${srcRow('ET Markets', et ? `SB${et.strong_buy} B${et.buy} H${et.hold} S${et.sell}${et.target_price?` · ₹${et.target_price}`:''}` : null)}
+            ${srcRow('News (30d)', rss ? `↑${rss.upgrades_30d} ↓${rss.downgrades_30d}` : null)}`;
+        })()}
+      </div>
       <div class="bg-surface-container/40 rounded-lg p-4 md:col-span-2">
         <div class="text-[10px] font-black uppercase tracking-wider text-primary mb-3">Latest News (3)</div>
         <div class="space-y-0">${news}</div>

@@ -163,6 +163,13 @@ def insights_pro(symbol: str):
         reasons.append(f"FII+DII net {dir} ₹{abs(int(fii_dii_net))} Cr last session")
     reasons = reasons[:5]
 
+    # Analyst signal (optional — 4-source composite)
+    analyst = None
+    try:
+        from data.analyst_ratings import get_analyst_signal
+        analyst = get_analyst_signal(symbol)
+    except Exception: pass
+
     # News (top 3)
     news = []
     try:
@@ -199,4 +206,5 @@ def insights_pro(symbol: str):
         "flows": {"net_cr": fii_dii_net},
         "news": news,
         "events": events,
+        "analyst": analyst,
     }
