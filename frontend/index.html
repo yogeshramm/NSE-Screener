@@ -5739,30 +5739,55 @@ function closeInsightsPro() {
   if (p) p.classList.add('translate-y-full');
 }
 function _ipRenderAnalystBody(a, price) {
-  if (!a || !a.composite || a.composite.rating == null) {
-    // Stock has no sources at all
-    if (!a || (a.sources_used || []).length === 0) return '<div class="text-[10px] text-[#ff4757] font-bold uppercase">Rating not found</div>';
-  }
-  const lbl = a.composite.label;
+  if (!a || (a.sources_used || []).length === 0) return '<div class="text-[10px] text-[#ff4757] font-bold uppercase py-4 text-center">Rating not found</div>';
+  const lbl = a.composite?.label;
   const lblCol = lbl==='STRONG BUY'?'text-[#00e5a0]':lbl==='BUY'?'text-primary':lbl==='HOLD'?'text-yellow-400':lbl==='REDUCE'?'text-orange-400':'text-[#ff4757]';
-  const tgt = a.composite.target_avg;
+  const tgt = a.composite?.target_avg;
   const upside = (tgt && price) ? ((tgt - price) / price * 100) : null;
-  const upCol = upside == null ? 'text-on-surface-variant' : upside > 0 ? 'text-[#00e5a0]' : 'text-[#ff4757]';
+  const upCol = upside == null ? 'text-on-surface-variant' : upside > 3 ? 'text-[#00e5a0]' : upside < -3 ? 'text-[#ff4757]' : 'text-yellow-400';
+  const dirWord = upside == null ? '—' : upside > 3 ? 'BULLISH' : upside < -3 ? 'BEARISH' : 'NEUTRAL';
   const mc = a.moneycontrol, et = a.et_markets, yf = a.yfinance, hist = a.yfinance_history, rss = a.news_activity;
   const srcRow = (name, v) => v ? `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">${name}</span><span class="font-mono text-on-surface">${v}</span></div>` : '';
-  const noHistNote = (!hist && !rss) ? `<div class="text-[9px] text-on-surface-variant/60 mt-1 italic">No rating changes in last ${a.window_days||'—'}d</div>` : '';
-  return `<div class="flex justify-between pb-2 mb-2 border-b border-outline-variant/10">
-      <span class="font-bold text-xs ${lblCol}">${lbl}</span>
-      <span class="font-mono text-xs text-on-surface">${a.composite.rating!=null?a.composite.rating+' / 5':'—'}</span>
+  // Target range (bull/bear case) — from yfinance if present
+  const lo = yf?.target_low, hi = yf?.target_high, mn = yf?.target_mean || tgt;
+  const rangeBar = (lo && hi && price) ? (() => {
+    const span = hi - lo;
+    if (span <= 0) return '';
+    const pricePos = Math.max(0, Math.min(100, (price - lo) / span * 100));
+    const meanPos = mn ? Math.max(0, Math.min(100, (mn - lo) / span * 100)) : 50;
+    return `<div class="mt-2 relative h-6">
+      <div class="absolute inset-x-0 top-[11px] h-[3px] rounded-full bg-gradient-to-r from-[#ff4757]/50 via-yellow-400/50 to-[#00e5a0]/50"></div>
+      <div class="absolute top-[8px] w-[9px] h-[9px] rounded-full bg-on-surface border-2 border-surface-container-low" style="left:calc(${pricePos}% - 4px)" title="Current ₹${price}"></div>
+      <div class="absolute top-[6px] w-[13px] h-[13px] rotate-45 bg-primary border border-surface-container-low" style="left:calc(${meanPos}% - 6px)" title="Avg target ₹${mn}"></div>
     </div>
-    ${tgt ? `<div class="flex justify-between py-0.5 text-[11px]"><span class="text-on-surface-variant">Avg Target <span class="text-[9px] opacity-60">(12M)</span></span><span class="font-mono font-bold">₹${tgt}${upside!=null?` <span class="${upCol}">(${upside>=0?'+':''}${upside.toFixed(1)}%)</span>`:''}</span></div>`:''}
+    <div class="flex justify-between text-[9px] text-on-surface-variant font-mono mt-0.5">
+      <span>Bear ₹${lo}</span>
+      <span class="opacity-60">Now ₹${price}</span>
+      <span>Bull ₹${hi}</span>
+    </div>`;
+  })() : '';
+  return `
+    <div class="flex items-baseline gap-2 mb-1">
+      <span class="text-xs font-bold uppercase ${upCol}">${dirWord}</span>
+      <span class="text-lg font-black font-mono ${upCol}">${upside!=null?(upside>=0?'+':'')+upside.toFixed(1)+'%':'—'}</span>
+      <span class="text-[10px] text-on-surface-variant">expected to 12M target</span>
+    </div>
+    ${tgt ? `<div class="text-[11px] text-on-surface-variant mb-1">Avg target <span class="font-mono font-bold text-on-surface">₹${tgt}</span>${price?` · Current <span class="font-mono text-on-surface">₹${price}</span>`:''}</div>`:''}
+    ${rangeBar}
+    <div class="flex justify-between items-center mt-3 pt-2 border-t border-outline-variant/10">
+      <span class="text-[10px] text-on-surface-variant uppercase">Consensus rating</span>
+      <span class="flex items-baseline gap-2">
+        <span class="font-bold text-xs ${lblCol}">${lbl||'—'}</span>
+        <span class="font-mono text-[11px] text-on-surface">${a.composite?.rating!=null?a.composite.rating+' / 5':'—'}</span>
+      </span>
+    </div>
     <div class="mt-2 pt-2 border-t border-outline-variant/10 text-[9px] uppercase font-bold text-on-surface-variant mb-1">Sources · ${(a.sources_used||[]).length}/5</div>
-    ${srcRow('yfinance (static)', yf ? `${yf.key||'—'} · ${yf.analysts||0}a · ₹${yf.target_mean||'—'}` : null)}
+    ${srcRow('yfinance', yf ? `${yf.key||'—'} · ${yf.analysts||0}a · ₹${yf.target_low||'?'}-${yf.target_high||'?'}` : null)}
     ${srcRow('Moneycontrol', mc ? `B${mc.buy} H${mc.hold} S${mc.sell}${mc.target_price?` · ₹${mc.target_price}`:''}` : null)}
     ${srcRow('ET Markets', et ? `SB${et.strong_buy} B${et.buy} H${et.hold} S${et.sell}${et.target_price?` · ₹${et.target_price}`:''}` : null)}
-    ${srcRow(`yfinance history (${a.window_days}d)`, hist ? `${hist.changes} change${hist.changes!==1?'s':''}` : null)}
+    ${srcRow(`yf history (${a.window_days}d)`, hist ? `${hist.changes} change${hist.changes!==1?'s':''}` : null)}
     ${srcRow(`News (${a.window_days}d)`, rss ? `↑${rss.upgrades} ↓${rss.downgrades}` : null)}
-    ${noHistNote}`;
+    ${(!hist && !rss && (a.sources_used||[]).length>0) ? `<div class="text-[9px] text-on-surface-variant/60 mt-1 italic">No rating changes in last ${a.window_days||'—'}d</div>`:''}`;
 }
 async function loadAnalystTF(tf) {
   const card = document.getElementById('ip-analyst-card'); if (!card) return;
