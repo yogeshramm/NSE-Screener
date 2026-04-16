@@ -1544,7 +1544,7 @@ function renderResults(data) {
     const pe=r.fundamentals?.pe_ratio?.value||r.pe||'--';
     const roe=r.fundamentals?.roe?.value||r.roe||'--';
     const rsi=r.indicators?.find(x=>x.name.toLowerCase().includes('rsi'))?.value||'--';
-    return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" onclick="openChart('${r.symbol}')">
+    return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" onclick="openInsightsPro('${r.symbol}')">
       <td class="px-3 py-2.5 font-bold ${r.passed?'text-primary':'text-on-surface-variant'}">${r.rank||i+1}</td>
       <td class="px-3 py-2.5"><div class="font-bold text-on-surface">${r.symbol}</div><div class="text-[9px] text-on-surface-variant">${r.sector||''}</div></td>
       <td class="px-3 py-2.5 text-right text-on-surface">\u20b9${r.price||'--'}</td>
@@ -1561,7 +1561,7 @@ function renderResults(data) {
   const s2=document.getElementById('s2-body');
   document.getElementById('s2-count').textContent=data.stage2_results.length+' candidates';
   s2.innerHTML=data.stage2_results.map((r,i)=>`
-    <tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" onclick="openChart('${r.symbol}')">
+    <tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" onclick="openInsightsPro('${r.symbol}')">
       <td class="px-3 py-2.5 font-bold text-secondary">${r.rank||i+1}</td>
       <td class="px-3 py-2.5 font-bold text-on-surface">${r.symbol}</td>
       <td class="px-3 py-2.5 text-right text-on-surface">\u20b9${r.price||'--'}</td>
@@ -5440,6 +5440,144 @@ function initApp() {
 }
 
 checkAuth();
+
+// ============ INSIGHTS POPUP (Tier 1 Feature 4) ============
+function _ipHTML() {
+  return `<div id="ip-backdrop" class="fixed inset-0 bg-black/50 z-[60] hidden" onclick="closeInsightsPro()"></div>
+  <div id="ip-panel" class="fixed left-0 right-0 bottom-0 z-[70] translate-y-full transition-transform duration-300 bg-surface-container-low border-t border-outline-variant/30 shadow-2xl max-h-[85vh] overflow-y-auto rounded-t-2xl">
+    <div class="sticky top-0 bg-surface-container-low border-b border-outline-variant/20 px-6 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">INSIGHTS PRO</span>
+        <span id="ip-symbol" class="text-sm font-black text-on-surface"></span>
+        <span id="ip-verdict" class="px-3 py-0.5 rounded-full text-[10px] font-black uppercase"></span>
+        <span id="ip-score" class="font-mono text-xs text-on-surface-variant"></span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="ip-chart-btn" class="text-[10px] font-bold text-primary hover:underline">Open Chart</button>
+        <button onclick="closeInsightsPro()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-lg">close</span></button>
+      </div>
+    </div>
+    <div id="ip-body" class="p-6"></div>
+  </div>`;
+}
+function _ipMount() {
+  if (document.getElementById('ip-panel')) return;
+  const d = document.createElement('div'); d.innerHTML = _ipHTML();
+  while (d.firstChild) document.body.appendChild(d.firstChild);
+}
+async function openInsightsPro(symbol) {
+  _ipMount();
+  const panel = document.getElementById('ip-panel');
+  const bd = document.getElementById('ip-backdrop');
+  const body = document.getElementById('ip-body');
+  document.getElementById('ip-symbol').textContent = symbol;
+  document.getElementById('ip-verdict').textContent = '…';
+  document.getElementById('ip-verdict').className = 'px-3 py-0.5 rounded-full text-[10px] font-black uppercase bg-surface-container-highest text-on-surface-variant';
+  document.getElementById('ip-score').textContent = '';
+  body.innerHTML = '<div class="text-center py-12 text-on-surface-variant">Loading insights…</div>';
+  bd.classList.remove('hidden'); panel.classList.remove('translate-y-full');
+  document.getElementById('ip-chart-btn').onclick = () => { closeInsightsPro(); openChart(symbol); };
+  try {
+    const r = await fetch(API + '/stock/' + symbol + '/insights-pro');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    _ipRender(d);
+  } catch (e) {
+    body.innerHTML = `<div class="text-error text-sm">Failed: ${e.message}</div>`;
+  }
+}
+function closeInsightsPro() {
+  const p = document.getElementById('ip-panel'), b = document.getElementById('ip-backdrop');
+  if (p) p.classList.add('translate-y-full');
+  if (b) b.classList.add('hidden');
+}
+function _ipRender(d) {
+  const verd = d.verdict || 'HOLD';
+  const vColors = { BUY:'bg-[#00e5a0]/20 text-[#00e5a0]', ACCUMULATE:'bg-primary/20 text-primary', HOLD:'bg-yellow-400/20 text-yellow-400', REDUCE:'bg-orange-400/20 text-orange-400', SELL:'bg-[#ff4757]/20 text-[#ff4757]' };
+  const vEl = document.getElementById('ip-verdict');
+  vEl.textContent = verd; vEl.className = 'px-3 py-0.5 rounded-full text-[10px] font-black uppercase ' + (vColors[verd]||'bg-surface-container-highest');
+  document.getElementById('ip-score').textContent = `Score ${d.score} / ${d.max_score}`;
+  const t = d.technicals || {}, f = d.fundamentals || {}, mf = d.multi_factor || {}, fl = d.flows || {}, sec = d.sector || {};
+  const pctCol = v => v > 0 ? 'text-[#00e5a0]' : v < 0 ? 'text-[#ff4757]' : 'text-on-surface-variant';
+  const num = v => v == null ? '—' : v;
+  // Buckets bar
+  const bucketRow = Object.entries(d.buckets||{}).map(([k,v]) => {
+    const pct = (v.score / v.max) * 100;
+    const col = pct >= 70 ? 'bg-[#00e5a0]' : pct >= 40 ? 'bg-primary' : pct >= 20 ? 'bg-yellow-400' : 'bg-[#ff4757]';
+    return `<div class="flex-1 min-w-[120px]">
+      <div class="flex justify-between text-[10px] mb-1"><span class="text-on-surface-variant uppercase">${k.replace('_',' ')}</span><span class="font-mono font-bold">${v.score}/${v.max}</span></div>
+      <div class="h-1.5 bg-surface-container-highest rounded-full overflow-hidden"><div class="h-full ${col}" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+  // Why
+  const why = (d.why||[]).map(r => `<li class="text-xs text-on-surface leading-relaxed">${r}</li>`).join('');
+  // News
+  const news = (d.news||[]).length ? (d.news||[]).map(n =>
+    `<a href="${n.link}" target="_blank" rel="noopener" class="block py-2 border-b border-outline-variant/10 hover:bg-surface-container-highest/30 px-2 rounded">
+      <div class="flex items-start gap-2">
+        <span>${n.sentiment||'🟰'}</span>
+        <div class="flex-1 min-w-0"><div class="text-xs text-on-surface font-medium line-clamp-2">${n.title}</div>
+          <div class="text-[10px] text-on-surface-variant mt-0.5">${n.source} · ${(n.pub||'').slice(0,16)}</div></div>
+      </div></a>`
+  ).join('') : '<div class="text-[10px] text-on-surface-variant">No recent news matched</div>';
+  // Events
+  const events = (d.events||[]).length ? (d.events||[]).map(e =>
+    `<div class="flex justify-between items-center py-1 border-b border-outline-variant/10 text-xs">
+      <span class="font-bold text-on-surface">${e.event||e.type||'Event'}</span>
+      <span class="font-mono text-on-surface-variant">${e.date||e.ex_date||''}</span>
+    </div>`
+  ).join('') : '<div class="text-[10px] text-on-surface-variant">No upcoming events</div>';
+  // MFS sub-scores
+  const mfsBits = ['momentum','quality','value','growth'].map(k => {
+    const v = mf[k]; const col = v == null ? 'text-on-surface-variant/30' : v >= 70 ? 'text-[#00e5a0]' : v >= 40 ? 'text-primary' : 'text-yellow-400';
+    return `<div class="flex justify-between py-0.5 text-[11px]"><span class="capitalize text-on-surface-variant">${k}</span><span class="font-mono font-bold ${col}">${num(v)}</span></div>`;
+  }).join('');
+  document.getElementById('ip-body').innerHTML = `
+    <div class="flex flex-wrap gap-4 mb-6">${bucketRow}</div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="bg-surface-container/40 rounded-lg p-4">
+        <div class="text-[10px] font-black uppercase tracking-wider text-primary mb-3">Why</div>
+        <ol class="list-decimal list-inside space-y-1">${why || '<li class="text-on-surface-variant">—</li>'}</ol>
+      </div>
+      <div class="bg-surface-container/40 rounded-lg p-4">
+        <div class="text-[10px] font-black uppercase tracking-wider text-primary mb-3">Quick Technicals</div>
+        <div class="text-[11px] space-y-0.5">
+          <div class="flex justify-between"><span class="text-on-surface-variant">Price</span><span class="font-mono font-bold">₹${num(t.price)}</span></div>
+          <div class="flex justify-between"><span class="text-on-surface-variant">RSI</span><span class="font-mono font-bold">${num(t.rsi)}</span></div>
+          <div class="flex justify-between"><span class="text-on-surface-variant">SMA 50 / 200</span><span class="font-mono">${num(t.sma50)} / ${num(t.sma200)}</span></div>
+          <div class="flex justify-between"><span class="text-on-surface-variant">Trend</span><span class="font-bold uppercase ${t.trend==='up'?'text-[#00e5a0]':t.trend==='down'?'text-[#ff4757]':'text-yellow-400'}">${t.trend||'—'}</span></div>
+          <div class="flex justify-between"><span class="text-on-surface-variant">52W Range</span><span class="font-mono">${num(t.w52_low)} – ${num(t.w52_high)}</span></div>
+          <div class="flex justify-between"><span class="text-on-surface-variant">From 52W High</span><span class="font-mono ${pctCol(t.pct_from_52wh)}">${num(t.pct_from_52wh)}%</span></div>
+          <div class="flex justify-between"><span class="text-on-surface-variant">ATR %</span><span class="font-mono">${num(t.atr_pct)}%</span></div>
+        </div>
+      </div>
+      <div class="bg-surface-container/40 rounded-lg p-4">
+        <div class="text-[10px] font-black uppercase tracking-wider text-primary mb-3">Multi-Factor Score</div>
+        <div class="flex justify-between text-xs mb-2 pb-2 border-b border-outline-variant/10"><span class="font-bold">Composite</span><span class="font-mono font-black text-primary">${num(mf.score)}</span></div>
+        ${mfsBits}
+      </div>
+      <div class="bg-surface-container/40 rounded-lg p-4">
+        <div class="text-[10px] font-black uppercase tracking-wider text-primary mb-3">Institutional Snapshot</div>
+        <div class="text-[11px] space-y-1">
+          <div class="flex justify-between"><span class="text-on-surface-variant">FII + DII Net</span><span class="font-mono font-bold ${pctCol(fl.net_cr||0)}">₹${fl.net_cr!=null?Math.round(fl.net_cr).toLocaleString('en-IN'):'—'} Cr</span></div>
+          <div class="flex justify-between"><span class="text-on-surface-variant">Sector</span><span class="font-bold">${sec.name||'—'}</span></div>
+          <div class="flex justify-between"><span class="text-on-surface-variant">Sector 1M</span><span class="font-mono font-bold ${pctCol(sec.return_1m||0)}">${sec.return_1m!=null?(sec.return_1m>0?'+':'')+sec.return_1m+'%':'—'}</span></div>
+          <div class="pt-2 mt-2 border-t border-outline-variant/10"></div>
+          <div class="flex justify-between"><span class="text-on-surface-variant">PE</span><span class="font-mono">${num(f.pe)}</span></div>
+          <div class="flex justify-between"><span class="text-on-surface-variant">ROE</span><span class="font-mono">${num(f.roe)}%</span></div>
+          <div class="flex justify-between"><span class="text-on-surface-variant">Mkt Cap</span><span class="font-mono">₹${f.market_cap_cr?Math.round(f.market_cap_cr).toLocaleString('en-IN'):'—'} Cr</span></div>
+        </div>
+      </div>
+      <div class="bg-surface-container/40 rounded-lg p-4 md:col-span-2">
+        <div class="text-[10px] font-black uppercase tracking-wider text-primary mb-3">Latest News (3)</div>
+        <div class="space-y-0">${news}</div>
+      </div>
+      <div class="bg-surface-container/40 rounded-lg p-4">
+        <div class="text-[10px] font-black uppercase tracking-wider text-primary mb-3">Next Events (2)</div>
+        <div>${events}</div>
+      </div>
+    </div>`;
+}
 </script>
 </body>
 </html>
