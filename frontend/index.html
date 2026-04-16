@@ -1419,7 +1419,17 @@ function updateOhlcOverlay(candle) {
   if(!el||!candle) return;
   const isUp=candle.close>=candle.open;
   const color=isUp?'var(--candle-up)':'var(--candle-down)';
-  el.innerHTML=`<span style="color:var(--on-surface-variant)">O</span><span style="color:${color}">${candle.open.toFixed(2)}</span> <span style="color:var(--on-surface-variant)">H</span><span style="color:${color}">${candle.high.toFixed(2)}</span> <span style="color:var(--on-surface-variant)">L</span><span style="color:${color}">${candle.low.toFixed(2)}</span> <span style="color:var(--on-surface-variant)">C</span><span style="color:${color}">${candle.close.toFixed(2)}</span>`;
+  // Look up volume for this candle's time
+  let volTxt='';
+  try {
+    const v=chartData?.volumes?.find(x=>x.time===candle.time);
+    if(v&&typeof v.value==='number'){
+      const n=v.value;
+      const fmt=n>=1e7?(n/1e7).toFixed(2)+'Cr':n>=1e5?(n/1e5).toFixed(2)+'L':n>=1e3?(n/1e3).toFixed(1)+'K':String(n);
+      volTxt=` <span style="color:var(--on-surface-variant)">V</span><span style="color:${color}">${fmt}</span>`;
+    }
+  } catch(e){}
+  el.innerHTML=`<span style="color:var(--on-surface-variant)">O</span><span style="color:${color}">${candle.open.toFixed(2)}</span> <span style="color:var(--on-surface-variant)">H</span><span style="color:${color}">${candle.high.toFixed(2)}</span> <span style="color:var(--on-surface-variant)">L</span><span style="color:${color}">${candle.low.toFixed(2)}</span> <span style="color:var(--on-surface-variant)">C</span><span style="color:${color}">${candle.close.toFixed(2)}</span>${volTxt}`;
 }
 
 // ============ SEARCH AUTOCOMPLETE ============
@@ -1652,7 +1662,7 @@ function renderChart(data) {
   const volSeries=currentChart.addHistogramSeries({
     priceFormat:{type:'volume'},
     priceScaleId:'vol',
-    lastValueVisible:false,
+    lastValueVisible:true,
     priceLineVisible:false,
   });
   currentChart.priceScale('vol').applyOptions({
@@ -4108,7 +4118,7 @@ function renderPracticeChart() {
 
   pracVolSeries = pracChart.addHistogramSeries({
     priceFormat: { type: 'volume' }, priceScaleId: 'vol',
-    lastValueVisible: false, priceLineVisible: false,
+    lastValueVisible: true, priceLineVisible: false,
   });
   pracChart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
   pracVolSeries.setData(pracVisibleVolumes);
@@ -4549,7 +4559,16 @@ function updatePracticeOhlc(candle) {
   if (!el) return;
   const up = candle.close >= candle.open;
   const col = up ? 'var(--candle-up)' : 'var(--candle-down)';
-  el.innerHTML = `<span style="color:${col}">O ${candle.open.toFixed(2)}</span><span style="color:${col}">H ${candle.high.toFixed(2)}</span><span style="color:${col}">L ${candle.low.toFixed(2)}</span><span style="color:${col}">C ${candle.close.toFixed(2)}</span>`;
+  let volTxt = '';
+  try {
+    const v = pracVisibleVolumes.find(x => x.time === candle.time);
+    if (v && typeof v.value === 'number') {
+      const n = v.value;
+      const fmt = n >= 1e7 ? (n/1e7).toFixed(2)+'Cr' : n >= 1e5 ? (n/1e5).toFixed(2)+'L' : n >= 1e3 ? (n/1e3).toFixed(1)+'K' : String(n);
+      volTxt = `<span style="color:${col}">V ${fmt}</span>`;
+    }
+  } catch(e){}
+  el.innerHTML = `<span style="color:${col}">O ${candle.open.toFixed(2)}</span><span style="color:${col}">H ${candle.high.toFixed(2)}</span><span style="color:${col}">L ${candle.low.toFixed(2)}</span><span style="color:${col}">C ${candle.close.toFixed(2)}</span>${volTxt}`;
 }
 
 async function practiceNextDay() {
