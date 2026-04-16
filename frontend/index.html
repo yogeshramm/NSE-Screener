@@ -2415,19 +2415,20 @@ function scClear52WLines() {
   if (cs && sc52LoLine) { try { cs.removePriceLine(sc52LoLine); } catch(e){} sc52LoLine = null; }
 }
 
-let scBreakoutCache = {}; // {symbol: hits[]}
+let scBreakoutCache = {};        // {symbol: currentHits[]}
+let scBreakoutHistCache = {};    // {symbol: historicalHits[] with time}
 async function toggleScreenerHelp() {
   scHelpOn = !scHelpOn;
   const btn = document.getElementById('sc-help-btn');
   btn.className = scHelpOn
     ? 'text-[9px] font-bold text-on-primary bg-primary-container px-2 py-0.5 rounded'
     : 'text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
-  if (scHelpOn && currentChartSymbol && !scBreakoutCache[currentChartSymbol]) {
+  if (scHelpOn && currentChartSymbol && !scBreakoutHistCache[currentChartSymbol]) {
     try {
-      const r = await fetch(API + '/chart-patterns/detect/' + currentChartSymbol);
+      const r = await fetch(API + '/chart-patterns/detect-history/' + currentChartSymbol);
       const d = await r.json();
-      scBreakoutCache[currentChartSymbol] = d.hits || [];
-    } catch(e) { scBreakoutCache[currentChartSymbol] = []; }
+      scBreakoutHistCache[currentChartSymbol] = d.hits || [];
+    } catch(e) { scBreakoutHistCache[currentChartSymbol] = []; }
   }
   scApplyMarkers();
 }
@@ -2452,17 +2453,14 @@ function scApplyMarkers() {
   const cs = window._scCandleSeries;
   if (!cs || !chartData) return;
   const markers = [];
-  // HELP: breakout chart patterns (server-detected on current state)
+  // HELP: breakout chart patterns (historical + current via dedup scan)
   if (scHelpOn && currentChartSymbol && chartData.candles?.length) {
-    const hits = scBreakoutCache[currentChartSymbol] || [];
-    const last = chartData.candles[chartData.candles.length - 1];
-    for (const h of hits) {
-      // Green = high accuracy (>=70), Yellow = medium (60-69), Gray = lower
-      const col = h.accuracy >= 70 ? '#00e5a0' : h.accuracy >= 60 ? '#facc15' : '#94a3b8';
-      markers.push({
-        time: last.time, position: 'aboveBar', color: col, shape: 'circle',
-        text: `${h.name} ${h.accuracy}%`,
-      });
+    const brCol = (a) => a >= 70 ? '#00e5a0' : a >= 60 ? '#facc15' : '#94a3b8';
+    const brLbl = (h) => `Br ${h.name.split(' ')[0]}`;
+    const tMin = chartData.candles[0].time, tMax = chartData.candles[chartData.candles.length - 1].time;
+    for (const h of (scBreakoutHistCache[currentChartSymbol] || [])) {
+      if (h.time < tMin || h.time > tMax) continue;
+      markers.push({ time: h.time, position: 'belowBar', color: brCol(h.accuracy), shape: 'circle', text: brLbl(h) });
     }
   }
   // EVENTS: corporate event markers (on matching candle dates)
