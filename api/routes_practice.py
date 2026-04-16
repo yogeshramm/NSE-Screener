@@ -54,6 +54,7 @@ def practice_start(req: StartRequest):
     return {
         "symbol": result["symbol"],
         "difficulty": result.get("difficulty", "Medium"),
+        "briefing": result.get("briefing"),
         "purse": result["purse"],
         "max_days": result["max_days"],
         "day": 0,

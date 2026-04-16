@@ -102,11 +102,13 @@ def start_round(symbol=None, universe="nifty500", max_days=MAX_DAYS_DEFAULT):
     indicators = _compute_indicators(warmup_df)
 
     difficulty = _compute_difficulty(df, start_idx)
+    briefing = _build_briefing(symbol, df, start_idx)
 
     return {
         "symbol": symbol,
         "universe": universe,
         "difficulty": difficulty,
+        "briefing": briefing,
         "purse": PURSE_SIZE,
         "max_days": max_days,
         "day": 0,
@@ -550,6 +552,62 @@ def _analyze_mistakes(game_state):
             })
 
     return mistakes
+
+
+def _build_briefing(symbol, df, start_idx):
+    """Stock briefing computed ONLY from history visible up to start_idx. No future leak."""
+    try:
+        # Visible window for briefing: last 252 bars before game start
+        lookback = min(252, start_idx)
+        window = df.iloc[start_idx - lookback:start_idx]
+        if len(window) < 5:
+            return None
+        closes = window["Close"]
+        highs = window["High"]
+        lows = window["Low"]
+        vols = window["Volume"]
+        last_close = float(closes.iloc[-1])
+        w52_high = float(highs.max())
+        w52_low = float(lows.min())
+        pct_from_high = round((last_close - w52_high) / w52_high * 100, 1)
+        pct_from_low = round((last_close - w52_low) / w52_low * 100, 1)
+        avg_vol = int(vols.mean()) if len(vols) else 0
+        # 30-day volatility
+        if len(closes) >= 20:
+            returns = closes.pct_change().dropna().tail(30)
+            vol_pct = round(float(returns.std() * 100), 2) if len(returns) else None
+        else:
+            vol_pct = None
+
+        # Try to pull fundamentals if available (sector, market cap)
+        sector = None
+        market_cap = None
+        try:
+            import pickle as _pickle
+            fa_path = os.path.join(os.path.dirname(HISTORY_DIR), "fundamentals", f"{symbol}.pkl")
+            if os.path.exists(fa_path):
+                with open(fa_path, "rb") as f:
+                    fa = _pickle.load(f)
+                if isinstance(fa, dict):
+                    sector = fa.get("sector") or fa.get("industry")
+                    market_cap = fa.get("market_cap") or fa.get("mcap")
+        except Exception:
+            pass
+
+        return {
+            "symbol": symbol,
+            "last_close": round(last_close, 2),
+            "w52_high": round(w52_high, 2),
+            "w52_low": round(w52_low, 2),
+            "pct_from_high": pct_from_high,
+            "pct_from_low": pct_from_low,
+            "avg_volume": avg_vol,
+            "volatility_30d": vol_pct,
+            "sector": sector,
+            "market_cap": market_cap,
+        }
+    except Exception:
+        return None
 
 
 def _compute_difficulty(df, start_idx, lookback=30):

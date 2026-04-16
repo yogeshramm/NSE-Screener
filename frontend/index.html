@@ -618,6 +618,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
           <div class="flex items-center gap-2 px-1">
             <span id="prac-symbol" class="text-[10px] font-black uppercase tracking-widest text-on-surface"></span>
             <span id="prac-price" class="text-primary font-mono text-xs font-bold"></span>
+            <button id="prac-briefing-btn" onclick="toggleBriefing()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded" title="Stock briefing">INFO</button>
             <div id="prac-ohlc" class="flex gap-2 text-[9px] font-mono text-on-surface-variant"></div>
             <div class="flex-1"></div>
             <div id="prac-warn-55" class="hidden items-center gap-1 px-2 py-1 bg-error/10 rounded text-[9px] text-error font-bold">
@@ -655,6 +656,14 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
               </div>
             </div>
           </div>
+          <!-- Stock briefing panel -->
+          <div id="prac-briefing-panel" class="hidden bg-surface-container-highest rounded-lg p-3 text-xs border border-outline-variant/20">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[10px] font-black uppercase tracking-widest text-primary">Stock Briefing</span>
+              <span class="material-symbols-outlined text-xs cursor-pointer hover:text-error" onclick="toggleBriefing()">close</span>
+            </div>
+            <div id="prac-briefing-content" class="grid grid-cols-4 gap-3 text-[10px]"></div>
+          </div>
           <div id="prac-chart-container" class="bg-surface-container rounded-lg relative overflow-hidden border border-outline-variant/10" style="min-height:280px;height:320px;flex-shrink:0"></div>
           <div id="prac-rsi-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:70px"></div>
           <div id="prac-sub-panels" class="flex flex-col gap-2"></div>
@@ -665,6 +674,17 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
             <button id="prac-btn-next" onclick="practiceNextDay()" class="flex items-center gap-2 px-5 py-2.5 bg-surface-container-highest text-on-surface font-bold rounded-lg text-xs uppercase active:scale-95 transition-transform hover:bg-surface-variant">
               <span class="material-symbols-outlined text-sm">skip_next</span> Next Day
             </button>
+            <!-- Auto-play controls -->
+            <div class="flex items-center gap-1 bg-surface-container-highest rounded-lg p-0.5" title="Auto-play">
+              <button id="prac-autoplay-toggle" onclick="toggleAutoPlay()" class="flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-bold text-on-surface-variant hover:text-primary rounded">
+                <span id="prac-autoplay-icon" class="material-symbols-outlined text-sm">play_arrow</span>
+              </button>
+              <div class="flex gap-0.5">
+                <button onclick="setAutoPlaySpeed(1,this)" class="prac-speed-btn px-1.5 py-1 text-[9px] font-bold rounded bg-surface-variant text-primary">1x</button>
+                <button onclick="setAutoPlaySpeed(2,this)" class="prac-speed-btn px-1.5 py-1 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">2x</button>
+                <button onclick="setAutoPlaySpeed(5,this)" class="prac-speed-btn px-1.5 py-1 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">5x</button>
+              </div>
+            </div>
             <button id="prac-btn-buy" onclick="practiceBuy()" class="flex items-center gap-2 px-5 py-2.5 bg-[#00e5a0]/20 text-[#00e5a0] font-bold rounded-lg text-xs uppercase active:scale-95 transition-transform hover:bg-[#00e5a0]/30 disabled:opacity-30" disabled>
               <span class="material-symbols-outlined text-sm">trending_up</span> Buy
             </button>
@@ -1029,6 +1049,10 @@ function logout() {
 
 // ============ TAB SWITCHING ============
 function switchTab(tab) {
+  // Stop any practice auto-play when leaving the Practice tab
+  if (currentTab === 'practice' && tab !== 'practice') {
+    try { stopAutoPlay(); } catch(e) {}
+  }
   currentTab = tab;
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
@@ -2231,6 +2255,9 @@ let pracPnlTrail = []; // running P&L per day since entry (for sparkline)
 let pracActiveInd = {};
 let pracSubPanels = {};
 let pracAudioCtx = null;
+let pracAutoPlayTimer = null;
+let pracAutoPlaySpeed = 1; // 1x = 1 candle/sec
+let pracBriefing = null;
 
 // ---- PROFILE ----
 function getPracticeProfile() {
@@ -2312,6 +2339,7 @@ const PRAC_IND_COLORS = {
 };
 
 function resetPracticeTab() {
+  stopAutoPlay();
   // End any active round without saving (server will discard state on next /start)
   practiceState = null;
   destroyPracticeCharts();
@@ -2320,6 +2348,8 @@ function resetPracticeTab() {
   pracVisibleCandles = [];
   pracVisibleVolumes = [];
   pracIndicators = {};
+  pracBriefing = null;
+  const bp = document.getElementById('prac-briefing-panel'); if (bp) bp.classList.add('hidden');
 
   // Return to welcome state
   const game = document.getElementById('prac-game');
@@ -2395,6 +2425,7 @@ async function startPracticeRound() {
     practiceState = {
       symbol: data.symbol,
       difficulty: data.difficulty || 'Medium',
+      briefing: data.briefing || null,
       purse: data.purse,
       maxDays: data.max_days,
       totalBars: data.total_bars,
@@ -2403,6 +2434,8 @@ async function startPracticeRound() {
       position: null,
       trades: [],
     };
+    pracBriefing = data.briefing || null;
+    renderBriefing();
     pracVisibleCandles = [...data.warmup_candles];
     pracVisibleVolumes = [...data.warmup_volumes];
     pracIndicators = data.indicators || {};
@@ -2420,6 +2453,69 @@ async function startPracticeRound() {
   } catch(e) {
     showPracticeToast('Failed to start round: ' + e.message, 'err');
   }
+}
+
+function renderBriefing() {
+  const panel = document.getElementById('prac-briefing-panel');
+  const content = document.getElementById('prac-briefing-content');
+  if (!pracBriefing) { panel.classList.add('hidden'); return; }
+  const b = pracBriefing;
+  const fmt = (n) => n !== null && n !== undefined ? '\u20b9' + n.toLocaleString('en-IN') : '—';
+  const fmtV = (n) => n ? (n >= 1e7 ? (n/1e7).toFixed(1) + 'Cr' : n >= 1e5 ? (n/1e5).toFixed(1) + 'L' : n.toLocaleString('en-IN')) : '—';
+  const fmtMcap = (n) => {
+    if (!n) return null;
+    const v = typeof n === 'string' ? parseFloat(n) : n;
+    if (isNaN(v)) return null;
+    return v >= 1e12 ? (v/1e12).toFixed(2) + 'T' : v >= 1e9 ? (v/1e9).toFixed(2) + 'B Cr' : v >= 1e7 ? (v/1e7).toFixed(0) + 'Cr' : v.toLocaleString('en-IN');
+  };
+  const mcap = fmtMcap(b.market_cap);
+
+  let html = `
+    <div><div class="text-on-surface-variant uppercase font-bold text-[9px]">52W High</div><div class="font-mono text-on-surface mt-0.5">${fmt(b.w52_high)} <span class="text-[9px] text-[#ff4757]">${b.pct_from_high}%</span></div></div>
+    <div><div class="text-on-surface-variant uppercase font-bold text-[9px]">52W Low</div><div class="font-mono text-on-surface mt-0.5">${fmt(b.w52_low)} <span class="text-[9px] text-[#00e5a0]">+${b.pct_from_low}%</span></div></div>
+    <div><div class="text-on-surface-variant uppercase font-bold text-[9px]">Avg Volume</div><div class="font-mono text-on-surface mt-0.5">${fmtV(b.avg_volume)}</div></div>
+    <div><div class="text-on-surface-variant uppercase font-bold text-[9px]">30D Volatility</div><div class="font-mono text-on-surface mt-0.5">${b.volatility_30d !== null ? b.volatility_30d + '%' : '—'}</div></div>`;
+  if (b.sector) html += `<div><div class="text-on-surface-variant uppercase font-bold text-[9px]">Sector</div><div class="text-on-surface mt-0.5">${b.sector}</div></div>`;
+  if (mcap) html += `<div><div class="text-on-surface-variant uppercase font-bold text-[9px]">Market Cap</div><div class="font-mono text-on-surface mt-0.5">${mcap}</div></div>`;
+  content.innerHTML = html;
+  panel.classList.remove('hidden');
+}
+
+function toggleBriefing() {
+  const panel = document.getElementById('prac-briefing-panel');
+  if (!panel) return;
+  if (panel.classList.contains('hidden')) { renderBriefing(); }
+  else { panel.classList.add('hidden'); }
+}
+
+// --- Auto-play ---
+function toggleAutoPlay() {
+  if (!practiceState) return;
+  if (pracAutoPlayTimer) { stopAutoPlay(); }
+  else { startAutoPlay(); }
+}
+function startAutoPlay() {
+  if (!practiceState) return;
+  if (pracAutoPlayTimer) clearInterval(pracAutoPlayTimer);
+  document.getElementById('prac-autoplay-icon').textContent = 'pause';
+  const interval = Math.max(100, Math.round(1000 / pracAutoPlaySpeed));
+  pracAutoPlayTimer = setInterval(async () => {
+    if (!practiceState || practiceState.day >= practiceState.totalBars) { stopAutoPlay(); return; }
+    await practiceNextDay();
+  }, interval);
+}
+function stopAutoPlay() {
+  if (pracAutoPlayTimer) { clearInterval(pracAutoPlayTimer); pracAutoPlayTimer = null; }
+  const ic = document.getElementById('prac-autoplay-icon'); if (ic) ic.textContent = 'play_arrow';
+}
+function setAutoPlaySpeed(speed, el) {
+  pracAutoPlaySpeed = speed;
+  document.querySelectorAll('.prac-speed-btn').forEach(b => {
+    b.className = b === el
+      ? 'prac-speed-btn px-1.5 py-1 text-[9px] font-bold rounded bg-surface-variant text-primary'
+      : 'prac-speed-btn px-1.5 py-1 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary';
+  });
+  if (pracAutoPlayTimer) { stopAutoPlay(); startAutoPlay(); }
 }
 
 function updateDifficultyBadge(diff) {
@@ -3263,6 +3359,7 @@ async function practiceNextDay() {
       const win = ax.pnl >= 0;
       playPracticeTone(win ? 1200 : 440, 140);
       showPracticeToast(`${ax.reason} · ${win ? '+' : ''}\u20b9${ax.pnl.toFixed(0)} (${ax.pnl_pct.toFixed(1)}%)`, win ? 'ok' : 'err');
+      stopAutoPlay();
     } else {
       updatePracticePosition(data.candle.close);
     }
@@ -3479,6 +3576,7 @@ async function practiceSell() {
 
 async function practiceEnd() {
   if (!practiceState) return;
+  stopAutoPlay();
   try {
     const res = await fetch(API + '/practice/end', { method: 'POST' });
     const data = await res.json();
