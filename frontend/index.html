@@ -459,10 +459,11 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 <!-- ==================== TAB: INDICATORS ==================== -->
 <section class="tab-content flex-col w-full overflow-y-auto" id="tab-indicators">
   <div class="px-6 pt-6 pb-12">
-    <!-- Sub-tab switcher: Indicators / Patterns -->
-    <div class="flex gap-2 mb-6">
+    <!-- Sub-tab switcher: Indicators / Chart Patterns / Candlestick Patterns -->
+    <div class="flex gap-2 mb-6 flex-wrap">
       <button id="ind-sub-indicators" onclick="switchIndSub('indicators')" class="px-5 py-2 rounded-lg bg-primary-container text-on-primary font-bold text-xs uppercase tracking-widest">Indicators</button>
-      <button id="ind-sub-patterns" onclick="switchIndSub('patterns')" class="px-5 py-2 rounded-lg bg-surface-container-highest text-on-surface-variant hover:text-primary font-bold text-xs uppercase tracking-widest">Patterns</button>
+      <button id="ind-sub-chartpatterns" onclick="switchIndSub('chartpatterns')" class="px-5 py-2 rounded-lg bg-surface-container-highest text-on-surface-variant hover:text-primary font-bold text-xs uppercase tracking-widest">Chart Patterns</button>
+      <button id="ind-sub-patterns" onclick="switchIndSub('patterns')" class="px-5 py-2 rounded-lg bg-surface-container-highest text-on-surface-variant hover:text-primary font-bold text-[10px] uppercase tracking-widest opacity-80">Candlesticks</button>
     </div>
     <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10" id="ind-sub-header">
       <div>
@@ -509,6 +510,26 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
         </div>
       </div>
       <div id="patterns-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="text-center py-8 text-on-surface-variant/50 col-span-full">Loading patterns...</div>
+      </div>
+    </div>
+
+    <!-- ========== CHART PATTERNS PANE ========== -->
+    <div id="ind-pane-chartpatterns" class="hidden">
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-6">
+        <div>
+          <h1 class="text-3xl font-extrabold tracking-tighter text-on-surface mb-2 uppercase">Chart Patterns <span class="text-primary">Library</span></h1>
+          <p class="text-on-surface-variant max-w-2xl text-sm">10 advanced breakout patterns for swing trading — VCP, Cup &amp; Handle, Flag, Triangle, and more. Sourced from Minervini, O'Neil, Darvas, Bulkowski, and Gurjar's <em>Breakout Trading Made Easy</em>.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[9px] text-on-surface-variant font-bold uppercase">Scan Universe:</span>
+          <div class="flex bg-surface-container-highest rounded-md p-0.5 gap-0.5" id="cp-universe-tabs">
+            <button onclick="setCPUniverse('nifty500',this)" class="cp-uni-btn px-3 py-1 text-[9px] font-bold rounded bg-surface-variant text-primary">Nifty 500</button>
+            <button onclick="setCPUniverse('next500',this)" class="cp-uni-btn px-3 py-1 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">Next 500</button>
+          </div>
+        </div>
+      </div>
+      <div id="chartpatterns-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div class="text-center py-8 text-on-surface-variant/50 col-span-full">Loading patterns...</div>
       </div>
     </div>
@@ -1912,22 +1933,161 @@ function saveConfigPreset() { const name=prompt('Save preset as:'); if(!name||!n
 // ============ PATTERN LIBRARY ============
 let patternUniverse = 'nifty500';
 let patternsData = [];
+let chartPatternsData = [];
+let cpUniverse = 'nifty500';
+
+function setCPUniverse(u, el) {
+  cpUniverse = u;
+  document.querySelectorAll('.cp-uni-btn').forEach(b => {
+    b.className = b === el ? 'cp-uni-btn px-3 py-1 text-[9px] font-bold rounded bg-surface-variant text-primary' : 'cp-uni-btn px-3 py-1 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary';
+  });
+}
+
+async function loadChartPatterns() {
+  try {
+    const r = await fetch(API + '/chart-patterns/list');
+    const d = await r.json();
+    chartPatternsData = d.patterns || [];
+    renderChartPatternGrid();
+  } catch(e) {
+    document.getElementById('chartpatterns-grid').innerHTML = `<div class="text-error col-span-full text-center py-8">Failed: ${e.message}</div>`;
+  }
+}
+
+function renderChartPatternGrid() {
+  const grid = document.getElementById('chartpatterns-grid');
+  grid.innerHTML = chartPatternsData.map(p => {
+    const dirCol = p.direction === 'bullish' ? 'text-[#00e5a0]' : p.direction.includes('neutral') ? 'text-yellow-400' : 'text-[#ff4757]';
+    const accCol = p.accuracy >= 75 ? 'text-[#00e5a0]' : p.accuracy >= 65 ? 'text-yellow-400' : 'text-on-surface-variant';
+    return `
+      <div class="glass-panel rounded-xl border border-outline-variant/20 overflow-hidden flex flex-col">
+        <div class="p-3 border-b border-outline-variant/10 flex items-start justify-between gap-2">
+          <div class="flex-1 min-w-0">
+            <div class="text-xs font-black uppercase text-on-surface leading-tight">${p.name}</div>
+            <div class="text-[8px] text-on-surface-variant italic mt-0.5 truncate">${p.source}</div>
+            <div class="text-[9px] ${dirCol} uppercase font-bold mt-1">${p.direction} · ${p.type} · ${p.bars} bars</div>
+          </div>
+          <div class="text-right flex-shrink-0">
+            <div class="text-[8px] text-on-surface-variant uppercase font-bold">Accuracy</div>
+            <div class="text-lg font-black ${accCol}">${p.accuracy}%</div>
+          </div>
+        </div>
+        <canvas class="cp-snippet" data-key="${p.key}" width="400" height="130" style="width:100%;height:130px;background:var(--chart-bg)"></canvas>
+        <div class="p-3 text-[11px] text-on-surface leading-snug">${p.description}</div>
+        <div class="px-3 pb-1 text-[10px]"><span class="text-[#00e5a0] font-bold">▶ Entry:</span> <span class="text-on-surface-variant">${p.entry}</span></div>
+        <div class="px-3 pb-1 text-[10px]"><span class="text-[#ff4757] font-bold">■ Invalidate:</span> <span class="text-on-surface-variant">${p.invalidate}</span></div>
+        <div class="px-3 pb-1 text-[10px]"><span class="text-primary font-bold">♦ Volume:</span> <span class="text-on-surface-variant">${p.volume_rule}</span></div>
+        <div class="px-3 pb-3 text-[10px]"><span class="text-yellow-400 font-bold">◉ Context:</span> <span class="text-on-surface-variant">${p.context}</span></div>
+        <div class="p-3 border-t border-outline-variant/10">
+          <button onclick="scanChartPattern('${p.key}','${p.name.replace(/'/g,"\\'")}')" class="w-full py-2 bg-primary-container text-on-primary font-bold rounded-lg text-[10px] uppercase tracking-wider active:scale-95 transition-transform">
+            <span class="material-symbols-outlined text-sm align-middle mr-1">radar</span>Scan ${cpUniverse === 'nifty500' ? 'Nifty 500' : 'Next 500'}
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+  requestAnimationFrame(drawAllChartSnippets);
+}
+
+function drawAllChartSnippets() {
+  document.querySelectorAll('.cp-snippet').forEach(cv => {
+    const key = cv.dataset.key;
+    const p = chartPatternsData.find(x => x.key === key);
+    if (p && p.snippet?.length) drawChartSnippet(cv, p.snippet);
+  });
+}
+
+function drawChartSnippet(canvas, candles) {
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth || 400;
+  const H = canvas.clientHeight || 130;
+  if (canvas.width !== W * dpr) { canvas.width = W * dpr; canvas.height = H * dpr; }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const pad = 6;
+  const lo = Math.min(...candles.map(c => c.low));
+  const hi = Math.max(...candles.map(c => c.high));
+  const range = hi - lo || 1;
+  const step = (W - pad * 2) / candles.length;
+  const bodyW = Math.max(1, step * 0.6);
+  const s = getComputedStyle(document.documentElement);
+  const up = s.getPropertyValue('--candle-up').trim() || '#00e5a0';
+  const down = s.getPropertyValue('--candle-down').trim() || '#ff4757';
+  candles.forEach((c, i) => {
+    const x = pad + i * step + step / 2;
+    const y = (v) => pad + (hi - v) / range * (H - pad * 2);
+    const isUp = c.close >= c.open;
+    ctx.strokeStyle = isUp ? up : down;
+    ctx.fillStyle = isUp ? up : down;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, y(c.high));
+    ctx.lineTo(x, y(c.low));
+    ctx.stroke();
+    const yO = y(c.open), yC = y(c.close);
+    ctx.fillRect(x - bodyW / 2, Math.min(yO, yC), bodyW, Math.max(1, Math.abs(yO - yC)));
+  });
+}
+
+async function scanChartPattern(key, name) {
+  const modal = document.getElementById('pat-scan-modal');
+  document.getElementById('pat-scan-title').textContent = `Scanning: ${name}`;
+  document.getElementById('pat-scan-sub').textContent = `Universe: ${cpUniverse === 'nifty500' ? 'Nifty 500' : 'Next 500'}`;
+  document.getElementById('pat-scan-body').innerHTML = '<div class="text-center py-8 text-on-surface-variant">Scanning…</div>';
+  modal.style.display = 'flex';
+  try {
+    const r = await fetch(API + '/chart-patterns/scan', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pattern:key,universe:cpUniverse})});
+    const d = await r.json();
+    if (!d.hits?.length) {
+      document.getElementById('pat-scan-body').innerHTML = '<div class="text-center py-8 text-on-surface-variant">No current matches for this pattern.</div>';
+      return;
+    }
+    document.getElementById('pat-scan-sub').textContent = `${d.count} matches in ${cpUniverse === 'nifty500' ? 'Nifty 500' : 'Next 500'} · sorted by confidence`;
+    const rows = d.hits.map(h => {
+      const confCol = h.confidence >= 80 ? 'text-[#00e5a0]' : h.confidence >= 65 ? 'text-yellow-400' : 'text-on-surface-variant';
+      // Pick 2-3 key fields for the meta column based on pattern
+      const meta = Object.entries(h).filter(([k]) => !['symbol','close','confidence'].includes(k))
+        .map(([k, v]) => {
+          if (v === null || v === undefined) return null;
+          const lbl = k.replace(/_/g, ' ');
+          return `${lbl}=${typeof v === 'number' ? v : Array.isArray(v) ? '[' + v.join(',') + ']' : v}`;
+        }).filter(Boolean).slice(0, 3).join(' · ');
+      return `<tr class="border-b border-outline-variant/5 hover:bg-surface-container-highest/40 cursor-pointer" onclick="document.getElementById('pat-scan-modal').style.display='none'; switchTab('screener'); setTimeout(()=>openChart('${h.symbol}'),100);">
+        <td class="py-2 pr-3 font-bold text-on-surface">${h.symbol}</td>
+        <td class="py-2 pr-3 text-right font-mono">\u20b9${h.close}</td>
+        <td class="py-2 pr-3 text-right font-mono font-bold ${confCol}">${h.confidence}</td>
+        <td class="py-2 text-[10px] text-on-surface-variant">${meta}</td>
+      </tr>`;
+    }).join('');
+    document.getElementById('pat-scan-body').innerHTML = `
+      <table class="w-full text-left text-xs">
+        <thead class="text-[9px] uppercase text-on-surface-variant font-bold border-b border-outline-variant/10">
+          <tr><th class="py-2 pr-3">Symbol</th><th class="py-2 pr-3 text-right">Close</th><th class="py-2 pr-3 text-right">Conf</th><th class="py-2">Details</th></tr>
+        </thead>
+        <tbody class="font-mono">${rows}</tbody>
+      </table>`;
+  } catch(e) {
+    document.getElementById('pat-scan-body').innerHTML = `<div class="text-error text-center py-8">Scan failed: ${e.message}</div>`;
+  }
+}
 
 function switchIndSub(sub) {
   const isInd = sub === 'indicators';
+  const isCP = sub === 'chartpatterns';
+  const isCS = sub === 'patterns';
   document.getElementById('ind-sub-header').classList.toggle('hidden', !isInd);
   document.getElementById('indicators-grid').classList.toggle('hidden', !isInd);
-  document.getElementById('ind-pane-patterns').classList.toggle('hidden', isInd);
-  // Sort/filter rows are inside the indicators area; we'll toggle them too if present
+  document.getElementById('ind-pane-chartpatterns').classList.toggle('hidden', !isCP);
+  document.getElementById('ind-pane-patterns').classList.toggle('hidden', !isCS);
   const onTabs = document.getElementById('ind-type-tabs'); if (onTabs) onTabs.classList.toggle('hidden', !isInd);
   document.querySelectorAll('[data-sort]').forEach(b => b.closest('.flex')?.classList.toggle('hidden', !isInd));
-  document.getElementById('ind-sub-indicators').className = isInd
-    ? 'px-5 py-2 rounded-lg bg-primary-container text-on-primary font-bold text-xs uppercase tracking-widest'
-    : 'px-5 py-2 rounded-lg bg-surface-container-highest text-on-surface-variant hover:text-primary font-bold text-xs uppercase tracking-widest';
-  document.getElementById('ind-sub-patterns').className = !isInd
-    ? 'px-5 py-2 rounded-lg bg-primary-container text-on-primary font-bold text-xs uppercase tracking-widest'
-    : 'px-5 py-2 rounded-lg bg-surface-container-highest text-on-surface-variant hover:text-primary font-bold text-xs uppercase tracking-widest';
-  if (!isInd && patternsData.length === 0) loadPatterns();
+  const active = 'px-5 py-2 rounded-lg bg-primary-container text-on-primary font-bold text-xs uppercase tracking-widest';
+  const inactive = 'px-5 py-2 rounded-lg bg-surface-container-highest text-on-surface-variant hover:text-primary font-bold text-xs uppercase tracking-widest';
+  document.getElementById('ind-sub-indicators').className = isInd ? active : inactive;
+  document.getElementById('ind-sub-chartpatterns').className = isCP ? active : inactive;
+  document.getElementById('ind-sub-patterns').className = isCS ? active : inactive.replace('text-xs', 'text-[10px]') + ' opacity-80';
+  if (isCS && patternsData.length === 0) loadPatterns();
+  if (isCP && chartPatternsData.length === 0) loadChartPatterns();
 }
 
 function setPatternUniverse(u, el) {
