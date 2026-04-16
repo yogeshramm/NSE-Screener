@@ -542,6 +542,10 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
     <div class="px-4 py-3 bg-surface-container-low border-b border-outline-variant/10 flex items-center justify-between">
       <div class="flex items-center gap-4">
         <span class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">PRACTICE MODE</span>
+        <div id="prac-profile-chip" class="flex items-center gap-1.5 px-2.5 py-1 bg-surface-container-highest rounded-lg cursor-pointer hover:bg-surface-variant/40 transition-colors" onclick="openProfileModal()" title="Change profile">
+          <span class="material-symbols-outlined text-xs text-primary">account_circle</span>
+          <span id="prac-profile-name" class="text-[10px] font-bold uppercase tracking-wider text-on-surface">--</span>
+        </div>
         <div class="flex bg-surface-container-highest rounded-md p-0.5 gap-0.5">
           <button onclick="setPracticeUniverse('nifty500',this)" class="prac-uni-btn px-3 py-1 text-[9px] font-bold rounded bg-surface-variant text-primary">Nifty 500</button>
           <button onclick="setPracticeUniverse('next500',this)" class="prac-uni-btn px-3 py-1 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">Next 500</button>
@@ -551,6 +555,10 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
         </button>
       </div>
       <div class="flex items-center gap-5">
+        <div id="prac-difficulty-badge" class="hidden items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider">
+          <span class="material-symbols-outlined text-xs">speed</span>
+          <span id="prac-difficulty-text">--</span>
+        </div>
         <div id="prac-day-counter" class="text-[10px] font-mono text-on-surface-variant hidden">
           Day <span id="prac-day" class="text-primary font-bold">0</span>/<span id="prac-max-days">60</span>
         </div>
@@ -578,11 +586,20 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
           <button onclick="startPracticeRound()" class="px-8 py-3 bg-primary-container text-on-primary font-bold rounded-xl text-sm uppercase active:scale-95 transition-transform">
             Start Round
           </button>
-          <!-- History section -->
+          <!-- History + Leaderboard -->
           <div id="prac-history-section" class="mt-8 text-left hidden">
-            <h3 class="text-xs font-black uppercase text-on-surface-variant tracking-widest mb-3">Session History</h3>
-            <div id="prac-history-stats" class="grid grid-cols-3 gap-3 mb-4"></div>
-            <div id="prac-history-list" class="space-y-2 max-h-48 overflow-y-auto"></div>
+            <div class="flex items-center gap-2 mb-3">
+              <button id="prac-tab-history" onclick="showPracHistoryTab('history')" class="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg bg-surface-container-highest text-primary">My History</button>
+              <button id="prac-tab-leaderboard" onclick="showPracHistoryTab('leaderboard')" class="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary">Leaderboard</button>
+            </div>
+            <div id="prac-pane-history">
+              <div id="prac-history-stats" class="grid grid-cols-3 gap-3 mb-4"></div>
+              <div id="prac-history-list" class="space-y-2 max-h-72 overflow-y-auto"></div>
+            </div>
+            <div id="prac-pane-leaderboard" class="hidden">
+              <p class="text-[10px] text-on-surface-variant mb-3">Top 10 sessions across all profiles (best P&L %).</p>
+              <div id="prac-leaderboard-list" class="space-y-2 max-h-80 overflow-y-auto"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -661,6 +678,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
               <span class="text-[8px] uppercase text-on-surface-variant font-bold">P&L</span>
               <span id="prac-pnl" class="text-xs font-mono font-bold">--</span>
             </div>
+            <canvas id="prac-pnl-sparkline" width="80" height="28" class="rounded" style="background:var(--surface-container-highest)"></canvas>
             <div class="flex flex-col items-end">
               <span class="text-[8px] uppercase text-on-surface-variant font-bold">Holding</span>
               <span id="prac-holding-days" class="text-xs font-mono text-on-surface-variant">--</span>
@@ -671,6 +689,31 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
     </div>
   </div>
 </section>
+
+<!-- ==================== PRACTICE PROFILE MODAL ==================== -->
+<div id="prac-profile-modal" class="fixed inset-0 z-[85] flex items-center justify-center bg-black/60" style="display:none">
+  <div class="w-[400px] glass-panel rounded-2xl border border-outline-variant/20 overflow-hidden">
+    <div class="p-5 border-b border-outline-variant/20 flex items-center justify-between">
+      <h3 class="text-sm font-black uppercase text-on-surface tracking-widest">Trader Profile</h3>
+      <span class="material-symbols-outlined cursor-pointer hover:text-error" onclick="closeProfileModal()">close</span>
+    </div>
+    <div class="p-5 space-y-4">
+      <div>
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Nickname</label>
+        <input id="prac-profile-input" type="text" maxlength="20" placeholder="Enter a trader nickname" class="w-full mt-2 bg-surface-container-highest border-none rounded-lg py-3 px-4 text-on-surface placeholder:text-on-surface-variant/40 focus:ring-1 focus:ring-primary text-sm" onkeydown="if(event.key==='Enter')savePracticeProfile()"/>
+        <p class="text-[9px] text-on-surface-variant mt-1.5">Stored locally in this browser. Used to tag your sessions on the leaderboard.</p>
+      </div>
+      <div id="prac-profile-list" class="space-y-1.5 max-h-40 overflow-y-auto"></div>
+    </div>
+    <div class="p-4 border-t border-outline-variant/20 flex justify-between">
+      <button onclick="closeProfileModal()" class="px-5 py-2 text-on-surface-variant font-bold text-xs uppercase hover:text-on-surface">Cancel</button>
+      <button onclick="savePracticeProfile()" class="px-5 py-2 bg-primary-container text-on-primary font-bold rounded-lg text-xs uppercase active:scale-95 transition-transform">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== PRACTICE TOAST ==================== -->
+<div id="prac-toast" class="fixed top-20 left-1/2 -translate-x-1/2 z-[90] px-5 py-3 rounded-xl font-bold text-sm shadow-2xl transition-all pointer-events-none" style="display:none"></div>
 
 <!-- ==================== PRACTICE SUMMARY MODAL ==================== -->
 <div id="prac-summary-modal" class="fixed inset-0 z-[80] flex items-center justify-center bg-black/60" style="display:none">
@@ -2105,9 +2148,81 @@ let pracVisibleCandles = [], pracVisibleVolumes = [];
 let pracIndicators = {}; // from server (legacy, unused)
 let practiceUniverse = 'nifty500';
 let pracMarkers = [];
-// Map of active indicator key -> { series: [], panel: chartInstance|null, data: lastComputed }
+let pracPnlTrail = []; // running P&L per day since entry (for sparkline)
 let pracActiveInd = {};
-let pracSubPanels = {}; // key -> chart instance
+let pracSubPanels = {};
+let pracAudioCtx = null;
+
+// ---- PROFILE ----
+function getPracticeProfile() {
+  return localStorage.getItem('yointell_practice_nickname') || '';
+}
+function setPracticeProfile(name) {
+  localStorage.setItem('yointell_practice_nickname', name);
+  const el = document.getElementById('prac-profile-name');
+  if (el) el.textContent = name || 'GUEST';
+}
+function openProfileModal() {
+  const modal = document.getElementById('prac-profile-modal');
+  document.getElementById('prac-profile-input').value = getPracticeProfile();
+  modal.style.display = 'flex';
+  // Populate existing profiles from leaderboard
+  const all = getAllPracticeSessions();
+  const nicknames = [...new Set(all.map(s => s.nickname).filter(Boolean))];
+  const listEl = document.getElementById('prac-profile-list');
+  if (nicknames.length) {
+    listEl.innerHTML = '<p class="text-[9px] text-on-surface-variant uppercase font-bold mb-1">Recent Profiles</p>' +
+      nicknames.map(n => `<button onclick="document.getElementById('prac-profile-input').value='${n.replace(/'/g,"\\'")}'" class="block w-full text-left px-3 py-1.5 bg-surface-container-highest/50 hover:bg-surface-variant/40 rounded text-xs text-on-surface">${n}</button>`).join('');
+  } else {
+    listEl.innerHTML = '';
+  }
+}
+function closeProfileModal() { document.getElementById('prac-profile-modal').style.display = 'none'; }
+function savePracticeProfile() {
+  const name = document.getElementById('prac-profile-input').value.trim().slice(0, 20);
+  if (!name) { showPracticeToast('Please enter a nickname', 'warn'); return; }
+  setPracticeProfile(name);
+  closeProfileModal();
+  loadPracticeHistory();
+  showPracticeToast('Profile saved: ' + name, 'ok');
+}
+function ensurePracticeProfile() {
+  if (!getPracticeProfile()) {
+    openProfileModal();
+    return false;
+  }
+  return true;
+}
+
+// ---- TOAST + SOUND ----
+function showPracticeToast(msg, kind = 'ok') {
+  const el = document.getElementById('prac-toast');
+  const colors = {
+    ok: 'bg-[#00e5a0]/20 text-[#00e5a0] border border-[#00e5a0]/40',
+    err: 'bg-[#ff4757]/20 text-[#ff4757] border border-[#ff4757]/40',
+    warn: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/40',
+  };
+  el.className = 'fixed top-20 left-1/2 -translate-x-1/2 z-[90] px-5 py-3 rounded-xl font-bold text-sm shadow-2xl transition-all pointer-events-none ' + (colors[kind] || colors.ok);
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.style.opacity = '0';
+  setTimeout(() => { el.style.opacity = '1'; }, 10);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.style.display = 'none', 300); }, 2200);
+}
+function playPracticeTone(freq = 880, duration = 120) {
+  try {
+    if (!pracAudioCtx) pracAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = pracAudioCtx.createOscillator();
+    const gain = pracAudioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.value = 0.08;
+    osc.connect(gain); gain.connect(pracAudioCtx.destination);
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.001, pracAudioCtx.currentTime + duration / 1000);
+    osc.stop(pracAudioCtx.currentTime + duration / 1000);
+  } catch(e) {}
+}
 
 const PRAC_IND_COLORS = {
   sma20: '#ec4899', sma50: '#d97706',
@@ -2127,9 +2242,11 @@ function setPracticeUniverse(u, el) {
 }
 
 async function startPracticeRound() {
+  if (!ensurePracticeProfile()) return;
   // Cleanup previous
   destroyPracticeCharts();
   pracMarkers = [];
+  pracPnlTrail = [];
   pracVisibleCandles = [];
   pracVisibleVolumes = [];
   pracIndicators = {};
@@ -2138,6 +2255,7 @@ async function startPracticeRound() {
   document.getElementById('prac-game').classList.remove('hidden');
   document.getElementById('prac-btn-buy').disabled = true;
   document.getElementById('prac-btn-sell').disabled = true;
+  document.getElementById('prac-btn-next').disabled = false;
   document.getElementById('prac-position-card').classList.add('hidden');
   document.getElementById('prac-warn-55').classList.add('hidden');
   document.getElementById('prac-day-counter').classList.remove('hidden');
@@ -2149,10 +2267,11 @@ async function startPracticeRound() {
       body: JSON.stringify({ universe: practiceUniverse })
     });
     const data = await res.json();
-    if (data.error) { alert(data.error); return; }
+    if (data.error) { showPracticeToast(data.error, 'err'); return; }
 
     practiceState = {
       symbol: data.symbol,
+      difficulty: data.difficulty || 'Medium',
       purse: data.purse,
       maxDays: data.max_days,
       totalBars: data.total_bars,
@@ -2169,13 +2288,39 @@ async function startPracticeRound() {
     document.getElementById('prac-max-days').textContent = data.total_bars;
     updatePracticeDay(0);
     updatePracticePurse();
+    updateDifficultyBadge(practiceState.difficulty);
 
     renderPracticeChart();
-    document.getElementById('prac-btn-buy').disabled = true; // need to advance at least 1 day
+    document.getElementById('prac-btn-buy').disabled = true;
     document.getElementById('prac-btn-sell').disabled = true;
+    showPracticeToast(`New round: ${data.symbol} · ${practiceState.difficulty}`, 'ok');
   } catch(e) {
-    alert('Failed to start practice round: ' + e.message);
+    showPracticeToast('Failed to start round: ' + e.message, 'err');
   }
+}
+
+function updateDifficultyBadge(diff) {
+  const el = document.getElementById('prac-difficulty-badge');
+  const text = document.getElementById('prac-difficulty-text');
+  const colors = {
+    Easy: 'bg-[#00e5a0]/15 text-[#00e5a0] border border-[#00e5a0]/30',
+    Medium: 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30',
+    Hard: 'bg-[#ff4757]/15 text-[#ff4757] border border-[#ff4757]/30',
+  };
+  el.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ' + (colors[diff] || colors.Medium);
+  text.textContent = diff;
+}
+
+function showPracHistoryTab(tab) {
+  document.getElementById('prac-pane-history').classList.toggle('hidden', tab !== 'history');
+  document.getElementById('prac-pane-leaderboard').classList.toggle('hidden', tab !== 'leaderboard');
+  document.getElementById('prac-tab-history').className = tab === 'history'
+    ? 'text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg bg-surface-container-highest text-primary'
+    : 'text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary';
+  document.getElementById('prac-tab-leaderboard').className = tab === 'leaderboard'
+    ? 'text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg bg-surface-container-highest text-primary'
+    : 'text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary';
+  if (tab === 'leaderboard') loadPracticeLeaderboard();
 }
 
 function destroyPracticeCharts() {
@@ -2786,12 +2931,12 @@ async function practiceBuy() {
       body: JSON.stringify({ action: 'buy' })
     });
     const data = await res.json();
-    if (data.error) { alert(data.error); return; }
+    if (data.error) { showPracticeToast(data.error, 'err'); return; }
 
     practiceState.position = { entry_price: data.price, qty: data.qty, entry_day: data.day, cost: data.cost };
     practiceState.cash = data.cash_remaining;
+    pracPnlTrail = [0];
 
-    // Add buy marker
     pracMarkers.push({
       time: pracVisibleCandles[pracVisibleCandles.length - 1].time,
       position: 'belowBar', color: '#00e5a0', shape: 'arrowUp',
@@ -2804,7 +2949,9 @@ async function practiceBuy() {
     document.getElementById('prac-position-card').classList.remove('hidden');
     document.getElementById('prac-btn-buy').disabled = true;
     document.getElementById('prac-btn-sell').disabled = false;
-  } catch(e) { alert('Error: ' + e.message); }
+    playPracticeTone(880, 100);
+    showPracticeToast(`BUY ${data.qty} @ \u20b9${data.price.toFixed(2)}`, 'ok');
+  } catch(e) { showPracticeToast('Error: ' + e.message, 'err'); }
 }
 
 async function practiceSell() {
@@ -2815,18 +2962,20 @@ async function practiceSell() {
       body: JSON.stringify({ action: 'sell' })
     });
     const data = await res.json();
-    if (data.error) { alert(data.error); return; }
+    if (data.error) { showPracticeToast(data.error, 'err'); return; }
 
     practiceState.trades.push({
       entry_price: practiceState.position.entry_price,
       exit_price: data.price,
       qty: data.qty, pnl: data.pnl, pnl_pct: data.pnl_pct,
       holding_days: data.holding_days,
+      entry_day: practiceState.position.entry_day,
+      exit_day: data.day,
     });
     practiceState.position = null;
     practiceState.cash = data.cash_remaining;
+    pracPnlTrail = [];
 
-    // Add sell marker
     pracMarkers.push({
       time: pracVisibleCandles[pracVisibleCandles.length - 1].time,
       position: 'aboveBar', color: '#ff4757', shape: 'arrowDown',
@@ -2838,7 +2987,11 @@ async function practiceSell() {
     document.getElementById('prac-position-card').classList.add('hidden');
     document.getElementById('prac-btn-buy').disabled = false;
     document.getElementById('prac-btn-sell').disabled = true;
-  } catch(e) { alert('Error: ' + e.message); }
+    // Lower tone for sell, higher if profit
+    const win = data.pnl >= 0;
+    playPracticeTone(win ? 1200 : 440, 140);
+    showPracticeToast(`SELL · ${win ? '+' : ''}\u20b9${data.pnl.toFixed(0)} (${data.pnl_pct.toFixed(1)}%)`, win ? 'ok' : 'err');
+  } catch(e) { showPracticeToast('Error: ' + e.message, 'err'); }
 }
 
 async function practiceEnd() {
@@ -2884,7 +3037,38 @@ function updatePracticePosition(currentPrice) {
   pnlEl.textContent = (pnl >= 0 ? '+' : '') + '\u20b9' + pnl.toFixed(0) + ' (' + pnlPct.toFixed(1) + '%)';
   pnlEl.style.color = pnl >= 0 ? 'var(--candle-up)' : 'var(--candle-down)';
   document.getElementById('prac-holding-days').textContent = (practiceState.day - pos.entry_day) + 'd';
+  // Append to trail only if new day
+  if (pracPnlTrail.length === 0 || pracPnlTrail[pracPnlTrail.length - 1] !== pnl) {
+    pracPnlTrail.push(pnl);
+  }
+  drawPnlSparkline();
   updatePracticePurse();
+}
+
+function drawPnlSparkline() {
+  const canvas = document.getElementById('prac-pnl-sparkline');
+  if (!canvas || pracPnlTrail.length < 1) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  if (pracPnlTrail.length < 2) return;
+  const lo = Math.min(0, ...pracPnlTrail), hi = Math.max(0, ...pracPnlTrail);
+  const range = hi - lo || 1;
+  const stepX = w / (pracPnlTrail.length - 1);
+  // Zero line
+  const zY = h - ((0 - lo) / range) * h;
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, zY); ctx.lineTo(w, zY); ctx.stroke();
+  // P&L line
+  const last = pracPnlTrail[pracPnlTrail.length - 1];
+  ctx.strokeStyle = last >= 0 ? '#00e5a0' : '#ff4757';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  pracPnlTrail.forEach((v, i) => {
+    const x = i * stepX, y = h - ((v - lo) / range) * h;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
 }
 
 // ---- SUMMARY MODAL ----
@@ -2971,57 +3155,129 @@ function closePracticeSummary() {
   loadPracticeHistory();
 }
 
-// ---- HISTORY (localStorage) ----
+// ---- HISTORY & LEADERBOARD (localStorage) ----
+const PRAC_HISTORY_KEY = 'yointell_practice_history_v2';
+
+function getAllPracticeSessions() {
+  return JSON.parse(localStorage.getItem(PRAC_HISTORY_KEY) || '[]');
+}
+
 function savePracticeSession(data) {
-  const history = JSON.parse(localStorage.getItem('yointell_practice_history') || '[]');
+  const history = getAllPracticeSessions();
   history.unshift({
+    id: Date.now() + '_' + Math.random().toString(36).slice(2, 6),
     date: new Date().toISOString().slice(0, 10),
+    nickname: getPracticeProfile() || 'Guest',
     symbol: data.symbol,
-    trades: data.total_trades,
-    pnl: data.total_pnl,
-    pnl_pct: data.total_pnl_pct,
-    win_rate: data.win_rate,
-    final_purse: data.final_purse,
+    difficulty: practiceState?.difficulty || 'Medium',
+    trades_count: data.total_trades || 0,
+    trades: data.trades || [], // full trade objects
+    mistakes: data.mistakes || [],
+    pnl: data.total_pnl || 0,
+    pnl_pct: data.total_pnl_pct || 0,
+    win_rate: data.win_rate || 0,
+    winning_trades: data.winning_trades || 0,
+    losing_trades: data.losing_trades || 0,
+    final_purse: data.final_purse || 100000,
+    avg_holding: data.avg_holding_days || 0,
   });
-  // Keep last 50
-  if (history.length > 50) history.length = 50;
-  localStorage.setItem('yointell_practice_history', JSON.stringify(history));
+  if (history.length > 200) history.length = 200;
+  localStorage.setItem(PRAC_HISTORY_KEY, JSON.stringify(history));
 }
 
 function loadPracticeHistory() {
-  const history = JSON.parse(localStorage.getItem('yointell_practice_history') || '[]');
+  // Header profile chip
+  setPracticeProfile(getPracticeProfile());
+
+  const all = getAllPracticeSessions();
+  const nickname = getPracticeProfile();
+  const mine = nickname ? all.filter(s => s.nickname === nickname) : all;
+
   const section = document.getElementById('prac-history-section');
-  if (!history.length) { section.classList.add('hidden'); return; }
+  if (!all.length) { section.classList.add('hidden'); return; }
   section.classList.remove('hidden');
 
-  // Cumulative stats
-  const totalSessions = history.length;
-  const avgPnl = history.reduce((s, h) => s + h.pnl, 0) / totalSessions;
-  const avgWinRate = history.reduce((s, h) => s + (h.win_rate || 0), 0) / totalSessions;
+  if (mine.length) {
+    const totalSessions = mine.length;
+    const avgPnl = mine.reduce((s, h) => s + h.pnl, 0) / totalSessions;
+    const avgWinRate = mine.reduce((s, h) => s + (h.win_rate || 0), 0) / totalSessions;
+    document.getElementById('prac-history-stats').innerHTML = `
+      <div class="bg-surface-container-highest rounded-lg p-2.5 text-center">
+        <div class="text-[8px] uppercase text-on-surface-variant font-bold">Sessions</div>
+        <div class="text-sm font-bold text-on-surface">${totalSessions}</div>
+      </div>
+      <div class="bg-surface-container-highest rounded-lg p-2.5 text-center">
+        <div class="text-[8px] uppercase text-on-surface-variant font-bold">Avg P&L</div>
+        <div class="text-sm font-bold ${avgPnl >= 0 ? 'text-[#00e5a0]' : 'text-[#ff4757]'}">${avgPnl >= 0 ? '+' : ''}\u20b9${Math.round(avgPnl).toLocaleString('en-IN')}</div>
+      </div>
+      <div class="bg-surface-container-highest rounded-lg p-2.5 text-center">
+        <div class="text-[8px] uppercase text-on-surface-variant font-bold">Avg Win Rate</div>
+        <div class="text-sm font-bold text-on-surface">${avgWinRate.toFixed(0)}%</div>
+      </div>`;
+  } else {
+    document.getElementById('prac-history-stats').innerHTML = `<div class="col-span-3 text-center text-[10px] text-on-surface-variant py-3">No sessions yet for ${nickname || 'this profile'}</div>`;
+  }
 
-  document.getElementById('prac-history-stats').innerHTML = `
-    <div class="bg-surface-container-highest rounded-lg p-2.5 text-center">
-      <div class="text-[8px] uppercase text-on-surface-variant font-bold">Sessions</div>
-      <div class="text-sm font-bold text-on-surface">${totalSessions}</div>
-    </div>
-    <div class="bg-surface-container-highest rounded-lg p-2.5 text-center">
-      <div class="text-[8px] uppercase text-on-surface-variant font-bold">Avg P&L</div>
-      <div class="text-sm font-bold ${avgPnl >= 0 ? 'text-[#00e5a0]' : 'text-[#ff4757]'}">${avgPnl >= 0 ? '+' : ''}\u20b9${Math.round(avgPnl).toLocaleString('en-IN')}</div>
-    </div>
-    <div class="bg-surface-container-highest rounded-lg p-2.5 text-center">
-      <div class="text-[8px] uppercase text-on-surface-variant font-bold">Avg Win Rate</div>
-      <div class="text-sm font-bold text-on-surface">${avgWinRate.toFixed(0)}%</div>
-    </div>`;
+  document.getElementById('prac-history-list').innerHTML = mine.slice(0, 20).map(h => renderHistoryRow(h)).join('') || '<p class="text-[10px] text-on-surface-variant text-center py-4">No sessions</p>';
+}
 
-  document.getElementById('prac-history-list').innerHTML = history.slice(0, 10).map(h => {
-    const col = h.pnl >= 0 ? 'text-[#00e5a0]' : 'text-[#ff4757]';
-    return `<div class="flex items-center justify-between bg-surface-container-highest rounded-lg px-3 py-2">
+function renderHistoryRow(h) {
+  const col = h.pnl >= 0 ? 'text-[#00e5a0]' : 'text-[#ff4757]';
+  const diffCol = { Easy: 'text-[#00e5a0]', Medium: 'text-yellow-400', Hard: 'text-[#ff4757]' }[h.difficulty] || 'text-on-surface-variant';
+  const trades = h.trades || [];
+  return `<div class="bg-surface-container-highest rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-surface-variant/30" onclick="togglePracRow('${h.id}')">
       <div class="flex items-center gap-3">
+        <span id="prac-row-arrow-${h.id}" class="material-symbols-outlined text-xs text-on-surface-variant transition-transform">chevron_right</span>
         <span class="text-[9px] font-mono text-on-surface-variant">${h.date}</span>
         <span class="text-xs font-bold text-on-surface">${h.symbol}</span>
-        <span class="text-[9px] text-on-surface-variant">${h.trades} trades</span>
+        <span class="text-[8px] font-bold uppercase ${diffCol}">${h.difficulty || '-'}</span>
+        <span class="text-[9px] text-on-surface-variant">${h.trades_count} trades</span>
+        <span class="text-[9px] text-on-surface-variant">${(h.win_rate || 0).toFixed(0)}% win</span>
       </div>
-      <span class="text-xs font-mono font-bold ${col}">${h.pnl >= 0 ? '+' : ''}\u20b9${h.pnl.toLocaleString('en-IN')}</span>
+      <span class="text-xs font-mono font-bold ${col}">${h.pnl >= 0 ? '+' : ''}\u20b9${h.pnl.toLocaleString('en-IN')} (${(h.pnl_pct || 0).toFixed(1)}%)</span>
+    </div>
+    <div id="prac-row-body-${h.id}" class="hidden px-4 py-3 border-t border-outline-variant/10 text-[10px] space-y-2">
+      ${trades.length ? trades.map((t, i) => {
+        const tcol = t.pnl >= 0 ? 'text-[#00e5a0]' : 'text-[#ff4757]';
+        return `<div class="flex items-center justify-between">
+          <span class="text-on-surface-variant">#${i+1}</span>
+          <span class="font-mono text-on-surface">Day ${t.entry_day}\u2192${t.exit_day}</span>
+          <span class="font-mono text-on-surface">\u20b9${t.entry_price}\u2192\u20b9${t.exit_price}</span>
+          <span class="font-mono text-on-surface-variant">${t.qty} sh · ${t.holding_days}d</span>
+          <span class="font-mono font-bold ${tcol}">${t.pnl >= 0 ? '+' : ''}\u20b9${t.pnl.toFixed(0)} (${t.pnl_pct.toFixed(1)}%)</span>
+        </div>`;
+      }).join('') : '<div class="text-on-surface-variant text-center">No trades</div>'}
+    </div>
+  </div>`;
+}
+
+function togglePracRow(id) {
+  const body = document.getElementById('prac-row-body-' + id);
+  const arr = document.getElementById('prac-row-arrow-' + id);
+  if (!body) return;
+  const open = !body.classList.contains('hidden');
+  body.classList.toggle('hidden', open);
+  if (arr) arr.style.transform = open ? '' : 'rotate(90deg)';
+}
+
+function loadPracticeLeaderboard() {
+  const all = getAllPracticeSessions();
+  const sorted = [...all].sort((a, b) => (b.pnl_pct || 0) - (a.pnl_pct || 0)).slice(0, 10);
+  const el = document.getElementById('prac-leaderboard-list');
+  if (!sorted.length) { el.innerHTML = '<p class="text-[10px] text-on-surface-variant text-center py-4">No sessions yet</p>'; return; }
+  const medals = ['\ud83e\udd47','\ud83e\udd48','\ud83e\udd49'];
+  el.innerHTML = sorted.map((s, i) => {
+    const col = s.pnl >= 0 ? 'text-[#00e5a0]' : 'text-[#ff4757]';
+    const rank = i < 3 ? medals[i] : `#${i+1}`;
+    return `<div class="flex items-center justify-between bg-surface-container-highest rounded-lg px-3 py-2">
+      <div class="flex items-center gap-3">
+        <span class="text-sm font-black text-on-surface w-6">${rank}</span>
+        <span class="text-xs font-bold text-primary uppercase">${s.nickname || 'Guest'}</span>
+        <span class="text-[10px] font-bold text-on-surface">${s.symbol}</span>
+        <span class="text-[9px] text-on-surface-variant">${s.date}</span>
+      </div>
+      <span class="text-xs font-mono font-bold ${col}">${s.pnl >= 0 ? '+' : ''}${(s.pnl_pct || 0).toFixed(1)}% · \u20b9${s.pnl.toLocaleString('en-IN')}</span>
     </div>`;
   }).join('');
 }

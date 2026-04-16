@@ -47,6 +47,7 @@ def practice_start(req: StartRequest):
     # Return only what the player should see (no future data)
     return {
         "symbol": result["symbol"],
+        "difficulty": result.get("difficulty", "Medium"),
         "purse": result["purse"],
         "max_days": result["max_days"],
         "day": 0,

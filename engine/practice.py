@@ -87,9 +87,12 @@ def start_round(symbol=None, universe="nifty500"):
     warmup_df = df.iloc[start_idx - warmup_bars:start_idx]
     indicators = _compute_indicators(warmup_df)
 
+    difficulty = _compute_difficulty(df, start_idx)
+
     return {
         "symbol": symbol,
         "universe": universe,
+        "difficulty": difficulty,
         "purse": PURSE_SIZE,
         "max_days": MAX_DAYS,
         "day": 0,
@@ -260,37 +263,58 @@ def end_round(game_state):
     }
 
 
+def _compute_supertrend_direction(highs, lows, closes, period=7, mult=3.0):
+    """Compute Supertrend direction at the final bar (1=bullish, -1=bearish). Returns None if insufficient data."""
+    import pandas as pd
+    n = len(closes)
+    if n < period + 1:
+        return None
+    h, l, c = pd.Series(highs), pd.Series(lows), pd.Series(closes)
+    hl2 = (h + l) / 2
+    tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
+    atr = tr.ewm(alpha=1/period, min_periods=period).mean()
+    bu = hl2 + mult * atr
+    bl = hl2 - mult * atr
+    fu, fl = bu.copy(), bl.copy()
+    direction = [1] * n
+    for i in range(period, n):
+        fl.iloc[i] = bl.iloc[i] if (bl.iloc[i] > fl.iloc[i-1] or c.iloc[i-1] < fl.iloc[i-1]) else fl.iloc[i-1]
+        fu.iloc[i] = bu.iloc[i] if (bu.iloc[i] < fu.iloc[i-1] or c.iloc[i-1] > fu.iloc[i-1]) else fu.iloc[i-1]
+        if i == period:
+            direction[i] = 1 if c.iloc[i] > fu.iloc[i] else -1
+        elif direction[i-1] == 1:
+            direction[i] = -1 if c.iloc[i] < fl.iloc[i] else 1
+        else:
+            direction[i] = 1 if c.iloc[i] > fu.iloc[i] else -1
+    return direction[-1]
+
+
 def _analyze_mistakes(game_state):
-    """Check indicators at each trade entry/exit point for mistakes."""
+    """Check indicators at each trade entry point for mistakes or confirmations."""
     mistakes = []
     all_candles = game_state["warmup_candles"] + game_state["future_candles"][:game_state["day"]]
+    # Volumes aligned with all_candles
+    all_volumes = game_state["warmup_volumes"] + game_state["future_volumes"][:game_state["day"]]
 
     for trade in game_state["trades"]:
-        if trade["pnl"] >= 0:
-            # Winning trade — note which indicators supported the decision
-            mistakes.append({
-                "trade": f"BUY@{trade['entry_price']} → SELL@{trade['exit_price']}",
-                "type": "good",
-                "pnl": trade["pnl"],
-                "message": f"Good trade! +₹{trade['pnl']:,.0f} ({trade['pnl_pct']:+.1f}%)",
-                "details": [],
-            })
-            continue
-
-        # Losing trade — check what indicators said at entry
         entry_idx = len(game_state["warmup_candles"]) + trade["entry_day"] - 1
         details = []
+        is_win = trade["pnl"] >= 0
 
-        if entry_idx < len(all_candles) and entry_idx > 14:
-            # Build a mini-dataframe for indicator checks
+        if 0 < entry_idx < len(all_candles):
             import pandas as pd
-            import numpy as np
 
-            visible = all_candles[max(0, entry_idx - 60):entry_idx + 1]
+            # Use up to 60 prior bars + entry bar for indicator context
+            start = max(0, entry_idx - 60)
+            visible = all_candles[start:entry_idx + 1]
             closes = [c["close"] for c in visible]
+            highs = [c["high"] for c in visible]
+            lows = [c["low"] for c in visible]
+            vols = [v.get("value", 0) for v in all_volumes[start:entry_idx + 1]]
 
-            # RSI check
-            if len(closes) >= 14:
+            # RSI
+            rsi_val = None
+            if len(closes) >= 15:
                 delta = pd.Series(closes).diff()
                 gain = delta.where(delta > 0, 0.0)
                 loss = (-delta).where(delta < 0, 0.0)
@@ -298,45 +322,87 @@ def _analyze_mistakes(game_state):
                 avg_l = loss.ewm(alpha=1/14, min_periods=14).mean()
                 rs = avg_g / avg_l
                 rsi_val = float(100 - (100 / (1 + rs.iloc[-1])))
-                if rsi_val > 70:
-                    details.append(f"RSI was {rsi_val:.0f} at entry — overbought zone (>70)")
-                elif rsi_val < 30:
-                    details.append(f"RSI was {rsi_val:.0f} at entry — oversold zone, but price continued falling")
+                if is_win:
+                    if rsi_val < 40:
+                        details.append(f"RSI was {rsi_val:.0f} at entry — oversold/low, good buy zone")
+                    elif 40 <= rsi_val <= 60:
+                        details.append(f"RSI was {rsi_val:.0f} at entry — neutral, momentum in your favor")
+                else:
+                    if rsi_val > 70:
+                        details.append(f"RSI was {rsi_val:.0f} at entry — overbought (>70), reversal risk")
+                    elif rsi_val < 30:
+                        details.append(f"RSI was {rsi_val:.0f} at entry — oversold but price continued falling")
 
-            # SMA 20 check
+            # SMA 20
             if len(closes) >= 20:
                 sma20 = sum(closes[-20:]) / 20
-                if closes[-1] < sma20:
+                above = closes[-1] >= sma20
+                if is_win and above:
+                    details.append(f"Price was above SMA 20 ({sma20:.0f}) — bullish structure")
+                elif not is_win and not above:
                     details.append(f"Price was below SMA 20 ({sma20:.0f}) at entry — bearish position")
 
-            # Supertrend direction (simplified)
-            if len(closes) >= 14:
-                # Use simple trend: if last 5 closes all declining
-                recent = closes[-5:]
-                if all(recent[i] < recent[i-1] for i in range(1, len(recent))):
-                    details.append("Last 5 candles were all declining — downtrend momentum")
+            # Supertrend direction at entry bar
+            st_dir = _compute_supertrend_direction(highs, lows, closes)
+            if st_dir is not None:
+                if is_win and st_dir == 1:
+                    details.append("Supertrend was bullish at entry — trend in your favor")
+                elif not is_win and st_dir == -1:
+                    details.append("Supertrend was bearish at entry — you bought against the trend")
 
-            # Volume check
-            if len(visible) >= 20:
-                vols = [c.get("volume", 0) for c in visible if c.get("volume")]
-                if vols and len(vols) >= 20:
-                    avg_vol = sum(vols[-20:]) / 20
-                    last_vol = vols[-1]
-                    if last_vol < avg_vol * 0.7:
+            # Volume check (entry bar vs avg of last 20)
+            if len(vols) >= 20:
+                avg_vol = sum(vols[-20:]) / 20
+                last_vol = vols[-1]
+                if avg_vol > 0:
+                    ratio = last_vol / avg_vol
+                    if is_win and ratio > 1.3:
+                        details.append(f"Volume was {ratio:.1f}x average — strong conviction")
+                    elif not is_win and ratio < 0.7:
                         details.append("Volume was below average at entry — weak conviction")
 
-        if not details:
-            details.append("Probable external event factor — no indicator signaled against this trade")
-
-        mistakes.append({
-            "trade": f"BUY@{trade['entry_price']} → SELL@{trade['exit_price']}",
-            "type": "loss",
-            "pnl": trade["pnl"],
-            "message": f"Loss: -₹{abs(trade['pnl']):,.0f} ({trade['pnl_pct']:+.1f}%)",
-            "details": details,
-        })
+        if is_win:
+            if not details:
+                details.append("Trade worked out — but no clear indicator signal supported this entry")
+            mistakes.append({
+                "trade": f"BUY@{trade['entry_price']} → SELL@{trade['exit_price']}",
+                "type": "good",
+                "pnl": trade["pnl"],
+                "message": f"Good trade! +₹{trade['pnl']:,.0f} ({trade['pnl_pct']:+.1f}%)",
+                "details": details,
+            })
+        else:
+            if not details:
+                details.append("Probable external event factor — no indicator signaled against this trade")
+            mistakes.append({
+                "trade": f"BUY@{trade['entry_price']} → SELL@{trade['exit_price']}",
+                "type": "loss",
+                "pnl": trade["pnl"],
+                "message": f"Loss: -₹{abs(trade['pnl']):,.0f} ({trade['pnl_pct']:+.1f}%)",
+                "details": details,
+            })
 
     return mistakes
+
+
+def _compute_difficulty(df, start_idx, lookback=30):
+    """Compute difficulty from price volatility. Returns 'Easy', 'Medium', or 'Hard'."""
+    try:
+        window = df.iloc[max(0, start_idx - lookback):start_idx]
+        if len(window) < 5:
+            return "Medium"
+        returns = window["Close"].pct_change().dropna()
+        if len(returns) < 3:
+            return "Medium"
+        vol = float(returns.std() * 100)  # daily % stdev
+        if vol < 1.5:
+            return "Easy"
+        elif vol < 3.0:
+            return "Medium"
+        else:
+            return "Hard"
+    except Exception:
+        return "Medium"
 
 
 def _load_history(symbol):
