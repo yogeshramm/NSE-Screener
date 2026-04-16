@@ -158,21 +158,21 @@ def next_day(game_state):
     auto_exit = None
     pos = game_state.get("position")
     if pos:
-        sl = pos.get("sl")
-        tp = pos.get("tp")
-        high = candle["high"]
-        low = candle["low"]
-        exit_price = None
-        exit_reason = None
-        # Stop-loss: triggered if the candle's low falls to/below SL
-        if sl is not None and low <= sl:
-            exit_price = sl
-            exit_reason = "SL hit"
-        # Take-profit: triggered if the candle's high reaches/exceeds TP
-        # If both hit in same candle, treat SL as pessimistic default
-        if tp is not None and high >= tp and exit_reason is None:
-            exit_price = tp
-            exit_reason = "Target hit"
+        sl = pos.get("sl"); tp = pos.get("tp")
+        high = candle["high"]; low = candle["low"]
+        side = pos.get("side", "long")
+        exit_price = None; exit_reason = None
+        if side == "short":
+            # Short: SL above entry (high >= SL), TP below entry (low <= TP)
+            if sl is not None and high >= sl:
+                exit_price = sl; exit_reason = "SL hit"
+            if tp is not None and low <= tp and exit_reason is None:
+                exit_price = tp; exit_reason = "Target hit"
+        else:
+            if sl is not None and low <= sl:
+                exit_price = sl; exit_reason = "SL hit"
+            if tp is not None and high >= tp and exit_reason is None:
+                exit_price = tp; exit_reason = "Target hit"
         if exit_reason is not None:
             # Force-sell at exit_price
             trade_result = _sell_at_price(game_state, exit_price, auto=True, reason=exit_reason)
@@ -193,18 +193,23 @@ def next_day(game_state):
 
 
 def _sell_at_price(game_state, price, auto=False, reason=None):
-    """Internal: force-sell position at given price, apply costs, record trade."""
+    """Internal: close position at given price, apply costs, record trade. Handles long+short."""
     pos = game_state["position"]
     if not pos:
         return {"error": "No position"}
     qty = pos["qty"]
+    side = pos.get("side", "long")
     gross = qty * price
-    # Sell-side costs: brokerage + STT
     broker = gross * BROKER_PCT
     stt = gross * STT_PCT
     costs = round(broker + stt, 2)
-    proceeds = round(gross - costs, 2)
-    pnl = round(proceeds - pos["cost"], 2)
+    if side == "short":
+        # Short: P&L = (entry - exit) * qty - costs. "Cost" was collateral = entry*qty + entry-side broker.
+        pnl = round((pos["entry_price"] - price) * qty - costs, 2)
+        proceeds = round(pos["cost"] + pnl, 2)  # return collateral + pnl
+    else:
+        proceeds = round(gross - costs, 2)
+        pnl = round(proceeds - pos["cost"], 2)
     pnl_pct = round((pnl / pos["cost"]) * 100, 2) if pos["cost"] else 0.0
     holding_days = game_state["day"] - pos["entry_day"]
 
@@ -222,6 +227,7 @@ def _sell_at_price(game_state, price, auto=False, reason=None):
         "costs": costs,
         "auto": auto,
         "reason": reason,
+        "side": side,
         "sl": pos.get("sl"),
         "tp": pos.get("tp"),
         "note": pos.get("note"),
@@ -246,7 +252,7 @@ def _sell_at_price(game_state, price, auto=False, reason=None):
     }
 
 
-def execute_trade(game_state, action, qty=None, sl=None, tp=None, note=None, conviction=None):
+def execute_trade(game_state, action, qty=None, sl=None, tp=None, note=None, conviction=None, side="long"):
     """
     Execute BUY or SELL.
     BUY:
@@ -289,19 +295,22 @@ def execute_trade(game_state, action, qty=None, sl=None, tp=None, note=None, con
         broker = gross * BROKER_PCT
         cost = round(gross + broker, 2)
 
-        # Validate SL/TP relative to price (ignore if invalid rather than error)
+        # Validate SL/TP (for LONG: SL<price, TP>price; for SHORT: SL>price, TP<price)
         sl_val = float(sl) if sl not in (None, "") else None
         tp_val = float(tp) if tp not in (None, "") else None
-        if sl_val is not None and sl_val >= price:
-            sl_val = None
-        if tp_val is not None and tp_val <= price:
-            tp_val = None
+        if side == "short":
+            if sl_val is not None and sl_val <= price: sl_val = None
+            if tp_val is not None and tp_val >= price: tp_val = None
+        else:
+            if sl_val is not None and sl_val >= price: sl_val = None
+            if tp_val is not None and tp_val <= price: tp_val = None
 
         game_state["position"] = {
             "entry_price": price,
             "qty": q,
             "entry_day": day,
             "cost": cost,
+            "side": side,
             "sl": sl_val,
             "tp": tp_val,
             "note": (note or "")[:200] or None,

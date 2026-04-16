@@ -34,6 +34,7 @@ class TradeRequest(BaseModel):
     tp: Optional[float] = None
     note: Optional[str] = None
     conviction: Optional[int] = None
+    side: str = "long"  # "long" or "short"
 
 
 @router.get("/practice/stocks")
@@ -99,6 +100,7 @@ def practice_trade(req: TradeRequest):
         tp=req.tp,
         note=req.note,
         conviction=req.conviction,
+        side=req.side,
     )
     return result
 

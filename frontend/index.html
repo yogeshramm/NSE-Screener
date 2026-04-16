@@ -873,7 +873,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
       <!-- Game state -->
       <div id="prac-game" class="flex-1 flex flex-col hidden">
         <!-- Chart -->
-        <div class="flex-1 flex flex-col p-2 gap-2 overflow-y-auto">
+        <div class="flex-1 flex flex-col p-2 gap-2 overflow-y-auto min-h-0">
           <div class="flex items-center gap-2 px-1">
             <span id="prac-symbol" class="text-[10px] font-black uppercase tracking-widest text-on-surface"></span>
             <span id="prac-price" class="text-primary font-mono text-xs font-bold"></span>
@@ -926,8 +926,8 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
             <div id="prac-briefing-content" class="grid grid-cols-4 gap-3 text-[10px]"></div>
           </div>
           <div id="prac-chart-container" class="bg-surface-container rounded-lg relative overflow-hidden border border-outline-variant/10" style="min-height:280px;height:320px;flex-shrink:0"></div>
-          <div id="prac-rsi-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:70px"></div>
-          <div id="prac-sub-panels" class="flex flex-col gap-2"></div>
+          <div id="prac-rsi-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:70px;flex-shrink:0"></div>
+          <div id="prac-sub-panels" class="flex flex-col gap-2" style="flex-shrink:0"></div>
         </div>
         <!-- BOTTOM ACTION BAR -->
         <div class="px-4 py-3 bg-surface-container border-t border-outline-variant/10 flex items-center justify-between">
@@ -946,11 +946,14 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
                 <button onclick="setAutoPlaySpeed(5,this)" class="prac-speed-btn px-1.5 py-1 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">5x</button>
               </div>
             </div>
-            <button id="prac-btn-buy" onclick="practiceBuy()" class="flex items-center gap-2 px-5 py-2.5 bg-[#00e5a0]/20 text-[#00e5a0] font-bold rounded-lg text-xs uppercase active:scale-95 transition-transform hover:bg-[#00e5a0]/30 disabled:opacity-30" disabled>
+            <button id="prac-btn-buy" onclick="practiceBuy('long')" class="flex items-center gap-2 px-5 py-2.5 bg-[#00e5a0]/20 text-[#00e5a0] font-bold rounded-lg text-xs uppercase active:scale-95 transition-transform hover:bg-[#00e5a0]/30 disabled:opacity-30" disabled>
               <span class="material-symbols-outlined text-sm">trending_up</span> Buy
             </button>
+            <button id="prac-btn-short" onclick="practiceBuy('short')" class="flex items-center gap-2 px-4 py-2.5 bg-yellow-500/20 text-yellow-400 font-bold rounded-lg text-xs uppercase active:scale-95 transition-transform hover:bg-yellow-500/30 disabled:opacity-30" disabled title="Short sell (simulated — not permitted in Indian equities)">
+              <span class="material-symbols-outlined text-sm">south</span> Short <span class="text-[9px]">★</span>
+            </button>
             <button id="prac-btn-sell" onclick="practiceSell()" class="flex items-center gap-2 px-5 py-2.5 bg-[#ff4757]/20 text-[#ff4757] font-bold rounded-lg text-xs uppercase active:scale-95 transition-transform hover:bg-[#ff4757]/30 disabled:opacity-30" disabled>
-              <span class="material-symbols-outlined text-sm">trending_down</span> Sell
+              <span class="material-symbols-outlined text-sm">trending_down</span> <span id="prac-btn-sell-label">Sell</span>
             </button>
             <div class="w-px h-7 bg-outline-variant/20"></div>
             <button id="prac-btn-end" onclick="practiceEnd()" class="flex items-center gap-2 px-4 py-2.5 text-on-surface-variant font-bold rounded-lg text-xs uppercase hover:text-error hover:bg-error/10 transition-colors">
@@ -1063,9 +1066,12 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
       </div>
       <div id="prac-profile-list" class="space-y-1.5 max-h-40 overflow-y-auto"></div>
     </div>
-    <div class="p-4 border-t border-outline-variant/20 flex justify-between">
-      <button onclick="closeProfileModal()" class="px-5 py-2 text-on-surface-variant font-bold text-xs uppercase hover:text-on-surface">Cancel</button>
-      <button onclick="savePracticeProfile()" class="px-5 py-2 bg-primary-container text-on-primary font-bold rounded-lg text-xs uppercase active:scale-95 transition-transform">Save</button>
+    <div class="p-4 border-t border-outline-variant/20 flex justify-between items-center">
+      <button onclick="resetPracticeData()" class="px-3 py-2 text-[#ff4757] font-bold text-[10px] uppercase hover:bg-[#ff4757]/10 rounded">Clear All Scores</button>
+      <div class="flex gap-2">
+        <button onclick="closeProfileModal()" class="px-5 py-2 text-on-surface-variant font-bold text-xs uppercase hover:text-on-surface">Cancel</button>
+        <button onclick="savePracticeProfile()" class="px-5 py-2 bg-primary-container text-on-primary font-bold rounded-lg text-xs uppercase active:scale-95 transition-transform">Save</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1571,6 +1577,7 @@ function closeChart() {
   const bp=document.getElementById('sc-briefing-panel'); if(bp) bp.classList.add('hidden');
   scClear52WLines();
   window._scCandleSeries=null;
+  scBreakoutCache = {};
 }
 function openInsightsFromChart() { if(currentChartSymbol) openStock(currentChartSymbol); }
 
@@ -2408,12 +2415,20 @@ function scClear52WLines() {
   if (cs && sc52LoLine) { try { cs.removePriceLine(sc52LoLine); } catch(e){} sc52LoLine = null; }
 }
 
+let scBreakoutCache = {}; // {symbol: hits[]}
 async function toggleScreenerHelp() {
   scHelpOn = !scHelpOn;
   const btn = document.getElementById('sc-help-btn');
   btn.className = scHelpOn
     ? 'text-[9px] font-bold text-on-primary bg-primary-container px-2 py-0.5 rounded'
     : 'text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
+  if (scHelpOn && currentChartSymbol && !scBreakoutCache[currentChartSymbol]) {
+    try {
+      const r = await fetch(API + '/chart-patterns/detect/' + currentChartSymbol);
+      const d = await r.json();
+      scBreakoutCache[currentChartSymbol] = d.hits || [];
+    } catch(e) { scBreakoutCache[currentChartSymbol] = []; }
+  }
   scApplyMarkers();
 }
 
@@ -2437,16 +2452,16 @@ function scApplyMarkers() {
   const cs = window._scCandleSeries;
   if (!cs || !chartData) return;
   const markers = [];
-  // HELP: candle patterns on visible candles
-  if (scHelpOn && chartData.candles?.length) {
-    const pats = detectPatterns(chartData.candles);
-    for (const p of pats) {
-      const c = chartData.candles[p.index];
-      if (!c) continue;
+  // HELP: breakout chart patterns (server-detected on current state)
+  if (scHelpOn && currentChartSymbol && chartData.candles?.length) {
+    const hits = scBreakoutCache[currentChartSymbol] || [];
+    const last = chartData.candles[chartData.candles.length - 1];
+    for (const h of hits) {
+      // Green = high accuracy (>=70), Yellow = medium (60-69), Gray = lower
+      const col = h.accuracy >= 70 ? '#00e5a0' : h.accuracy >= 60 ? '#facc15' : '#94a3b8';
       markers.push({
-        time: c.time,
-        position: p.signal.startsWith('Bull') || p.signal.startsWith('Strong bull') ? 'belowBar' : 'aboveBar',
-        color: '#facc15', shape: 'circle', text: p.name,
+        time: last.time, position: 'aboveBar', color: col, shape: 'circle',
+        text: `${h.name} ${h.accuracy}%`,
       });
     }
   }
@@ -3342,6 +3357,14 @@ function openProfileModal() {
   }
 }
 function closeProfileModal() { document.getElementById('prac-profile-modal').style.display = 'none'; }
+function resetPracticeData() {
+  if (!confirm('Clear ALL practice history and leaderboard entries across all profiles? This cannot be undone.')) return;
+  localStorage.removeItem(PRAC_HISTORY_KEY);
+  localStorage.removeItem('yointell_practice_nickname');
+  closeProfileModal();
+  showPracticeToast('All practice data cleared', 'ok');
+  loadPracticeHistory();
+}
 function savePracticeProfile() {
   const name = document.getElementById('prac-profile-input').value.trim().slice(0, 20);
   if (!name) { showPracticeToast('Please enter a nickname', 'warn'); return; }
@@ -3472,6 +3495,7 @@ async function startPracticeRound(mode = 'free') {
   document.getElementById('prac-welcome').classList.add('hidden');
   document.getElementById('prac-game').classList.remove('hidden');
   document.getElementById('prac-btn-buy').disabled = true;
+  document.getElementById('prac-btn-short').disabled = true;
   document.getElementById('prac-btn-sell').disabled = true;
   document.getElementById('prac-btn-next').disabled = false;
   document.getElementById('prac-position-card').classList.add('hidden');
@@ -4677,7 +4701,9 @@ async function practiceNextDay() {
 
     // Enable buy button (sell only if holding)
     document.getElementById('prac-btn-buy').disabled = !!practiceState.position;
+    document.getElementById('prac-btn-short').disabled = !!practiceState.position;
     document.getElementById('prac-btn-sell').disabled = !practiceState.position;
+    document.getElementById('prac-btn-sell-label').textContent = practiceState.position?.side === 'short' ? 'Cover' : 'Sell';
 
     // Auto-exit warning
     if (data.days_remaining <= 5) {
@@ -4695,16 +4721,23 @@ async function practiceNextDay() {
 }
 
 // Open BUY modal with defaults from current state
-function practiceBuy() {
+let pracBuySide = 'long';
+function practiceBuy(side = 'long') {
   if (!practiceState || practiceState.position) return;
   if (!pracVisibleCandles.length) return;
+  pracBuySide = side;
   const price = pracVisibleCandles[pracVisibleCandles.length - 1].close;
   const cash = practiceState.cash;
-  document.getElementById('prac-buy-symbol').textContent = practiceState.symbol;
+  const isShort = side === 'short';
+  document.getElementById('prac-buy-symbol').textContent = practiceState.symbol + (isShort ? ' · SHORT ★' : '');
   document.getElementById('prac-buy-price').textContent = '\u20b9' + price.toFixed(2);
   document.getElementById('prac-buy-cash').textContent = '\u20b9' + cash.toLocaleString('en-IN');
-  document.getElementById('prac-buy-sl').value = '';
-  document.getElementById('prac-buy-tp').value = '';
+  // Flip SL/TP placeholders for short
+  const slIn = document.getElementById('prac-buy-sl');
+  const tpIn = document.getElementById('prac-buy-tp');
+  slIn.placeholder = isShort ? 'e.g. ' + (price * 1.05).toFixed(0) + ' (above)' : 'e.g. ' + (price * 0.95).toFixed(0);
+  tpIn.placeholder = isShort ? 'e.g. ' + (price * 0.95).toFixed(0) + ' (below)' : 'e.g. ' + (price * 1.05).toFixed(0);
+  slIn.value = ''; tpIn.value = '';
   document.getElementById('prac-buy-note').value = '';
   document.getElementById('prac-buy-conv').value = 3;
   document.getElementById('prac-buy-conv-label').textContent = '3 · Moderate';
@@ -4752,19 +4785,21 @@ function onBuyRiskChange() {
   const rrEl = document.getElementById('prac-buy-rr');
   let riskAmt = null, rewardAmt = null;
 
-  if (!isNaN(sl) && sl > 0 && sl < price) {
-    riskAmt = (price - sl) * q;
+  const isShort = pracBuySide === 'short';
+  const slOk = isShort ? (sl > price) : (sl > 0 && sl < price);
+  const tpOk = isShort ? (tp > 0 && tp < price) : (tp > price);
+  if (!isNaN(sl) && slOk) {
+    riskAmt = Math.abs(sl - price) * q;
     const riskPct = (riskAmt / practiceState.purse) * 100;
     riskEl.innerHTML = `Risk: <span class="text-[#ff4757] font-mono">\u20b9${Math.round(riskAmt).toLocaleString('en-IN')}</span> (${riskPct.toFixed(1)}% of purse)`;
   } else {
-    riskEl.textContent = sl ? 'SL must be below price' : '—';
+    riskEl.textContent = sl ? (isShort ? 'SL must be above price' : 'SL must be below price') : '—';
   }
-
-  if (!isNaN(tp) && tp > price) {
-    rewardAmt = (tp - price) * q;
+  if (!isNaN(tp) && tpOk) {
+    rewardAmt = Math.abs(price - tp) * q;
     rewardEl.innerHTML = `Reward: <span class="text-[#00e5a0] font-mono">\u20b9${Math.round(rewardAmt).toLocaleString('en-IN')}</span>`;
   } else {
-    rewardEl.textContent = tp ? 'TP must be above price' : '—';
+    rewardEl.textContent = tp ? (isShort ? 'TP must be below price' : 'TP must be above price') : '—';
   }
 
   if (riskAmt && rewardAmt) {
@@ -4790,7 +4825,7 @@ async function confirmBuy() {
 
   if (!q || q < 1) { showPracticeToast('Invalid quantity', 'err'); return; }
 
-  const payload = { action: 'buy', qty: q };
+  const payload = { action: 'buy', qty: q, side: pracBuySide };
   if (!isNaN(sl) && sl > 0) payload.sl = sl;
   if (!isNaN(tp) && tp > 0) payload.tp = tp;
   if (note) payload.note = note;
@@ -4806,16 +4841,20 @@ async function confirmBuy() {
     practiceState.position = {
       entry_price: data.price, qty: data.qty, entry_day: data.day,
       cost: data.cost, sl: data.sl, tp: data.tp,
+      side: pracBuySide,
       note, conviction: conv,
     };
     practiceState.cash = data.cash_remaining;
     pracPnlTrail = [0];
     closeBuyModal();
 
+    const _isShort = pracBuySide === 'short';
     pracMarkers.push({
       time: pracVisibleCandles[pracVisibleCandles.length - 1].time,
-      position: 'belowBar', color: '#00e5a0', shape: 'arrowUp',
-      text: 'BUY ' + data.qty + '@' + data.price.toFixed(0),
+      position: _isShort ? 'aboveBar' : 'belowBar',
+      color: _isShort ? '#facc15' : '#00e5a0',
+      shape: _isShort ? 'arrowDown' : 'arrowUp',
+      text: (_isShort ? 'SHORT★ ' : 'BUY ') + data.qty + '@' + data.price.toFixed(0),
     });
     refreshMarkers();
     drawSlTpLines();
@@ -4824,7 +4863,9 @@ async function confirmBuy() {
     updatePracticePosition(data.price);
     document.getElementById('prac-position-card').classList.remove('hidden');
     document.getElementById('prac-btn-buy').disabled = true;
+    document.getElementById('prac-btn-short').disabled = true;
     document.getElementById('prac-btn-sell').disabled = false;
+    document.getElementById('prac-btn-sell-label').textContent = _isShort ? 'Cover' : 'Sell';
     playPracticeTone(880, 100);
     const slTxt = data.sl ? ` · SL \u20b9${data.sl}` : '';
     const tpTxt = data.tp ? ` · TP \u20b9${data.tp}` : '';
@@ -4854,6 +4895,7 @@ async function practiceSell() {
     const data = await res.json();
     if (data.error) { showPracticeToast(data.error, 'err'); return; }
 
+    const _wasShort = practiceState.position.side === 'short';
     practiceState.trades.push({
       entry_price: practiceState.position.entry_price,
       exit_price: data.price,
@@ -4861,6 +4903,7 @@ async function practiceSell() {
       holding_days: data.holding_days,
       entry_day: practiceState.position.entry_day,
       exit_day: data.day,
+      side: _wasShort ? 'short' : 'long',
     });
     practiceState.position = null;
     practiceState.cash = data.cash_remaining;
@@ -4869,15 +4912,19 @@ async function practiceSell() {
 
     pracMarkers.push({
       time: pracVisibleCandles[pracVisibleCandles.length - 1].time,
-      position: 'aboveBar', color: '#ff4757', shape: 'arrowDown',
-      text: 'SELL ' + (data.pnl >= 0 ? '+' : '') + '\u20b9' + data.pnl.toFixed(0),
+      position: _wasShort ? 'belowBar' : 'aboveBar',
+      color: data.pnl >= 0 ? '#00e5a0' : '#ff4757',
+      shape: _wasShort ? 'arrowUp' : 'arrowDown',
+      text: (_wasShort ? 'COVER★ ' : 'SELL ') + (data.pnl >= 0 ? '+' : '') + '\u20b9' + data.pnl.toFixed(0),
     });
     refreshMarkers();
 
     updatePracticePurse();
     document.getElementById('prac-position-card').classList.add('hidden');
     document.getElementById('prac-btn-buy').disabled = false;
+    document.getElementById('prac-btn-short').disabled = false;
     document.getElementById('prac-btn-sell').disabled = true;
+    document.getElementById('prac-btn-sell-label').textContent = 'Sell';
     // Lower tone for sell, higher if profit
     const win = data.pnl >= 0;
     playPracticeTone(win ? 1200 : 440, 140);
@@ -4921,10 +4968,13 @@ function updatePracticePurse() {
 function updatePracticePosition(currentPrice) {
   if (!practiceState?.position) return;
   const pos = practiceState.position;
-  document.getElementById('prac-entry-price').textContent = '\u20b9' + pos.entry_price.toFixed(2);
+  const isShort = pos.side === 'short';
+  document.getElementById('prac-entry-price').textContent = (isShort ? '★ ' : '') + '\u20b9' + pos.entry_price.toFixed(2);
   document.getElementById('prac-qty').textContent = pos.qty;
-  const pnl = (currentPrice - pos.entry_price) * pos.qty;
-  const pnlPct = ((currentPrice - pos.entry_price) / pos.entry_price * 100);
+  // Short: P&L flips sign
+  const delta = isShort ? (pos.entry_price - currentPrice) : (currentPrice - pos.entry_price);
+  const pnl = delta * pos.qty;
+  const pnlPct = (delta / pos.entry_price * 100);
   const pnlEl = document.getElementById('prac-pnl');
   pnlEl.textContent = (pnl >= 0 ? '+' : '') + '\u20b9' + pnl.toFixed(0) + ' (' + pnlPct.toFixed(1) + '%)';
   pnlEl.style.color = pnl >= 0 ? 'var(--candle-up)' : 'var(--candle-down)';
