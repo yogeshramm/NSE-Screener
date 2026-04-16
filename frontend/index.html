@@ -190,6 +190,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
       <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="config" onclick="switchTab('config')">Configuration</a>
       <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="indicators" onclick="switchTab('indicators')">Indicators</a>
       <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="watchlist" onclick="switchTab('watchlist')">Watchlist</a>
+      <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="practice" onclick="switchTab('practice')">Practice</a>
     </nav>
   </div>
   <div class="flex items-center gap-4">
@@ -534,6 +535,140 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
   </div>
 </section>
 
+<!-- ==================== TAB: PRACTICE ==================== -->
+<section class="tab-content flex-col w-full" id="tab-practice">
+  <div class="flex flex-col h-full">
+    <!-- TOP BAR -->
+    <div class="px-4 py-3 bg-surface-container-low border-b border-outline-variant/10 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <span class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">PRACTICE MODE</span>
+        <div class="flex bg-surface-container-highest rounded-md p-0.5 gap-0.5">
+          <button onclick="setPracticeUniverse('nifty500',this)" class="prac-uni-btn px-3 py-1 text-[9px] font-bold rounded bg-surface-variant text-primary">Nifty 500</button>
+          <button onclick="setPracticeUniverse('next500',this)" class="prac-uni-btn px-3 py-1 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">Next 500</button>
+        </div>
+        <button onclick="startPracticeRound()" class="flex items-center gap-2 px-4 py-2 bg-primary-container text-on-primary font-bold rounded-lg text-xs uppercase tracking-wider active:scale-95 transition-transform">
+          <span class="material-symbols-outlined text-sm">play_arrow</span> New Round
+        </button>
+      </div>
+      <div class="flex items-center gap-5">
+        <div id="prac-day-counter" class="text-[10px] font-mono text-on-surface-variant hidden">
+          Day <span id="prac-day" class="text-primary font-bold">0</span>/<span id="prac-max-days">60</span>
+        </div>
+        <div id="prac-purse-display" class="flex items-center gap-3 hidden">
+          <div class="flex flex-col items-end">
+            <span class="text-[8px] uppercase text-on-surface-variant font-bold">Cash</span>
+            <span id="prac-cash" class="text-xs font-mono font-bold text-primary">&#8377;1,00,000</span>
+          </div>
+          <div class="w-px h-6 bg-outline-variant/30"></div>
+          <div class="flex flex-col items-end">
+            <span class="text-[8px] uppercase text-on-surface-variant font-bold">Position</span>
+            <span id="prac-pos-value" class="text-xs font-mono font-bold text-on-surface-variant">&#8377;0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- MAIN AREA -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <!-- Welcome state -->
+      <div id="prac-welcome" class="flex-1 flex items-center justify-center">
+        <div class="text-center max-w-md">
+          <span class="material-symbols-outlined text-6xl text-primary/30 mb-4 block">sports_esports</span>
+          <h2 class="text-2xl font-black text-on-surface tracking-tighter mb-2">Practice Trading</h2>
+          <p class="text-sm text-on-surface-variant mb-6">Trade real historical stocks candle-by-candle with a &#8377;1,00,000 purse. Test your skills without risking real money.</p>
+          <button onclick="startPracticeRound()" class="px-8 py-3 bg-primary-container text-on-primary font-bold rounded-xl text-sm uppercase active:scale-95 transition-transform">
+            Start Round
+          </button>
+          <!-- History section -->
+          <div id="prac-history-section" class="mt-8 text-left hidden">
+            <h3 class="text-xs font-black uppercase text-on-surface-variant tracking-widest mb-3">Session History</h3>
+            <div id="prac-history-stats" class="grid grid-cols-3 gap-3 mb-4"></div>
+            <div id="prac-history-list" class="space-y-2 max-h-48 overflow-y-auto"></div>
+          </div>
+        </div>
+      </div>
+      <!-- Game state -->
+      <div id="prac-game" class="flex-1 flex flex-col hidden">
+        <!-- Chart -->
+        <div class="flex-1 flex flex-col p-2 gap-2 overflow-y-auto">
+          <div class="flex items-center gap-2 px-1">
+            <span id="prac-symbol" class="text-[10px] font-black uppercase tracking-widest text-on-surface"></span>
+            <span id="prac-price" class="text-primary font-mono text-xs font-bold"></span>
+            <div id="prac-ohlc" class="flex gap-2 text-[9px] font-mono text-on-surface-variant"></div>
+            <div class="flex-1"></div>
+            <div id="prac-warn-55" class="hidden items-center gap-1 px-2 py-1 bg-error/10 rounded text-[9px] text-error font-bold">
+              <span class="material-symbols-outlined text-xs">warning</span> Auto-exit approaching
+            </div>
+          </div>
+          <div id="prac-chart-container" class="bg-surface-container rounded-lg relative overflow-hidden border border-outline-variant/10" style="min-height:280px;height:320px;flex-shrink:0"></div>
+          <div id="prac-rsi-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:70px"></div>
+        </div>
+        <!-- BOTTOM ACTION BAR -->
+        <div class="px-4 py-3 bg-surface-container border-t border-outline-variant/10 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <button id="prac-btn-next" onclick="practiceNextDay()" class="flex items-center gap-2 px-5 py-2.5 bg-surface-container-highest text-on-surface font-bold rounded-lg text-xs uppercase active:scale-95 transition-transform hover:bg-surface-variant">
+              <span class="material-symbols-outlined text-sm">skip_next</span> Next Day
+            </button>
+            <button id="prac-btn-buy" onclick="practiceBuy()" class="flex items-center gap-2 px-5 py-2.5 bg-[#00e5a0]/20 text-[#00e5a0] font-bold rounded-lg text-xs uppercase active:scale-95 transition-transform hover:bg-[#00e5a0]/30 disabled:opacity-30" disabled>
+              <span class="material-symbols-outlined text-sm">trending_up</span> Buy
+            </button>
+            <button id="prac-btn-sell" onclick="practiceSell()" class="flex items-center gap-2 px-5 py-2.5 bg-[#ff4757]/20 text-[#ff4757] font-bold rounded-lg text-xs uppercase active:scale-95 transition-transform hover:bg-[#ff4757]/30 disabled:opacity-30" disabled>
+              <span class="material-symbols-outlined text-sm">trending_down</span> Sell
+            </button>
+            <div class="w-px h-7 bg-outline-variant/20"></div>
+            <button id="prac-btn-end" onclick="practiceEnd()" class="flex items-center gap-2 px-4 py-2.5 text-on-surface-variant font-bold rounded-lg text-xs uppercase hover:text-error hover:bg-error/10 transition-colors">
+              <span class="material-symbols-outlined text-sm">stop</span> End Round
+            </button>
+          </div>
+          <!-- Position card -->
+          <div id="prac-position-card" class="flex items-center gap-4 hidden">
+            <div class="flex flex-col items-end">
+              <span class="text-[8px] uppercase text-on-surface-variant font-bold">Entry</span>
+              <span id="prac-entry-price" class="text-xs font-mono text-on-surface">--</span>
+            </div>
+            <div class="flex flex-col items-end">
+              <span class="text-[8px] uppercase text-on-surface-variant font-bold">Qty</span>
+              <span id="prac-qty" class="text-xs font-mono text-on-surface">--</span>
+            </div>
+            <div class="flex flex-col items-end">
+              <span class="text-[8px] uppercase text-on-surface-variant font-bold">P&L</span>
+              <span id="prac-pnl" class="text-xs font-mono font-bold">--</span>
+            </div>
+            <div class="flex flex-col items-end">
+              <span class="text-[8px] uppercase text-on-surface-variant font-bold">Holding</span>
+              <span id="prac-holding-days" class="text-xs font-mono text-on-surface-variant">--</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== PRACTICE SUMMARY MODAL ==================== -->
+<div id="prac-summary-modal" class="fixed inset-0 z-[80] flex items-center justify-center bg-black/60" style="display:none">
+  <div class="w-[520px] max-h-[80vh] glass-panel rounded-2xl border border-outline-variant/20 overflow-hidden flex flex-col">
+    <div class="p-5 border-b border-outline-variant/20 flex items-center justify-between">
+      <div>
+        <h3 class="text-sm font-black uppercase text-on-surface tracking-widest">Round Summary</h3>
+        <span id="prac-sum-symbol" class="text-xs text-on-surface-variant"></span>
+      </div>
+      <span class="material-symbols-outlined cursor-pointer hover:text-error" onclick="closePracticeSummary()">close</span>
+    </div>
+    <div class="p-5 overflow-y-auto flex-1 space-y-5">
+      <!-- Stats grid -->
+      <div class="grid grid-cols-4 gap-3" id="prac-sum-stats"></div>
+      <!-- Best/Worst -->
+      <div class="grid grid-cols-2 gap-3" id="prac-sum-highlights"></div>
+      <!-- Mistake analysis -->
+      <div id="prac-sum-mistakes" class="space-y-3"></div>
+    </div>
+    <div class="p-4 border-t border-outline-variant/20 flex justify-between">
+      <button onclick="closePracticeSummary()" class="px-6 py-2.5 text-on-surface-variant font-bold text-xs uppercase hover:text-on-surface">Close</button>
+      <button onclick="closePracticeSummary();startPracticeRound()" class="px-6 py-2.5 bg-primary-container text-on-primary font-bold rounded-lg text-xs uppercase active:scale-95 transition-transform">Play Again</button>
+    </div>
+  </div>
+</div>
+
 <!-- ==================== AI INSIGHTS SIDE PANEL ==================== -->
 <div id="side-panel" class="fixed top-14 right-0 w-[380px] h-[calc(100vh-56px)] bg-surface-container border-l border-outline-variant/20 z-40 transform translate-x-full transition-transform duration-300 overflow-y-auto" style="translate:100%">
   <div class="p-4 border-b border-outline-variant/20 flex justify-between items-center">
@@ -761,6 +896,7 @@ function switchTab(tab) {
   if (tab === 'indicators') loadIndicators();
   if (tab === 'watchlist') loadWatchlist();
   if (tab === 'screener') { closeChart(); document.getElementById('symbols-input').value=''; }
+  if (tab === 'practice') loadPracticeHistory();
 }
 
 // ============ FILTER PANEL ============
@@ -1930,6 +2066,627 @@ async function sendChat() {
     }
   } catch(e){container.innerHTML+=`<div class="flex gap-2"><div class="w-6 h-6 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center border border-outline-variant/20"><span class="material-symbols-outlined text-[14px]">psychology</span></div><div class="bg-error/10 p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl border border-error/20 text-error leading-relaxed">Error: ${e.message}</div></div>`;}
   container.scrollTop=container.scrollHeight;
+}
+
+// ============ PRACTICE GAME ============
+let practiceState = null; // current game state
+let pracChart = null, pracRsiChart = null;
+let pracCandleSeries = null, pracVolSeries = null;
+let pracSma20Series = null, pracBbUpperSeries = null, pracBbLowerSeries = null, pracSupertrendSeries = null;
+let pracRsiLine = null;
+let pracVisibleCandles = [], pracVisibleVolumes = [];
+let pracIndicators = {}; // from server
+let practiceUniverse = 'nifty500';
+let pracMarkers = [];
+
+function setPracticeUniverse(u, el) {
+  practiceUniverse = u;
+  document.querySelectorAll('.prac-uni-btn').forEach(b => {
+    b.className = b === el
+      ? 'prac-uni-btn px-3 py-1 text-[9px] font-bold rounded bg-surface-variant text-primary'
+      : 'prac-uni-btn px-3 py-1 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary';
+  });
+}
+
+async function startPracticeRound() {
+  // Cleanup previous
+  destroyPracticeCharts();
+  pracMarkers = [];
+  pracVisibleCandles = [];
+  pracVisibleVolumes = [];
+  pracIndicators = {};
+
+  document.getElementById('prac-welcome').classList.add('hidden');
+  document.getElementById('prac-game').classList.remove('hidden');
+  document.getElementById('prac-btn-buy').disabled = true;
+  document.getElementById('prac-btn-sell').disabled = true;
+  document.getElementById('prac-position-card').classList.add('hidden');
+  document.getElementById('prac-warn-55').classList.add('hidden');
+  document.getElementById('prac-day-counter').classList.remove('hidden');
+  document.getElementById('prac-purse-display').classList.remove('hidden');
+
+  try {
+    const res = await fetch(API + '/practice/start', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ universe: practiceUniverse })
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+
+    practiceState = {
+      symbol: data.symbol,
+      purse: data.purse,
+      maxDays: data.max_days,
+      totalBars: data.total_bars,
+      day: 0,
+      cash: data.purse,
+      position: null,
+      trades: [],
+    };
+    pracVisibleCandles = [...data.warmup_candles];
+    pracVisibleVolumes = [...data.warmup_volumes];
+    pracIndicators = data.indicators || {};
+
+    document.getElementById('prac-symbol').textContent = data.symbol;
+    document.getElementById('prac-max-days').textContent = data.total_bars;
+    updatePracticeDay(0);
+    updatePracticePurse();
+
+    renderPracticeChart();
+    document.getElementById('prac-btn-buy').disabled = true; // need to advance at least 1 day
+    document.getElementById('prac-btn-sell').disabled = true;
+  } catch(e) {
+    alert('Failed to start practice round: ' + e.message);
+  }
+}
+
+function destroyPracticeCharts() {
+  if (pracChart) { try { pracChart.remove() } catch(e){} pracChart = null; }
+  if (pracRsiChart) { try { pracRsiChart.remove() } catch(e){} pracRsiChart = null; }
+  pracCandleSeries = null; pracVolSeries = null;
+  pracSma20Series = null; pracBbUpperSeries = null; pracBbLowerSeries = null; pracSupertrendSeries = null;
+  pracRsiLine = null;
+}
+
+function renderPracticeChart() {
+  destroyPracticeCharts();
+  const el = document.getElementById('prac-chart-container');
+  const rsiEl = document.getElementById('prac-rsi-container');
+  el.innerHTML = ''; rsiEl.innerHTML = '';
+
+  const c = getChartColors();
+  const cc = getCandleColors();
+
+  // Main chart
+  pracChart = LightweightCharts.createChart(el, {
+    width: el.clientWidth, height: el.clientHeight,
+    layout: { background: { color: c.bg }, textColor: c.text, fontSize: 10 },
+    grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
+    crosshair: { mode: 0 },
+    timeScale: { borderColor: c.border, timeVisible: false, rightOffset: 5 },
+    rightPriceScale: { borderColor: c.border, minimumWidth: 65 },
+  });
+
+  pracCandleSeries = pracChart.addCandlestickSeries({
+    upColor: cc.up, downColor: cc.down,
+    borderUpColor: cc.up, borderDownColor: cc.down,
+    wickUpColor: cc.up, wickDownColor: cc.down,
+  });
+  pracCandleSeries.setData(pracVisibleCandles);
+
+  // Volume
+  pracVolSeries = pracChart.addHistogramSeries({
+    priceFormat: { type: 'volume' }, priceScaleId: 'vol',
+    lastValueVisible: false, priceLineVisible: false,
+  });
+  pracChart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+  pracVolSeries.setData(pracVisibleVolumes);
+
+  // SMA 20
+  if (pracIndicators.sma20?.length) {
+    pracSma20Series = pracChart.addLineSeries({ color: '#ec4899', lineWidth: 1.5, title: 'SMA 20', lastValueVisible: false, priceLineVisible: false });
+    pracSma20Series.setData(pracIndicators.sma20);
+  }
+
+  // Bollinger Bands
+  if (pracIndicators.bb_upper?.length) {
+    pracBbUpperSeries = pracChart.addAreaSeries({ topColor: 'rgba(139,92,246,0.0)', bottomColor: 'rgba(139,92,246,0.12)', lineColor: '#8b5cf6', lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    pracBbUpperSeries.setData(pracIndicators.bb_upper);
+  }
+  if (pracIndicators.bb_lower?.length) {
+    pracBbLowerSeries = pracChart.addAreaSeries({ topColor: 'rgba(139,92,246,0.12)', bottomColor: 'rgba(139,92,246,0.0)', lineColor: '#8b5cf6', lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    pracBbLowerSeries.setData(pracIndicators.bb_lower);
+  }
+
+  // Supertrend (per-point color)
+  if (pracIndicators.supertrend?.length) {
+    pracSupertrendSeries = pracChart.addLineSeries({ lineWidth: 2, title: 'ST', lastValueVisible: false, priceLineVisible: false });
+    pracSupertrendSeries.setData(pracIndicators.supertrend.map(p => ({
+      time: p.time, value: p.value,
+      color: p.direction === 1 ? '#00e5a0' : '#ff4757',
+    })));
+  }
+
+  // OHLC overlay
+  const ohlcDiv = document.createElement('div');
+  ohlcDiv.id = 'prac-ohlc-overlay';
+  ohlcDiv.className = 'absolute top-2 left-2 z-10 flex gap-3 text-[10px] font-mono pointer-events-none';
+  ohlcDiv.style.textShadow = '0 0 3px rgba(0,0,0,0.5)';
+  el.appendChild(ohlcDiv);
+
+  if (pracVisibleCandles.length) {
+    const last = pracVisibleCandles[pracVisibleCandles.length - 1];
+    updatePracticeOhlc(last);
+    document.getElementById('prac-price').textContent = '\u20b9' + last.close.toFixed(2);
+  }
+
+  pracChart.subscribeCrosshairMove(param => {
+    if (param.time) {
+      const candle = pracVisibleCandles.find(c => c.time === param.time);
+      if (candle) updatePracticeOhlc(candle);
+    } else if (pracVisibleCandles.length) {
+      updatePracticeOhlc(pracVisibleCandles[pracVisibleCandles.length - 1]);
+    }
+    // Sync RSI crosshair
+    if (pracRsiChart && pracRsiLine) {
+      try {
+        if (!param.time) pracRsiChart.clearCrosshairPosition();
+        else pracRsiChart.setCrosshairPosition(undefined, param.time, pracRsiLine);
+      } catch(e){}
+    }
+  });
+
+  pracChart.timeScale().fitContent();
+
+  // RSI panel
+  rsiEl.style.display = 'block';
+  renderPracticeRsi(rsiEl);
+
+  // Sync time scales
+  pracChart.timeScale().subscribeVisibleLogicalRangeChange(lr => {
+    if (!lr || !pracRsiChart) return;
+    try { pracRsiChart.timeScale().setVisibleLogicalRange(lr); } catch(e){}
+  });
+
+  new ResizeObserver(() => {
+    if (pracChart) pracChart.applyOptions({ width: el.clientWidth });
+    if (pracRsiChart) pracRsiChart.applyOptions({ width: rsiEl.clientWidth });
+  }).observe(el);
+}
+
+function renderPracticeRsi(el) {
+  el.innerHTML = '';
+  const c = getChartColors();
+  pracRsiChart = LightweightCharts.createChart(el, {
+    width: el.clientWidth, height: 70,
+    layout: { background: { color: c.bg }, textColor: c.text, fontSize: 9 },
+    grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
+    timeScale: { visible: false }, rightPriceScale: { borderColor: c.border, minimumWidth: 65 },
+    crosshair: { mode: 0 }, handleScroll: false, handleScale: false,
+  });
+  // Time baseline for alignment
+  if (pracVisibleCandles.length) {
+    const bl = pracRsiChart.addLineSeries({ visible: false, priceScaleId: 'baseline_hidden' });
+    bl.setData(pracVisibleCandles.map(c => ({ time: c.time, value: 0 })));
+  }
+  pracRsiLine = pracRsiChart.addLineSeries({ color: '#a855f7', lineWidth: 1.5, title: 'RSI (14)' });
+  if (pracIndicators.rsi?.length) {
+    pracRsiLine.setData(pracIndicators.rsi);
+    const t0 = pracVisibleCandles[0]?.time, t1 = pracVisibleCandles[pracVisibleCandles.length - 1]?.time;
+    if (t0 && t1) {
+      const r70 = pracRsiChart.addLineSeries({ color: '#ff475744', lineWidth: 1, lineStyle: 2 });
+      const r30 = pracRsiChart.addLineSeries({ color: '#00e5a044', lineWidth: 1, lineStyle: 2 });
+      r70.setData([{ time: t0, value: 70 }, { time: t1, value: 70 }]);
+      r30.setData([{ time: t0, value: 30 }, { time: t1, value: 30 }]);
+    }
+  }
+  setTimeout(() => {
+    try {
+      const lr = pracChart?.timeScale().getVisibleLogicalRange();
+      if (lr && pracRsiChart) pracRsiChart.timeScale().setVisibleLogicalRange(lr);
+    } catch(e){}
+  }, 50);
+}
+
+function updatePracticeOhlc(candle) {
+  const el = document.getElementById('prac-ohlc-overlay');
+  if (!el) return;
+  const up = candle.close >= candle.open;
+  const col = up ? 'var(--candle-up)' : 'var(--candle-down)';
+  el.innerHTML = `<span style="color:${col}">O ${candle.open.toFixed(2)}</span><span style="color:${col}">H ${candle.high.toFixed(2)}</span><span style="color:${col}">L ${candle.low.toFixed(2)}</span><span style="color:${col}">C ${candle.close.toFixed(2)}</span>`;
+}
+
+async function practiceNextDay() {
+  if (!practiceState) return;
+  try {
+    const res = await fetch(API + '/practice/next', { method: 'POST' });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+
+    // Append new candle
+    pracVisibleCandles.push(data.candle);
+    pracVisibleVolumes.push(data.volume);
+    practiceState.day = data.day;
+
+    if (pracCandleSeries) pracCandleSeries.update(data.candle);
+    if (pracVolSeries) pracVolSeries.update(data.volume);
+
+    // Recompute indicators incrementally (RSI, SMA, BB, Supertrend from visible closes)
+    recomputePracticeIndicators();
+
+    // Update OHLC + price
+    updatePracticeOhlc(data.candle);
+    document.getElementById('prac-price').textContent = '\u20b9' + data.candle.close.toFixed(2);
+
+    updatePracticeDay(data.day);
+    updatePracticePosition(data.candle.close);
+
+    // Enable buy button (sell only if holding)
+    document.getElementById('prac-btn-buy').disabled = !!practiceState.position;
+    document.getElementById('prac-btn-sell').disabled = !practiceState.position;
+
+    // Auto-exit warning
+    if (data.days_remaining <= 5) {
+      document.getElementById('prac-warn-55').classList.remove('hidden');
+      document.getElementById('prac-warn-55').classList.add('flex');
+    }
+
+    if (data.game_over) {
+      practiceEnd();
+    }
+
+    // Scroll chart to show latest
+    pracChart?.timeScale().scrollToRealTime();
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+function recomputePracticeIndicators() {
+  const closes = pracVisibleCandles.map(c => c.close);
+  const highs = pracVisibleCandles.map(c => c.high);
+  const lows = pracVisibleCandles.map(c => c.low);
+  const n = closes.length;
+
+  // RSI 14
+  if (n >= 15) {
+    const rsiData = [];
+    const deltas = [];
+    for (let i = 1; i < n; i++) deltas.push(closes[i] - closes[i-1]);
+    let avgGain = 0, avgLoss = 0;
+    for (let i = 0; i < 14; i++) {
+      if (deltas[i] > 0) avgGain += deltas[i]; else avgLoss -= deltas[i];
+    }
+    avgGain /= 14; avgLoss /= 14;
+    for (let i = 14; i < deltas.length; i++) {
+      if (i > 14) {
+        const d = deltas[i-1];
+        avgGain = (avgGain * 13 + (d > 0 ? d : 0)) / 14;
+        avgLoss = (avgLoss * 13 + (d < 0 ? -d : 0)) / 14;
+      }
+      const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+      const rsi = 100 - (100 / (1 + rs));
+      rsiData.push({ time: pracVisibleCandles[i+1].time, value: Math.round(rsi * 100) / 100 });
+    }
+    if (pracRsiLine) pracRsiLine.setData(rsiData);
+    // Extend 70/30 lines
+    if (rsiData.length && pracRsiChart) {
+      const t1 = pracVisibleCandles[pracVisibleCandles.length - 1].time;
+      // We just update the last point; full re-render not needed for lines
+    }
+  }
+
+  // SMA 20
+  if (n >= 20 && pracSma20Series) {
+    const smaData = [];
+    for (let i = 19; i < n; i++) {
+      let sum = 0;
+      for (let j = i - 19; j <= i; j++) sum += closes[j];
+      smaData.push({ time: pracVisibleCandles[i].time, value: Math.round(sum / 20 * 100) / 100 });
+    }
+    pracSma20Series.setData(smaData);
+  }
+
+  // Bollinger Bands
+  if (n >= 20) {
+    const bbU = [], bbL = [];
+    for (let i = 19; i < n; i++) {
+      let sum = 0;
+      for (let j = i - 19; j <= i; j++) sum += closes[j];
+      const mean = sum / 20;
+      let variance = 0;
+      for (let j = i - 19; j <= i; j++) variance += (closes[j] - mean) ** 2;
+      const std = Math.sqrt(variance / 20);
+      bbU.push({ time: pracVisibleCandles[i].time, value: Math.round((mean + 2 * std) * 100) / 100 });
+      bbL.push({ time: pracVisibleCandles[i].time, value: Math.round((mean - 2 * std) * 100) / 100 });
+    }
+    if (pracBbUpperSeries) pracBbUpperSeries.setData(bbU);
+    if (pracBbLowerSeries) pracBbLowerSeries.setData(bbL);
+  }
+
+  // Supertrend (simplified — recompute from scratch)
+  if (n >= 14 && pracSupertrendSeries) {
+    const period = 7, mult = 3.0;
+    const hl2 = [], tr = [];
+    for (let i = 0; i < n; i++) {
+      hl2.push((highs[i] + lows[i]) / 2);
+      if (i === 0) tr.push(highs[i] - lows[i]);
+      else tr.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i-1]), Math.abs(lows[i] - closes[i-1])));
+    }
+    // EWM ATR
+    const atr = new Array(n).fill(0);
+    const alpha = 1 / period;
+    for (let i = 0; i < n; i++) {
+      if (i < period) { atr[i] = tr.slice(0, i+1).reduce((a,b)=>a+b, 0) / (i+1); }
+      else { atr[i] = alpha * tr[i] + (1 - alpha) * atr[i-1]; }
+    }
+    const fU = [], fL = [], dir = [], st = [];
+    for (let i = 0; i < n; i++) {
+      const bu = hl2[i] + mult * atr[i];
+      const bl = hl2[i] - mult * atr[i];
+      if (i < period) { fU.push(bu); fL.push(bl); dir.push(1); st.push(null); continue; }
+      const fl = (bl > fL[i-1] || closes[i-1] < fL[i-1]) ? bl : fL[i-1];
+      const fu = (bu < fU[i-1] || closes[i-1] > fU[i-1]) ? bu : fU[i-1];
+      fU.push(fu); fL.push(fl);
+      let d;
+      if (i === period) d = closes[i] > fu ? 1 : -1;
+      else if (dir[i-1] === 1) d = closes[i] < fl ? -1 : 1;
+      else d = closes[i] > fu ? 1 : -1;
+      dir.push(d);
+      st.push(d === 1 ? fl : fu);
+    }
+    const stData = [];
+    for (let i = period; i < n; i++) {
+      if (st[i] !== null) stData.push({ time: pracVisibleCandles[i].time, value: Math.round(st[i] * 100) / 100, color: dir[i] === 1 ? '#00e5a0' : '#ff4757' });
+    }
+    pracSupertrendSeries.setData(stData);
+  }
+}
+
+async function practiceBuy() {
+  if (!practiceState || practiceState.position) return;
+  try {
+    const res = await fetch(API + '/practice/trade', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action: 'buy' })
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+
+    practiceState.position = { entry_price: data.price, qty: data.qty, entry_day: data.day, cost: data.cost };
+    practiceState.cash = data.cash_remaining;
+
+    // Add buy marker
+    pracMarkers.push({
+      time: pracVisibleCandles[pracVisibleCandles.length - 1].time,
+      position: 'belowBar', color: '#00e5a0', shape: 'arrowUp',
+      text: 'BUY ' + data.qty + '@' + data.price.toFixed(0),
+    });
+    if (pracCandleSeries) pracCandleSeries.setMarkers([...pracMarkers]);
+
+    updatePracticePurse();
+    updatePracticePosition(data.price);
+    document.getElementById('prac-position-card').classList.remove('hidden');
+    document.getElementById('prac-btn-buy').disabled = true;
+    document.getElementById('prac-btn-sell').disabled = false;
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function practiceSell() {
+  if (!practiceState || !practiceState.position) return;
+  try {
+    const res = await fetch(API + '/practice/trade', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action: 'sell' })
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+
+    practiceState.trades.push({
+      entry_price: practiceState.position.entry_price,
+      exit_price: data.price,
+      qty: data.qty, pnl: data.pnl, pnl_pct: data.pnl_pct,
+      holding_days: data.holding_days,
+    });
+    practiceState.position = null;
+    practiceState.cash = data.cash_remaining;
+
+    // Add sell marker
+    pracMarkers.push({
+      time: pracVisibleCandles[pracVisibleCandles.length - 1].time,
+      position: 'aboveBar', color: '#ff4757', shape: 'arrowDown',
+      text: 'SELL ' + (data.pnl >= 0 ? '+' : '') + '\u20b9' + data.pnl.toFixed(0),
+    });
+    if (pracCandleSeries) pracCandleSeries.setMarkers([...pracMarkers]);
+
+    updatePracticePurse();
+    document.getElementById('prac-position-card').classList.add('hidden');
+    document.getElementById('prac-btn-buy').disabled = false;
+    document.getElementById('prac-btn-sell').disabled = true;
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function practiceEnd() {
+  if (!practiceState) return;
+  try {
+    const res = await fetch(API + '/practice/end', { method: 'POST' });
+    const data = await res.json();
+
+    // Save to history
+    savePracticeSession(data);
+
+    // Show summary modal
+    showPracticeSummary(data);
+
+    // Disable buttons
+    document.getElementById('prac-btn-next').disabled = true;
+    document.getElementById('prac-btn-buy').disabled = true;
+    document.getElementById('prac-btn-sell').disabled = true;
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+function updatePracticeDay(day) {
+  document.getElementById('prac-day').textContent = day;
+}
+
+function updatePracticePurse() {
+  if (!practiceState) return;
+  document.getElementById('prac-cash').textContent = '\u20b9' + practiceState.cash.toLocaleString('en-IN');
+  const posVal = practiceState.position
+    ? practiceState.position.qty * (pracVisibleCandles.length ? pracVisibleCandles[pracVisibleCandles.length-1].close : practiceState.position.entry_price)
+    : 0;
+  document.getElementById('prac-pos-value').textContent = '\u20b9' + Math.round(posVal).toLocaleString('en-IN');
+}
+
+function updatePracticePosition(currentPrice) {
+  if (!practiceState?.position) return;
+  const pos = practiceState.position;
+  document.getElementById('prac-entry-price').textContent = '\u20b9' + pos.entry_price.toFixed(2);
+  document.getElementById('prac-qty').textContent = pos.qty;
+  const pnl = (currentPrice - pos.entry_price) * pos.qty;
+  const pnlPct = ((currentPrice - pos.entry_price) / pos.entry_price * 100);
+  const pnlEl = document.getElementById('prac-pnl');
+  pnlEl.textContent = (pnl >= 0 ? '+' : '') + '\u20b9' + pnl.toFixed(0) + ' (' + pnlPct.toFixed(1) + '%)';
+  pnlEl.style.color = pnl >= 0 ? 'var(--candle-up)' : 'var(--candle-down)';
+  document.getElementById('prac-holding-days').textContent = (practiceState.day - pos.entry_day) + 'd';
+  updatePracticePurse();
+}
+
+// ---- SUMMARY MODAL ----
+function showPracticeSummary(data) {
+  const modal = document.getElementById('prac-summary-modal');
+  modal.style.display = 'flex';
+  document.getElementById('prac-sum-symbol').textContent = data.symbol + ' \u2022 ' + data.total_trades + ' trades';
+
+  // Stats grid
+  const statsEl = document.getElementById('prac-sum-stats');
+  const pnlColor = data.total_pnl >= 0 ? 'text-[#00e5a0]' : 'text-[#ff4757]';
+  statsEl.innerHTML = `
+    <div class="bg-surface-container-highest rounded-lg p-3 text-center">
+      <div class="text-[8px] uppercase text-on-surface-variant font-bold mb-1">Total P&L</div>
+      <div class="text-lg font-black ${pnlColor}">${data.total_pnl >= 0 ? '+' : ''}\u20b9${data.total_pnl.toLocaleString('en-IN')}</div>
+      <div class="text-[9px] ${pnlColor}">${data.total_pnl_pct >= 0 ? '+' : ''}${data.total_pnl_pct}%</div>
+    </div>
+    <div class="bg-surface-container-highest rounded-lg p-3 text-center">
+      <div class="text-[8px] uppercase text-on-surface-variant font-bold mb-1">Win Rate</div>
+      <div class="text-lg font-black text-on-surface">${data.win_rate || 0}%</div>
+      <div class="text-[9px] text-on-surface-variant">${data.winning_trades || 0}W / ${data.losing_trades || 0}L</div>
+    </div>
+    <div class="bg-surface-container-highest rounded-lg p-3 text-center">
+      <div class="text-[8px] uppercase text-on-surface-variant font-bold mb-1">Final Purse</div>
+      <div class="text-lg font-black text-on-surface">\u20b9${(data.final_purse || 0).toLocaleString('en-IN')}</div>
+    </div>
+    <div class="bg-surface-container-highest rounded-lg p-3 text-center">
+      <div class="text-[8px] uppercase text-on-surface-variant font-bold mb-1">Avg Hold</div>
+      <div class="text-lg font-black text-on-surface">${data.avg_holding_days || 0}d</div>
+    </div>`;
+
+  // Best / Worst trade
+  const hlEl = document.getElementById('prac-sum-highlights');
+  let hlHtml = '';
+  if (data.best_trade) {
+    hlHtml += `<div class="bg-[#00e5a0]/10 border border-[#00e5a0]/20 rounded-lg p-3">
+      <div class="text-[8px] uppercase text-[#00e5a0] font-bold mb-1">Best Trade</div>
+      <div class="text-sm font-bold text-[#00e5a0]">+\u20b9${data.best_trade.pnl.toLocaleString('en-IN')} (${data.best_trade.pnl_pct}%)</div>
+      <div class="text-[9px] text-on-surface-variant">\u20b9${data.best_trade.entry_price} \u2192 \u20b9${data.best_trade.exit_price} \u2022 ${data.best_trade.holding_days}d</div>
+    </div>`;
+  }
+  if (data.worst_trade) {
+    hlHtml += `<div class="bg-[#ff4757]/10 border border-[#ff4757]/20 rounded-lg p-3">
+      <div class="text-[8px] uppercase text-[#ff4757] font-bold mb-1">Worst Trade</div>
+      <div class="text-sm font-bold text-[#ff4757]">\u20b9${data.worst_trade.pnl.toLocaleString('en-IN')} (${data.worst_trade.pnl_pct}%)</div>
+      <div class="text-[9px] text-on-surface-variant">\u20b9${data.worst_trade.entry_price} \u2192 \u20b9${data.worst_trade.exit_price} \u2022 ${data.worst_trade.holding_days}d</div>
+    </div>`;
+  }
+  hlEl.innerHTML = hlHtml;
+
+  // Mistakes
+  const mEl = document.getElementById('prac-sum-mistakes');
+  if (data.mistakes?.length) {
+    mEl.innerHTML = '<div class="text-[9px] font-black uppercase text-on-surface-variant tracking-widest mb-2">Trade Analysis</div>' +
+      data.mistakes.map(m => {
+        const isGood = m.type === 'good';
+        const borderCol = isGood ? 'border-[#00e5a0]/20' : 'border-[#ff4757]/20';
+        const bgCol = isGood ? 'bg-[#00e5a0]/5' : 'bg-[#ff4757]/5';
+        const icon = isGood ? 'check_circle' : 'error';
+        const iconCol = isGood ? 'text-[#00e5a0]' : 'text-[#ff4757]';
+        return `<div class="${bgCol} ${borderCol} border rounded-lg p-3">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="material-symbols-outlined text-sm ${iconCol}" style="font-variation-settings:'FILL' 1">${icon}</span>
+            <span class="text-xs font-bold text-on-surface">${m.trade}</span>
+            <span class="text-xs font-mono ${isGood ? 'text-[#00e5a0]' : 'text-[#ff4757]'}">${m.message}</span>
+          </div>
+          ${m.details?.length ? '<ul class="ml-6 space-y-0.5">' + m.details.map(d => `<li class="text-[10px] text-on-surface-variant">\u2022 ${d}</li>`).join('') + '</ul>' : ''}
+        </div>`;
+      }).join('');
+  } else {
+    mEl.innerHTML = '';
+  }
+}
+
+function closePracticeSummary() {
+  document.getElementById('prac-summary-modal').style.display = 'none';
+  // Reset to welcome
+  practiceState = null;
+  document.getElementById('prac-game').classList.add('hidden');
+  document.getElementById('prac-welcome').classList.remove('hidden');
+  document.getElementById('prac-day-counter').classList.add('hidden');
+  document.getElementById('prac-purse-display').classList.add('hidden');
+  document.getElementById('prac-btn-next').disabled = false;
+  loadPracticeHistory();
+}
+
+// ---- HISTORY (localStorage) ----
+function savePracticeSession(data) {
+  const history = JSON.parse(localStorage.getItem('yointell_practice_history') || '[]');
+  history.unshift({
+    date: new Date().toISOString().slice(0, 10),
+    symbol: data.symbol,
+    trades: data.total_trades,
+    pnl: data.total_pnl,
+    pnl_pct: data.total_pnl_pct,
+    win_rate: data.win_rate,
+    final_purse: data.final_purse,
+  });
+  // Keep last 50
+  if (history.length > 50) history.length = 50;
+  localStorage.setItem('yointell_practice_history', JSON.stringify(history));
+}
+
+function loadPracticeHistory() {
+  const history = JSON.parse(localStorage.getItem('yointell_practice_history') || '[]');
+  const section = document.getElementById('prac-history-section');
+  if (!history.length) { section.classList.add('hidden'); return; }
+  section.classList.remove('hidden');
+
+  // Cumulative stats
+  const totalSessions = history.length;
+  const avgPnl = history.reduce((s, h) => s + h.pnl, 0) / totalSessions;
+  const avgWinRate = history.reduce((s, h) => s + (h.win_rate || 0), 0) / totalSessions;
+
+  document.getElementById('prac-history-stats').innerHTML = `
+    <div class="bg-surface-container-highest rounded-lg p-2.5 text-center">
+      <div class="text-[8px] uppercase text-on-surface-variant font-bold">Sessions</div>
+      <div class="text-sm font-bold text-on-surface">${totalSessions}</div>
+    </div>
+    <div class="bg-surface-container-highest rounded-lg p-2.5 text-center">
+      <div class="text-[8px] uppercase text-on-surface-variant font-bold">Avg P&L</div>
+      <div class="text-sm font-bold ${avgPnl >= 0 ? 'text-[#00e5a0]' : 'text-[#ff4757]'}">${avgPnl >= 0 ? '+' : ''}\u20b9${Math.round(avgPnl).toLocaleString('en-IN')}</div>
+    </div>
+    <div class="bg-surface-container-highest rounded-lg p-2.5 text-center">
+      <div class="text-[8px] uppercase text-on-surface-variant font-bold">Avg Win Rate</div>
+      <div class="text-sm font-bold text-on-surface">${avgWinRate.toFixed(0)}%</div>
+    </div>`;
+
+  document.getElementById('prac-history-list').innerHTML = history.slice(0, 10).map(h => {
+    const col = h.pnl >= 0 ? 'text-[#00e5a0]' : 'text-[#ff4757]';
+    return `<div class="flex items-center justify-between bg-surface-container-highest rounded-lg px-3 py-2">
+      <div class="flex items-center gap-3">
+        <span class="text-[9px] font-mono text-on-surface-variant">${h.date}</span>
+        <span class="text-xs font-bold text-on-surface">${h.symbol}</span>
+        <span class="text-[9px] text-on-surface-variant">${h.trades} trades</span>
+      </div>
+      <span class="text-xs font-mono font-bold ${col}">${h.pnl >= 0 ? '+' : ''}\u20b9${h.pnl.toLocaleString('en-IN')}</span>
+    </div>`;
+  }).join('');
 }
 
 // ============ INIT ============
