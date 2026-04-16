@@ -29,7 +29,8 @@ _MC_SCID_CACHE = os.path.join(CACHE_DIR, "_mc_scid_map.json")
 
 
 def _mc_scid(symbol: str) -> Optional[str]:
-    """Resolve symbol → Moneycontrol internal SC_ID via their autosuggest API."""
+    """Resolve symbol → Moneycontrol internal SC_ID via their autosuggest API.
+    Note: MC often 403s direct calls; degrade gracefully when blocked."""
     cache = {}
     if os.path.exists(_MC_SCID_CACHE):
         try: cache = json.load(open(_MC_SCID_CACHE))
@@ -37,7 +38,10 @@ def _mc_scid(symbol: str) -> Optional[str]:
     if symbol in cache: return cache[symbol]
     try:
         url = f"https://www.moneycontrol.com/mccode/common/autosuggesion.php?query={symbol}&type=1&format=json"
-        r = requests.get(url, headers=_HDR, timeout=10)
+        mc_hdr = {**_HDR, "Referer": "https://www.moneycontrol.com/", "X-Requested-With": "XMLHttpRequest"}
+        r = requests.get(url, headers=mc_hdr, timeout=10)
+        if r.status_code == 403:
+            cache[symbol] = None  # don't retry for TTL
         if r.status_code == 200:
             # Response is JSONP-ish: "({...})"
             text = r.text.strip()
@@ -94,25 +98,36 @@ def _ct(text: str, pat: str) -> int:
 
 # ---------- A2. ET Markets broker recommendations ----------
 def _et_consensus(symbol: str) -> Optional[Dict[str, Any]]:
-    """Scrape ET Markets stock page for broker recommendations block."""
+    """Scrape ET Markets broker-recommendations block. Validates the page is actually
+    a stock-specific broker-reco page, not a generic search listing."""
     try:
         url = f"https://economictimes.indiatimes.com/markets/stocks/stock-quotes?ticker={symbol}"
         r = requests.get(url, headers=_HDR, timeout=12)
         if r.status_code != 200 or not r.text: return None
         t = r.text
-        # Target (various formats on ET)
+        # REJECT generic search/listing pages — those contain the "List of Companies Starting with X" title.
+        title_m = re.search(r"<title[^>]*>([^<]+)</title>", t)
+        title = (title_m.group(1) if title_m else "").lower()
+        if "list of companies" in title or "starting with" in title:
+            return None
+        # Require a broker-recommendations section on the page
+        if "broker" not in t.lower() or ("target" not in t.lower() and "recommend" not in t.lower()):
+            return None
+        # Extract target price if present
         tgt = None
         for pat in [r'"targetPrice"\s*:\s*"?([\d,\.]+)"?',
-                    r"target\s*price[^<]*<[^>]*>\s*Rs?\.?\s*([\d,]+\.?\d*)",
-                    r"consensus[^<]*target[^<]*<[^>]*>\s*Rs?\.?\s*([\d,]+\.?\d*)"]:
+                    r"target\s*price[^<]*<[^>]*>\s*Rs?\.?\s*([\d,]+\.?\d*)"]:
             m = re.search(pat, t, re.I)
             if m:
                 try: tgt = float(m.group(1).replace(",", "")); break
                 except Exception: pass
-        # Rating distribution (strong buy / buy / hold / sell / strong sell counts)
-        sb = _ct(t, r"\bstrong\s*buy\b"); bu = _ct(t, r"(?<!strong\s)\bbuy\b")
-        ho = _ct(t, r"\bhold\b"); se = _ct(t, r"(?<!strong\s)\bsell\b")
-        ss = _ct(t, r"\bstrong\s*sell\b")
+        # Count broker ratings only within a broker-recommendations block (not whole page)
+        blk_m = re.search(r"broker[^<]*(?:recommend|call)[\s\S]{0,8000}", t, re.I)
+        blk = blk_m.group(0) if blk_m else ""
+        if not blk: return None
+        sb = _ct(blk, r"\bstrong\s*buy\b"); bu = _ct(blk, r"(?<!strong\s)\bbuy\b")
+        ho = _ct(blk, r"\bhold\b"); se = _ct(blk, r"(?<!strong\s)\bsell\b")
+        ss = _ct(blk, r"\bstrong\s*sell\b")
         if tgt is None and sb + bu + ho + se + ss == 0: return None
         return {
             "target_price": tgt,

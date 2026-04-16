@@ -5748,11 +5748,13 @@ function _ipRenderAnalystBody(a, price) {
   const dirWord = upside == null ? '—' : upside > 3 ? 'BULLISH' : upside < -3 ? 'BEARISH' : 'NEUTRAL';
   const mc = a.moneycontrol, et = a.et_markets, yf = a.yfinance, hist = a.yfinance_history, rss = a.news_activity;
   const srcRow = (name, v) => v ? `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">${name}</span><span class="font-mono text-on-surface">${v}</span></div>` : '';
-  // Target range (bull/bear case) — from yfinance if present
-  const lo = yf?.target_low, hi = yf?.target_high, mn = yf?.target_mean || tgt;
-  const rangeBar = (lo && hi && price) ? (() => {
+  // Target range (bull/bear case) — from ALL sources that gave a target, not just yfinance
+  const allTargets = [yf?.target_low, yf?.target_mean, yf?.target_high, mc?.target_price, et?.target_price].filter(v => typeof v === 'number' && v > 0);
+  const lo = allTargets.length ? Math.min(...allTargets) : null;
+  const hi = allTargets.length ? Math.max(...allTargets) : null;
+  const mn = tgt || (allTargets.length ? allTargets.reduce((a,b)=>a+b,0)/allTargets.length : null);
+  const rangeBar = (lo && hi && price && hi > lo) ? (() => {
     const span = hi - lo;
-    if (span <= 0) return '';
     const pricePos = Math.max(0, Math.min(100, (price - lo) / span * 100));
     const meanPos = mn ? Math.max(0, Math.min(100, (mn - lo) / span * 100)) : 50;
     return `<div class="mt-2 relative h-6">
