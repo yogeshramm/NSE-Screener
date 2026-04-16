@@ -459,7 +459,12 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 <!-- ==================== TAB: INDICATORS ==================== -->
 <section class="tab-content flex-col w-full overflow-y-auto" id="tab-indicators">
   <div class="px-6 pt-6 pb-12">
-    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+    <!-- Sub-tab switcher: Indicators / Patterns -->
+    <div class="flex gap-2 mb-6">
+      <button id="ind-sub-indicators" onclick="switchIndSub('indicators')" class="px-5 py-2 rounded-lg bg-primary-container text-on-primary font-bold text-xs uppercase tracking-widest">Indicators</button>
+      <button id="ind-sub-patterns" onclick="switchIndSub('patterns')" class="px-5 py-2 rounded-lg bg-surface-container-highest text-on-surface-variant hover:text-primary font-bold text-xs uppercase tracking-widest">Patterns</button>
+    </div>
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10" id="ind-sub-header">
       <div>
         <h1 class="text-3xl font-extrabold tracking-tighter text-on-surface mb-2 uppercase">Indicators <span class="text-primary">Library</span></h1>
         <p class="text-on-surface-variant max-w-xl text-sm">Deploy institutional-grade signals with 25 technical indicators.</p>
@@ -486,6 +491,40 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
     <!-- Indicator Cards Grid -->
     <div id="indicators-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
       <div class="text-center py-8 text-on-surface-variant/50 col-span-full">Loading indicators...</div>
+    </div>
+
+    <!-- ========== PATTERNS PANE ========== -->
+    <div id="ind-pane-patterns" class="hidden">
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-6">
+        <div>
+          <h1 class="text-3xl font-extrabold tracking-tighter text-on-surface mb-2 uppercase">Chart Patterns <span class="text-primary">Library</span></h1>
+          <p class="text-on-surface-variant max-w-xl text-sm">10+ candlestick patterns with synthetic snippets and live detection across Nifty 500 / Next 500.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[9px] text-on-surface-variant font-bold uppercase">Scan Universe:</span>
+          <div class="flex bg-surface-container-highest rounded-md p-0.5 gap-0.5" id="pat-universe-tabs">
+            <button onclick="setPatternUniverse('nifty500',this)" class="pat-uni-btn px-3 py-1 text-[9px] font-bold rounded bg-surface-variant text-primary">Nifty 500</button>
+            <button onclick="setPatternUniverse('next500',this)" class="pat-uni-btn px-3 py-1 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">Next 500</button>
+          </div>
+        </div>
+      </div>
+      <div id="patterns-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="text-center py-8 text-on-surface-variant/50 col-span-full">Loading patterns...</div>
+      </div>
+    </div>
+
+    <!-- Pattern scan results modal -->
+    <div id="pat-scan-modal" class="fixed inset-0 z-[85] flex items-center justify-center bg-black/60" style="display:none">
+      <div class="w-[640px] max-h-[80vh] glass-panel rounded-2xl border border-outline-variant/20 overflow-hidden flex flex-col">
+        <div class="p-4 border-b border-outline-variant/20 flex items-center justify-between">
+          <div>
+            <h3 id="pat-scan-title" class="text-sm font-black uppercase text-on-surface tracking-widest">Scan Results</h3>
+            <span id="pat-scan-sub" class="text-[10px] text-on-surface-variant"></span>
+          </div>
+          <span class="material-symbols-outlined cursor-pointer hover:text-error" onclick="document.getElementById('pat-scan-modal').style.display='none'">close</span>
+        </div>
+        <div id="pat-scan-body" class="flex-1 overflow-y-auto p-4 text-xs"></div>
+      </div>
     </div>
   </div>
 </section>
@@ -1870,6 +1909,172 @@ function toggleConfigFilter(el) { const k=el.dataset.configToggle; if(fullConfig
 function saveConfigPreset() { const name=prompt('Save preset as:'); if(!name||!name.trim())return; const config=getFilterConfig(); fetch(API+'/presets/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name.trim(),config})}).then(()=>{alert('Preset saved: '+name);populatePresetDropdowns();}); }
 
 // ============ INDICATORS PAGE ============
+// ============ PATTERN LIBRARY ============
+let patternUniverse = 'nifty500';
+let patternsData = [];
+
+function switchIndSub(sub) {
+  const isInd = sub === 'indicators';
+  document.getElementById('ind-sub-header').classList.toggle('hidden', !isInd);
+  document.getElementById('indicators-grid').classList.toggle('hidden', !isInd);
+  document.getElementById('ind-pane-patterns').classList.toggle('hidden', isInd);
+  // Sort/filter rows are inside the indicators area; we'll toggle them too if present
+  const onTabs = document.getElementById('ind-type-tabs'); if (onTabs) onTabs.classList.toggle('hidden', !isInd);
+  document.querySelectorAll('[data-sort]').forEach(b => b.closest('.flex')?.classList.toggle('hidden', !isInd));
+  document.getElementById('ind-sub-indicators').className = isInd
+    ? 'px-5 py-2 rounded-lg bg-primary-container text-on-primary font-bold text-xs uppercase tracking-widest'
+    : 'px-5 py-2 rounded-lg bg-surface-container-highest text-on-surface-variant hover:text-primary font-bold text-xs uppercase tracking-widest';
+  document.getElementById('ind-sub-patterns').className = !isInd
+    ? 'px-5 py-2 rounded-lg bg-primary-container text-on-primary font-bold text-xs uppercase tracking-widest'
+    : 'px-5 py-2 rounded-lg bg-surface-container-highest text-on-surface-variant hover:text-primary font-bold text-xs uppercase tracking-widest';
+  if (!isInd && patternsData.length === 0) loadPatterns();
+}
+
+function setPatternUniverse(u, el) {
+  patternUniverse = u;
+  document.querySelectorAll('.pat-uni-btn').forEach(b => {
+    b.className = b === el
+      ? 'pat-uni-btn px-3 py-1 text-[9px] font-bold rounded bg-surface-variant text-primary'
+      : 'pat-uni-btn px-3 py-1 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary';
+  });
+}
+
+async function loadPatterns() {
+  try {
+    const res = await fetch(API + '/patterns/list');
+    const data = await res.json();
+    patternsData = data.patterns || [];
+    renderPatternGrid();
+  } catch (e) {
+    document.getElementById('patterns-grid').innerHTML = `<div class="text-error col-span-full text-center py-8">Failed to load patterns: ${e.message}</div>`;
+  }
+}
+
+function renderPatternGrid() {
+  const grid = document.getElementById('patterns-grid');
+  grid.innerHTML = patternsData.map(p => {
+    const dirCol = p.direction === 'bullish' ? 'text-[#00e5a0]' : p.direction === 'bearish' ? 'text-[#ff4757]' : 'text-yellow-400';
+    const accCol = p.accuracy >= 75 ? 'text-[#00e5a0]' : p.accuracy >= 60 ? 'text-yellow-400' : 'text-on-surface-variant';
+    return `
+      <div class="glass-panel rounded-xl border border-outline-variant/20 overflow-hidden flex flex-col">
+        <div class="p-3 border-b border-outline-variant/10 flex items-center justify-between">
+          <div>
+            <div class="text-xs font-black uppercase text-on-surface">${p.name}</div>
+            <div class="text-[9px] ${dirCol} uppercase font-bold mt-0.5">${p.direction} · ${p.type} · ${p.candles} candle${p.candles>1?'s':''}</div>
+          </div>
+          <div class="text-right">
+            <div class="text-[8px] text-on-surface-variant uppercase font-bold">Accuracy</div>
+            <div class="text-lg font-black ${accCol}">${p.accuracy}%</div>
+          </div>
+        </div>
+        <canvas class="pat-snippet" data-key="${p.key}" width="300" height="100" style="width:100%;height:100px;background:var(--chart-bg)"></canvas>
+        <div class="p-3 text-[11px] text-on-surface leading-snug">${p.description}</div>
+        <div class="px-3 pb-2 text-[10px] text-on-surface-variant"><span class="text-[#00e5a0] font-bold">✓ Confirm:</span> ${p.confirm}</div>
+        <div class="px-3 pb-3 text-[10px] text-on-surface-variant"><span class="text-[#ff4757] font-bold">✗ Invalidate:</span> ${p.invalidate}</div>
+        <div class="p-3 border-t border-outline-variant/10">
+          <button onclick="scanPattern('${p.key}','${p.name.replace(/'/g,"\\'")}')" class="w-full py-2 bg-primary-container text-on-primary font-bold rounded-lg text-[10px] uppercase tracking-wider active:scale-95 transition-transform">
+            <span class="material-symbols-outlined text-sm align-middle mr-1">radar</span>Scan ${patternUniverse === 'nifty500' ? 'Nifty 500' : 'Next 500'}
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+  // Draw snippets after DOM is ready
+  requestAnimationFrame(drawAllSnippets);
+}
+
+function drawAllSnippets() {
+  document.querySelectorAll('.pat-snippet').forEach(cv => {
+    const key = cv.dataset.key;
+    const p = patternsData.find(x => x.key === key);
+    if (p && p.snippet?.length) drawCandleSnippet(cv, p.snippet, key);
+  });
+}
+
+function drawCandleSnippet(canvas, candles, key) {
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth || 300;
+  const H = canvas.clientHeight || 100;
+  if (canvas.width !== W * dpr) { canvas.width = W * dpr; canvas.height = H * dpr; }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const pad = 8;
+  const lows = candles.map(c => c.low), highs = candles.map(c => c.high);
+  const lo = Math.min(...lows), hi = Math.max(...highs);
+  const range = hi - lo || 1;
+  const step = (W - pad * 2) / candles.length;
+  const bodyW = Math.max(2, step * 0.6);
+  const s = getComputedStyle(document.documentElement);
+  const up = s.getPropertyValue('--candle-up').trim() || '#00e5a0';
+  const down = s.getPropertyValue('--candle-down').trim() || '#ff4757';
+  const highlightIdx = candles.length - 2; // pattern's key candle (typically 2nd to last in snippet)
+  candles.forEach((c, i) => {
+    const x = pad + i * step + step / 2;
+    const y = (v) => pad + (hi - v) / range * (H - pad * 2);
+    const isUp = c.close >= c.open;
+    ctx.strokeStyle = isUp ? up : down;
+    ctx.fillStyle = isUp ? up : down;
+    ctx.lineWidth = 1;
+    // Wick
+    ctx.beginPath();
+    ctx.moveTo(x, y(c.high));
+    ctx.lineTo(x, y(c.low));
+    ctx.stroke();
+    // Body
+    const yOpen = y(c.open), yClose = y(c.close);
+    const top = Math.min(yOpen, yClose);
+    const h = Math.max(1, Math.abs(yOpen - yClose));
+    ctx.fillRect(x - bodyW / 2, top, bodyW, h);
+    // Highlight the pattern candle(s)
+    if (i >= candles.length - 3 && i < candles.length - 1) {
+      ctx.strokeStyle = 'rgba(110,255,192,0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(x - bodyW / 2 - 2, top - 2, bodyW + 4, h + 4);
+    }
+  });
+}
+
+async function scanPattern(key, name) {
+  const modal = document.getElementById('pat-scan-modal');
+  document.getElementById('pat-scan-title').textContent = `Scanning: ${name}`;
+  document.getElementById('pat-scan-sub').textContent = `Universe: ${patternUniverse === 'nifty500' ? 'Nifty 500' : 'Next 500'} · Last 5 bars`;
+  document.getElementById('pat-scan-body').innerHTML = '<div class="text-center py-8 text-on-surface-variant">Scanning...</div>';
+  modal.style.display = 'flex';
+  try {
+    const res = await fetch(API + '/patterns/scan', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ pattern: key, universe: patternUniverse, lookback: 5 })
+    });
+    const data = await res.json();
+    const hits = data.hits || [];
+    if (!hits.length) {
+      document.getElementById('pat-scan-body').innerHTML = '<div class="text-center py-8 text-on-surface-variant">No stocks currently showing this pattern.</div>';
+      return;
+    }
+    document.getElementById('pat-scan-sub').textContent = `${data.count} matches in ${patternUniverse === 'nifty500' ? 'Nifty 500' : 'Next 500'}`;
+    document.getElementById('pat-scan-body').innerHTML = `
+      <table class="w-full text-left">
+        <thead class="text-[9px] uppercase text-on-surface-variant font-bold border-b border-outline-variant/10">
+          <tr><th class="py-2 pr-3">Symbol</th><th class="py-2 pr-3 text-right">Close</th><th class="py-2 pr-3 text-right">5D %</th><th class="py-2 text-right">When</th></tr>
+        </thead>
+        <tbody class="text-xs font-mono">
+          ${hits.map(h => {
+            const col = (h.pct_change_5d ?? 0) >= 0 ? 'text-[#00e5a0]' : 'text-[#ff4757]';
+            const when = h.days_ago === 0 ? 'Today' : `${h.days_ago}d ago`;
+            return `<tr class="border-b border-outline-variant/5 hover:bg-surface-container-highest/40 cursor-pointer" onclick="document.getElementById('pat-scan-modal').style.display='none'; switchTab('screener'); setTimeout(()=>openChart('${h.symbol}'),100);">
+              <td class="py-2 pr-3 font-bold text-on-surface">${h.symbol}</td>
+              <td class="py-2 pr-3 text-right">\u20b9${h.last_close}</td>
+              <td class="py-2 pr-3 text-right ${col}">${h.pct_change_5d !== null ? (h.pct_change_5d >= 0 ? '+' : '') + h.pct_change_5d + '%' : '—'}</td>
+              <td class="py-2 text-right text-on-surface-variant">${when}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  } catch (e) {
+    document.getElementById('pat-scan-body').innerHTML = `<div class="text-error text-center py-8">Scan failed: ${e.message}</div>`;
+  }
+}
+
 async function loadIndicators() {
   try {
     const res=await fetch(API+'/indicators/available');

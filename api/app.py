@@ -20,6 +20,7 @@ from api.routes_watchlist import router as watchlist_router
 from api.routes_chat import router as chat_router
 from api.routes_auth import router as auth_router
 from api.routes_practice import router as practice_router
+from api.routes_patterns import router as patterns_router
 
 app = FastAPI(
     title="NSE Screener API",
@@ -49,6 +50,7 @@ app.include_router(watchlist_router, tags=["Watchlist"])
 app.include_router(chat_router, tags=["Chat Agent"])
 app.include_router(auth_router, tags=["Authentication"])
 app.include_router(practice_router, tags=["Practice Game"])
+app.include_router(patterns_router, tags=["Patterns"])
 
 
 # Serve frontend
