@@ -192,6 +192,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
       <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="watchlist" onclick="switchTab('watchlist')">Watchlist</a>
       <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="breakouts" onclick="switchTab('breakouts')">Breakouts</a>
       <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="backtest" onclick="switchTab('backtest')">Backtester</a>
+      <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="events" onclick="switchTab('events')">Events</a>
       <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="practice" onclick="switchTab('practice')">Practice</a>
     </nav>
   </div>
@@ -620,6 +621,32 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 </section>
 
 <!-- ==================== TAB: PRACTICE ==================== -->
+<!-- ==================== TAB: EVENTS ==================== -->
+<section class="tab-content flex-col w-full overflow-y-auto" id="tab-events">
+  <div class="px-6 pt-6 pb-20">
+    <header class="mb-6 flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <h1 class="text-3xl font-black text-on-surface tracking-tighter uppercase mb-1">Corporate <span class="text-primary">Events</span></h1>
+        <p class="text-sm text-on-surface-variant">Upcoming earnings, dividends, splits, bonuses from NSE.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold">Window:</label>
+        <select id="ev-days" onchange="loadEvents()" class="bg-surface-container-highest border-none rounded text-xs py-2 px-3">
+          <option value="7">Next 7 days</option>
+          <option value="14" selected>Next 14 days</option>
+          <option value="30">Next 30 days</option>
+          <option value="60">Next 60 days</option>
+        </select>
+        <input id="ev-search" type="text" placeholder="Filter by symbol..." oninput="renderEvents()" class="bg-surface-container-highest border-none rounded text-xs py-2 px-3 w-48"/>
+      </div>
+    </header>
+    <div id="ev-summary" class="mb-4 text-[11px] text-on-surface-variant"></div>
+    <div id="ev-list" class="bg-surface-container-low rounded-xl overflow-hidden">
+      <div class="text-center py-12 text-on-surface-variant/50 text-sm">Loading events…</div>
+    </div>
+  </div>
+</section>
+
 <!-- ==================== TAB: BACKTESTER ==================== -->
 <section class="tab-content flex-col w-full overflow-y-auto" id="tab-backtest">
   <div class="px-6 pt-6 pb-20">
@@ -1297,6 +1324,7 @@ function switchTab(tab) {
     const desc = document.getElementById('bo-description');
     if (desc && !desc.textContent) desc.textContent = BO_DESC[boMode] || '';
   }
+  if (tab === 'events' && eventsData.length === 0) loadEvents();
 }
 
 // ============ FILTER PANEL ============
@@ -2088,6 +2116,83 @@ function toggleConfigFilter(el) { const k=el.dataset.configToggle; if(fullConfig
 function saveConfigPreset() { const name=prompt('Save preset as:'); if(!name||!name.trim())return; const config=getFilterConfig(); fetch(API+'/presets/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name.trim(),config})}).then(()=>{alert('Preset saved: '+name);populatePresetDropdowns();}); }
 
 // ============ INDICATORS PAGE ============
+// ============ EVENTS ============
+let eventsData = [];
+async function loadEvents() {
+  const days = parseInt(document.getElementById('ev-days').value) || 14;
+  const list = document.getElementById('ev-list');
+  list.innerHTML = '<div class="text-center py-12 text-on-surface-variant">Loading events from NSE…</div>';
+  try {
+    const r = await fetch(API + '/events/upcoming?days=' + days);
+    const d = await r.json();
+    eventsData = d.events || [];
+    renderEvents();
+  } catch(e) {
+    list.innerHTML = `<div class="text-error text-center py-12">Failed: ${e.message}</div>`;
+  }
+}
+
+function renderEvents() {
+  const list = document.getElementById('ev-list');
+  const search = (document.getElementById('ev-search').value || '').trim().toUpperCase();
+  const filtered = search ? eventsData.filter(e => (e.symbol || '').toUpperCase().includes(search) || (e.company || '').toUpperCase().includes(search)) : eventsData;
+  if (!filtered.length) {
+    list.innerHTML = '<div class="text-center py-12 text-on-surface-variant">No events in this window.</div>';
+    document.getElementById('ev-summary').textContent = `${eventsData.length} total events · 0 matching filter`;
+    return;
+  }
+  // Group by date
+  const groups = {};
+  for (const e of filtered) {
+    const k = e.date || '—';
+    if (!groups[k]) groups[k] = [];
+    groups[k].push(e);
+  }
+  const sortedDates = Object.keys(groups).sort((a, b) => {
+    // Parse "18-Apr-2026" or similar
+    const p = (s) => { const m = s.match(/(\d{1,2})-([A-Za-z]{3})-(\d{4})/); if (!m) return new Date(s); return new Date(`${m[2]} ${m[1]}, ${m[3]}`); };
+    return p(a) - p(b);
+  });
+
+  const iconFor = (event) => {
+    const e = (event || '').toLowerCase();
+    if (e.includes('dividend')) return '💰';
+    if (e.includes('split')) return '✂️';
+    if (e.includes('bonus')) return '🎁';
+    if (e.includes('buyback')) return '🔄';
+    if (e.includes('result')) return '📊';
+    if (e.includes('agm') || e.includes('egm') || e.includes('meeting')) return '🗣️';
+    if (e.includes('fund')) return '💼';
+    return '📅';
+  };
+  const colorFor = (event) => {
+    const e = (event || '').toLowerCase();
+    if (e.includes('dividend')) return 'text-[#00e5a0]';
+    if (e.includes('split') || e.includes('bonus')) return 'text-yellow-400';
+    if (e.includes('result')) return 'text-primary';
+    if (e.includes('buyback')) return 'text-[#06b6d4]';
+    return 'text-on-surface-variant';
+  };
+
+  list.innerHTML = sortedDates.map(date => `
+    <div class="border-b border-outline-variant/5 last:border-0">
+      <div class="bg-surface-container/50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-primary">${date} <span class="text-on-surface-variant ml-2">${groups[date].length} event${groups[date].length>1?'s':''}</span></div>
+      <div class="divide-y divide-outline-variant/5">
+        ${groups[date].map(e => `
+          <div class="px-4 py-2.5 flex items-center gap-3 hover:bg-surface-container-highest/30 cursor-pointer" onclick="switchTab('screener'); setTimeout(()=>openChart('${e.symbol}'),100);">
+            <span class="text-xl">${iconFor(e.event)}</span>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2"><span class="font-bold text-on-surface text-sm">${e.symbol}</span><span class="text-[10px] text-on-surface-variant truncate">${e.company || ''}</span></div>
+              <div class="text-[11px] ${colorFor(e.event)} font-bold">${e.event}</div>
+            </div>
+            <span class="material-symbols-outlined text-on-surface-variant hover:text-primary">bar_chart</span>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+
+  document.getElementById('ev-summary').textContent = `${eventsData.length} total events · ${filtered.length} matching${search ? ' "' + search + '"' : ''}`;
+}
+
 // ============ BACKTESTER ============
 async function runBacktest() {
   const sym = document.getElementById('bt-symbol').value.trim().toUpperCase();
