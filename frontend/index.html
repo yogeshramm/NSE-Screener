@@ -354,6 +354,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">PE</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">RSI</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">ROE%</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right" title="Multi-Factor Score: Momentum + Quality + Value + Growth (1-99 percentile). Click header to sort.">MFS</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Score</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">Status</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">
@@ -362,7 +363,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
                 </tr>
               </thead>
               <tbody id="s1-body" class="text-xs">
-                <tr><td colspan="9" class="px-3 py-8 text-center text-on-surface-variant/50">Run a screen to see results</td></tr>
+                <tr><td colspan="10" class="px-3 py-8 text-center text-on-surface-variant/50">Run a screen to see results</td></tr>
               </tbody>
             </table>
           </div>
@@ -385,6 +386,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right text-error">SL</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right text-primary">Target</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">R:R</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right" title="Multi-Factor Score: Momentum + Quality + Value + Growth (1-99 percentile).">MFS</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Score</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">Status</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">
@@ -393,7 +395,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
                 </tr>
               </thead>
               <tbody id="s2-body" class="text-xs">
-                <tr><td colspan="9" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 2 results appear after screening</td></tr>
+                <tr><td colspan="10" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 2 results appear after screening</td></tr>
               </tbody>
             </table>
           </div>
@@ -1523,6 +1525,18 @@ async function runScreen() {
   finally { screenAbort=null; document.getElementById('loading').firstElementChild.style.width='0%'; document.getElementById('run-btn').disabled=false; }
 }
 
+function _mfsBadge(s) {
+  if (s == null) return '<span class="text-on-surface-variant/30">—</span>';
+  const cls = s >= 80 ? 'bg-[#00e5a0]/20 text-[#00e5a0]' : s >= 60 ? 'bg-primary/15 text-primary' : s >= 40 ? 'bg-yellow-400/15 text-yellow-400' : 'bg-surface-container-highest text-on-surface-variant';
+  return `<span class="px-2 py-0.5 ${cls} rounded-full text-[10px] font-black">${s}</span>`;
+}
+async function _fetchMFS(symbols) {
+  if (!symbols.length) return {};
+  try {
+    const r = await fetch(API + '/factor-score', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbols})});
+    const d = await r.json(); return d.scores || {};
+  } catch(e) { return {}; }
+}
 function renderResults(data) {
   const s1=document.getElementById('s1-body');
   document.getElementById('s1-count').textContent=data.stage1_results.length+' results (of '+data.total_screened+' screened)';
@@ -1537,6 +1551,7 @@ function renderResults(data) {
       <td class="px-3 py-2.5 text-right text-on-surface-variant">${pe}</td>
       <td class="px-3 py-2.5 text-right text-on-surface-variant">${rsi}</td>
       <td class="px-3 py-2.5 text-right text-on-surface-variant">${roe}</td>
+      <td class="px-3 py-2.5 text-right mfs-cell" data-sym="${r.symbol}">—</td>
       <td class="px-3 py-2.5 text-right"><span class="px-2 py-0.5 ${r.score>=60?'bg-primary/20 text-primary':r.score>=40?'bg-secondary/20 text-secondary':'bg-surface-container-highest text-on-surface-variant'} rounded-full text-[10px] font-black">${r.score}</span></td>
       <td class="px-3 py-2.5 text-center"><span class="${r.passed?'bg-primary/10 text-primary':'bg-error/10 text-error'} text-[10px] px-2 py-0.5 rounded-full font-black uppercase">${r.passed?'PASS':'FAIL'}</span></td>
       <td class="px-3 py-2.5 text-center"><button onclick="event.stopPropagation();addToWatchlist('${r.symbol}')" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined" style="font-size:14px;">bookmark_add</span></button></td>
@@ -1553,11 +1568,29 @@ function renderResults(data) {
       <td class="px-3 py-2.5 text-right text-error font-mono">${r.stop_loss?'\u20b9'+r.stop_loss:'--'}</td>
       <td class="px-3 py-2.5 text-right text-primary font-mono">${r.target?'\u20b9'+r.target:'--'}</td>
       <td class="px-3 py-2.5 text-center font-bold text-on-surface">1:${r.risk_reward||'--'}</td>
+      <td class="px-3 py-2.5 text-right mfs-cell" data-sym="${r.symbol}">—</td>
       <td class="px-3 py-2.5 text-right"><span class="px-2 py-0.5 ${r.score>=60?'bg-primary/20 text-primary':'bg-surface-container-highest text-on-surface-variant'} rounded-full text-[10px] font-black">${r.score}</span></td>
       <td class="px-3 py-2.5 text-center"><span class="${r.passed?'bg-primary/10 text-primary':'bg-error/10 text-error'} text-[10px] px-2 py-0.5 rounded-full font-black uppercase">${r.passed?'PASS':'FAIL'}</span></td>
       <td class="px-3 py-2.5 text-center"><button onclick="event.stopPropagation();addToWatchlist('${r.symbol}')" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined" style="font-size:14px;">bookmark_add</span></button></td>
     </tr>
   `).join('');
+
+  // Async fetch MFS scores & populate cells
+  const syms = [...new Set([...data.stage1_results.map(r=>r.symbol), ...data.stage2_results.map(r=>r.symbol)])];
+  _fetchMFS(syms).then(scores => {
+    document.querySelectorAll('.mfs-cell').forEach(td => {
+      const sc = scores[td.dataset.sym];
+      td.innerHTML = _mfsBadge(sc ? sc.score : null);
+      if (sc) {
+        const parts = [];
+        if (sc.momentum!=null) parts.push('Mom '+sc.momentum);
+        if (sc.quality!=null) parts.push('Q '+sc.quality);
+        if (sc.value!=null) parts.push('V '+sc.value);
+        if (sc.growth!=null) parts.push('G '+sc.growth);
+        td.title = parts.join(' · ');
+      }
+    });
+  });
 }
 
 // ============ CHART ============
@@ -1578,9 +1611,9 @@ function resetScreenerTab() {
   const inp = document.getElementById('symbols-input'); if (inp) inp.value = '';
   const dd = document.getElementById('search-dropdown'); if (dd) dd.classList.add('hidden');
   const s1 = document.getElementById('s1-body');
-  if (s1) s1.innerHTML = '<tr><td colspan="9" class="px-3 py-8 text-center text-on-surface-variant/50">Run a screen to see results</td></tr>';
+  if (s1) s1.innerHTML = '<tr><td colspan="10" class="px-3 py-8 text-center text-on-surface-variant/50">Run a screen to see results</td></tr>';
   const s2 = document.getElementById('s2-body');
-  if (s2) s2.innerHTML = '<tr><td colspan="9" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 2 results appear after screening</td></tr>';
+  if (s2) s2.innerHTML = '<tr><td colspan="10" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 2 results appear after screening</td></tr>';
   const s1c = document.getElementById('s1-count'); if (s1c) s1c.textContent = '0 results';
   const s2c = document.getElementById('s2-count'); if (s2c) s2c.textContent = '0 results';
   // Abort any in-flight screen
