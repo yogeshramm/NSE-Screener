@@ -1576,8 +1576,10 @@ function closeChart() {
   const eb=document.getElementById('sc-events-btn'); if(eb) eb.className='text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
   const bp=document.getElementById('sc-briefing-panel'); if(bp) bp.classList.add('hidden');
   scClear52WLines();
+  scClearTriggerLines();
   window._scCandleSeries=null;
   scBreakoutCache = {};
+  scBreakoutHistCache = {};
 }
 function openInsightsFromChart() { if(currentChartSymbol) openStock(currentChartSymbol); }
 
@@ -2415,22 +2417,47 @@ function scClear52WLines() {
   if (cs && sc52LoLine) { try { cs.removePriceLine(sc52LoLine); } catch(e){} sc52LoLine = null; }
 }
 
-let scBreakoutCache = {};        // {symbol: currentHits[]}
-let scBreakoutHistCache = {};    // {symbol: historicalHits[] with time}
+let scBreakoutCache = {};        // {symbol: {hits, triggerLines[]}}
+let scBreakoutHistCache = {};    // {symbol: {hits, stock_accuracy}}
+let scTriggerLines = [];         // active price lines on chart
 async function toggleScreenerHelp() {
   scHelpOn = !scHelpOn;
   const btn = document.getElementById('sc-help-btn');
   btn.className = scHelpOn
     ? 'text-[9px] font-bold text-on-primary bg-primary-container px-2 py-0.5 rounded'
     : 'text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
-  if (scHelpOn && currentChartSymbol && !scBreakoutHistCache[currentChartSymbol]) {
-    try {
-      const r = await fetch(API + '/chart-patterns/detect-history/' + currentChartSymbol);
-      const d = await r.json();
-      scBreakoutHistCache[currentChartSymbol] = d.hits || [];
-    } catch(e) { scBreakoutHistCache[currentChartSymbol] = []; }
+  if (scHelpOn && currentChartSymbol) {
+    const s = currentChartSymbol;
+    const tasks = [];
+    if (!scBreakoutHistCache[s]) tasks.push(fetch(API + '/chart-patterns/detect-history/' + s).then(r=>r.json()).then(d => { scBreakoutHistCache[s] = d; }).catch(() => { scBreakoutHistCache[s] = {hits:[],stock_accuracy:{}}; }));
+    if (!scBreakoutCache[s]) tasks.push(fetch(API + '/chart-patterns/detect/' + s).then(r=>r.json()).then(d => { scBreakoutCache[s] = d; }).catch(() => { scBreakoutCache[s] = {hits:[]}; }));
+    if (tasks.length) await Promise.all(tasks);
   }
+  scDrawTriggerLines();
   scApplyMarkers();
+}
+
+function scClearTriggerLines() {
+  const cs = window._scCandleSeries;
+  if (cs) scTriggerLines.forEach(ln => { try { cs.removePriceLine(ln); } catch(e){} });
+  scTriggerLines = [];
+}
+
+function scDrawTriggerLines() {
+  scClearTriggerLines();
+  if (!scHelpOn) return;
+  const cs = window._scCandleSeries;
+  if (!cs || !currentChartSymbol) return;
+  const cur = scBreakoutCache[currentChartSymbol]?.hits || [];
+  for (const h of cur) {
+    if (h.trigger && h.trigger > 0) {
+      const col = h.accuracy >= 70 ? '#00e5a0' : h.accuracy >= 60 ? '#facc15' : '#94a3b8';
+      try {
+        const ln = cs.createPriceLine({ price: h.trigger, color: col, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'Br ' + h.name.split(' ')[0] });
+        scTriggerLines.push(ln);
+      } catch(e){}
+    }
+  }
 }
 
 async function toggleScreenerEvents() {
@@ -2453,14 +2480,22 @@ function scApplyMarkers() {
   const cs = window._scCandleSeries;
   if (!cs || !chartData) return;
   const markers = [];
-  // HELP: breakout chart patterns (historical + current via dedup scan)
+  // HELP: historical breakout patterns + outcome + stock-specific accuracy
   if (scHelpOn && currentChartSymbol && chartData.candles?.length) {
-    const brCol = (a) => a >= 70 ? '#00e5a0' : a >= 60 ? '#facc15' : '#94a3b8';
-    const brLbl = (h) => `Br ${h.name.split(' ')[0]}`;
+    const hist = scBreakoutHistCache[currentChartSymbol] || {};
+    const stockAcc = hist.stock_accuracy || {};
+    const brCol = (h) => {
+      // Use stock-specific rate if available (>=3 samples), else global accuracy
+      const sa = stockAcc[h.key];
+      const a = sa ? sa.rate : h.accuracy;
+      return a >= 70 ? '#00e5a0' : a >= 60 ? '#facc15' : a >= 45 ? '#94a3b8' : '#64748b';
+    };
+    const outIco = { win: ' \u2713', loss: ' \u2717', neutral: ' \u00b7', pending: '' };
     const tMin = chartData.candles[0].time, tMax = chartData.candles[chartData.candles.length - 1].time;
-    for (const h of (scBreakoutHistCache[currentChartSymbol] || [])) {
+    for (const h of (hist.hits || [])) {
       if (h.time < tMin || h.time > tMax) continue;
-      markers.push({ time: h.time, position: 'belowBar', color: brCol(h.accuracy), shape: 'circle', text: brLbl(h) });
+      const short = h.name.split(' ')[0];
+      markers.push({ time: h.time, position: 'belowBar', color: brCol(h), shape: 'circle', text: `Br ${short}${outIco[h.outcome] || ''}` });
     }
   }
   // EVENTS: corporate event markers (on matching candle dates)
