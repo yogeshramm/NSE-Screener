@@ -459,6 +459,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
           <button id="sc-info-btn" onclick="toggleScreenerInfo()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded" title="Stock briefing + 52W lines">INFO</button>
           <button id="sc-help-btn" onclick="toggleScreenerHelp()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded" title="Candlestick pattern annotations">HELP</button>
           <button id="sc-events-btn" onclick="toggleScreenerEvents()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded" title="Corporate event markers">EVENTS</button>
+          <button id="sc-avwap-btn" onclick="toggleAnchoredVWAP()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded" title="Anchored VWAP: click, then click a candle to anchor. ±1σ / ±2σ bands.">aVWAP</button>
           <span class="material-symbols-outlined text-sm cursor-pointer hover:text-primary" onclick="openInsightsFromChart()">psychology</span>
           <span class="material-symbols-outlined text-sm cursor-pointer hover:text-error" onclick="closeChart()">close</span>
         </div>
@@ -1659,6 +1660,8 @@ function closeChart() {
   const ib=document.getElementById('sc-info-btn'); if(ib) ib.className='text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
   const hb=document.getElementById('sc-help-btn'); if(hb) hb.className='text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
   const eb=document.getElementById('sc-events-btn'); if(eb) eb.className='text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
+  const ab=document.getElementById('sc-avwap-btn'); if(ab) { ab.className='text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded'; ab.textContent='aVWAP'; }
+  avwapMode=false; avwapSeries=[]; avwapAnchors=[];
   const bp=document.getElementById('sc-briefing-panel'); if(bp) bp.classList.add('hidden');
   scClear52WLines();
   scClearTriggerLines();
@@ -5469,6 +5472,77 @@ function initApp() {
 }
 
 checkAuth();
+
+// ============ ANCHORED VWAP (Phase 2-2) ============
+let avwapMode = false; let avwapAnchors = []; let avwapSeries = [];
+function toggleAnchoredVWAP() {
+  const btn = document.getElementById('sc-avwap-btn');
+  if (!window._scCandleSeries || !chartData) { btn.textContent='— no chart —'; setTimeout(()=>btn.textContent='aVWAP',1200); return; }
+  // Three clicks: off → arming → anchored (click clears & rearm)
+  if (avwapSeries.length) {
+    // Clear all existing aVWAPs
+    avwapSeries.forEach(s => { try { currentChart.removeSeries(s); } catch(e){} });
+    avwapSeries = []; avwapAnchors = [];
+    avwapMode = false;
+    btn.className='text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
+    btn.textContent='aVWAP';
+    return;
+  }
+  avwapMode = !avwapMode;
+  if (avwapMode) {
+    btn.className='text-[9px] font-bold text-primary px-2 py-0.5 bg-primary/20 rounded animate-pulse';
+    btn.textContent='Click candle…';
+    _attachAVWAPClick();
+  } else {
+    btn.className='text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
+    btn.textContent='aVWAP';
+  }
+}
+function _attachAVWAPClick() {
+  if (!currentChart) return;
+  const handler = (param) => {
+    if (!avwapMode || !param || !param.time) return;
+    _drawAVWAP(param.time);
+    avwapMode = false;
+    const btn = document.getElementById('sc-avwap-btn');
+    if (btn) { btn.className='text-[9px] font-bold text-primary px-2 py-0.5 bg-primary/15 rounded'; btn.textContent='aVWAP ×'; btn.title='Click to clear'; }
+  };
+  currentChart.subscribeClick(handler);
+  // Store for later cleanup (unsub not strictly needed since renderChart rebuilds)
+}
+function _drawAVWAP(anchorTime) {
+  if (!chartData || !currentChart) return;
+  const candles = chartData.candles, vols = chartData.volumes;
+  // Index maps
+  const volMap = new Map(vols.map(v => [v.time, v.value]));
+  const idx = candles.findIndex(c => c.time >= anchorTime);
+  if (idx < 0) return;
+  let cumPV = 0, cumV = 0, cumSqDev = 0;
+  const vwapPts = [], up1Pts = [], dn1Pts = [], up2Pts = [], dn2Pts = [];
+  for (let i = idx; i < candles.length; i++) {
+    const c = candles[i]; const v = volMap.get(c.time) || 0;
+    const tp = (c.high + c.low + c.close) / 3;
+    cumPV += tp * v; cumV += v;
+    const vwap = cumV > 0 ? cumPV / cumV : tp;
+    cumSqDev += v * Math.pow(tp - vwap, 2);
+    const std = cumV > 0 ? Math.sqrt(cumSqDev / cumV) : 0;
+    vwapPts.push({time: c.time, value: +vwap.toFixed(2)});
+    up1Pts.push({time: c.time, value: +(vwap + std).toFixed(2)});
+    dn1Pts.push({time: c.time, value: +(vwap - std).toFixed(2)});
+    up2Pts.push({time: c.time, value: +(vwap + 2*std).toFixed(2)});
+    dn2Pts.push({time: c.time, value: +(vwap - 2*std).toFixed(2)});
+  }
+  const mk = (data, color, dash, title) => {
+    const s = currentChart.addLineSeries({color, lineWidth:1.5, lineStyle:dash?2:0, title, lastValueVisible:true, priceLineVisible:false});
+    s.setData(data); avwapSeries.push(s); return s;
+  };
+  mk(vwapPts, '#6effc0', false, 'aVWAP');
+  mk(up1Pts, 'rgba(110,255,192,0.6)', true, '+1σ');
+  mk(dn1Pts, 'rgba(110,255,192,0.6)', true, '-1σ');
+  mk(up2Pts, 'rgba(110,255,192,0.35)', true, '+2σ');
+  mk(dn2Pts, 'rgba(110,255,192,0.35)', true, '-2σ');
+  avwapAnchors.push(anchorTime);
+}
 
 // ============ INSIGHTS POPUP (Tier 1 Feature 4) ============
 function _ipHTML() {
