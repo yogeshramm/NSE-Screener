@@ -598,9 +598,37 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
             <div id="prac-warn-55" class="hidden items-center gap-1 px-2 py-1 bg-error/10 rounded text-[9px] text-error font-bold">
               <span class="material-symbols-outlined text-xs">warning</span> Auto-exit approaching
             </div>
+            <div class="relative">
+              <button onclick="document.getElementById('prac-ind-dropdown').classList.toggle('hidden')" class="flex items-center gap-1 px-2 py-1 bg-surface-container-highest rounded text-[9px] font-bold text-on-surface-variant hover:text-primary uppercase tracking-wider">
+                <span class="material-symbols-outlined text-xs">show_chart</span> Indicators <span class="material-symbols-outlined text-xs">expand_more</span>
+              </button>
+              <div id="prac-ind-dropdown" class="hidden absolute right-0 top-8 w-56 max-h-[70vh] overflow-y-auto bg-surface-container border border-outline-variant/20 rounded-xl shadow-2xl z-50 p-3 space-y-1">
+                <div class="text-[8px] font-black text-on-surface-variant uppercase tracking-widest mb-2">Overlays</div>
+                <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-prac-ind="sma20" checked onchange="togglePracticeInd('sma20',this.checked)" class="w-3 h-3 rounded text-primary"/><span class="w-2 h-0.5 bg-[#ec4899] rounded inline-block"></span>SMA 20</label>
+                <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-prac-ind="sma50" onchange="togglePracticeInd('sma50',this.checked)" class="w-3 h-3 rounded text-primary"/><span class="w-2 h-0.5 bg-[#d97706] rounded inline-block"></span>SMA 50</label>
+                <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-prac-ind="ema20" onchange="togglePracticeInd('ema20',this.checked)" class="w-3 h-3 rounded text-primary"/><span class="w-2 h-0.5 bg-[#eab308] rounded inline-block"></span>EMA 20</label>
+                <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-prac-ind="ema50" onchange="togglePracticeInd('ema50',this.checked)" class="w-3 h-3 rounded text-primary"/><span class="w-2 h-0.5 bg-[#f59e0b] rounded inline-block"></span>EMA 50</label>
+                <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-prac-ind="ema200" onchange="togglePracticeInd('ema200',this.checked)" class="w-3 h-3 rounded text-primary"/><span class="w-2 h-0.5 bg-[#3b82f6] rounded inline-block"></span>EMA 200</label>
+                <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-prac-ind="bollinger" checked onchange="togglePracticeInd('bollinger',this.checked)" class="w-3 h-3 rounded text-primary"/><span class="w-2 h-0.5 bg-[#8b5cf6] rounded inline-block"></span>Bollinger Bands</label>
+                <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-prac-ind="supertrend" checked onchange="togglePracticeInd('supertrend',this.checked)" class="w-3 h-3 rounded text-primary"/><span class="w-2 h-0.5 bg-[#6effc0] rounded inline-block"></span>Supertrend</label>
+                <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-prac-ind="vwap" onchange="togglePracticeInd('vwap',this.checked)" class="w-3 h-3 rounded text-primary"/><span class="w-2 h-0.5 bg-[#06b6d4] rounded inline-block"></span>VWAP</label>
+                <div class="border-t border-outline-variant/20 mt-2 pt-2"><div class="text-[8px] font-black text-on-surface-variant uppercase tracking-widest mb-2">Panels</div></div>
+                <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-prac-ind="rsi" checked onchange="togglePracticeInd('rsi',this.checked)" class="w-3 h-3 rounded text-primary"/><span class="w-2 h-0.5 bg-[#a855f7] rounded inline-block"></span>RSI (14)</label>
+                <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-prac-ind="macd" onchange="togglePracticeInd('macd',this.checked)" class="w-3 h-3 rounded text-primary"/><span class="w-2 h-0.5 bg-[#f97316] rounded inline-block"></span>MACD</label>
+                <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-prac-ind="stoch_rsi" onchange="togglePracticeInd('stoch_rsi',this.checked)" class="w-3 h-3 rounded text-primary"/><span class="w-2 h-0.5 bg-[#22d3ee] rounded inline-block"></span>Stochastic RSI</label>
+                <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-prac-ind="williams" onchange="togglePracticeInd('williams',this.checked)" class="w-3 h-3 rounded text-primary"/><span class="w-2 h-0.5 bg-[#e879f9] rounded inline-block"></span>Williams %R</label>
+                <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-prac-ind="roc" onchange="togglePracticeInd('roc',this.checked)" class="w-3 h-3 rounded text-primary"/><span class="w-2 h-0.5 bg-[#c084fc] rounded inline-block"></span>ROC</label>
+                <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-prac-ind="atr" onchange="togglePracticeInd('atr',this.checked)" class="w-3 h-3 rounded text-primary"/><span class="w-2 h-0.5 bg-[#fbbf24] rounded inline-block"></span>ATR</label>
+                <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-prac-ind="adx" onchange="togglePracticeInd('adx',this.checked)" class="w-3 h-3 rounded text-primary"/><span class="w-2 h-0.5 bg-[#fb923c] rounded inline-block"></span>ADX</label>
+                <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-prac-ind="obv" onchange="togglePracticeInd('obv',this.checked)" class="w-3 h-3 rounded text-primary"/><span class="w-2 h-0.5 bg-[#4ade80] rounded inline-block"></span>OBV</label>
+                <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-prac-ind="cmf" onchange="togglePracticeInd('cmf',this.checked)" class="w-3 h-3 rounded text-primary"/><span class="w-2 h-0.5 bg-[#2dd4bf] rounded inline-block"></span>CMF</label>
+                <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" data-prac-ind="vortex" onchange="togglePracticeInd('vortex',this.checked)" class="w-3 h-3 rounded text-primary"/><span class="w-2 h-0.5 bg-[#f472b6] rounded inline-block"></span>Vortex</label>
+              </div>
+            </div>
           </div>
           <div id="prac-chart-container" class="bg-surface-container rounded-lg relative overflow-hidden border border-outline-variant/10" style="min-height:280px;height:320px;flex-shrink:0"></div>
           <div id="prac-rsi-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:70px"></div>
+          <div id="prac-sub-panels" class="flex flex-col gap-2"></div>
         </div>
         <!-- BOTTOM ACTION BAR -->
         <div class="px-4 py-3 bg-surface-container border-t border-outline-variant/10 flex items-center justify-between">
@@ -2072,12 +2100,22 @@ async function sendChat() {
 let practiceState = null; // current game state
 let pracChart = null, pracRsiChart = null;
 let pracCandleSeries = null, pracVolSeries = null;
-let pracSma20Series = null, pracBbUpperSeries = null, pracBbLowerSeries = null, pracSupertrendSeries = null;
 let pracRsiLine = null;
 let pracVisibleCandles = [], pracVisibleVolumes = [];
-let pracIndicators = {}; // from server
+let pracIndicators = {}; // from server (legacy, unused)
 let practiceUniverse = 'nifty500';
 let pracMarkers = [];
+// Map of active indicator key -> { series: [], panel: chartInstance|null, data: lastComputed }
+let pracActiveInd = {};
+let pracSubPanels = {}; // key -> chart instance
+
+const PRAC_IND_COLORS = {
+  sma20: '#ec4899', sma50: '#d97706',
+  ema20: '#eab308', ema50: '#f59e0b', ema200: '#3b82f6',
+  supertrend: '#6effc0',
+  vwap: '#06b6d4',
+  bollinger: '#8b5cf6',
+};
 
 function setPracticeUniverse(u, el) {
   practiceUniverse = u;
@@ -2143,21 +2181,246 @@ async function startPracticeRound() {
 function destroyPracticeCharts() {
   if (pracChart) { try { pracChart.remove() } catch(e){} pracChart = null; }
   if (pracRsiChart) { try { pracRsiChart.remove() } catch(e){} pracRsiChart = null; }
+  for (const k in pracSubPanels) { try { pracSubPanels[k].remove() } catch(e){} }
+  pracSubPanels = {};
   pracCandleSeries = null; pracVolSeries = null;
-  pracSma20Series = null; pracBbUpperSeries = null; pracBbLowerSeries = null; pracSupertrendSeries = null;
   pracRsiLine = null;
+  pracActiveInd = {};
+}
+
+// ===== INDICATOR COMPUTATIONS =====
+function pracComputeSMA(closes, period) {
+  const out = new Array(closes.length).fill(null);
+  if (closes.length < period) return out;
+  let sum = 0;
+  for (let i = 0; i < period; i++) sum += closes[i];
+  out[period - 1] = sum / period;
+  for (let i = period; i < closes.length; i++) {
+    sum += closes[i] - closes[i - period];
+    out[i] = sum / period;
+  }
+  return out;
+}
+function pracComputeEMA(closes, period) {
+  const out = new Array(closes.length).fill(null);
+  if (closes.length < period) return out;
+  const alpha = 2 / (period + 1);
+  let sum = 0;
+  for (let i = 0; i < period; i++) sum += closes[i];
+  out[period - 1] = sum / period;
+  for (let i = period; i < closes.length; i++) {
+    out[i] = alpha * closes[i] + (1 - alpha) * out[i - 1];
+  }
+  return out;
+}
+function pracComputeRSI(closes, period = 14) {
+  const n = closes.length, out = new Array(n).fill(null);
+  if (n < period + 1) return out;
+  let avgG = 0, avgL = 0;
+  for (let i = 1; i <= period; i++) {
+    const d = closes[i] - closes[i-1];
+    if (d > 0) avgG += d; else avgL -= d;
+  }
+  avgG /= period; avgL /= period;
+  out[period] = 100 - 100 / (1 + (avgL === 0 ? Infinity : avgG / avgL));
+  for (let i = period + 1; i < n; i++) {
+    const d = closes[i] - closes[i-1];
+    avgG = (avgG * (period - 1) + (d > 0 ? d : 0)) / period;
+    avgL = (avgL * (period - 1) + (d < 0 ? -d : 0)) / period;
+    out[i] = 100 - 100 / (1 + (avgL === 0 ? Infinity : avgG / avgL));
+  }
+  return out;
+}
+function pracComputeBB(closes, period = 20, mult = 2) {
+  const n = closes.length, upper = new Array(n).fill(null), lower = new Array(n).fill(null);
+  for (let i = period - 1; i < n; i++) {
+    let sum = 0;
+    for (let j = i - period + 1; j <= i; j++) sum += closes[j];
+    const mean = sum / period;
+    let v = 0;
+    for (let j = i - period + 1; j <= i; j++) v += (closes[j] - mean) ** 2;
+    const sd = Math.sqrt(v / period);
+    upper[i] = mean + mult * sd; lower[i] = mean - mult * sd;
+  }
+  return { upper, lower };
+}
+function pracComputeSupertrend(highs, lows, closes, period = 7, mult = 3) {
+  const n = closes.length;
+  const hl2 = highs.map((h, i) => (h + lows[i]) / 2);
+  const tr = [highs[0] - lows[0]];
+  for (let i = 1; i < n; i++) tr.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i-1]), Math.abs(lows[i] - closes[i-1])));
+  const atr = new Array(n).fill(0);
+  const a = 1 / period;
+  for (let i = 0; i < n; i++) atr[i] = i < period ? tr.slice(0, i+1).reduce((x,y)=>x+y,0) / (i+1) : a * tr[i] + (1 - a) * atr[i-1];
+  const fU = new Array(n).fill(0), fL = new Array(n).fill(0), dir = new Array(n).fill(1), st = new Array(n).fill(null);
+  for (let i = 0; i < n; i++) {
+    const bu = hl2[i] + mult * atr[i], bl = hl2[i] - mult * atr[i];
+    if (i < period) { fU[i] = bu; fL[i] = bl; continue; }
+    fL[i] = (bl > fL[i-1] || closes[i-1] < fL[i-1]) ? bl : fL[i-1];
+    fU[i] = (bu < fU[i-1] || closes[i-1] > fU[i-1]) ? bu : fU[i-1];
+    let d;
+    if (i === period) d = closes[i] > fU[i] ? 1 : -1;
+    else if (dir[i-1] === 1) d = closes[i] < fL[i] ? -1 : 1;
+    else d = closes[i] > fU[i] ? 1 : -1;
+    dir[i] = d; st[i] = d === 1 ? fL[i] : fU[i];
+  }
+  return { st, dir };
+}
+function pracComputeVWAP(highs, lows, closes, volumes) {
+  const n = closes.length, out = new Array(n);
+  let cumPV = 0, cumV = 0;
+  for (let i = 0; i < n; i++) {
+    const tp = (highs[i] + lows[i] + closes[i]) / 3;
+    cumPV += tp * volumes[i]; cumV += volumes[i];
+    out[i] = cumV ? cumPV / cumV : null;
+  }
+  return out;
+}
+function pracComputeMACD(closes) {
+  const ema12 = pracComputeEMA(closes, 12), ema26 = pracComputeEMA(closes, 26);
+  const macd = closes.map((_, i) => (ema12[i] != null && ema26[i] != null) ? ema12[i] - ema26[i] : null);
+  const macdValid = macd.filter(v => v !== null);
+  const sig9 = pracComputeEMA(macdValid, 9);
+  const signal = new Array(closes.length).fill(null);
+  let k = 0;
+  for (let i = 0; i < closes.length; i++) if (macd[i] !== null) { signal[i] = sig9[k]; k++; }
+  const hist = closes.map((_, i) => (macd[i] != null && signal[i] != null) ? macd[i] - signal[i] : null);
+  return { macd, signal, hist };
+}
+function pracComputeStochRSI(closes, period = 14) {
+  const rsi = pracComputeRSI(closes, period);
+  const n = closes.length, out = new Array(n).fill(null);
+  for (let i = period * 2; i < n; i++) {
+    const window = rsi.slice(i - period + 1, i + 1).filter(v => v !== null);
+    if (window.length < period) continue;
+    const lo = Math.min(...window), hi = Math.max(...window);
+    out[i] = hi === lo ? 50 : ((rsi[i] - lo) / (hi - lo)) * 100;
+  }
+  return out;
+}
+function pracComputeWilliamsR(highs, lows, closes, period = 14) {
+  const n = closes.length, out = new Array(n).fill(null);
+  for (let i = period - 1; i < n; i++) {
+    const h = Math.max(...highs.slice(i - period + 1, i + 1));
+    const l = Math.min(...lows.slice(i - period + 1, i + 1));
+    out[i] = h === l ? -50 : ((h - closes[i]) / (h - l)) * -100;
+  }
+  return out;
+}
+function pracComputeROC(closes, period = 12) {
+  const n = closes.length, out = new Array(n).fill(null);
+  for (let i = period; i < n; i++) out[i] = ((closes[i] - closes[i - period]) / closes[i - period]) * 100;
+  return out;
+}
+function pracComputeATR(highs, lows, closes, period = 14) {
+  const n = closes.length;
+  const tr = [highs[0] - lows[0]];
+  for (let i = 1; i < n; i++) tr.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i-1]), Math.abs(lows[i] - closes[i-1])));
+  const out = new Array(n).fill(null);
+  if (n < period) return out;
+  let sum = 0;
+  for (let i = 0; i < period; i++) sum += tr[i];
+  out[period - 1] = sum / period;
+  for (let i = period; i < n; i++) out[i] = (out[i-1] * (period - 1) + tr[i]) / period;
+  return out;
+}
+function pracComputeADX(highs, lows, closes, period = 14) {
+  const n = closes.length;
+  const tr = [0], plusDM = [0], minusDM = [0];
+  for (let i = 1; i < n; i++) {
+    tr.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i-1]), Math.abs(lows[i] - closes[i-1])));
+    const up = highs[i] - highs[i-1], down = lows[i-1] - lows[i];
+    plusDM.push(up > down && up > 0 ? up : 0);
+    minusDM.push(down > up && down > 0 ? down : 0);
+  }
+  const smooth = (arr) => {
+    const out = new Array(n).fill(null);
+    if (n < period) return out;
+    let sum = 0;
+    for (let i = 1; i <= period; i++) sum += arr[i];
+    out[period] = sum;
+    for (let i = period + 1; i < n; i++) out[i] = out[i-1] - out[i-1] / period + arr[i];
+    return out;
+  };
+  const trS = smooth(tr), pdmS = smooth(plusDM), mdmS = smooth(minusDM);
+  const dx = new Array(n).fill(null);
+  for (let i = period; i < n; i++) {
+    if (trS[i]) {
+      const pdi = 100 * pdmS[i] / trS[i], mdi = 100 * mdmS[i] / trS[i];
+      dx[i] = pdi + mdi ? 100 * Math.abs(pdi - mdi) / (pdi + mdi) : 0;
+    }
+  }
+  const out = new Array(n).fill(null);
+  if (n < period * 2) return out;
+  let sum = 0;
+  for (let i = period; i < period * 2; i++) sum += dx[i];
+  out[period * 2 - 1] = sum / period;
+  for (let i = period * 2; i < n; i++) out[i] = (out[i-1] * (period - 1) + dx[i]) / period;
+  return out;
+}
+function pracComputeOBV(closes, volumes) {
+  const n = closes.length, out = new Array(n).fill(0);
+  for (let i = 1; i < n; i++) {
+    if (closes[i] > closes[i-1]) out[i] = out[i-1] + volumes[i];
+    else if (closes[i] < closes[i-1]) out[i] = out[i-1] - volumes[i];
+    else out[i] = out[i-1];
+  }
+  return out;
+}
+function pracComputeCMF(highs, lows, closes, volumes, period = 20) {
+  const n = closes.length, mfv = new Array(n).fill(0);
+  for (let i = 0; i < n; i++) {
+    const r = highs[i] - lows[i];
+    const mfm = r ? ((closes[i] - lows[i]) - (highs[i] - closes[i])) / r : 0;
+    mfv[i] = mfm * volumes[i];
+  }
+  const out = new Array(n).fill(null);
+  for (let i = period - 1; i < n; i++) {
+    let mfvSum = 0, vSum = 0;
+    for (let j = i - period + 1; j <= i; j++) { mfvSum += mfv[j]; vSum += volumes[j]; }
+    out[i] = vSum ? mfvSum / vSum : 0;
+  }
+  return out;
+}
+function pracComputeVortex(highs, lows, closes, period = 14) {
+  const n = closes.length, tr = [0], vmP = [0], vmM = [0];
+  for (let i = 1; i < n; i++) {
+    tr.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i-1]), Math.abs(lows[i] - closes[i-1])));
+    vmP.push(Math.abs(highs[i] - lows[i-1]));
+    vmM.push(Math.abs(lows[i] - highs[i-1]));
+  }
+  const vip = new Array(n).fill(null), vim = new Array(n).fill(null);
+  for (let i = period; i < n; i++) {
+    let trSum = 0, pSum = 0, mSum = 0;
+    for (let j = i - period + 1; j <= i; j++) { trSum += tr[j]; pSum += vmP[j]; mSum += vmM[j]; }
+    if (trSum) { vip[i] = pSum / trSum; vim[i] = mSum / trSum; }
+  }
+  return { vip, vim };
+}
+
+// Convert [val1, val2, ...] to lightweight-charts series data, dropping nulls
+function pracSeriesData(values, candles, extra = null) {
+  const out = [];
+  for (let i = 0; i < values.length; i++) {
+    if (values[i] !== null && values[i] !== undefined && !isNaN(values[i])) {
+      const pt = { time: candles[i].time, value: Math.round(values[i] * 100) / 100 };
+      if (extra) Object.assign(pt, extra(i));
+      out.push(pt);
+    }
+  }
+  return out;
 }
 
 function renderPracticeChart() {
   destroyPracticeCharts();
   const el = document.getElementById('prac-chart-container');
   const rsiEl = document.getElementById('prac-rsi-container');
-  el.innerHTML = ''; rsiEl.innerHTML = '';
+  const subEl = document.getElementById('prac-sub-panels');
+  el.innerHTML = ''; rsiEl.innerHTML = ''; subEl.innerHTML = '';
 
   const c = getChartColors();
   const cc = getCandleColors();
 
-  // Main chart
   pracChart = LightweightCharts.createChart(el, {
     width: el.clientWidth, height: el.clientHeight,
     layout: { background: { color: c.bg }, textColor: c.text, fontSize: 10 },
@@ -2174,38 +2437,12 @@ function renderPracticeChart() {
   });
   pracCandleSeries.setData(pracVisibleCandles);
 
-  // Volume
   pracVolSeries = pracChart.addHistogramSeries({
     priceFormat: { type: 'volume' }, priceScaleId: 'vol',
     lastValueVisible: false, priceLineVisible: false,
   });
   pracChart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
   pracVolSeries.setData(pracVisibleVolumes);
-
-  // SMA 20
-  if (pracIndicators.sma20?.length) {
-    pracSma20Series = pracChart.addLineSeries({ color: '#ec4899', lineWidth: 1.5, title: 'SMA 20', lastValueVisible: false, priceLineVisible: false });
-    pracSma20Series.setData(pracIndicators.sma20);
-  }
-
-  // Bollinger Bands
-  if (pracIndicators.bb_upper?.length) {
-    pracBbUpperSeries = pracChart.addAreaSeries({ topColor: 'rgba(139,92,246,0.0)', bottomColor: 'rgba(139,92,246,0.12)', lineColor: '#8b5cf6', lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
-    pracBbUpperSeries.setData(pracIndicators.bb_upper);
-  }
-  if (pracIndicators.bb_lower?.length) {
-    pracBbLowerSeries = pracChart.addAreaSeries({ topColor: 'rgba(139,92,246,0.12)', bottomColor: 'rgba(139,92,246,0.0)', lineColor: '#8b5cf6', lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
-    pracBbLowerSeries.setData(pracIndicators.bb_lower);
-  }
-
-  // Supertrend (per-point color)
-  if (pracIndicators.supertrend?.length) {
-    pracSupertrendSeries = pracChart.addLineSeries({ lineWidth: 2, title: 'ST', lastValueVisible: false, priceLineVisible: false });
-    pracSupertrendSeries.setData(pracIndicators.supertrend.map(p => ({
-      time: p.time, value: p.value,
-      color: p.direction === 1 ? '#00e5a0' : '#ff4757',
-    })));
-  }
 
   // OHLC overlay
   const ohlcDiv = document.createElement('div');
@@ -2227,65 +2464,266 @@ function renderPracticeChart() {
     } else if (pracVisibleCandles.length) {
       updatePracticeOhlc(pracVisibleCandles[pracVisibleCandles.length - 1]);
     }
-    // Sync RSI crosshair
-    if (pracRsiChart && pracRsiLine) {
+    const subs = [];
+    if (pracRsiChart && pracRsiLine) subs.push([pracRsiChart, pracRsiLine]);
+    for (const k in pracSubPanels) if (pracSubPanels[k]._syncLine) subs.push([pracSubPanels[k], pracSubPanels[k]._syncLine]);
+    subs.forEach(([c, line]) => {
       try {
-        if (!param.time) pracRsiChart.clearCrosshairPosition();
-        else pracRsiChart.setCrosshairPosition(undefined, param.time, pracRsiLine);
+        if (!param.time) c.clearCrosshairPosition();
+        else c.setCrosshairPosition(undefined, param.time, line);
       } catch(e){}
-    }
+    });
   });
 
   pracChart.timeScale().fitContent();
 
-  // RSI panel
-  rsiEl.style.display = 'block';
-  renderPracticeRsi(rsiEl);
-
-  // Sync time scales
+  // Sync time scales across all panels
   pracChart.timeScale().subscribeVisibleLogicalRangeChange(lr => {
-    if (!lr || !pracRsiChart) return;
-    try { pracRsiChart.timeScale().setVisibleLogicalRange(lr); } catch(e){}
+    if (!lr) return;
+    if (pracRsiChart) try { pracRsiChart.timeScale().setVisibleLogicalRange(lr); } catch(e){}
+    for (const k in pracSubPanels) try { pracSubPanels[k].timeScale().setVisibleLogicalRange(lr); } catch(e){}
   });
 
   new ResizeObserver(() => {
     if (pracChart) pracChart.applyOptions({ width: el.clientWidth });
     if (pracRsiChart) pracRsiChart.applyOptions({ width: rsiEl.clientWidth });
+    for (const k in pracSubPanels) {
+      const panelEl = document.getElementById('prac-sub-' + k);
+      if (panelEl) pracSubPanels[k].applyOptions({ width: panelEl.clientWidth });
+    }
   }).observe(el);
+
+  // Render all checked indicators
+  document.querySelectorAll('[data-prac-ind]').forEach(cb => {
+    if (cb.checked) addPracticeInd(cb.dataset.pracInd);
+  });
 }
 
-function renderPracticeRsi(el) {
-  el.innerHTML = '';
+function togglePracticeInd(key, checked) {
+  if (!pracChart) return;
+  if (checked) addPracticeInd(key);
+  else removePracticeInd(key);
+}
+
+function removePracticeInd(key) {
+  const info = pracActiveInd[key];
+  if (!info) return;
+  if (info.seriesList && pracChart) {
+    info.seriesList.forEach(s => { try { pracChart.removeSeries(s); } catch(e){} });
+  }
+  if (info.panelKey) {
+    // Remove the sub-panel
+    const panel = pracSubPanels[info.panelKey];
+    if (panel) { try { panel.remove(); } catch(e){} delete pracSubPanels[info.panelKey]; }
+    const el = document.getElementById('prac-sub-' + info.panelKey);
+    if (el) el.remove();
+    if (key === 'rsi') { pracRsiChart = null; pracRsiLine = null; document.getElementById('prac-rsi-container').innerHTML = ''; document.getElementById('prac-rsi-container').style.display = 'none'; }
+  }
+  delete pracActiveInd[key];
+}
+
+function addPracticeInd(key) {
+  if (pracActiveInd[key] || !pracChart || !pracVisibleCandles.length) return;
+  const candles = pracVisibleCandles, vols = pracVisibleVolumes;
+  const closes = candles.map(c => c.close), highs = candles.map(c => c.high), lows = candles.map(c => c.low);
+  const volumes = vols.map(v => v.value);
+
+  // ===== OVERLAYS =====
+  if (key === 'sma20' || key === 'sma50') {
+    const period = key === 'sma20' ? 20 : 50;
+    const s = pracChart.addLineSeries({ color: PRAC_IND_COLORS[key], lineWidth: 1.5, title: key.toUpperCase(), lastValueVisible: false, priceLineVisible: false });
+    s.setData(pracSeriesData(pracComputeSMA(closes, period), candles));
+    pracActiveInd[key] = { seriesList: [s], type: 'overlay' };
+    return;
+  }
+  if (key === 'ema20' || key === 'ema50' || key === 'ema200') {
+    const period = { ema20: 20, ema50: 50, ema200: 200 }[key];
+    const s = pracChart.addLineSeries({ color: PRAC_IND_COLORS[key], lineWidth: 1.5, title: key.toUpperCase(), lastValueVisible: false, priceLineVisible: false });
+    s.setData(pracSeriesData(pracComputeEMA(closes, period), candles));
+    pracActiveInd[key] = { seriesList: [s], type: 'overlay' };
+    return;
+  }
+  if (key === 'bollinger') {
+    const { upper, lower } = pracComputeBB(closes, 20, 2);
+    const su = pracChart.addAreaSeries({ topColor: 'rgba(139,92,246,0.0)', bottomColor: 'rgba(139,92,246,0.12)', lineColor: '#8b5cf6', lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    const sl = pracChart.addAreaSeries({ topColor: 'rgba(139,92,246,0.12)', bottomColor: 'rgba(139,92,246,0.0)', lineColor: '#8b5cf6', lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    su.setData(pracSeriesData(upper, candles));
+    sl.setData(pracSeriesData(lower, candles));
+    pracActiveInd[key] = { seriesList: [su, sl], type: 'overlay' };
+    return;
+  }
+  if (key === 'supertrend') {
+    const { st, dir } = pracComputeSupertrend(highs, lows, closes);
+    const s = pracChart.addLineSeries({ lineWidth: 2, title: 'ST', lastValueVisible: false, priceLineVisible: false });
+    const data = [];
+    for (let i = 0; i < st.length; i++) {
+      if (st[i] !== null) data.push({ time: candles[i].time, value: Math.round(st[i] * 100) / 100, color: dir[i] === 1 ? '#00e5a0' : '#ff4757' });
+    }
+    s.setData(data);
+    pracActiveInd[key] = { seriesList: [s], type: 'overlay' };
+    return;
+  }
+  if (key === 'vwap') {
+    const s = pracChart.addLineSeries({ color: PRAC_IND_COLORS.vwap, lineWidth: 1.5, title: 'VWAP', lastValueVisible: false, priceLineVisible: false });
+    s.setData(pracSeriesData(pracComputeVWAP(highs, lows, closes, volumes), candles));
+    pracActiveInd[key] = { seriesList: [s], type: 'overlay' };
+    return;
+  }
+
+  // ===== SUB-PANELS =====
+  if (key === 'rsi') {
+    const el = document.getElementById('prac-rsi-container');
+    el.style.display = 'block';
+    buildPracticePanel('rsi', el, (chart) => {
+      const line = chart.addLineSeries({ color: '#a855f7', lineWidth: 1.5, title: 'RSI (14)' });
+      line.setData(pracSeriesData(pracComputeRSI(closes, 14), candles));
+      const t0 = candles[0].time, t1 = candles[candles.length - 1].time;
+      const r70 = chart.addLineSeries({ color: '#ff475744', lineWidth: 1, lineStyle: 2 });
+      const r30 = chart.addLineSeries({ color: '#00e5a044', lineWidth: 1, lineStyle: 2 });
+      r70.setData([{ time: t0, value: 70 }, { time: t1, value: 70 }]);
+      r30.setData([{ time: t0, value: 30 }, { time: t1, value: 30 }]);
+      pracRsiLine = line;
+      pracRsiChart = chart;
+      return line;
+    }, 70);
+    return;
+  }
+  if (key === 'macd') {
+    addPracticeSubPanel(key, 'MACD', (chart) => {
+      const { macd, signal, hist } = pracComputeMACD(closes);
+      const histS = chart.addHistogramSeries({});
+      const histData = [];
+      for (let i = 0; i < hist.length; i++) if (hist[i] !== null) histData.push({ time: candles[i].time, value: Math.round(hist[i] * 100) / 100, color: hist[i] >= 0 ? '#00e5a044' : '#ff475744' });
+      histS.setData(histData);
+      const macdL = chart.addLineSeries({ color: '#f97316', lineWidth: 1.5, title: 'MACD' });
+      macdL.setData(pracSeriesData(macd, candles));
+      const sigL = chart.addLineSeries({ color: '#06b6d4', lineWidth: 1, title: 'Signal' });
+      sigL.setData(pracSeriesData(signal, candles));
+      return macdL;
+    });
+    return;
+  }
+  if (key === 'stoch_rsi') {
+    addPracticeSubPanel(key, 'Stoch RSI', (chart) => {
+      const line = chart.addLineSeries({ color: '#22d3ee', lineWidth: 1.5, title: 'Stoch RSI' });
+      line.setData(pracSeriesData(pracComputeStochRSI(closes), candles));
+      const t0 = candles[0].time, t1 = candles[candles.length - 1].time;
+      const ob = chart.addLineSeries({ color: '#ff475744', lineWidth: 1, lineStyle: 2 });
+      const os = chart.addLineSeries({ color: '#00e5a044', lineWidth: 1, lineStyle: 2 });
+      ob.setData([{ time: t0, value: 80 }, { time: t1, value: 80 }]);
+      os.setData([{ time: t0, value: 20 }, { time: t1, value: 20 }]);
+      return line;
+    });
+    return;
+  }
+  if (key === 'williams') {
+    addPracticeSubPanel(key, 'Williams %R', (chart) => {
+      const line = chart.addLineSeries({ color: '#e879f9', lineWidth: 1.5, title: 'Williams %R' });
+      line.setData(pracSeriesData(pracComputeWilliamsR(highs, lows, closes), candles));
+      const t0 = candles[0].time, t1 = candles[candles.length - 1].time;
+      const ob = chart.addLineSeries({ color: '#ff475744', lineWidth: 1, lineStyle: 2 });
+      const os = chart.addLineSeries({ color: '#00e5a044', lineWidth: 1, lineStyle: 2 });
+      ob.setData([{ time: t0, value: -20 }, { time: t1, value: -20 }]);
+      os.setData([{ time: t0, value: -80 }, { time: t1, value: -80 }]);
+      return line;
+    });
+    return;
+  }
+  if (key === 'roc') {
+    addPracticeSubPanel(key, 'ROC', (chart) => {
+      const line = chart.addLineSeries({ color: '#c084fc', lineWidth: 1.5, title: 'ROC' });
+      line.setData(pracSeriesData(pracComputeROC(closes), candles));
+      return line;
+    });
+    return;
+  }
+  if (key === 'atr') {
+    addPracticeSubPanel(key, 'ATR', (chart) => {
+      const line = chart.addLineSeries({ color: '#fbbf24', lineWidth: 1.5, title: 'ATR' });
+      line.setData(pracSeriesData(pracComputeATR(highs, lows, closes), candles));
+      return line;
+    });
+    return;
+  }
+  if (key === 'adx') {
+    addPracticeSubPanel(key, 'ADX', (chart) => {
+      const line = chart.addLineSeries({ color: '#fb923c', lineWidth: 1.5, title: 'ADX' });
+      line.setData(pracSeriesData(pracComputeADX(highs, lows, closes), candles));
+      return line;
+    });
+    return;
+  }
+  if (key === 'obv') {
+    addPracticeSubPanel(key, 'OBV', (chart) => {
+      const line = chart.addLineSeries({ color: '#4ade80', lineWidth: 1.5, title: 'OBV' });
+      line.setData(pracSeriesData(pracComputeOBV(closes, volumes), candles));
+      return line;
+    });
+    return;
+  }
+  if (key === 'cmf') {
+    addPracticeSubPanel(key, 'CMF', (chart) => {
+      const line = chart.addLineSeries({ color: '#2dd4bf', lineWidth: 1.5, title: 'CMF' });
+      line.setData(pracSeriesData(pracComputeCMF(highs, lows, closes, volumes), candles));
+      return line;
+    });
+    return;
+  }
+  if (key === 'vortex') {
+    addPracticeSubPanel(key, 'Vortex', (chart) => {
+      const { vip, vim } = pracComputeVortex(highs, lows, closes);
+      const pL = chart.addLineSeries({ color: '#00e5a0', lineWidth: 1.5, title: 'VI+' });
+      const mL = chart.addLineSeries({ color: '#ff4757', lineWidth: 1.5, title: 'VI-' });
+      pL.setData(pracSeriesData(vip, candles));
+      mL.setData(pracSeriesData(vim, candles));
+      return pL;
+    });
+    return;
+  }
+}
+
+function addPracticeSubPanel(key, title, builder) {
+  const parent = document.getElementById('prac-sub-panels');
+  const el = document.createElement('div');
+  el.id = 'prac-sub-' + key;
+  el.className = 'bg-surface-container rounded-lg border border-outline-variant/10';
+  el.style.height = '70px';
+  parent.appendChild(el);
+  buildPracticePanel(key, el, builder, 70);
+}
+
+function buildPracticePanel(key, el, builder, height = 70) {
   const c = getChartColors();
-  pracRsiChart = LightweightCharts.createChart(el, {
-    width: el.clientWidth, height: 70,
+  const chart = LightweightCharts.createChart(el, {
+    width: el.clientWidth, height,
     layout: { background: { color: c.bg }, textColor: c.text, fontSize: 9 },
     grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
     timeScale: { visible: false }, rightPriceScale: { borderColor: c.border, minimumWidth: 65 },
     crosshair: { mode: 0 }, handleScroll: false, handleScale: false,
   });
   // Time baseline for alignment
-  if (pracVisibleCandles.length) {
-    const bl = pracRsiChart.addLineSeries({ visible: false, priceScaleId: 'baseline_hidden' });
-    bl.setData(pracVisibleCandles.map(c => ({ time: c.time, value: 0 })));
-  }
-  pracRsiLine = pracRsiChart.addLineSeries({ color: '#a855f7', lineWidth: 1.5, title: 'RSI (14)' });
-  if (pracIndicators.rsi?.length) {
-    pracRsiLine.setData(pracIndicators.rsi);
-    const t0 = pracVisibleCandles[0]?.time, t1 = pracVisibleCandles[pracVisibleCandles.length - 1]?.time;
-    if (t0 && t1) {
-      const r70 = pracRsiChart.addLineSeries({ color: '#ff475744', lineWidth: 1, lineStyle: 2 });
-      const r30 = pracRsiChart.addLineSeries({ color: '#00e5a044', lineWidth: 1, lineStyle: 2 });
-      r70.setData([{ time: t0, value: 70 }, { time: t1, value: 70 }]);
-      r30.setData([{ time: t0, value: 30 }, { time: t1, value: 30 }]);
-    }
-  }
+  const bl = chart.addLineSeries({ visible: false, priceScaleId: 'baseline_hidden' });
+  bl.setData(pracVisibleCandles.map(c => ({ time: c.time, value: 0 })));
+
+  const syncLine = builder(chart);
+  chart._syncLine = syncLine;
+
+  pracSubPanels[key] = chart;
+  pracActiveInd[key] = { seriesList: [], type: 'panel', panelKey: key };
+
   setTimeout(() => {
     try {
       const lr = pracChart?.timeScale().getVisibleLogicalRange();
-      if (lr && pracRsiChart) pracRsiChart.timeScale().setVisibleLogicalRange(lr);
+      if (lr) chart.timeScale().setVisibleLogicalRange(lr);
     } catch(e){}
   }, 50);
+}
+
+// Refresh all active indicators (called after each new candle)
+function refreshPracticeIndicators() {
+  const active = Object.keys(pracActiveInd);
+  active.forEach(k => removePracticeInd(k));
+  active.forEach(k => addPracticeInd(k));
 }
 
 function updatePracticeOhlc(candle) {
@@ -2311,8 +2749,8 @@ async function practiceNextDay() {
     if (pracCandleSeries) pracCandleSeries.update(data.candle);
     if (pracVolSeries) pracVolSeries.update(data.volume);
 
-    // Recompute indicators incrementally (RSI, SMA, BB, Supertrend from visible closes)
-    recomputePracticeIndicators();
+    // Refresh all active indicators with the new candle
+    refreshPracticeIndicators();
 
     // Update OHLC + price
     updatePracticeOhlc(data.candle);
@@ -2338,107 +2776,6 @@ async function practiceNextDay() {
     // Scroll chart to show latest
     pracChart?.timeScale().scrollToRealTime();
   } catch(e) { alert('Error: ' + e.message); }
-}
-
-function recomputePracticeIndicators() {
-  const closes = pracVisibleCandles.map(c => c.close);
-  const highs = pracVisibleCandles.map(c => c.high);
-  const lows = pracVisibleCandles.map(c => c.low);
-  const n = closes.length;
-
-  // RSI 14
-  if (n >= 15) {
-    const rsiData = [];
-    const deltas = [];
-    for (let i = 1; i < n; i++) deltas.push(closes[i] - closes[i-1]);
-    let avgGain = 0, avgLoss = 0;
-    for (let i = 0; i < 14; i++) {
-      if (deltas[i] > 0) avgGain += deltas[i]; else avgLoss -= deltas[i];
-    }
-    avgGain /= 14; avgLoss /= 14;
-    for (let i = 14; i < deltas.length; i++) {
-      if (i > 14) {
-        const d = deltas[i-1];
-        avgGain = (avgGain * 13 + (d > 0 ? d : 0)) / 14;
-        avgLoss = (avgLoss * 13 + (d < 0 ? -d : 0)) / 14;
-      }
-      const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
-      const rsi = 100 - (100 / (1 + rs));
-      rsiData.push({ time: pracVisibleCandles[i+1].time, value: Math.round(rsi * 100) / 100 });
-    }
-    if (pracRsiLine) pracRsiLine.setData(rsiData);
-    // Extend 70/30 lines
-    if (rsiData.length && pracRsiChart) {
-      const t1 = pracVisibleCandles[pracVisibleCandles.length - 1].time;
-      // We just update the last point; full re-render not needed for lines
-    }
-  }
-
-  // SMA 20
-  if (n >= 20 && pracSma20Series) {
-    const smaData = [];
-    for (let i = 19; i < n; i++) {
-      let sum = 0;
-      for (let j = i - 19; j <= i; j++) sum += closes[j];
-      smaData.push({ time: pracVisibleCandles[i].time, value: Math.round(sum / 20 * 100) / 100 });
-    }
-    pracSma20Series.setData(smaData);
-  }
-
-  // Bollinger Bands
-  if (n >= 20) {
-    const bbU = [], bbL = [];
-    for (let i = 19; i < n; i++) {
-      let sum = 0;
-      for (let j = i - 19; j <= i; j++) sum += closes[j];
-      const mean = sum / 20;
-      let variance = 0;
-      for (let j = i - 19; j <= i; j++) variance += (closes[j] - mean) ** 2;
-      const std = Math.sqrt(variance / 20);
-      bbU.push({ time: pracVisibleCandles[i].time, value: Math.round((mean + 2 * std) * 100) / 100 });
-      bbL.push({ time: pracVisibleCandles[i].time, value: Math.round((mean - 2 * std) * 100) / 100 });
-    }
-    if (pracBbUpperSeries) pracBbUpperSeries.setData(bbU);
-    if (pracBbLowerSeries) pracBbLowerSeries.setData(bbL);
-  }
-
-  // Supertrend (simplified — recompute from scratch)
-  if (n >= 14 && pracSupertrendSeries) {
-    const period = 7, mult = 3.0;
-    const hl2 = [], tr = [];
-    for (let i = 0; i < n; i++) {
-      hl2.push((highs[i] + lows[i]) / 2);
-      if (i === 0) tr.push(highs[i] - lows[i]);
-      else tr.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i-1]), Math.abs(lows[i] - closes[i-1])));
-    }
-    // EWM ATR
-    const atr = new Array(n).fill(0);
-    const alpha = 1 / period;
-    for (let i = 0; i < n; i++) {
-      if (i < period) { atr[i] = tr.slice(0, i+1).reduce((a,b)=>a+b, 0) / (i+1); }
-      else { atr[i] = alpha * tr[i] + (1 - alpha) * atr[i-1]; }
-    }
-    const fU = [], fL = [], dir = [], st = [];
-    for (let i = 0; i < n; i++) {
-      const bu = hl2[i] + mult * atr[i];
-      const bl = hl2[i] - mult * atr[i];
-      if (i < period) { fU.push(bu); fL.push(bl); dir.push(1); st.push(null); continue; }
-      const fl = (bl > fL[i-1] || closes[i-1] < fL[i-1]) ? bl : fL[i-1];
-      const fu = (bu < fU[i-1] || closes[i-1] > fU[i-1]) ? bu : fU[i-1];
-      fU.push(fu); fL.push(fl);
-      let d;
-      if (i === period) d = closes[i] > fu ? 1 : -1;
-      else if (dir[i-1] === 1) d = closes[i] < fl ? -1 : 1;
-      else d = closes[i] > fu ? 1 : -1;
-      dir.push(d);
-      st.push(d === 1 ? fl : fu);
-    }
-    const stData = [];
-    for (let i = period; i < n; i++) {
-      if (st[i] !== null) stData.push({ time: pracVisibleCandles[i].time, value: Math.round(st[i] * 100) / 100, color: dir[i] === 1 ? '#00e5a0' : '#ff4757' });
-    }
-    pracSupertrendSeries.setData(stData);
-  }
 }
 
 async function practiceBuy() {
@@ -2702,6 +3039,8 @@ function initApp() {
     if(cd&&!cd.classList.contains('hidden')&&!e.target.closest('#chart-ind-dropdown')&&!e.target.closest('[onclick*="chart-ind-dropdown"]')) cd.classList.add('hidden');
     const sd=document.getElementById('search-dropdown');
     if(sd&&!sd.classList.contains('hidden')&&!e.target.closest('#search-dropdown')&&!e.target.closest('#symbols-input')) sd.classList.add('hidden');
+    const pd2=document.getElementById('prac-ind-dropdown');
+    if(pd2&&!pd2.classList.contains('hidden')&&!e.target.closest('#prac-ind-dropdown')&&!e.target.closest('[onclick*="prac-ind-dropdown"]')) pd2.classList.add('hidden');
   });
 }
 
