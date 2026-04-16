@@ -26,6 +26,7 @@ from api.routes_chart_patterns import router as chart_patterns_router
 from api.routes_market import router as market_router
 from api.routes_backtest import router as backtest_router
 from api.routes_events import router as events_router
+from api.routes_briefing import router as briefing_router
 
 app = FastAPI(
     title="NSE Screener API",
@@ -61,6 +62,7 @@ app.include_router(chart_patterns_router, tags=["Chart Patterns"])
 app.include_router(market_router, tags=["Market Analytics"])
 app.include_router(backtest_router, tags=["Backtester"])
 app.include_router(events_router, tags=["Events"])
+app.include_router(briefing_router, tags=["Briefing"])
 
 
 # Serve frontend

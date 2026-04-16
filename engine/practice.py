@@ -596,9 +596,16 @@ def _build_briefing(symbol, df, start_idx):
         else:
             vol_pct = None
 
-        # Try to pull fundamentals if available (sector, market cap)
+        # Sector from static map; market cap from fundamentals
         sector = None
         market_cap = None
+        try:
+            from data.sector_map import get_sector as _gs
+            s = _gs(symbol)
+            if s and s != "Other":
+                sector = s
+        except Exception:
+            pass
         try:
             import pickle as _pickle
             fa_path = os.path.join(os.path.dirname(HISTORY_DIR), "fundamentals", f"{symbol}.pkl")
@@ -606,7 +613,8 @@ def _build_briefing(symbol, df, start_idx):
                 with open(fa_path, "rb") as f:
                     fa = _pickle.load(f)
                 if isinstance(fa, dict):
-                    sector = fa.get("sector") or fa.get("industry")
+                    if not sector:
+                        sector = fa.get("sector") or fa.get("industry")
                     market_cap = fa.get("market_cap") or fa.get("mcap")
         except Exception:
             pass

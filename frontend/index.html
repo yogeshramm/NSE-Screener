@@ -430,11 +430,21 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
               <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" checked data-chart-ind="vortex" onchange="toggleChartIndicator('vortex',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#f472b6] rounded inline-block"></span>Vortex</label>
             </div>
           </div>
+          <button id="sc-info-btn" onclick="toggleScreenerInfo()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded" title="Stock briefing + 52W lines">INFO</button>
+          <button id="sc-help-btn" onclick="toggleScreenerHelp()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded" title="Candlestick pattern annotations">HELP</button>
+          <button id="sc-events-btn" onclick="toggleScreenerEvents()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded" title="Corporate event markers">EVENTS</button>
           <span class="material-symbols-outlined text-sm cursor-pointer hover:text-primary" onclick="openInsightsFromChart()">psychology</span>
           <span class="material-symbols-outlined text-sm cursor-pointer hover:text-error" onclick="closeChart()">close</span>
         </div>
       </div>
       <div class="flex-1 flex flex-col p-2 gap-2 overflow-y-auto">
+        <div id="sc-briefing-panel" class="hidden bg-surface-container-highest rounded-lg p-3 text-xs border border-outline-variant/20">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[10px] font-black uppercase tracking-widest text-primary">Stock Briefing</span>
+            <span class="material-symbols-outlined text-xs cursor-pointer hover:text-error" onclick="toggleScreenerInfo()">close</span>
+          </div>
+          <div id="sc-briefing-content" class="grid grid-cols-4 gap-3 text-[10px]"></div>
+        </div>
         <div id="chart-container" class="bg-surface-container rounded-lg relative overflow-hidden border border-outline-variant/10" style="min-height:300px;height:350px;flex-shrink:0">
           <div id="ohlc-overlay" class="absolute top-2 left-2 z-10 flex gap-3 text-[10px] font-mono pointer-events-none" style="text-shadow:0 0 3px rgba(0,0,0,0.5)"></div>
         </div>
@@ -1506,6 +1516,14 @@ function closeChart() {
   tables.style.width='100%'; tables.style.minWidth='';
   chart.style.display='none'; chart.style.width='0';
   currentChartSymbol=null;
+  // Reset chart overlay toggles so they're OFF on next chart open
+  scInfoOn=false; scHelpOn=false; scEventsOn=false;
+  const ib=document.getElementById('sc-info-btn'); if(ib) ib.className='text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
+  const hb=document.getElementById('sc-help-btn'); if(hb) hb.className='text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
+  const eb=document.getElementById('sc-events-btn'); if(eb) eb.className='text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
+  const bp=document.getElementById('sc-briefing-panel'); if(bp) bp.classList.add('hidden');
+  scClear52WLines();
+  window._scCandleSeries=null;
 }
 function openInsightsFromChart() { if(currentChartSymbol) openStock(currentChartSymbol); }
 
@@ -1626,6 +1644,9 @@ function renderChart(data) {
   const cc=getCandleColors();
   const cs=currentChart.addCandlestickSeries({upColor:cc.up,downColor:cc.down,borderUpColor:cc.up,borderDownColor:cc.down,wickUpColor:cc.up,wickDownColor:cc.down});
   cs.setData(data.candles);
+  window._scCandleSeries = cs;
+  // Re-apply any active toggles (INFO/HELP/EVENTS) to the new chart instance
+  setTimeout(()=>{ try { scApplyAllChartOverlays(); } catch(e){} }, 50);
 
   // Volume integrated into main chart (TradingView style — bottom 20%)
   const volSeries=currentChart.addHistogramSeries({
@@ -2275,6 +2296,145 @@ async function runBacktest() {
   } catch(e) {
     document.getElementById('bt-stats').innerHTML = `<div class="col-span-full text-error text-center py-4">Backtest failed: ${e.message}</div>`;
   }
+}
+
+// ============ SCREENER CHART OVERLAYS (INFO + HELP + EVENTS) ============
+let scInfoOn = false, scHelpOn = false, scEventsOn = false;
+let scBriefingCache = {}; // {symbol: data}
+let scEventsCache = {};   // {symbol: events[]}
+let sc52HiLine = null, sc52LoLine = null;
+
+function scApplyAllChartOverlays() {
+  if (scInfoOn) scApply52WLines();
+  scApplyMarkers();
+}
+
+async function toggleScreenerInfo() {
+  scInfoOn = !scInfoOn;
+  const btn = document.getElementById('sc-info-btn');
+  const panel = document.getElementById('sc-briefing-panel');
+  btn.className = scInfoOn
+    ? 'text-[9px] font-bold text-on-primary bg-primary-container px-2 py-0.5 rounded'
+    : 'text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
+  if (!scInfoOn) { panel.classList.add('hidden'); scClear52WLines(); return; }
+  if (!currentChartSymbol) return;
+  let b = scBriefingCache[currentChartSymbol];
+  if (!b) {
+    try { b = (await (await fetch(API + '/stock/' + currentChartSymbol + '/briefing')).json()); scBriefingCache[currentChartSymbol] = b; } catch(e) { return; }
+  }
+  scRenderBriefing(b);
+  scApply52WLines();
+}
+
+function scRenderBriefing(b) {
+  const panel = document.getElementById('sc-briefing-panel');
+  const content = document.getElementById('sc-briefing-content');
+  const fmt = (n) => n !== null && n !== undefined ? '\u20b9' + n.toLocaleString('en-IN') : '—';
+  const fmtV = (n) => n ? (n >= 1e7 ? (n/1e7).toFixed(1)+'Cr' : n >= 1e5 ? (n/1e5).toFixed(1)+'L' : n.toLocaleString('en-IN')) : '—';
+  let html = `
+    <div><div class="text-on-surface-variant uppercase font-bold text-[9px]">52W High</div><div class="font-mono text-on-surface mt-0.5">${fmt(b.w52_high)} <span class="text-[9px] text-[#ff4757]">${b.pct_from_high}%</span></div></div>
+    <div><div class="text-on-surface-variant uppercase font-bold text-[9px]">52W Low</div><div class="font-mono text-on-surface mt-0.5">${fmt(b.w52_low)} <span class="text-[9px] text-[#00e5a0]">+${b.pct_from_low}%</span></div></div>
+    <div><div class="text-on-surface-variant uppercase font-bold text-[9px]">Avg Volume</div><div class="font-mono text-on-surface mt-0.5">${fmtV(b.avg_volume)}</div></div>
+    <div><div class="text-on-surface-variant uppercase font-bold text-[9px]">30D Volatility</div><div class="font-mono text-on-surface mt-0.5">${b.volatility_30d !== null ? b.volatility_30d + '%' : '—'}</div></div>`;
+  if (b.sector) html += `<div><div class="text-on-surface-variant uppercase font-bold text-[9px]">Sector</div><div class="text-on-surface mt-0.5">${b.sector}</div></div>`;
+  if (b.market_cap) html += `<div><div class="text-on-surface-variant uppercase font-bold text-[9px]">Market Cap</div><div class="font-mono text-on-surface mt-0.5">${b.market_cap}</div></div>`;
+  content.innerHTML = html;
+  panel.classList.remove('hidden');
+}
+
+function scApply52WLines() {
+  scClear52WLines();
+  const cs = window._scCandleSeries;
+  if (!cs || !currentChartSymbol) return;
+  const b = scBriefingCache[currentChartSymbol];
+  if (!b) return;
+  try {
+    sc52HiLine = cs.createPriceLine({price:b.w52_high, color:'#ff4757', lineWidth:1, lineStyle:2, axisLabelVisible:true, title:'52W H'});
+    sc52LoLine = cs.createPriceLine({price:b.w52_low, color:'#00e5a0', lineWidth:1, lineStyle:2, axisLabelVisible:true, title:'52W L'});
+  } catch(e){}
+}
+function scClear52WLines() {
+  const cs = window._scCandleSeries;
+  if (cs && sc52HiLine) { try { cs.removePriceLine(sc52HiLine); } catch(e){} sc52HiLine = null; }
+  if (cs && sc52LoLine) { try { cs.removePriceLine(sc52LoLine); } catch(e){} sc52LoLine = null; }
+}
+
+async function toggleScreenerHelp() {
+  scHelpOn = !scHelpOn;
+  const btn = document.getElementById('sc-help-btn');
+  btn.className = scHelpOn
+    ? 'text-[9px] font-bold text-on-primary bg-primary-container px-2 py-0.5 rounded'
+    : 'text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
+  scApplyMarkers();
+}
+
+async function toggleScreenerEvents() {
+  scEventsOn = !scEventsOn;
+  const btn = document.getElementById('sc-events-btn');
+  btn.className = scEventsOn
+    ? 'text-[9px] font-bold text-on-primary bg-primary-container px-2 py-0.5 rounded'
+    : 'text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
+  if (scEventsOn && currentChartSymbol && !scEventsCache[currentChartSymbol]) {
+    try {
+      const r = await fetch(API + '/events/symbol/' + currentChartSymbol);
+      const d = await r.json();
+      scEventsCache[currentChartSymbol] = d.events || [];
+    } catch(e) { scEventsCache[currentChartSymbol] = []; }
+  }
+  scApplyMarkers();
+}
+
+function scApplyMarkers() {
+  const cs = window._scCandleSeries;
+  if (!cs || !chartData) return;
+  const markers = [];
+  // HELP: candle patterns on visible candles
+  if (scHelpOn && chartData.candles?.length) {
+    const pats = detectPatterns(chartData.candles);
+    for (const p of pats) {
+      const c = chartData.candles[p.index];
+      if (!c) continue;
+      markers.push({
+        time: c.time,
+        position: p.signal.startsWith('Bull') || p.signal.startsWith('Strong bull') ? 'belowBar' : 'aboveBar',
+        color: '#facc15', shape: 'circle', text: p.name,
+      });
+    }
+  }
+  // EVENTS: corporate event markers (on matching candle dates)
+  if (scEventsOn && currentChartSymbol && scEventsCache[currentChartSymbol] && chartData.candles?.length) {
+    const evs = scEventsCache[currentChartSymbol];
+    const emojiFor = (ev) => {
+      const e = (ev || '').toLowerCase();
+      if (e.includes('dividend')) return '💰';
+      if (e.includes('split')) return '✂️';
+      if (e.includes('bonus')) return '🎁';
+      if (e.includes('result')) return '📊';
+      if (e.includes('buyback')) return '🔄';
+      return '📅';
+    };
+    for (const e of evs) {
+      const d = e.date;
+      if (!d) continue;
+      // Parse DD-MMM-YYYY → unix seconds
+      const m = d.match(/(\d{1,2})-([A-Za-z]{3})-(\d{4})/);
+      if (!m) continue;
+      const ts = Math.floor(new Date(`${m[2]} ${m[1]}, ${m[3]}`).getTime() / 1000);
+      // Find nearest candle (only if ts is within chart range)
+      const candles = chartData.candles;
+      if (ts < candles[0].time || ts > candles[candles.length-1].time + 7*86400) continue;
+      // Snap to closest candle by time
+      let nearest = candles[0], minD = Math.abs(candles[0].time - ts);
+      for (const c of candles) { const dd = Math.abs(c.time - ts); if (dd < minD) { minD = dd; nearest = c; } }
+      markers.push({
+        time: nearest.time,
+        position: 'aboveBar', color: '#06b6d4', shape: 'square',
+        text: `${emojiFor(e.event)} ${e.event}`,
+      });
+    }
+  }
+  markers.sort((a,b) => a.time - b.time);
+  try { cs.setMarkers(markers); } catch(e){}
 }
 
 // ============ MARKET PULSE (Screener top) ============
