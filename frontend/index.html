@@ -229,6 +229,28 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 
 <!-- ==================== TAB: SCREENER ==================== -->
 <section class="tab-content active flex-col w-full" id="tab-screener">
+  <!-- MARKET PULSE PANEL (collapsible) -->
+  <div class="border-b border-outline-variant/10 bg-surface-container-low">
+    <div class="flex items-center justify-between px-4 py-2 cursor-pointer" onclick="toggleMarketPulse()">
+      <div class="flex items-center gap-3">
+        <span class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">MARKET PULSE</span>
+        <span class="text-[9px] text-on-surface-variant">Sector rotation · Top Relative Strength (6M)</span>
+      </div>
+      <span id="mp-chevron" class="material-symbols-outlined text-sm text-on-surface-variant">expand_more</span>
+    </div>
+    <div id="mp-body" class="hidden px-4 pb-4">
+      <div class="flex gap-4 flex-wrap">
+        <div class="flex-1 min-w-[400px]">
+          <div class="text-[9px] font-bold text-on-surface-variant uppercase mb-2">Sector Rotation (ranked by 1M return)</div>
+          <div id="mp-heatmap" class="space-y-1 max-h-[280px] overflow-y-auto"></div>
+        </div>
+        <div class="w-[320px]">
+          <div class="text-[9px] font-bold text-on-surface-variant uppercase mb-2">Top 20 by Relative Strength (RS ≥ 80)</div>
+          <div id="mp-rs" class="space-y-1 max-h-[280px] overflow-y-auto text-xs"></div>
+        </div>
+      </div>
+    </div>
+  </div>
   <!-- FILTER PANEL -->
   <div class="p-4 bg-surface-container-low border-b border-outline-variant/10">
     <div class="flex items-center justify-between mb-3">
@@ -1965,6 +1987,65 @@ function toggleConfigFilter(el) { const k=el.dataset.configToggle; if(fullConfig
 function saveConfigPreset() { const name=prompt('Save preset as:'); if(!name||!name.trim())return; const config=getFilterConfig(); fetch(API+'/presets/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name.trim(),config})}).then(()=>{alert('Preset saved: '+name);populatePresetDropdowns();}); }
 
 // ============ INDICATORS PAGE ============
+// ============ MARKET PULSE (Screener top) ============
+let mpLoaded = false;
+async function toggleMarketPulse() {
+  const body = document.getElementById('mp-body');
+  const chev = document.getElementById('mp-chevron');
+  const open = body.classList.contains('hidden');
+  body.classList.toggle('hidden', !open);
+  chev.textContent = open ? 'expand_less' : 'expand_more';
+  if (open && !mpLoaded) { await loadMarketPulse(); mpLoaded = true; }
+}
+async function loadMarketPulse() {
+  try {
+    const [hmRes, rsRes] = await Promise.all([
+      fetch(API + '/market/sector-heatmap?universe=nifty500').then(r => r.json()),
+      fetch(API + '/market/rs?universe=nifty500').then(r => r.json()),
+    ]);
+    renderSectorHeatmap(hmRes.sectors || []);
+    renderTopRS(rsRes.rs || {});
+  } catch(e) {
+    document.getElementById('mp-heatmap').innerHTML = `<div class="text-error text-xs">Failed: ${e.message}</div>`;
+  }
+}
+function renderSectorHeatmap(sectors) {
+  const el = document.getElementById('mp-heatmap');
+  if (!sectors.length) { el.innerHTML = '<div class="text-[10px] text-on-surface-variant">No data</div>'; return; }
+  const tfs = [['1D','1D'],['1W','1W'],['1M','1M'],['3M','3M'],['6M','6M']];
+  el.innerHTML = `
+    <div class="grid grid-cols-[1fr,repeat(5,60px),40px] gap-1 text-[9px] font-bold text-on-surface-variant uppercase border-b border-outline-variant/10 pb-1 mb-1">
+      <div>Sector</div>${tfs.map(([k]) => `<div class="text-right">${k}</div>`).join('')}<div class="text-right">n</div>
+    </div>
+    ${sectors.map(s => {
+      const cells = tfs.map(([k]) => {
+        const v = s[k];
+        if (v === null || v === undefined) return '<div class="text-right text-on-surface-variant/30">—</div>';
+        const abs = Math.min(15, Math.abs(v));
+        const col = v >= 0 ? `rgba(0,229,160,${0.1 + abs/30})` : `rgba(255,71,87,${0.1 + abs/30})`;
+        const tx = v >= 0 ? '#00e5a0' : '#ff4757';
+        return `<div class="text-right font-mono text-[10px] px-1 rounded" style="background:${col};color:${tx}">${v >= 0 ? '+' : ''}${v.toFixed(1)}</div>`;
+      }).join('');
+      return `<div class="grid grid-cols-[1fr,repeat(5,60px),40px] gap-1 items-center py-0.5">
+        <div class="text-[11px] font-bold text-on-surface truncate">${s.sector}</div>
+        ${cells}
+        <div class="text-right text-[9px] text-on-surface-variant font-mono">${s.count}</div>
+      </div>`;
+    }).join('')}`;
+}
+function renderTopRS(rs) {
+  const el = document.getElementById('mp-rs');
+  const top = Object.entries(rs).filter(([,r]) => r >= 80).sort((a,b) => b[1] - a[1]).slice(0, 20);
+  if (!top.length) { el.innerHTML = '<div class="text-[10px] text-on-surface-variant">No stocks with RS ≥ 80</div>'; return; }
+  el.innerHTML = top.map(([s, r]) => {
+    const col = r >= 95 ? 'text-[#00e5a0]' : r >= 90 ? 'text-yellow-400' : 'text-on-surface';
+    return `<div class="flex items-center justify-between px-2 py-1 bg-surface-container-highest/40 rounded hover:bg-surface-container-highest cursor-pointer" onclick="openChart('${s}')">
+      <span class="font-bold text-on-surface">${s}</span>
+      <span class="font-mono font-bold ${col}">RS ${r}</span>
+    </div>`;
+  }).join('');
+}
+
 // ============ BREAKOUTS TAB ============
 let boMode = 'pre_breakout';
 let boUniverse = 'nifty500';
