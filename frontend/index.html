@@ -1419,7 +1419,7 @@ function updateOhlcOverlay(candle) {
   if(!el||!candle) return;
   const isUp=candle.close>=candle.open;
   const color=isUp?'var(--candle-up)':'var(--candle-down)';
-  // Look up volume for this candle's time
+  // Volume for this candle
   let volTxt='';
   try {
     const v=chartData?.volumes?.find(x=>x.time===candle.time);
@@ -1429,7 +1429,29 @@ function updateOhlcOverlay(candle) {
       volTxt=` <span style="color:var(--on-surface-variant)">V</span><span style="color:${color}">${fmt}</span>`;
     }
   } catch(e){}
-  el.innerHTML=`<span style="color:var(--on-surface-variant)">O</span><span style="color:${color}">${candle.open.toFixed(2)}</span> <span style="color:var(--on-surface-variant)">H</span><span style="color:${color}">${candle.high.toFixed(2)}</span> <span style="color:var(--on-surface-variant)">L</span><span style="color:${color}">${candle.low.toFixed(2)}</span> <span style="color:var(--on-surface-variant)">C</span><span style="color:${color}">${candle.close.toFixed(2)}</span>${volTxt}`;
+  // Second line: 52W H/L from cached briefing
+  let w52Txt='';
+  const b = currentChartSymbol ? scBriefingCache[currentChartSymbol] : null;
+  if (b) {
+    const pctCol = b.pct_from_high >= -5 ? 'var(--candle-up)' : 'var(--candle-down)';
+    w52Txt = `<div class="flex gap-3"><span style="color:var(--on-surface-variant)">52W</span><span style="color:var(--on-surface)">H ${b.w52_high} <span style="color:${pctCol}">${b.pct_from_high}%</span></span><span style="color:var(--on-surface)">L ${b.w52_low} <span style="color:var(--on-surface-variant)">+${b.pct_from_low}%</span></span></div>`;
+  }
+  el.innerHTML=`<div class="flex flex-col gap-0.5"><div class="flex gap-3"><span style="color:var(--on-surface-variant)">O</span><span style="color:${color}">${candle.open.toFixed(2)}</span><span style="color:var(--on-surface-variant)">H</span><span style="color:${color}">${candle.high.toFixed(2)}</span><span style="color:var(--on-surface-variant)">L</span><span style="color:${color}">${candle.low.toFixed(2)}</span><span style="color:var(--on-surface-variant)">C</span><span style="color:${color}">${candle.close.toFixed(2)}</span>${volTxt}</div>${w52Txt}</div>`;
+}
+
+// Auto-fetch briefing when a chart opens so 52W always shows
+async function ensureScBriefing(symbol) {
+  if (!symbol || scBriefingCache[symbol]) return;
+  try {
+    const r = await fetch(API + '/stock/' + symbol + '/briefing');
+    if (r.ok) {
+      scBriefingCache[symbol] = await r.json();
+      // Refresh overlay if the latest candle is showing
+      if (currentChartSymbol === symbol && chartData?.candles?.length) {
+        updateOhlcOverlay(chartData.candles[chartData.candles.length - 1]);
+      }
+    }
+  } catch(e){}
 }
 
 // ============ SEARCH AUTOCOMPLETE ============
@@ -1545,6 +1567,8 @@ async function loadChart(symbol, days, interval) {
   interval = interval || currentChartInterval;
   currentChartDays = days;
   currentChartInterval = interval;
+  // Fire-and-forget briefing fetch so 52W line shows on OHLC overlay
+  ensureScBriefing(symbol);
   try {
     const res=await fetch(API+'/chart/'+symbol+'?days='+days+'&interval='+interval);
     const data=await res.json();
@@ -4568,7 +4592,13 @@ function updatePracticeOhlc(candle) {
       volTxt = `<span style="color:${col}">V ${fmt}</span>`;
     }
   } catch(e){}
-  el.innerHTML = `<span style="color:${col}">O ${candle.open.toFixed(2)}</span><span style="color:${col}">H ${candle.high.toFixed(2)}</span><span style="color:${col}">L ${candle.low.toFixed(2)}</span><span style="color:${col}">C ${candle.close.toFixed(2)}</span>${volTxt}`;
+  let w52Txt = '';
+  if (pracBriefing) {
+    const b = pracBriefing;
+    const pctCol = b.pct_from_high >= -5 ? 'var(--candle-up)' : 'var(--candle-down)';
+    w52Txt = `<div class="flex gap-3 mt-0.5"><span style="color:var(--on-surface-variant)">52W</span><span style="color:var(--on-surface)">H ${b.w52_high} <span style="color:${pctCol}">${b.pct_from_high}%</span></span><span style="color:var(--on-surface)">L ${b.w52_low} <span style="color:var(--on-surface-variant)">+${b.pct_from_low}%</span></span></div>`;
+  }
+  el.innerHTML = `<div class="flex flex-col"><div class="flex gap-3"><span style="color:${col}">O ${candle.open.toFixed(2)}</span><span style="color:${col}">H ${candle.high.toFixed(2)}</span><span style="color:${col}">L ${candle.low.toFixed(2)}</span><span style="color:${col}">C ${candle.close.toFixed(2)}</span>${volTxt}</div>${w52Txt}</div>`;
 }
 
 async function practiceNextDay() {
