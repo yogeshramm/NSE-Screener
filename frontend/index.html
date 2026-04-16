@@ -1328,7 +1328,7 @@ function switchTab(tab) {
   if (tab === 'config') loadConfig();
   if (tab === 'indicators') loadIndicators();
   if (tab === 'watchlist') loadWatchlist();
-  if (tab === 'screener') { closeChart(); document.getElementById('symbols-input').value=''; }
+  if (tab === 'screener') { resetScreenerTab(); }
   if (tab === 'practice') resetPracticeTab();
   if (tab === 'breakouts') {
     const desc = document.getElementById('bo-description');
@@ -1543,6 +1543,21 @@ function openChart(symbol) {
   document.getElementById('vol-container').innerHTML='';
   loadChart(symbol);
 }
+function resetScreenerTab() {
+  // Close chart + reset everything to a fresh state on every Screener tab visit
+  closeChart();
+  const inp = document.getElementById('symbols-input'); if (inp) inp.value = '';
+  const dd = document.getElementById('search-dropdown'); if (dd) dd.classList.add('hidden');
+  const s1 = document.getElementById('s1-body');
+  if (s1) s1.innerHTML = '<tr><td colspan="9" class="px-3 py-8 text-center text-on-surface-variant/50">Run a screen to see results</td></tr>';
+  const s2 = document.getElementById('s2-body');
+  if (s2) s2.innerHTML = '<tr><td colspan="9" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 2 results appear after screening</td></tr>';
+  const s1c = document.getElementById('s1-count'); if (s1c) s1c.textContent = '0 results';
+  const s2c = document.getElementById('s2-count'); if (s2c) s2c.textContent = '0 results';
+  // Abort any in-flight screen
+  if (typeof screenAbort === 'object' && screenAbort && screenAbort.abort) { try { screenAbort.abort(); } catch(e){} screenAbort = null; }
+}
+
 function closeChart() {
   const tables=document.getElementById('tables-panel'),chart=document.getElementById('chart-panel');
   tables.style.width='100%'; tables.style.minWidth='';
