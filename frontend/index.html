@@ -5582,7 +5582,7 @@ function loadPracticeLeaderboard() {
       <div class="flex items-center gap-3">
         <span class="text-sm font-black text-on-surface w-6">${rank}</span>
         <span class="text-xs font-bold text-primary uppercase">${s.nickname || 'Guest'}</span>
-        <span class="text-[10px] font-bold text-on-surface">${s.symbol}</span>
+        <span class="text-[10px] font-bold text-on-surface">${s.symbol || '—'}</span>
         <span class="text-[9px] text-on-surface-variant">${s.date}</span>
       </div>
       <span class="text-xs font-mono font-bold ${col}">${s.pnl >= 0 ? '+' : ''}${(s.pnl_pct || 0).toFixed(1)}% · \u20b9${s.pnl.toLocaleString('en-IN')}</span>
