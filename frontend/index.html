@@ -954,8 +954,8 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
             </div>
             <div id="prac-briefing-content" class="grid grid-cols-4 gap-3 text-[10px]"></div>
           </div>
-          <div id="prac-chart-container" class="bg-surface-container rounded-lg relative overflow-hidden border border-outline-variant/10" style="min-height:280px;height:320px;flex-shrink:0"></div>
-          <div id="prac-rsi-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:70px;flex-shrink:0"></div>
+          <div id="prac-chart-container" class="bg-surface-container rounded-lg relative overflow-hidden border border-outline-variant/10" style="min-height:300px;height:350px;flex-shrink:0"></div>
+          <div id="prac-rsi-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:80px;flex-shrink:0"></div>
           <div id="prac-sub-panels" class="flex flex-col gap-2" style="flex-shrink:0"></div>
         </div>
         <!-- BOTTOM ACTION BAR -->
@@ -4819,9 +4819,9 @@ function addPracticeSubPanel(key, title, builder) {
   const el = document.createElement('div');
   el.id = 'prac-sub-' + key;
   el.className = 'bg-surface-container rounded-lg border border-outline-variant/10';
-  el.style.height = '70px';
+  el.style.height = '80px';
   parent.appendChild(el);
-  buildPracticePanel(key, el, builder, 70);
+  buildPracticePanel(key, el, builder, 80);
 }
 
 function buildPracticePanel(key, el, builder, height = 70) {
