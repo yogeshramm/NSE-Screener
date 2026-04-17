@@ -3278,8 +3278,8 @@ const IND_DRAW = {
     _drawCandles(ctx, W, H, c);
     const pv = pracComputePivots(c.map(x => Object.assign({ time: 0 }, x)));
     if (!pv) return;
-    [['r2','#22c55e88'],['r1','#22c55ebb'],['pp','#facc15'],['s1','#ef4444bb'],['s2','#ef444488']]
-      .forEach(([k,col]) => _drawHorizontalLevel(ctx, W, H, c, pv[k], col));
+    [['r2','R2','#22c55e88'],['r1','R1','#22c55ebb'],['pp','PP','#facc15'],['s1','S1','#ef4444bb'],['s2','S2','#ef444488']]
+      .forEach(([k,lbl,col]) => _drawHorizontalLevel(ctx, W, H, c, pv[k], col, lbl));
   },
   candles_div: (ctx, W, H, c) => {
     _drawCandles(ctx, W, H, c);
@@ -3292,21 +3292,23 @@ const IND_DRAW = {
   },
   osc_bounded: (ctx, W, H, c, name) => {
     const closes = c.map(x => x.close);
-    const v = name.includes('Stochastic') ? pracComputeStochRSI(closes)
-            : name === 'ADX' ? pracComputeADX(c.map(x=>x.high), c.map(x=>x.low), closes)
-            : pracComputeRSI(closes, 14);
-    _drawOscLine(ctx, W, H, v, 0, 100, [30,70], '#a855f7');
+    // Each bounded oscillator has its own standard thresholds — use them verbatim.
+    let v, refs;
+    if (name.includes('Stochastic')) { v = pracComputeStochRSI(closes); refs = [[20,'20'],[80,'80']]; }
+    else if (name === 'ADX')          { v = pracComputeADX(c.map(x=>x.high), c.map(x=>x.low), closes); refs = [[20,'20'],[25,'25']]; }
+    else                              { v = pracComputeRSI(closes, 14); refs = [[30,'30'],[70,'70']]; }
+    _drawOscLine(ctx, W, H, v, 0, 100, refs, '#a855f7');
   },
   osc_negative: (ctx, W, H, c) => {
     const v = pracComputeWilliamsR(c.map(x=>x.high), c.map(x=>x.low), c.map(x=>x.close));
-    _drawOscLine(ctx, W, H, v, -100, 0, [-80,-20], '#e879f9');
+    _drawOscLine(ctx, W, H, v, -100, 0, [[-80,'-80'],[-20,'-20']], '#e879f9');
   },
   osc_centered: (ctx, W, H, c, name) => {
     const closes = c.map(x => x.close);
     let v;
     if (name === 'CMF') v = pracComputeCMF(c.map(x=>x.high), c.map(x=>x.low), closes, c.map(x=>x.volume));
     else v = pracComputeROC(closes);
-    _drawOscLine(ctx, W, H, v, null, null, [0], '#c084fc');
+    _drawOscLine(ctx, W, H, v, null, null, [[0,'0']], '#c084fc');
   },
   macd: (ctx, W, H, c) => {
     const m = pracComputeMACD(c.map(x => x.close));
@@ -3365,13 +3367,17 @@ function _overlayLine(ctx, W, H, candles, vals, color) {
   });
   ctx.stroke();
 }
-function _drawHorizontalLevel(ctx, W, H, candles, value, color) {
+function _drawHorizontalLevel(ctx, W, H, candles, value, color, label) {
   const pad = 4;
   const lo = Math.min(...candles.map(c=>c.low)), hi = Math.max(...candles.map(c=>c.high));
   const y = pad + (hi - value) / (hi - lo || 1) * (H - pad*2);
   ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash([4,3]);
   ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - pad, y); ctx.stroke();
   ctx.setLineDash([]);
+  if (label) {
+    ctx.fillStyle = color; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'left';
+    ctx.fillText(label, pad + 2, Math.max(9, Math.min(H - 2, y - 2)));
+  }
 }
 function _drawOscLine(ctx, W, H, vals, ymin, ymax, refs, color) {
   const pad = 4;
@@ -3381,11 +3387,18 @@ function _drawOscLine(ctx, W, H, vals, ymin, ymax, refs, color) {
   const hi = ymax !== null ? ymax : Math.max(...valid);
   const range = hi - lo || 1;
   const step = (W - pad*2) / vals.length;
+  // refs: accepts either [num, num, ...] or [[num,label], [num,label], ...]
   refs.forEach(r => {
-    const y = pad + (hi - r) / range * (H - pad*2);
+    const [val, label] = Array.isArray(r) ? r : [r, null];
+    const y = pad + (hi - val) / range * (H - pad*2);
     ctx.strokeStyle = '#ffffff22'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
     ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - pad, y); ctx.stroke();
     ctx.setLineDash([]);
+    if (label) {
+      ctx.fillStyle = '#ffffff66'; ctx.font = '8px monospace'; ctx.textAlign = 'right';
+      ctx.fillText(label, W - pad - 1, Math.max(9, Math.min(H - 2, y - 2)));
+      ctx.textAlign = 'left';
+    }
   });
   ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.beginPath();
   let first = true;
@@ -3409,6 +3422,9 @@ function _drawMacd(ctx, W, H, macd, signal, hist) {
   ctx.strokeStyle = '#ffffff22'; ctx.setLineDash([3,3]);
   ctx.beginPath(); ctx.moveTo(pad, y0); ctx.lineTo(W - pad, y0); ctx.stroke();
   ctx.setLineDash([]);
+  ctx.fillStyle = '#ffffff66'; ctx.font = '8px monospace'; ctx.textAlign = 'right';
+  ctx.fillText('0', W - pad - 1, Math.max(9, Math.min(H - 2, y0 - 2)));
+  ctx.textAlign = 'left';
   hist.forEach((v, i) => {
     if (v == null || isNaN(v)) return;
     const x = pad + i * step + step/2;
@@ -3440,6 +3456,9 @@ function _drawHist(ctx, W, H, vals) {
   ctx.strokeStyle = '#ffffff22'; ctx.setLineDash([3,3]);
   ctx.beginPath(); ctx.moveTo(pad, y0); ctx.lineTo(W - pad, y0); ctx.stroke();
   ctx.setLineDash([]);
+  ctx.fillStyle = '#ffffff66'; ctx.font = '8px monospace'; ctx.textAlign = 'right';
+  ctx.fillText('0', W - pad - 1, Math.max(9, Math.min(H - 2, y0 - 2)));
+  ctx.textAlign = 'left';
   vals.forEach((v, i) => {
     if (v == null || isNaN(v)) return;
     const x = pad + i * step + step/2;
@@ -3571,13 +3590,6 @@ function renderIndicatorCards(indicators) {
   });
   const scoreColor=(s)=>s>=80?'text-primary':s>=75?'text-blue-400':s>=70?'text-yellow-400':'text-red-400';
   const scoreBg=(s)=>s>=80?'bg-primary/15 border-primary/30':s>=75?'bg-blue-500/15 border-blue-500/30':s>=70?'bg-yellow-500/15 border-yellow-500/30':'bg-red-500/15 border-red-500/30';
-  // After rendering cards, paint each card's visual example. Deferred to rAF
-  // so canvas clientWidth is measured correctly.
-  requestAnimationFrame(()=>{
-    document.querySelectorAll('#indicators-grid canvas.ind-snippet').forEach(cv => {
-      try { drawIndicatorSnippet(cv, cv.dataset.indName); } catch(e) {}
-    });
-  });
   grid.innerHTML=sorted.map((ind,idx)=>{
     const isHL=ind.highlighted;
     const tier=ind.precision_tier;
@@ -3607,6 +3619,14 @@ function renderIndicatorCards(indicators) {
       </div>
     </div>`;
   }).join('');
+  // After the cards are in the DOM, paint each canvas. setTimeout 0 so the
+  // current microtask finishes first (innerHTML string parse completes),
+  // giving reliable painting even in environments that throttle rAF.
+  setTimeout(() => {
+    document.querySelectorAll('#indicators-grid canvas.ind-snippet').forEach(cv => {
+      try { drawIndicatorSnippet(cv, cv.dataset.indName); } catch(e) {}
+    });
+  }, 0);
 }
 function sortIndicators(by) {
   indSortBy=by;
