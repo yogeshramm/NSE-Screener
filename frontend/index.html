@@ -5806,21 +5806,30 @@ function _ipRenderAnalystBody(a, price, state) {
         <span class="font-mono text-[11px] text-on-surface">${a.composite?.rating!=null?a.composite.rating+' / 5':'—'}</span>
       </span>
     </div>
-    <div class="mt-2 pt-2 border-t border-outline-variant/10 text-[9px] uppercase font-bold text-on-surface-variant mb-1">Sources · ${(a.sources_used||[]).length}/5</div>
-    ${srcRow('yfinance', yf ? `${yf.key||'—'} · ${yf.analysts||0}a · ₹${yf.target_low||'?'}-${yf.target_high||'?'}` : null, yf?.as_of)}
-    ${srcRow('Moneycontrol', mc ? `B${mc.buy||0} H${mc.hold||0} S${mc.sell||0}${mc.target_price?` · ₹${mc.target_price}`:''}` : null, mc?.as_of)}
-    ${srcRow('ET Markets', et ? `${et.analysts||0}a${et.target_price?` · ₹${et.target_price}`:''}` : null, et?.as_of)}
+    ${(() => {
+      // Count only the 4 analyst-rating sources (ET, Tickertape, Trendlyne, yfinance)
+      const ratingSources = ['yfinance','et_markets','tickertape','trendlyne'].filter(n => (a.sources_used||[]).includes(n));
+      return `<div class="mt-2 pt-2 border-t border-outline-variant/10 text-[9px] uppercase font-bold text-on-surface-variant mb-1">Sources · ${ratingSources.length}/4</div>`;
+    })()}
+    ${srcRow('ET Markets', et ? `${et.analysts||0} analysts${et.target_price?` · ₹${et.target_price}`:''}${et.target_low&&et.target_high?` (₹${et.target_low}-${et.target_high})`:''}` : null, et?.as_of)}
+    ${(() => {
+      const tt = a.tickertape; if (!tt) return '';
+      const info = `${tt.analysts||0} analysts${tt.perc_buy!=null?` · ${tt.perc_buy}% buy`:''}`;
+      return `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">Tickertape${_dateChip(tt.as_of)}</span><span class="font-mono text-on-surface">${info}</span></div>`;
+    })()}
     ${(() => {
       const tl = a.trendlyne; if (!tl) return '';
       const latest = tl.latest_date, earliest = tl.earliest_date;
       const rangeChip = earliest && latest && earliest !== latest
         ? ` <span class="text-[8px] text-on-surface-variant/70 ml-1">(${_fmtD(earliest)} – ${_fmtD(latest)})</span>`
         : _dateChip(latest);
-      const info = `${tl.reports_in_window||0}rpts · ${tl.analysts||0}br${tl.target_price?` · ₹${tl.target_low||'?'}-${tl.target_high||'?'}`:''}`;
+      const info = `${tl.reports_in_window||0} reports · ${tl.analysts||0} brokers${tl.target_price?` · ₹${tl.target_low||'?'}-${tl.target_high||'?'}`:''}`;
       return `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">Trendlyne${rangeChip}</span><span class="font-mono text-on-surface">${info}</span></div>`;
     })()}
-    ${srcRow(`yf history (last ${a.window_days}d)`, hist ? `${hist.changes} change${hist.changes!==1?'s':''}` : null)}
-    ${srcRow(`News (last ${a.window_days}d)`, rss ? `↑${rss.upgrades} ↓${rss.downgrades}` : null)}
+    ${srcRow('yfinance', yf ? `${yf.key||'—'} · ${yf.analysts||0} analysts · ₹${yf.target_low||'?'}-${yf.target_high||'?'}` : null, yf?.as_of)}
+    ${(hist || rss) ? `<div class="mt-2 pt-2 border-t border-outline-variant/10 text-[9px] uppercase font-bold text-on-surface-variant mb-1">Activity (last ${a.window_days}d)</div>` : ''}
+    ${srcRow('yfinance rating changes', hist ? `${hist.changes} change${hist.changes!==1?'s':''}` : null)}
+    ${srcRow('News upgrades/downgrades', rss ? `↑${rss.upgrades} ↓${rss.downgrades}` : null)}
     ${(!hist && !rss && (a.sources_used||[]).length>0) ? `<div class="text-[9px] text-on-surface-variant/60 mt-1 italic">No rating changes in last ${a.window_days||'—'}d</div>`:''}`;
 }
 async function loadAnalystTF(tf, _retryCount) {
