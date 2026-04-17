@@ -5861,7 +5861,7 @@ function _ipRenderAnalystBody(a, price, state) {
     })()}
     ${yf
       ? `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">yfinance${_dateChip(yf.as_of)}</span><span class="font-mono text-on-surface">${yf.key||'—'} · ${yf.analysts||0} analysts · ₹${yf.target_low||'?'}-${yf.target_high||'?'}</span></div>`
-      : `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">yfinance</span><span class="font-mono text-on-surface-variant/50 italic">temporarily unavailable</span></div>`}
+      : ''}
     ${(hist || rss) ? `<div class="mt-2 pt-2 border-t border-outline-variant/10 text-[9px] uppercase font-bold text-on-surface-variant mb-1">Activity (last ${a.window_days}d)</div>` : ''}
     ${srcRow('yfinance rating changes', hist ? `${hist.changes} change${hist.changes!==1?'s':''}` : null)}
     ${srcRow('News upgrades/downgrades', rss ? `↑${rss.upgrades} ↓${rss.downgrades}` : null)}
