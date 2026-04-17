@@ -1,7 +1,7 @@
 """Backtester API."""
 from fastapi import APIRouter
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Optional
 from engine.backtester import run_backtest
 
 router = APIRouter()

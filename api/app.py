@@ -7,7 +7,6 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 
 from api.routes_screen import router as screen_router
 from api.routes_stock import router as stock_router

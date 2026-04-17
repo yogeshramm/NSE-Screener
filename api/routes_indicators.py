@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
-from indicators.registry import list_indicators, register_custom_indicator, get_all_indicators
+from indicators.registry import list_indicators, register_custom_indicator
 from indicators.base import BaseIndicator
 from indicators.accuracy_data import INDICATOR_ACCURACY
 

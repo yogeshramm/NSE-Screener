@@ -10,8 +10,7 @@ from typing import Optional
 import threading
 
 from data.batch_downloader import (
-    get_downloaded_symbols, get_available_dates,
-    is_today_downloaded, run_batch_download
+    get_downloaded_symbols, get_available_dates, run_batch_download
 )
 from data.nse_symbols import NIFTY_500_FALLBACK, get_nifty500_live
 

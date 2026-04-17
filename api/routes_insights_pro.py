@@ -5,7 +5,6 @@ news, upcoming events. Explainable — each score contribution is returned.
 """
 import os, pickle
 from fastapi import APIRouter, HTTPException
-from typing import Any, Dict, List
 
 router = APIRouter()
 
@@ -180,7 +179,7 @@ def insights_pro(symbol: str):
     # also hit /analyst/{sym} directly and render the card when ready.
     analyst = None
     try:
-        from engine.multi_factor import CACHE_F as _mfs_f  # noqa
+        pass  # multi-factor cache lookup happens above when needed
         cache_p = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data_store", "analyst", f"{symbol}__1y.json")
         if os.path.exists(cache_p):
             import json as _j

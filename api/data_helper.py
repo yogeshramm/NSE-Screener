@@ -9,7 +9,7 @@ import time
 from setup_data import load_stock_full
 from data.batch_downloader import load_stock_data
 from data.nse_history import get_stock_history
-from data.yfinance_fetcher import fetch_price_history, fetch_all, _retry_on_rate_limit
+from data.yfinance_fetcher import fetch_all, _retry_on_rate_limit
 from data.cache import get_cached, set_cached
 
 

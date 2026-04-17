@@ -67,6 +67,22 @@ def screen_stock_stage1(symbol: str, daily_df: pd.DataFrame, stock_data: dict,
     if config is None:
         config = get_default_config()
 
+    # Guard: skip stocks with insufficient history (newly-listed IPOs etc.)
+    # Below 50 bars most indicators (SMA 50, RSI-14 stability, ATR-14) are
+    # meaningless — scoring returns noise. Fail fast rather than waste compute.
+    if daily_df is None or len(daily_df) < 50:
+        return {
+            "symbol": symbol, "stage": 1, "passed": False,
+            "score": 0, "scores": {"total_score": 0},
+            "price": stock_data.get("latest_close") or stock_data.get("current_price"),
+            "sector": stock_data.get("sector"),
+            "indicator_results": [], "fundamental_results": {},
+            "late_entry": {"status": "SKIPPED", "value": "N/A", "threshold": "N/A",
+                           "details": f"Insufficient history ({len(daily_df) if daily_df is not None else 0} bars)"},
+            "tech_pass": 0, "tech_fail": 0, "fund_pass": 0, "fund_fail": 0,
+            "insufficient_history": True,
+        }
+
     # Build indicator inputs from config
     enabled, params = _build_indicator_inputs(config)
 
