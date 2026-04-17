@@ -899,10 +899,13 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
           </div>
         </div>
       </div>
-      <!-- Game state -->
-      <div id="prac-game" class="flex-1 flex flex-col hidden">
-        <!-- Chart -->
-        <div class="flex-1 flex flex-col p-2 gap-2 overflow-y-auto min-h-0">
+      <!-- Game state. min-h-0 is the critical bit — without it, flex-1 lets
+           #prac-game blow out to its content size (all panels added), pushing
+           the floating action bar below the viewport. -->
+      <div id="prac-game" class="flex-1 min-h-0 flex flex-col hidden relative">
+        <!-- Chart — scrolls freely; pb-24 keeps the last panel clear of the
+             floating action bar overlay. -->
+        <div class="flex-1 flex flex-col p-2 gap-2 overflow-y-auto min-h-0 pb-24">
           <div class="flex items-center gap-2 px-1">
             <span id="prac-symbol" class="text-[10px] font-black uppercase tracking-widest text-on-surface"></span>
             <span id="prac-price" class="text-primary font-mono text-xs font-bold"></span>
@@ -958,8 +961,8 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
           <div id="prac-rsi-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:80px;flex-shrink:0"></div>
           <div id="prac-sub-panels" class="flex flex-col gap-2" style="flex-shrink:0"></div>
         </div>
-        <!-- BOTTOM ACTION BAR -->
-        <div class="px-4 py-3 bg-surface-container border-t border-outline-variant/10 flex items-center justify-between">
+        <!-- BOTTOM ACTION BAR (floating overlay — always visible regardless of how many indicator panels are open) -->
+        <div class="absolute bottom-0 left-0 right-0 z-30 px-4 py-3 bg-surface-container/95 backdrop-blur-sm border-t border-outline-variant/20 shadow-[0_-4px_20px_rgba(0,0,0,0.25)] flex items-center justify-between">
           <div class="flex items-center gap-3">
             <button id="prac-btn-next" onclick="practiceNextDay()" class="flex items-center gap-2 px-5 py-2.5 bg-surface-container-highest text-on-surface font-bold rounded-lg text-xs uppercase active:scale-95 transition-transform hover:bg-surface-variant">
               <span class="material-symbols-outlined text-sm">skip_next</span> Next Day
