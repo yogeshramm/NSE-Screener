@@ -90,18 +90,22 @@ _TT_SLUG_CACHE: Dict[str, Optional[str]] = {}
 
 
 def _tt_resolve_slug(symbol: str) -> Optional[str]:
-    """Resolve NSE ticker → Tickertape canonical slug via their public search API."""
+    """Resolve NSE ticker → Tickertape canonical slug via their public search API.
+    Endpoint: https://api.tickertape.in/search?text=X&types=stock"""
     if symbol in _TT_SLUG_CACHE: return _TT_SLUG_CACHE[symbol]
     slug = None
     try:
         from curl_cffi import requests as cf
-        r = cf.get(f"https://api.tickertape.in/stocks/search/1/{symbol}", impersonate="chrome131", timeout=8)
+        r = cf.get(
+            f"https://api.tickertape.in/search?text={symbol}&types=stock",
+            impersonate="chrome131", timeout=8,
+            headers={"Origin":"https://www.tickertape.in","Referer":"https://www.tickertape.in/"},
+        )
         if r.status_code == 200:
             d = r.json()
             for stk in (d.get("data", {}) or {}).get("stocks", []):
                 if (stk.get("ticker") or "").upper() == symbol.upper():
-                    # slug field is like "/stocks/bajaj-finance-BJFN" — strip prefix
-                    s = stk.get("slug", "").lstrip("/")
+                    s = (stk.get("slug") or "").lstrip("/")
                     if s.startswith("stocks/"): s = s[len("stocks/"):]
                     if s: slug = s; break
     except Exception: pass
