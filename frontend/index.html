@@ -5740,6 +5740,9 @@ async function openInsightsPro(symbol) {
     if (rPro.mtf && !rPro.mtf.error) bits.push(`MTF ${rPro.mtf.total>=0?'+':''}${rPro.mtf.total}`);
     if (rPro.multi_factor?.score != null) bits.push(`MFS ${rPro.multi_factor.score}`);
     document.getElementById('ip-mini').textContent = bits.join(' · ');
+    // Analyst data may not be cached server-side. Auto-trigger its fetch in the
+    // background — runs independently, does NOT block chart or other cards.
+    _autoLoadAnalystIfMissing();
   } catch (e) {
     body.innerHTML = `<div class="text-error text-sm">Failed: ${e.message || e}</div>`;
   }
@@ -5748,8 +5751,16 @@ function closeInsightsPro() {
   const p = document.getElementById('ip-panel');
   if (p) p.classList.add('translate-y-full');
 }
-function _ipRenderAnalystBody(a, price) {
-  if (!a || (a.sources_used || []).length === 0) return '<div class="text-[10px] text-[#ff4757] font-bold uppercase py-4 text-center">Rating not found</div>';
+function _ipRenderAnalystBody(a, price, state) {
+  // state: undefined/'loading' → still fetching; 'empty' → fetch done, zero sources
+  if (state === 'loading' || (a === undefined)) {
+    return '<div class="text-[10px] text-on-surface-variant py-4 text-center">' +
+      '<span class="inline-block w-3 h-3 border-2 border-primary/40 border-t-primary rounded-full animate-spin align-middle mr-2"></span>' +
+      'Fetching from 6 sources… <span class="opacity-60">(takes 3-8 s on first load)</span></div>';
+  }
+  if (!a || (a.sources_used || []).length === 0) {
+    return '<div class="text-[10px] text-[#ff4757] font-bold uppercase py-4 text-center">Rating not found</div>';
+  }
   const lbl = a.composite?.label;
   const lblCol = lbl==='STRONG BUY'?'text-[#00e5a0]':lbl==='BUY'?'text-primary':lbl==='HOLD'?'text-yellow-400':lbl==='REDUCE'?'text-orange-400':'text-[#ff4757]';
   const tgt = a.composite?.target_avg;
@@ -5757,7 +5768,9 @@ function _ipRenderAnalystBody(a, price) {
   const upCol = upside == null ? 'text-on-surface-variant' : upside > 3 ? 'text-[#00e5a0]' : upside < -3 ? 'text-[#ff4757]' : 'text-yellow-400';
   const dirWord = upside == null ? '—' : upside > 3 ? 'BULLISH' : upside < -3 ? 'BEARISH' : 'NEUTRAL';
   const mc = a.moneycontrol, et = a.et_markets, yf = a.yfinance, hist = a.yfinance_history, rss = a.news_activity;
-  const srcRow = (name, v) => v ? `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">${name}</span><span class="font-mono text-on-surface">${v}</span></div>` : '';
+  const _fmtD = (iso) => { if (!iso) return ''; const parts = iso.split('-'); if (parts.length !== 3) return iso; const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(parts[1])-1]||''; return `${m} ${parseInt(parts[2])} ${parts[0]}`; };
+  const _dateChip = (d, color='text-on-surface-variant/70') => d ? ` <span class="text-[8px] ${color} ml-1">(${_fmtD(d)})</span>` : '';
+  const srcRow = (name, v, dateStr) => v ? `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">${name}${_dateChip(dateStr)}</span><span class="font-mono text-on-surface">${v}</span></div>` : '';
   // Target range (bull/bear case) — from ALL sources that gave a target, not just yfinance
   const allTargets = [yf?.target_low, yf?.target_mean, yf?.target_high, mc?.target_price, et?.target_price].filter(v => typeof v === 'number' && v > 0);
   const lo = allTargets.length ? Math.min(...allTargets) : null;
@@ -5794,11 +5807,20 @@ function _ipRenderAnalystBody(a, price) {
       </span>
     </div>
     <div class="mt-2 pt-2 border-t border-outline-variant/10 text-[9px] uppercase font-bold text-on-surface-variant mb-1">Sources · ${(a.sources_used||[]).length}/5</div>
-    ${srcRow('yfinance', yf ? `${yf.key||'—'} · ${yf.analysts||0}a · ₹${yf.target_low||'?'}-${yf.target_high||'?'}` : null)}
-    ${srcRow('Moneycontrol', mc ? `B${mc.buy} H${mc.hold} S${mc.sell}${mc.target_price?` · ₹${mc.target_price}`:''}` : null)}
-    ${srcRow('ET Markets', et ? `SB${et.strong_buy} B${et.buy} H${et.hold} S${et.sell}${et.target_price?` · ₹${et.target_price}`:''}` : null)}
-    ${srcRow(`yf history (${a.window_days}d)`, hist ? `${hist.changes} change${hist.changes!==1?'s':''}` : null)}
-    ${srcRow(`News (${a.window_days}d)`, rss ? `↑${rss.upgrades} ↓${rss.downgrades}` : null)}
+    ${srcRow('yfinance', yf ? `${yf.key||'—'} · ${yf.analysts||0}a · ₹${yf.target_low||'?'}-${yf.target_high||'?'}` : null, yf?.as_of)}
+    ${srcRow('Moneycontrol', mc ? `B${mc.buy||0} H${mc.hold||0} S${mc.sell||0}${mc.target_price?` · ₹${mc.target_price}`:''}` : null, mc?.as_of)}
+    ${srcRow('ET Markets', et ? `${et.analysts||0}a${et.target_price?` · ₹${et.target_price}`:''}` : null, et?.as_of)}
+    ${(() => {
+      const tl = a.trendlyne; if (!tl) return '';
+      const latest = tl.latest_date, earliest = tl.earliest_date;
+      const rangeChip = earliest && latest && earliest !== latest
+        ? ` <span class="text-[8px] text-on-surface-variant/70 ml-1">(${_fmtD(earliest)} – ${_fmtD(latest)})</span>`
+        : _dateChip(latest);
+      const info = `${tl.reports_in_window||0}rpts · ${tl.analysts||0}br${tl.target_price?` · ₹${tl.target_low||'?'}-${tl.target_high||'?'}`:''}`;
+      return `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">Trendlyne${rangeChip}</span><span class="font-mono text-on-surface">${info}</span></div>`;
+    })()}
+    ${srcRow(`yf history (last ${a.window_days}d)`, hist ? `${hist.changes} change${hist.changes!==1?'s':''}` : null)}
+    ${srcRow(`News (last ${a.window_days}d)`, rss ? `↑${rss.upgrades} ↓${rss.downgrades}` : null)}
     ${(!hist && !rss && (a.sources_used||[]).length>0) ? `<div class="text-[9px] text-on-surface-variant/60 mt-1 italic">No rating changes in last ${a.window_days||'—'}d</div>`:''}`;
 }
 async function loadAnalystTF(tf, _retryCount) {
@@ -5809,17 +5831,36 @@ async function loadAnalystTF(tf, _retryCount) {
   });
   const body = document.getElementById('ip-analyst-body');
   const retry = _retryCount || 0;
-  if (retry === 0) body.innerHTML = '<div class="text-[10px] text-on-surface-variant">Fetching from 6 sources…</div>';
+  // Show loading state (spinner) — never "Rating not found" while still fetching
+  body.innerHTML = _ipRenderAnalystBody(undefined, price, 'loading');
   try {
     const a = await fetch(API + '/analyst/' + sym + '?tf=' + tf).then(r => r.json());
-    body.innerHTML = _ipRenderAnalystBody(a, price);
-    // If still empty and this is first attempt, retry after 5s (crawl4ai may still be running)
-    if (retry === 0 && (a.sources_used || []).length === 0 && card.dataset.symbol === sym) {
-      body.innerHTML = '<div class="text-[10px] text-on-surface-variant">Fetching from 6 sources… (Tickertape & Trendlyne take 3-5s)</div>';
+    // Check if popup still showing same symbol (user may have moved on)
+    if (card.dataset.symbol !== sym) return;
+    const hasData = (a.sources_used || []).length > 0;
+    if (hasData) {
+      body.innerHTML = _ipRenderAnalystBody(a, price);
+    } else if (retry === 0) {
+      // First attempt came back empty — likely crawl4ai sources still warming up. Retry in 5s.
+      body.innerHTML = _ipRenderAnalystBody(undefined, price, 'loading');
       setTimeout(() => { if (card.dataset.symbol === sym) loadAnalystTF(tf, 1); }, 5000);
+    } else {
+      // Second attempt also empty → genuine no-data
+      body.innerHTML = _ipRenderAnalystBody(a, price, 'empty');
     }
   } catch(e) {
     body.innerHTML = `<div class="text-[10px] text-error">Failed: ${e.message}</div>`;
+  }
+}
+// Auto-load analyst data on popup open if server didn't have it cached.
+// Runs in background — doesn't block chart, doesn't block other popup cards.
+function _autoLoadAnalystIfMissing() {
+  const card = document.getElementById('ip-analyst-card'); if (!card) return;
+  const body = document.getElementById('ip-analyst-body'); if (!body) return;
+  // Only auto-load if we're in the "loading" spinner state (server had no cache)
+  if (body.querySelector('.animate-spin')) {
+    const tf = card.querySelector('.analyst-tf-btn[class*="bg-primary/20"]')?.dataset?.tf || '1y';
+    loadAnalystTF(tf);
   }
 }
 function _ipRender(d) {
@@ -5920,7 +5961,7 @@ function _ipRender(d) {
             ${['1m','3m','6m','1y'].map(tf => `<button data-tf="${tf}" onclick="loadAnalystTF('${tf}')" class="analyst-tf-btn text-[9px] font-bold px-2 py-0.5 rounded ${tf==='1y'?'bg-primary/20 text-primary':'text-on-surface-variant hover:text-primary bg-surface-container-highest'}">${tf.toUpperCase()}</button>`).join('')}
           </div>
         </div>
-        <div id="ip-analyst-body">${_ipRenderAnalystBody(d.analyst, d.technicals?.price)}</div>
+        <div id="ip-analyst-body">${_ipRenderAnalystBody(d.analyst, d.technicals?.price, d.analyst ? undefined : 'loading')}</div>
       </div>
       <div class="bg-surface-container/40 rounded-lg p-4 md:col-span-2">
         <div class="text-[10px] font-black uppercase tracking-wider text-primary mb-3">Latest News (3)</div>

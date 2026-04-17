@@ -154,11 +154,13 @@ def _et_consensus(symbol: str) -> Optional[Dict[str, Any]]:
         ho = min(_ct(blk, r"\bhold\b"), 20); se = min(_ct(blk, r"(?<!strong\s)\bsell\b"), 20)
         ss = min(_ct(blk, r"\bstrong\s*sell\b"), 20)
         if tgt is None and analysts is None and sb + bu + ho + se + ss == 0: return None
+        from datetime import date
         return {
             "target_price": tgt, "target_high": tgt_hi, "target_low": tgt_lo,
             "analysts": analysts,
             "strong_buy": sb, "buy": bu, "hold": ho, "sell": se, "strong_sell": ss,
             "source_url": url,
+            "as_of": date.today().isoformat(),  # ET's consensus paragraph is "as of today"
         }
     except Exception: return None
 
@@ -175,6 +177,7 @@ def _yf_rating(symbol: str) -> Optional[Dict[str, Any]]:
         high = info.get("targetHighPrice")
         low = info.get("targetLowPrice")
         if mean is None and target is None: return None
+        from datetime import date
         return {
             "rating_mean": round(float(mean), 2) if isinstance(mean, (int, float)) else None,
             "analysts": int(n) if isinstance(n, (int, float)) and n else None,
@@ -182,6 +185,7 @@ def _yf_rating(symbol: str) -> Optional[Dict[str, Any]]:
             "target_mean": round(float(target), 2) if isinstance(target, (int, float)) else None,
             "target_high": round(float(high), 2) if isinstance(high, (int, float)) else None,
             "target_low": round(float(low), 2) if isinstance(low, (int, float)) else None,
+            "as_of": date.today().isoformat(),  # yfinance returns current Yahoo snapshot
         }
     except Exception: return None
 
@@ -271,11 +275,11 @@ def _composite(mc, et, yf_, rss) -> Dict[str, Any]:
 _TF_DAYS = {"1m": 30, "3m": 90, "6m": 180, "1y": 365}
 
 
-async def _crawl_sources(symbol: str) -> Dict[str, Any]:
+async def _crawl_sources(symbol: str, lookback_days: int = 365) -> Dict[str, Any]:
     """Try crawl4ai for MC + Tickertape + Trendlyne. Returns empty dict if crawl4ai unavailable."""
     try:
         from data.analyst_crawl import fetch_all_crawl_sources
-        return await fetch_all_crawl_sources(symbol)
+        return await fetch_all_crawl_sources(symbol, lookback_days=lookback_days)
     except Exception: return {}
 
 
@@ -292,7 +296,7 @@ async def get_analyst_signal_async(symbol: str, tf: str = "1y") -> Dict[str, Any
     yf_ = _yf_rating(symbol)    # yfinance, often rate-limited
     rss = _rss_activity(symbol, days=days)
     yf_hist = _yf_rating_history(symbol, days=days)
-    crawl = await _crawl_sources(symbol)
+    crawl = await _crawl_sources(symbol, lookback_days=days)
     mc = crawl.get("moneycontrol")
     tt = crawl.get("tickertape")
     tl = crawl.get("trendlyne")

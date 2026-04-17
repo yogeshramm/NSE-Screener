@@ -152,6 +152,8 @@ async def fetch_tickertape(symbol: str) -> Optional[Dict[str, Any]]:
             # Note: forecastsHistory.price contains historical price-at-date, not forward
             # analyst target. Tickertape's target isn't in the public JSON, so we skip it.
             if out.get("analysts") or out.get("target_price"):
+                from datetime import date
+                out["as_of"] = date.today().isoformat()  # Tickertape aggregates are current
                 return out
     except Exception: pass
     return None
@@ -176,67 +178,86 @@ _TL_SLUG_MAP = {
 }
 
 
-async def fetch_trendlyne(symbol: str) -> Optional[Dict[str, Any]]:
+async def fetch_trendlyne(symbol: str, lookback_days: int = 365) -> Optional[Dict[str, Any]]:
     tid = _TL_ID_MAP.get(symbol); slug = _TL_SLUG_MAP.get(symbol)
     if not tid or not slug: return None
     try:
-        # Run cloudscraper in thread-executor (it's blocking)
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, _tl_sync, tid, symbol, slug)
+        return await loop.run_in_executor(None, _tl_sync, tid, symbol, slug, lookback_days)
     except Exception: return None
 
 
-def _tl_sync(tid, symbol, slug) -> Optional[Dict[str, Any]]:
+def _tl_sync(tid, symbol, slug, lookback_days=365) -> Optional[Dict[str, Any]]:
+    """Trendlyne /equity/overview-second-part/{tid}/ returns JSON with
+    researchReports.tableData[] containing {recoDate, targetPrice, recoPrice,
+    recoType, upside, postAuthor}. Discovered via XHR-interception on their
+    main equity page. cloudscraper bypasses the Cloudflare TLS challenge in ~1s."""
     try:
         import cloudscraper
-        s = cloudscraper.create_scraper(browser={"browser": "chrome", "platform": "darwin", "desktop": True})
-        url = f"https://trendlyne.com/equity/{tid}/{symbol}/{slug}/"
-        r = s.get(url, timeout=15)
-        if r.status_code != 200 or len(r.text) < 50000: return None
-        t = r.text
-        out = {"source_url": url}
-        # DVM Score (Durability / Valuation / Momentum) — Trendlyne unique
-        for pat in [r'"dvmScore"\s*:\s*"?(\d+)',
-                   r'DVM\s*[sS]core[\s\S]{0,200}?(\d{1,3})\s*/\s*100',
-                   r'class="dvm-score[^"]*"[^>]*>(\d+)']:
-            m = re.search(pat, t)
-            if m:
-                out["dvm_score"] = int(m.group(1)); break
-        # Target price — look in any data attributes or inline JSON
-        for pat in [r'"targetPrice"\s*:\s*"?([\d,\.]+)',
-                   r'"consensusTarget"\s*:\s*"?([\d,\.]+)',
-                   r'data-target-price="([\d,\.]+)"',
-                   r'[Cc]onsensus\s*Target[^<>]{0,80}(?:Rs\.?|₹)\s*([\d,]+\.?\d*)']:
-            m = re.search(pat, t)
-            if m:
-                v = _num(m.group(1))
-                if v and v > 10: out["target_price"] = v; break
-        # Analyst count — only trust if >= 3 (avoids phantom "1 analyst" noise from
-        # random mentions like "Top 1 Analyst pick")
-        m = re.search(r"(\d+)\s*[Aa]nalysts?", t)
-        if m:
-            n = int(m.group(1))
-            if 3 <= n < 100: out["analysts"] = n
-        # Any broker distribution counts in a bounded block
-        blk_m = re.search(r"[Bb]roker\s*[Rr]ecom[\s\S]{0,3000}", t)
-        blk = blk_m.group(0) if blk_m else ""
-        if blk:
-            for rk in ["strong buy", "buy", "hold", "sell", "strong sell"]:
-                k = rk.replace(" ", "_")
-                cnt = len(re.findall(rf"\b{rk}\b", blk, re.I))
-                if 0 < cnt <= 20: out[k] = cnt
-        # Only return if we got something meaningful
-        if out.get("target_price") or out.get("analysts") or out.get("dvm_score"):
-            return out
-    except Exception: pass
-    return None
+        from datetime import datetime, timedelta
+        s = cloudscraper.create_scraper(browser={"browser":"chrome","platform":"darwin","desktop":True})
+        s.headers.update({"Accept":"application/json,text/plain,*/*","X-Requested-With":"XMLHttpRequest"})
+        # Warm cookies by hitting the public equity page first
+        s.get(f"https://trendlyne.com/equity/{tid}/{symbol}/{slug}/", timeout=15)
+        r = s.get(f"https://trendlyne.com/equity/overview-second-part/{tid}/", timeout=15)
+        if r.status_code != 200: return None
+        d = r.json()
+        rr = (d.get("body", {}) or {}).get("researchReports", {}) or {}
+        rows = rr.get("tableData") or []
+        if not rows: return None
+        cutoff = datetime.now() - timedelta(days=lookback_days)
+        recent = []
+        for rw in rows:
+            try:
+                if rw.get("recoDate") and datetime.strptime(rw["recoDate"], "%Y-%m-%d") >= cutoff:
+                    recent.append(rw)
+            except Exception: continue
+        if not recent: return None
+        targets = [r["targetPrice"] for r in recent if isinstance(r.get("targetPrice"), (int, float)) and r["targetPrice"] > 0]
+        upsides = [r["upside"] for r in recent if isinstance(r.get("upside"), (int, float))]
+        recos: Dict[str, int] = {}
+        for r in recent:
+            rt = (r.get("recoType") or "").strip().title()
+            if rt: recos[rt] = recos.get(rt, 0) + 1
+        out = {
+            "source_url": f"https://trendlyne.com/equity/{tid}/{symbol}/{slug}/",
+            "reports_in_window": len(recent),
+            "lookback_days": lookback_days,
+            "analysts": len({(r.get("postAuthor") or "").strip() for r in recent if r.get("postAuthor")}) or len(recent),
+            "reco_raw": recos,
+        }
+        if targets:
+            out["target_price"] = round(sum(targets)/len(targets), 2)
+            out["target_low"] = round(min(targets), 2)
+            out["target_high"] = round(max(targets), 2)
+        if upsides:
+            out["avg_upside_pct"] = round(sum(upsides)/len(upsides), 2)
+        # Date range metadata — so the UI can show users exactly WHEN these ratings are from
+        reco_dates = sorted([r.get("recoDate") for r in recent if r.get("recoDate")])
+        if reco_dates:
+            out["latest_date"] = reco_dates[-1]
+            out["earliest_date"] = reco_dates[0]
+        # Normalize into the 5-bucket rating system used across other sources
+        sb = recos.get("Strong Buy", 0) + recos.get("Accumulate", 0)
+        bu = recos.get("Buy", 0) + recos.get("Add", 0) + recos.get("Outperform", 0)
+        ho = recos.get("Hold", 0) + recos.get("Neutral", 0) + recos.get("Not Rated", 0) + recos.get("Results Update", 0)
+        se = recos.get("Sell", 0) + recos.get("Reduce", 0) + recos.get("Underperform", 0)
+        ss = recos.get("Strong Sell", 0)
+        if sb: out["strong_buy"] = sb
+        if bu: out["buy"] = bu
+        if ho: out["hold"] = ho
+        if se: out["sell"] = se
+        if ss: out["strong_sell"] = ss
+        return out
+    except Exception:
+        return None
 
 
-async def fetch_all_crawl_sources(symbol: str) -> Dict[str, Any]:
+async def fetch_all_crawl_sources(symbol: str, lookback_days: int = 365) -> Dict[str, Any]:
     """Parallel fetch MC + Tickertape + Trendlyne. Returns dict with each key present (None if failed)."""
     try:
         mc, tt, tl = await asyncio.gather(
-            fetch_mc(symbol), fetch_tickertape(symbol), fetch_trendlyne(symbol),
+            fetch_mc(symbol), fetch_tickertape(symbol), fetch_trendlyne(symbol, lookback_days=lookback_days),
             return_exceptions=False,
         )
         return {"moneycontrol": mc, "tickertape": tt, "trendlyne": tl}
