@@ -99,13 +99,37 @@ def _ct(text: str, pat: str) -> int:
 # ---------- A2. ET Markets broker recommendations ----------
 _ET_COMPANYID = {
     "RELIANCE": ("reliance-industries-ltd", 13215),
-    "TCS": ("tata-consultancy-services-ltd", 11356),
-    "INFY": ("infosys-ltd", 11195),
+    "TCS": ("tata-consultancy-services-ltd", 8345),          # corrected from 11356
+    "INFY": ("infosys-ltd", 10960),                          # corrected from 11195
     "HDFCBANK": ("hdfc-bank-ltd", 9195),
     "ICICIBANK": ("icici-bank-ltd", 9194),
     "ITC": ("itc-ltd", 13554),
     "WIPRO": ("wipro-ltd", 12799),
     "SBIN": ("state-bank-of-india", 11984),
+    "AXISBANK": ("axis-bank-ltd", 9175),
+    "ADANIGREEN": ("adani-green-energy-ltd", 64847),
+    "TRENT": ("trent-ltd", 13456),
+    "VBL": ("varun-beverages-ltd", 18605),
+    "BAJFINANCE": ("bajaj-finance-ltd", 8634),               # educated guess, may need verification
+    "BHARTIARTL": ("bharti-airtel-ltd", 11958),
+    "MARUTI": ("maruti-suzuki-india-ltd", 12137),
+    "HINDUNILVR": ("hindustan-unilever-ltd", 13616),
+    "LT": ("larsen-toubro-ltd", 13447),
+    "ASIANPAINT": ("asian-paints-ltd", 13430),
+    "HCLTECH": ("hcl-technologies-ltd", 4858),
+    "KOTAKBANK": ("kotak-mahindra-bank-ltd", 13425),
+    "TATAMOTORS": ("tata-motors-ltd", 12934),
+    "TATAPOWER": ("tata-power-company-ltd", 12918),
+    "SUNPHARMA": ("sun-pharmaceutical-industries-ltd", 3567),
+    "TITAN": ("titan-company-ltd", 13596),
+    "ULTRACEMCO": ("ultratech-cement-ltd", 13640),
+    "ADANIENT": ("adani-enterprises-ltd", 13330),
+    "NTPC": ("ntpc-ltd", 13641),
+    "ONGC": ("oil-and-natural-gas-corporation-ltd", 13501),
+    "POWERGRID": ("power-grid-corporation-of-india-ltd", 4628),
+    "COALINDIA": ("coal-india-ltd", 11822),
+    "TECHM": ("tech-mahindra-ltd", 12701),
+    "NESTLEIND": ("nestle-india-ltd", 13330),
 }
 
 

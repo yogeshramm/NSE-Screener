@@ -83,47 +83,36 @@ async def fetch_mc(symbol: str) -> Optional[Dict[str, Any]]:
     except Exception: return None
 
 
-# ---------- Tickertape via crawl4ai, parse __NEXT_DATA__ ----------
-_TT_SLUG_OVERRIDES = {
-    "RELIANCE": "reliance-industries-RELI",
-    "TCS": "tata-consultancy-services-TCS",
-    "INFY": "infosys-INFY",
-    "HDFCBANK": "hdfc-bank-HDBK",
-    "ITC": "itc-ITC",
-    "ICICIBANK": "icici-bank-ICIB",
-    "WIPRO": "wipro-WIPR",
-    "SBIN": "state-bank-of-india-SBI",
-    "HINDUNILVR": "hindustan-unilever-HUL",
-    "LT": "larsen-and-toubro-LT",
-    "BAJFINANCE": "bajaj-finance-BAF",
-    "BHARTIARTL": "bharti-airtel-BRTI",
-    "ASIANPAINT": "asian-paints-API",
-    "MARUTI": "maruti-suzuki-india-MRTI",
-    "HCLTECH": "hcl-technologies-HCLT",
-    "AXISBANK": "axis-bank-AXBK",
-    "KOTAKBANK": "kotak-mahindra-bank-KMB",
-    "SUNPHARMA": "sun-pharmaceutical-industries-SUN",
-    "TATAMOTORS": "tata-motors-TAMO",
-    "NESTLEIND": "nestle-india-NEST",
-    "TATAPOWER": "tata-power-company-TTPW",
-    "ULTRACEMCO": "ultratech-cement-ULTC",
-    "TITAN": "titan-company-TITN",
-    "ADANIENT": "adani-enterprises-APSE",
-    "POWERGRID": "power-grid-corporation-of-india-PGRD",
-    "NTPC": "ntpc-NTPC",
-    "ONGC": "oil-and-natural-gas-corporation-ONGC",
-    "COALINDIA": "coal-india-COAL",
-    "TECHM": "tech-mahindra-TEML",
-    "M&M": "mahindra-and-mahindra-MAHM",
-}
+# ---------- Tickertape via crawl4ai + __NEXT_DATA__ ----------
+# Slug resolved DYNAMICALLY via Tickertape's own search API — no hardcoded map needed.
+# Cached per session to avoid re-lookup.
+_TT_SLUG_CACHE: Dict[str, Optional[str]] = {}
+
+
+def _tt_resolve_slug(symbol: str) -> Optional[str]:
+    """Resolve NSE ticker → Tickertape canonical slug via their public search API."""
+    if symbol in _TT_SLUG_CACHE: return _TT_SLUG_CACHE[symbol]
+    slug = None
+    try:
+        from curl_cffi import requests as cf
+        r = cf.get(f"https://api.tickertape.in/stocks/search/1/{symbol}", impersonate="chrome131", timeout=8)
+        if r.status_code == 200:
+            d = r.json()
+            for stk in (d.get("data", {}) or {}).get("stocks", []):
+                if (stk.get("ticker") or "").upper() == symbol.upper():
+                    # slug field is like "/stocks/bajaj-finance-BJFN" — strip prefix
+                    s = stk.get("slug", "").lstrip("/")
+                    if s.startswith("stocks/"): s = s[len("stocks/"):]
+                    if s: slug = s; break
+    except Exception: pass
+    _TT_SLUG_CACHE[symbol] = slug
+    return slug
 
 
 async def fetch_tickertape(symbol: str) -> Optional[Dict[str, Any]]:
-    slug = _TT_SLUG_OVERRIDES.get(symbol)
-    candidates = []
-    if slug: candidates.append(f"https://www.tickertape.in/stocks/{slug}")
-    # Fallback: lowercase symbol (rare hit)
-    candidates.append(f"https://www.tickertape.in/stocks/{symbol.lower()}")
+    slug = _tt_resolve_slug(symbol)
+    if not slug: return None
+    candidates = [f"https://www.tickertape.in/stocks/{slug}"]
     try:
         c = await _get_crawler()
         for url in candidates:
@@ -160,30 +149,42 @@ async def fetch_tickertape(symbol: str) -> Optional[Dict[str, Any]]:
 
 
 # ---------- Trendlyne via cloudscraper (Cloudflare bypass, no browser) ----------
-_TL_ID_MAP = {
-    "RELIANCE": 1257, "TCS": 783, "INFY": 630, "HDFCBANK": 576, "ICICIBANK": 651,
-    "ITC": 670, "WIPRO": 1549, "SBIN": 1378, "HINDUNILVR": 611, "LT": 834,
-    "BAJFINANCE": 239, "BHARTIARTL": 278, "ASIANPAINT": 170, "MARUTI": 921,
-    "HCLTECH": 571, "AXISBANK": 204, "KOTAKBANK": 810,
-}
-_TL_SLUG_MAP = {
-    "RELIANCE": "reliance-industries-ltd", "TCS": "tata-consultancy-services-ltd",
-    "INFY": "infosys-ltd", "HDFCBANK": "hdfc-bank-ltd", "ICICIBANK": "icici-bank-ltd",
-    "ITC": "itc-ltd", "WIPRO": "wipro-ltd", "SBIN": "state-bank-of-india",
-    "HINDUNILVR": "hindustan-unilever-ltd", "LT": "larsen--toubro-ltd",
-    "BAJFINANCE": "bajaj-finance-ltd", "BHARTIARTL": "bharti-airtel-ltd",
-    "ASIANPAINT": "asian-paints-ltd", "MARUTI": "maruti-suzuki-india-ltd",
-    "HCLTECH": "hcl-technologies-ltd", "AXISBANK": "axis-bank-ltd",
-    "KOTAKBANK": "kotak-mahindra-bank-ltd",
-}
+# TID + slug resolved DYNAMICALLY via Trendlyne's own search API — no hardcoded map.
+_TL_META_CACHE: Dict[str, Optional[Dict[str, Any]]] = {}
+
+
+def _tl_resolve(symbol: str) -> Optional[Dict[str, Any]]:
+    """Resolve NSE ticker → Trendlyne {tid, slug} via their autosuggest endpoint."""
+    if symbol in _TL_META_CACHE: return _TL_META_CACHE[symbol]
+    meta = None
+    try:
+        import cloudscraper, re
+        s = cloudscraper.create_scraper(browser={"browser":"chrome","platform":"darwin","desktop":True})
+        s.headers.update({"Accept":"application/json","X-Requested-With":"XMLHttpRequest"})
+        s.get("https://trendlyne.com/", timeout=15)
+        r = s.get(f"https://trendlyne.com/equity/api/ac_snames/price/?term={symbol}", timeout=10)
+        if r.status_code == 200 and r.text.strip() not in ("fail", "[]"):
+            d = r.json()
+            for item in (d if isinstance(d, list) else []):
+                if not isinstance(item, dict): continue
+                if (item.get("value") or "").upper() == symbol.upper():
+                    tid = item.get("k")
+                    # Extract slug from pageurl: https://trendlyne.com/equity/{tid}/{SYM}/{slug}/
+                    pageurl = item.get("pageurl", "")
+                    m = re.search(r"/equity/\d+/[A-Z0-9&]+/([a-z0-9\-]+)", pageurl)
+                    slug = m.group(1) if m else None
+                    if tid and slug: meta = {"tid": tid, "slug": slug}; break
+    except Exception: pass
+    _TL_META_CACHE[symbol] = meta
+    return meta
 
 
 async def fetch_trendlyne(symbol: str, lookback_days: int = 365) -> Optional[Dict[str, Any]]:
-    tid = _TL_ID_MAP.get(symbol); slug = _TL_SLUG_MAP.get(symbol)
-    if not tid or not slug: return None
+    meta = _tl_resolve(symbol)
+    if not meta: return None
     try:
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, _tl_sync, tid, symbol, slug, lookback_days)
+        return await loop.run_in_executor(None, _tl_sync, meta["tid"], symbol, meta["slug"], lookback_days)
     except Exception: return None
 
 
