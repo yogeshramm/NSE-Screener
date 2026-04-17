@@ -8,7 +8,7 @@
     "enabled": true,
     "rsi_period": 14,
     "rsi_min": 50,
-    "rsi_max": 70
+    "rsi_max": 78
   },
   "macd": {
     "enabled": true,
@@ -18,8 +18,8 @@
   },
   "volume_surge": {
     "enabled": true,
-    "volume_surge_multiplier": 1.5,
-    "volume_lookback": 20
+    "volume_surge_multiplier": 1.3,
+    "volume_lookback": 50
   },
   "sector_performance": {
     "enabled": true,
@@ -31,7 +31,7 @@
     "swing_lookback": 50
   },
   "hidden_divergence": {
-    "enabled": true,
+    "enabled": false,
     "divergence_timeframe": "4H",
     "divergence_indicator": "RSI",
     "divergence_lookback": 30,
@@ -42,73 +42,73 @@
     "pivot_type": "both"
   },
   "awesome_oscillator": {
-    "enabled": true,
+    "enabled": false,
     "ao_fast": 5,
     "ao_slow": 34,
     "ao_timeframe": "daily"
   },
   "supertrend": {
     "enabled": true,
-    "supertrend_period": 7,
+    "supertrend_period": 10,
     "supertrend_multiplier": 3.0
   },
   "adx": {
     "enabled": true,
     "adx_period": 14,
-    "adx_minimum": 15
+    "adx_minimum": 22
   },
   "obv": {
     "enabled": true,
-    "obv_lookback": 20,
+    "obv_lookback": 30,
     "obv_direction": "rising"
   },
   "cmf": {
     "enabled": true,
     "cmf_period": 20,
-    "cmf_minimum": 0.1
+    "cmf_minimum": 0.15
   },
   "roc": {
     "enabled": true,
-    "roc_period": 20,
-    "roc_minimum": 0
+    "roc_period": 126,
+    "roc_minimum": 15
   },
   "fisher_transform": {
-    "enabled": true,
+    "enabled": false,
     "fisher_period": 10,
     "fisher_signal_period": 1
   },
   "klinger_oscillator": {
-    "enabled": true,
+    "enabled": false,
     "kvo_fast": 34,
     "kvo_slow": 55,
     "kvo_signal": 13
   },
   "chande_momentum": {
-    "enabled": true,
+    "enabled": false,
     "cmo_period": 14,
     "cmo_min": 10,
     "cmo_max": 50
   },
   "force_index": {
-    "enabled": true,
+    "enabled": false,
     "efi_period": 13
   },
   "vortex": {
     "enabled": true,
     "vortex_period": 14,
-    "vi_threshold": 0.05
+    "vi_threshold": 0.08
   },
   "roe": {
     "enabled": true,
-    "roe_minimum": 12
+    "roe_minimum": 18
   },
   "roce": {
     "enabled": true,
-    "roce_minimum": 10
+    "roce_minimum": 18
   },
   "debt_to_equity": {
     "enabled": true,
-    "de_maximum": 1.0,
+    "de_maximum": 0.5,
     "exclude_psu_infra": true
   },
   "eps": {
@@ -126,55 +126,55 @@
   },
   "analyst_ratings": {
     "enabled": true,
-    "analyst_buy_minimum": 3
+    "analyst_buy_minimum": 4
   },
   "earnings_blackout": {
     "enabled": true,
-    "earnings_blackout_days": 7
+    "earnings_blackout_days": 10
   },
   "pe_ratio": {
     "enabled": true,
-    "pe_maximum": 50
+    "pe_maximum": 60
   },
   "daily_turnover": {
     "enabled": true,
-    "turnover_minimum": 5
+    "turnover_minimum": 20
   },
   "free_float": {
     "enabled": true,
-    "freefloat_minimum": 30
+    "freefloat_minimum": 35
   },
   "late_entry_stage1": {
     "enabled": true,
-    "max_extension_from_breakout": 6,
-    "max_expansion_candles_without_pause": 2,
-    "entry_proximity_max": 3
+    "max_extension_from_breakout": 15,
+    "max_expansion_candles_without_pause": 4,
+    "entry_proximity_max": 10
   },
   "breakout_proximity": {
     "enabled": true,
-    "breakout_proximity_max": 5
+    "breakout_proximity_max": 12
   },
   "breakout_volume": {
     "enabled": true,
-    "breakout_volume_multiplier": 2.0
+    "breakout_volume_multiplier": 1.3
   },
   "breakout_rsi": {
     "enabled": true,
     "breakout_rsi_min": 55,
-    "breakout_rsi_max": 70,
-    "breakout_rsi_reject": 75
+    "breakout_rsi_max": 78,
+    "breakout_rsi_reject": 85
   },
   "supply_zone": {
     "enabled": true,
-    "upside_clear_minimum": 5
+    "upside_clear_minimum": 8
   },
   "institutional_flow": {
     "enabled": true,
-    "fii_dii_sessions": 5
+    "fii_dii_sessions": 10
   },
   "breakout_candle": {
     "enabled": true,
-    "candle_close_quality": 70
+    "candle_close_quality": 50
   },
   "bb_squeeze": {
     "enabled": true,
@@ -183,14 +183,14 @@
     "kc_multiplier": 1.5
   },
   "stochastic_rsi": {
-    "enabled": true,
+    "enabled": false,
     "stochrsi_rsi_period": 14,
     "stochrsi_stoch_period": 14,
     "stochrsi_oversold": 20,
     "stochrsi_overbought": 80
   },
   "williams_r": {
-    "enabled": true,
+    "enabled": false,
     "williams_period": 14,
     "williams_min": -40,
     "williams_max": -10
@@ -208,19 +208,19 @@
   },
   "late_entry_stage2": {
     "enabled": true,
-    "stage2_max_extension": 4,
-    "stale_breakout_sessions": 2
+    "stage2_max_extension": 10,
+    "stale_breakout_sessions": 5
   },
   "risk_management": {
     "enabled": true,
     "sl_atr_period": 14,
-    "sl_atr_multiplier": 1.3,
-    "target_atr_multiplier": 1.8
+    "sl_atr_multiplier": 1.8,
+    "target_atr_multiplier": 3.5
   },
   "scoring": {
-    "technical_weight": 40,
+    "technical_weight": 30,
     "fundamental_weight": 30,
-    "breakout_weight": 20,
+    "breakout_weight": 30,
     "liquidity_weight": 10
   }
 }

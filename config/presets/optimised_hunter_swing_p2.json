@@ -8,7 +8,7 @@
     "enabled": true,
     "rsi_period": 14,
     "rsi_min": 50,
-    "rsi_max": 68
+    "rsi_max": 80
   },
   "macd": {
     "enabled": true,
@@ -18,42 +18,15 @@
   },
   "volume_surge": {
     "enabled": true,
-    "volume_surge_multiplier": 1.5,
-    "volume_lookback": 20
+    "volume_surge_multiplier": 1.3,
+    "volume_lookback": 50
   },
-  "supertrend": {
+  "sector_performance": {
     "enabled": true,
-    "supertrend_period": 7,
-    "supertrend_multiplier": 3.0
-  },
-  "adx": {
-    "enabled": true,
-    "adx_period": 14,
-    "adx_minimum": 25
-  },
-  "obv": {
-    "enabled": true,
-    "obv_lookback": 20,
-    "obv_direction": "rising"
-  },
-  "cmf": {
-    "enabled": false,
-    "cmf_period": 20,
-    "cmf_minimum": 0.1
-  },
-  "roc": {
-    "enabled": false,
-    "roc_period": 20,
-    "roc_minimum": 0
-  },
-  "awesome_oscillator": {
-    "enabled": false,
-    "ao_fast": 5,
-    "ao_slow": 34,
-    "ao_timeframe": "daily"
+    "sector_lookback": 30
   },
   "anchored_vwap": {
-    "enabled": false,
+    "enabled": true,
     "vwap_anchor": "auto",
     "swing_lookback": 50
   },
@@ -65,12 +38,39 @@
     "rsi_period": 14
   },
   "pivot_levels": {
-    "enabled": false,
+    "enabled": true,
     "pivot_type": "both"
   },
-  "sector_performance": {
+  "awesome_oscillator": {
     "enabled": false,
-    "sector_lookback": 30
+    "ao_fast": 5,
+    "ao_slow": 34,
+    "ao_timeframe": "daily"
+  },
+  "supertrend": {
+    "enabled": true,
+    "supertrend_period": 10,
+    "supertrend_multiplier": 3.0
+  },
+  "adx": {
+    "enabled": true,
+    "adx_period": 14,
+    "adx_minimum": 22
+  },
+  "obv": {
+    "enabled": true,
+    "obv_lookback": 30,
+    "obv_direction": "rising"
+  },
+  "cmf": {
+    "enabled": true,
+    "cmf_period": 20,
+    "cmf_minimum": 0.1
+  },
+  "roc": {
+    "enabled": true,
+    "roc_period": 126,
+    "roc_minimum": 18
   },
   "fisher_transform": {
     "enabled": false,
@@ -94,73 +94,87 @@
     "efi_period": 13
   },
   "vortex": {
-    "enabled": false,
+    "enabled": true,
     "vortex_period": 14,
-    "vi_threshold": 0.05
+    "vi_threshold": 0.1
   },
   "roe": {
     "enabled": true,
-    "roe_minimum": 10
+    "roe_minimum": 18
+  },
+  "roce": {
+    "enabled": true,
+    "roce_minimum": 18
   },
   "debt_to_equity": {
     "enabled": true,
-    "de_maximum": 1.5,
+    "de_maximum": 0.5,
     "exclude_psu_infra": true
   },
-  "pe_ratio": {
-    "enabled": true,
-    "pe_maximum": 50
-  },
-  "roce": {
-    "enabled": false,
-    "roce_minimum": 10
-  },
   "eps": {
-    "enabled": false,
+    "enabled": true,
     "eps_minimum": 0,
     "eps_trend": "positive"
   },
   "free_cash_flow": {
-    "enabled": false,
+    "enabled": true,
     "fcf_trend": "positive_growth"
   },
   "institutional_holdings": {
-    "enabled": false,
+    "enabled": true,
     "institutional_trend": "rising_or_stable"
   },
   "analyst_ratings": {
-    "enabled": false,
-    "analyst_buy_minimum": 3
+    "enabled": true,
+    "analyst_buy_minimum": 4
   },
   "earnings_blackout": {
-    "enabled": false,
-    "earnings_blackout_days": 7
+    "enabled": true,
+    "earnings_blackout_days": 10
+  },
+  "pe_ratio": {
+    "enabled": true,
+    "pe_maximum": 60
   },
   "daily_turnover": {
-    "enabled": false,
-    "turnover_minimum": 5
+    "enabled": true,
+    "turnover_minimum": 25
   },
   "free_float": {
-    "enabled": false,
-    "freefloat_minimum": 30
+    "enabled": true,
+    "freefloat_minimum": 35
+  },
+  "late_entry_stage1": {
+    "enabled": true,
+    "max_extension_from_breakout": 18,
+    "max_expansion_candles_without_pause": 5,
+    "entry_proximity_max": 12
   },
   "breakout_proximity": {
     "enabled": true,
-    "breakout_proximity_max": 8
+    "breakout_proximity_max": 15
   },
   "breakout_volume": {
     "enabled": true,
-    "breakout_volume_multiplier": 1.8
+    "breakout_volume_multiplier": 1.2
   },
   "breakout_rsi": {
     "enabled": true,
-    "breakout_rsi_min": 50,
-    "breakout_rsi_max": 72,
-    "breakout_rsi_reject": 78
+    "breakout_rsi_min": 52,
+    "breakout_rsi_max": 80,
+    "breakout_rsi_reject": 88
+  },
+  "supply_zone": {
+    "enabled": true,
+    "upside_clear_minimum": 10
+  },
+  "institutional_flow": {
+    "enabled": true,
+    "fii_dii_sessions": 10
   },
   "breakout_candle": {
     "enabled": true,
-    "candle_close_quality": 65
+    "candle_close_quality": 45
   },
   "bb_squeeze": {
     "enabled": true,
@@ -169,24 +183,11 @@
     "kc_multiplier": 1.5
   },
   "stochastic_rsi": {
-    "enabled": true,
+    "enabled": false,
     "stochrsi_rsi_period": 14,
     "stochrsi_stoch_period": 14,
     "stochrsi_oversold": 20,
     "stochrsi_overbought": 80
-  },
-  "vwap_bands": {
-    "enabled": true,
-    "vwap_sigma": 1.0,
-    "vwap_period": 20
-  },
-  "supply_zone": {
-    "enabled": false,
-    "upside_clear_minimum": 5
-  },
-  "institutional_flow": {
-    "enabled": false,
-    "fii_dii_sessions": 5
   },
   "williams_r": {
     "enabled": false,
@@ -194,32 +195,31 @@
     "williams_min": -40,
     "williams_max": -10
   },
+  "vwap_bands": {
+    "enabled": true,
+    "vwap_sigma": 1.0,
+    "vwap_period": 20
+  },
   "ichimoku": {
-    "enabled": false,
+    "enabled": true,
     "ichimoku_tenkan": 9,
     "ichimoku_kijun": 26,
     "ichimoku_senkou": 52
   },
-  "late_entry_stage1": {
-    "enabled": true,
-    "max_extension_from_breakout": 8,
-    "max_expansion_candles_without_pause": 3,
-    "entry_proximity_max": 4
-  },
   "late_entry_stage2": {
     "enabled": true,
-    "stage2_max_extension": 5,
-    "stale_breakout_sessions": 3
+    "stage2_max_extension": 12,
+    "stale_breakout_sessions": 6
   },
   "risk_management": {
     "enabled": true,
     "sl_atr_period": 14,
-    "sl_atr_multiplier": 1.5,
-    "target_atr_multiplier": 2.5
+    "sl_atr_multiplier": 2.0,
+    "target_atr_multiplier": 4.0
   },
   "scoring": {
-    "technical_weight": 45,
-    "fundamental_weight": 15,
+    "technical_weight": 30,
+    "fundamental_weight": 30,
     "breakout_weight": 30,
     "liquidity_weight": 10
   }

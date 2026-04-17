@@ -12,6 +12,10 @@ router = APIRouter()
 HIST = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data_store", "history")
 FA = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data_store", "fundamentals")
 
+# Module-level caches (1h TTL) to avoid recomputing heavy values per row click
+_HEATMAP_CACHE = None
+_HEATMAP_CACHE_TS = 0
+
 
 def _load_hist(sym):
     p = os.path.join(HIST, f"{sym}.pkl")
@@ -128,15 +132,23 @@ def insights_pro(symbol: str):
             if mfs_bundle: mfs = mfs_bundle.get("score")
         except Exception: pass
 
-    # Sector momentum (1M)
+    # Sector momentum (1M) — cache the full heatmap for 1 hour to avoid scanning
+    # all ~2620 history pickles on every row click.
     sector_1m = None; sector_name = None
     try:
         from data.sector_map import get_sector
         sector_name = get_sector(symbol)
-        from engine.market_analytics import sector_heatmap
-        all_syms = [f.replace(".pkl", "") for f in os.listdir(HIST) if f.endswith(".pkl")]
-        heat = sector_heatmap(all_syms)
-        for h in heat:
+        import time as _t
+        global _HEATMAP_CACHE, _HEATMAP_CACHE_TS
+        try: _HEATMAP_CACHE  # noqa: F821
+        except NameError:
+            _HEATMAP_CACHE = None; _HEATMAP_CACHE_TS = 0
+        if not _HEATMAP_CACHE or (_t.time() - _HEATMAP_CACHE_TS) > 3600:
+            from engine.market_analytics import sector_heatmap
+            all_syms = [f.replace(".pkl", "") for f in os.listdir(HIST) if f.endswith(".pkl")]
+            _HEATMAP_CACHE = sector_heatmap(all_syms)
+            _HEATMAP_CACHE_TS = _t.time()
+        for h in _HEATMAP_CACHE:
             if h["sector"] == sector_name: sector_1m = h.get("1M"); break
     except Exception: pass
 

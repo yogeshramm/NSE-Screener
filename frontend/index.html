@@ -1669,7 +1669,7 @@ function renderResults(data) {
     const pe=r.fundamentals?.pe_ratio?.value||r.pe||'--';
     const roe=r.fundamentals?.roe?.value||r.roe||'--';
     const rsi=r.indicators?.find(x=>x.name.toLowerCase().includes('rsi'))?.value||'--';
-    return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" onclick="openInsightsPro('${r.symbol}')" onmouseenter="_analystPrefetch('${r.symbol}')">
+    return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" onclick="openInsightsPro('${r.symbol}')">
       <td class="px-3 py-2.5 font-bold ${r.passed?'text-primary':'text-on-surface-variant'}">${r.rank||i+1}</td>
       <td class="px-3 py-2.5"><div class="font-bold text-on-surface">${r.symbol}</div><div class="text-[9px] text-on-surface-variant">${r.sector||''}</div></td>
       <td class="px-3 py-2.5 text-right text-on-surface">\u20b9${r.price||'--'}</td>
@@ -1687,7 +1687,7 @@ function renderResults(data) {
   const s2=document.getElementById('s2-body');
   document.getElementById('s2-count').textContent=data.stage2_results.length+' candidates';
   s2.innerHTML=data.stage2_results.map((r,i)=>`
-    <tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" onclick="openInsightsPro('${r.symbol}')" onmouseenter="_analystPrefetch('${r.symbol}')">
+    <tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" onclick="openInsightsPro('${r.symbol}')">
       <td class="px-3 py-2.5 font-bold text-secondary">${r.rank||i+1}</td>
       <td class="px-3 py-2.5 font-bold text-on-surface">${r.symbol}</td>
       <td class="px-3 py-2.5 text-right text-on-surface">\u20b9${r.price||'--'}</td>
