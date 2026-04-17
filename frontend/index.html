@@ -5017,6 +5017,7 @@ async function practiceNextDay() {
       });
       refreshMarkers();
       document.getElementById('prac-position-card').classList.add('hidden');
+      updatePracticePurse();  // refresh cash + position display after auto-exit
       const win = ax.pnl >= 0;
       playPracticeTone(win ? 1200 : 440, 140);
       showPracticeToast(`${ax.reason} · ${win ? '+' : ''}\u20b9${ax.pnl.toFixed(0)} (${ax.pnl_pct.toFixed(1)}%)`, win ? 'ok' : 'err');
