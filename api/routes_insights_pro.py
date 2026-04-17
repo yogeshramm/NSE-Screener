@@ -193,16 +193,13 @@ def insights_pro(symbol: str):
         news = get_news(symbol, limit=3)
     except Exception: pass
 
-    # Upcoming events (next 2)
+    # Upcoming events (next 2) — uses the same 48h-fresh cache the Events tab
+    # populates, so no extra network call per row click.
     events = []
     try:
-        from data.nse_events import get_upcoming_events_for_symbol  # type: ignore
-        events = get_upcoming_events_for_symbol(symbol)[:2]
-    except Exception:
-        try:
-            from data.nse_events import get_upcoming_events
-            events = [e for e in get_upcoming_events() if e.get("symbol", "").upper() == symbol][:2]
-        except Exception: pass
+        from data.nse_events import events_for_symbol
+        events = events_for_symbol(symbol)[:2]
+    except Exception: pass
 
     return {
         "symbol": symbol,
