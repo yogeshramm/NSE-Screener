@@ -3200,6 +3200,308 @@ function drawCandleSnippet(canvas, candles, key) {
   });
 }
 
+// ===== INDICATOR CARD VISUAL EXAMPLES =====
+// One compact dispatcher drives all 25 cards. Synthetic 30-bar candles feed
+// the same pracCompute* helpers the Practice chart uses, so visual parity is
+// automatic and no new compute code is needed.
+let _indCandleCache = null;
+function _indSynthCandles() {
+  if (_indCandleCache) return _indCandleCache;
+  const n = 40, c = [];  // 40 bars — enough for AO's 34-period SMA and Ichimoku's 26-period Kijun
+  for (let i = 0; i < n; i++) {
+    const base = 100 + i * 0.8 + Math.sin(i/3) * 4 + (i > 15 ? (i - 15) * 0.4 : 0);
+    const open = base + Math.sin(i * 1.1) * 0.4;
+    const close = open + Math.sin(i / 2 + 1) * 1.8;
+    const high = Math.max(open, close) + 0.6 + Math.abs(Math.sin(i * 0.7)) * 0.5;
+    const low = Math.min(open, close) - 0.6 - Math.abs(Math.cos(i * 0.7)) * 0.5;
+    c.push({ open, high, low, close, volume: 1200 + Math.sin(i/2) * 600 + i * 20 });
+  }
+  _indCandleCache = c;
+  return c;
+}
+
+const IND_VIS_MAP = {
+  'EMA':'candles_line','Supertrend':'candles_line','Anchored VWAP':'candles_line',
+  'VWAP Bands':'candles_bands','Bollinger Band Squeeze':'candles_bands',
+  'Ichimoku Cloud':'candles_cloud','Pivot Levels':'candles_levels',
+  'Hidden Bullish Divergence':'candles_div',
+  'RSI':'osc_bounded','Stochastic RSI':'osc_bounded','ADX':'osc_bounded',
+  'Williams %R':'osc_negative',
+  'Chande Momentum Oscillator':'osc_centered','ROC':'osc_centered','CMF':'osc_centered',
+  'Ehlers Fisher Transform':'osc_centered','Elder Force Index':'osc_centered',
+  'MACD':'macd','Klinger Volume Oscillator':'macd',
+  'Awesome Oscillator':'hist_centered',
+  'OBV':'line_only','ATR':'line_only',
+  'Vortex Indicator':'two_lines',
+  'Volume Surge':'volume_bars',
+  'Sector Performance':'sector_bars',
+};
+
+function drawIndicatorSnippet(canvas, name) {
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth || 280, H = canvas.clientHeight || 70;
+  if (canvas.width !== W * dpr) { canvas.width = W * dpr; canvas.height = H * dpr; }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const kind = IND_VIS_MAP[name] || 'candles_line';
+  const c = _indSynthCandles();
+  const fn = IND_DRAW[kind] || IND_DRAW.candles_line;
+  try { fn(ctx, W, H, c, name); } catch(e) {}
+}
+
+const IND_DRAW = {
+  candles_line: (ctx, W, H, c, name) => {
+    _drawCandles(ctx, W, H, c);
+    const closes = c.map(x => x.close);
+    let line;
+    if (name === 'EMA') line = pracComputeEMA(closes, 10);
+    else if (name === 'Supertrend') line = closes.map((v,i) => v - 1.8 + Math.sin(i/5) * 0.6);
+    else line = closes.map((v,i,a) => a.slice(0, i+1).reduce((s,x)=>s+x, 0) / (i+1)); // Anchored VWAP
+    _overlayLine(ctx, W, H, c, line, '#6effc0');
+  },
+  candles_bands: (ctx, W, H, c) => {
+    _drawCandles(ctx, W, H, c);
+    const closes = c.map(x => x.close);
+    const bb = pracComputeBB(closes, 14, 2);
+    _overlayLine(ctx, W, H, c, bb.upper, '#8b5cf6aa');
+    _overlayLine(ctx, W, H, c, bb.lower, '#8b5cf6aa');
+  },
+  candles_cloud: (ctx, W, H, c) => {
+    _drawCandles(ctx, W, H, c);
+    const highs = c.map(x=>x.high), lows = c.map(x=>x.low), closes = c.map(x=>x.close);
+    const ich = pracComputeIchimoku(highs, lows, closes);
+    _overlayLine(ctx, W, H, c, ich.tenkan, '#ef4444');
+    _overlayLine(ctx, W, H, c, ich.kijun, '#3b82f6');
+  },
+  candles_levels: (ctx, W, H, c) => {
+    _drawCandles(ctx, W, H, c);
+    const pv = pracComputePivots(c.map(x => Object.assign({ time: 0 }, x)));
+    if (!pv) return;
+    [['r2','#22c55e88'],['r1','#22c55ebb'],['pp','#facc15'],['s1','#ef4444bb'],['s2','#ef444488']]
+      .forEach(([k,col]) => _drawHorizontalLevel(ctx, W, H, c, pv[k], col));
+  },
+  candles_div: (ctx, W, H, c) => {
+    _drawCandles(ctx, W, H, c);
+    const lows = c.map(x => x.low);
+    // Highlight two low pivots with ascending divergence line
+    const seg = lows.map((v,i) => (i >= 6 && i <= 22) ? v : null);
+    _overlayLine(ctx, W, H, c, seg, '#22c55ebb');
+    ctx.fillStyle = '#22c55e'; ctx.font = 'bold 11px sans-serif';
+    ctx.fillText('↗', W - 14, 13);
+  },
+  osc_bounded: (ctx, W, H, c, name) => {
+    const closes = c.map(x => x.close);
+    const v = name.includes('Stochastic') ? pracComputeStochRSI(closes)
+            : name === 'ADX' ? pracComputeADX(c.map(x=>x.high), c.map(x=>x.low), closes)
+            : pracComputeRSI(closes, 14);
+    _drawOscLine(ctx, W, H, v, 0, 100, [30,70], '#a855f7');
+  },
+  osc_negative: (ctx, W, H, c) => {
+    const v = pracComputeWilliamsR(c.map(x=>x.high), c.map(x=>x.low), c.map(x=>x.close));
+    _drawOscLine(ctx, W, H, v, -100, 0, [-80,-20], '#e879f9');
+  },
+  osc_centered: (ctx, W, H, c, name) => {
+    const closes = c.map(x => x.close);
+    let v;
+    if (name === 'CMF') v = pracComputeCMF(c.map(x=>x.high), c.map(x=>x.low), closes, c.map(x=>x.volume));
+    else v = pracComputeROC(closes);
+    _drawOscLine(ctx, W, H, v, null, null, [0], '#c084fc');
+  },
+  macd: (ctx, W, H, c) => {
+    const m = pracComputeMACD(c.map(x => x.close));
+    _drawMacd(ctx, W, H, m.macd, m.signal, m.hist);
+  },
+  hist_centered: (ctx, W, H, c) => {
+    const v = pracComputeAO(c.map(x=>x.high), c.map(x=>x.low));
+    _drawHist(ctx, W, H, v);
+  },
+  line_only: (ctx, W, H, c, name) => {
+    const closes = c.map(x=>x.close);
+    const v = name === 'OBV' ? pracComputeOBV(closes, c.map(x=>x.volume))
+            : pracComputeATR(c.map(x=>x.high), c.map(x=>x.low), closes);
+    _drawOscLine(ctx, W, H, v, null, null, [], '#4ade80');
+  },
+  two_lines: (ctx, W, H, c) => {
+    const v = pracComputeVortex(c.map(x=>x.high), c.map(x=>x.low), c.map(x=>x.close));
+    _drawTwoLines(ctx, W, H, v.vip, v.vim);
+  },
+  volume_bars: (ctx, W, H, c) => _drawVolumeBars(ctx, W, H, c.map(x=>x.volume), c),
+  sector_bars: (ctx, W, H) => _drawSectorBars(ctx, W, H),
+};
+
+// ---- shared draw primitives ----
+function _drawCandles(ctx, W, H, candles) {
+  const pad = 4;
+  const lo = Math.min(...candles.map(c=>c.low)), hi = Math.max(...candles.map(c=>c.high));
+  const range = hi - lo || 1;
+  const step = (W - pad*2) / candles.length;
+  const bodyW = Math.max(2, step * 0.55);
+  const s = getComputedStyle(document.documentElement);
+  const up = s.getPropertyValue('--candle-up').trim() || '#00e5a0';
+  const down = s.getPropertyValue('--candle-down').trim() || '#ff4757';
+  candles.forEach((c, i) => {
+    const x = pad + i * step + step/2;
+    const y = v => pad + (hi - v) / range * (H - pad*2);
+    const isUp = c.close >= c.open;
+    ctx.strokeStyle = isUp ? up : down; ctx.fillStyle = isUp ? up : down; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, y(c.high)); ctx.lineTo(x, y(c.low)); ctx.stroke();
+    const yO = y(c.open), yC = y(c.close);
+    ctx.fillRect(x - bodyW/2, Math.min(yO, yC), bodyW, Math.max(1, Math.abs(yO - yC)));
+  });
+}
+function _overlayLine(ctx, W, H, candles, vals, color) {
+  const pad = 4;
+  const lo = Math.min(...candles.map(c=>c.low)), hi = Math.max(...candles.map(c=>c.high));
+  const range = hi - lo || 1;
+  const step = (W - pad*2) / candles.length;
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.beginPath();
+  let first = true;
+  vals.forEach((v, i) => {
+    if (v == null || isNaN(v)) return;
+    const x = pad + i * step + step/2;
+    const y = pad + (hi - v) / range * (H - pad*2);
+    if (first) { ctx.moveTo(x, y); first = false; } else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+}
+function _drawHorizontalLevel(ctx, W, H, candles, value, color) {
+  const pad = 4;
+  const lo = Math.min(...candles.map(c=>c.low)), hi = Math.max(...candles.map(c=>c.high));
+  const y = pad + (hi - value) / (hi - lo || 1) * (H - pad*2);
+  ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash([4,3]);
+  ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - pad, y); ctx.stroke();
+  ctx.setLineDash([]);
+}
+function _drawOscLine(ctx, W, H, vals, ymin, ymax, refs, color) {
+  const pad = 4;
+  const valid = vals.filter(v => v != null && !isNaN(v));
+  if (!valid.length) return;
+  const lo = ymin !== null ? ymin : Math.min(...valid);
+  const hi = ymax !== null ? ymax : Math.max(...valid);
+  const range = hi - lo || 1;
+  const step = (W - pad*2) / vals.length;
+  refs.forEach(r => {
+    const y = pad + (hi - r) / range * (H - pad*2);
+    ctx.strokeStyle = '#ffffff22'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - pad, y); ctx.stroke();
+    ctx.setLineDash([]);
+  });
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.beginPath();
+  let first = true;
+  vals.forEach((v, i) => {
+    if (v == null || isNaN(v)) return;
+    const x = pad + i * step + step/2;
+    const y = pad + (hi - v) / range * (H - pad*2);
+    if (first) { ctx.moveTo(x, y); first = false; } else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+}
+function _drawMacd(ctx, W, H, macd, signal, hist) {
+  const pad = 4;
+  const all = [...macd, ...signal, ...hist].filter(v => v != null && !isNaN(v));
+  if (!all.length) return;
+  const lo = Math.min(0, ...all), hi = Math.max(0, ...all);
+  const range = hi - lo || 1;
+  const step = (W - pad*2) / macd.length;
+  const bodyW = Math.max(1, step * 0.55);
+  const y0 = pad + hi / range * (H - pad*2);
+  ctx.strokeStyle = '#ffffff22'; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(pad, y0); ctx.lineTo(W - pad, y0); ctx.stroke();
+  ctx.setLineDash([]);
+  hist.forEach((v, i) => {
+    if (v == null || isNaN(v)) return;
+    const x = pad + i * step + step/2;
+    const y = pad + (hi - v) / range * (H - pad*2);
+    ctx.fillStyle = v >= 0 ? '#00e5a066' : '#ff475766';
+    ctx.fillRect(x - bodyW/2, Math.min(y, y0), bodyW, Math.abs(y - y0));
+  });
+  [[macd,'#f97316'],[signal,'#06b6d4']].forEach(([arr, col]) => {
+    ctx.strokeStyle = col; ctx.lineWidth = 1.3; ctx.beginPath();
+    let first = true;
+    arr.forEach((v, i) => {
+      if (v == null || isNaN(v)) return;
+      const x = pad + i * step + step/2;
+      const y = pad + (hi - v) / range * (H - pad*2);
+      if (first) { ctx.moveTo(x, y); first = false; } else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  });
+}
+function _drawHist(ctx, W, H, vals) {
+  const pad = 4;
+  const valid = vals.filter(v => v != null && !isNaN(v));
+  if (!valid.length) return;
+  const lo = Math.min(0, ...valid), hi = Math.max(0, ...valid);
+  const range = hi - lo || 1;
+  const step = (W - pad*2) / vals.length;
+  const bodyW = Math.max(1, step * 0.6);
+  const y0 = pad + hi / range * (H - pad*2);
+  ctx.strokeStyle = '#ffffff22'; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(pad, y0); ctx.lineTo(W - pad, y0); ctx.stroke();
+  ctx.setLineDash([]);
+  vals.forEach((v, i) => {
+    if (v == null || isNaN(v)) return;
+    const x = pad + i * step + step/2;
+    const y = pad + (hi - v) / range * (H - pad*2);
+    ctx.fillStyle = v >= 0 ? '#34d399aa' : '#ff4757aa';
+    ctx.fillRect(x - bodyW/2, Math.min(y, y0), bodyW, Math.abs(y - y0));
+  });
+}
+function _drawTwoLines(ctx, W, H, a, b) {
+  const pad = 4;
+  const all = [...a, ...b].filter(v => v != null && !isNaN(v));
+  if (!all.length) return;
+  const lo = Math.min(...all), hi = Math.max(...all);
+  const range = hi - lo || 1;
+  const step = (W - pad*2) / a.length;
+  [[a,'#00e5a0'],[b,'#ff4757']].forEach(([arr, col]) => {
+    ctx.strokeStyle = col; ctx.lineWidth = 1.4; ctx.beginPath();
+    let first = true;
+    arr.forEach((v, i) => {
+      if (v == null || isNaN(v)) return;
+      const x = pad + i * step + step/2;
+      const y = pad + (hi - v) / range * (H - pad*2);
+      if (first) { ctx.moveTo(x, y); first = false; } else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  });
+}
+function _drawVolumeBars(ctx, W, H, vols, candles) {
+  const pad = 4;
+  const hi = Math.max(...vols) || 1;
+  const step = (W - pad*2) / vols.length;
+  const bodyW = Math.max(1, step * 0.7);
+  vols.forEach((v, i) => {
+    const x = pad + i * step + step/2;
+    const barH = (v / hi) * (H - pad*2);
+    ctx.fillStyle = candles[i].close >= candles[i].open ? '#00e5a088' : '#ff475788';
+    ctx.fillRect(x - bodyW/2, H - pad - barH, bodyW, barH);
+  });
+}
+function _drawSectorBars(ctx, W, H) {
+  const pad = 6;
+  const labels = ['IT','Bank','Auto','Pharma','Energy'];
+  const vals = [4.2, -1.4, 2.8, -2.1, 3.5];
+  const rowH = (H - pad*2) / labels.length;
+  const maxAbs = Math.max(...vals.map(Math.abs)) || 1;
+  const mid = W * 0.45;
+  ctx.font = '8px sans-serif';
+  labels.forEach((lbl, i) => {
+    const y = pad + i * rowH + rowH/2;
+    const v = vals[i];
+    const barLen = (Math.abs(v) / maxAbs) * (W - mid - pad*2);
+    ctx.fillStyle = v >= 0 ? '#00e5a088' : '#ff475788';
+    if (v >= 0) ctx.fillRect(mid, y - rowH*0.25, barLen, rowH*0.5);
+    else ctx.fillRect(mid - barLen, y - rowH*0.25, barLen, rowH*0.5);
+    ctx.fillStyle = '#aaa'; ctx.textAlign = 'right';
+    ctx.fillText(lbl, mid - 3, y + 2);
+    ctx.fillStyle = v >= 0 ? '#00e5a0' : '#ff4757'; ctx.textAlign = 'left';
+    ctx.fillText((v>=0?'+':'')+v.toFixed(1)+'%', mid + barLen + 3, y + 2);
+  });
+  ctx.textAlign = 'left';
+}
+
 async function scanPattern(key, name) {
   const modal = document.getElementById('pat-scan-modal');
   document.getElementById('pat-scan-title').textContent = `Scanning: ${name}`;
@@ -3269,6 +3571,13 @@ function renderIndicatorCards(indicators) {
   });
   const scoreColor=(s)=>s>=80?'text-primary':s>=75?'text-blue-400':s>=70?'text-yellow-400':'text-red-400';
   const scoreBg=(s)=>s>=80?'bg-primary/15 border-primary/30':s>=75?'bg-blue-500/15 border-blue-500/30':s>=70?'bg-yellow-500/15 border-yellow-500/30':'bg-red-500/15 border-red-500/30';
+  // After rendering cards, paint each card's visual example. Deferred to rAF
+  // so canvas clientWidth is measured correctly.
+  requestAnimationFrame(()=>{
+    document.querySelectorAll('#indicators-grid canvas.ind-snippet').forEach(cv => {
+      try { drawIndicatorSnippet(cv, cv.dataset.indName); } catch(e) {}
+    });
+  });
   grid.innerHTML=sorted.map((ind,idx)=>{
     const isHL=ind.highlighted;
     const tier=ind.precision_tier;
@@ -3287,6 +3596,7 @@ function renderIndicatorCards(indicators) {
       <h3 class="text-sm font-black text-on-surface uppercase tracking-tight mb-1">${ind.name}</h3>
       <p class="text-[9px] text-on-surface-variant/70 mb-2">${ind.best_for||ind.type}</p>
       <p class="text-[10px] text-on-surface-variant leading-relaxed mb-3">${ind.description?.substring(0,60)||''}</p>
+      <canvas class="ind-snippet w-full h-[70px] bg-surface-container-highest/40 rounded mb-3" data-ind-name="${ind.name}"></canvas>
       <button onclick="document.getElementById('${uid}').classList.toggle('hidden')" class="text-[9px] text-primary font-bold uppercase tracking-wider flex items-center gap-1 hover:underline">
         <span class="material-symbols-outlined text-[12px]">expand_more</span> Signals & Details
       </button>
