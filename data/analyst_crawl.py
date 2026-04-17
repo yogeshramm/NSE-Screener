@@ -7,10 +7,95 @@ Trendlyne:  cloudscraper bypasses their Cloudflare in ~1s — no browser.
 Moneycontrol: crawl4ai + hardcoded SC_ID map (8 large caps).
 """
 import re, json, asyncio, threading
+from pathlib import Path
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, List
 
 _CRAWLER = None
 _LOCK = threading.Lock()
+
+# ---------- disk-backed resolve cache (30-day TTL) ----------
+# Tickertape slugs + Trendlyne {tid, slug} are both durable identifiers — they
+# change only on corporate actions. Persisting them avoids re-hitting the
+# autocomplete endpoints every cold start.
+_RESOLVE_CACHE_FILE = Path(__file__).resolve().parent.parent / "data_store" / "analyst" / "resolve_cache.json"
+_RESOLVE_TTL = timedelta(days=30)
+_DISK_LOADED = False
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _is_fresh(cached_at: Optional[str]) -> bool:
+    if not cached_at:
+        return False
+    try:
+        ts = datetime.fromisoformat(cached_at.replace("Z", "+00:00"))
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - ts) <= _RESOLVE_TTL
+    except Exception:
+        return False
+
+
+def _hydrate_from_disk():
+    """Populate _TT_SLUG_CACHE + _TL_META_CACHE from disk (fresh entries only).
+    Called lazily on first resolve. Thread-safe via _LOCK."""
+    global _DISK_LOADED
+    with _LOCK:
+        if _DISK_LOADED:
+            return
+        _DISK_LOADED = True
+        if not _RESOLVE_CACHE_FILE.exists():
+            return
+        try:
+            with open(_RESOLVE_CACHE_FILE, "r") as f:
+                data = json.load(f)
+        except Exception:
+            return
+        for sym, entry in (data or {}).items():
+            if not isinstance(entry, dict):
+                continue
+            if not _is_fresh(entry.get("cached_at")):
+                continue
+            tt = entry.get("tt_slug")
+            if tt is not None and sym not in _TT_SLUG_CACHE:
+                _TT_SLUG_CACHE[sym] = tt or None
+            tid, tls = entry.get("tl_tid"), entry.get("tl_slug")
+            if sym not in _TL_META_CACHE:
+                _TL_META_CACHE[sym] = ({"tid": tid, "slug": tls} if tid and tls else None)
+
+
+def _persist_resolve(symbol: str, tt_slug: Optional[str] = None,
+                     tl_meta: Optional[Dict[str, Any]] = None):
+    """Merge (symbol, tt_slug, tl_meta) into the disk cache with atomic write.
+    Call sites pass whichever field they just resolved; the other is preserved
+    from any existing entry."""
+    with _LOCK:
+        try:
+            _RESOLVE_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            data: Dict[str, Any] = {}
+            if _RESOLVE_CACHE_FILE.exists():
+                try:
+                    with open(_RESOLVE_CACHE_FILE, "r") as f:
+                        data = json.load(f) or {}
+                except Exception:
+                    data = {}
+            entry = data.get(symbol, {}) if isinstance(data.get(symbol), dict) else {}
+            if tt_slug is not None:
+                entry["tt_slug"] = tt_slug
+            if tl_meta is not None:
+                entry["tl_tid"] = tl_meta.get("tid")
+                entry["tl_slug"] = tl_meta.get("slug")
+            entry["cached_at"] = _now_iso()
+            data[symbol] = entry
+            tmp = _RESOLVE_CACHE_FILE.with_suffix(".json.tmp")
+            with open(tmp, "w") as f:
+                json.dump(data, f)
+            tmp.replace(_RESOLVE_CACHE_FILE)
+        except Exception:
+            pass
 
 
 async def _get_crawler():
@@ -91,7 +176,10 @@ _TT_SLUG_CACHE: Dict[str, Optional[str]] = {}
 
 def _tt_resolve_slug(symbol: str) -> Optional[str]:
     """Resolve NSE ticker → Tickertape canonical slug via their public search API.
-    Endpoint: https://api.tickertape.in/search?text=X&types=stock"""
+    Endpoint: https://api.tickertape.in/search?text=X&types=stock
+    Disk-backed with 30-day TTL; in-memory cache hit is free, disk hit is one
+    small JSON read, miss is a network call that gets persisted to both."""
+    _hydrate_from_disk()
     if symbol in _TT_SLUG_CACHE: return _TT_SLUG_CACHE[symbol]
     slug = None
     try:
@@ -110,6 +198,7 @@ def _tt_resolve_slug(symbol: str) -> Optional[str]:
                     if s: slug = s; break
     except Exception: pass
     _TT_SLUG_CACHE[symbol] = slug
+    _persist_resolve(symbol, tt_slug=slug)
     return slug
 
 
@@ -158,7 +247,9 @@ _TL_META_CACHE: Dict[str, Optional[Dict[str, Any]]] = {}
 
 
 def _tl_resolve(symbol: str) -> Optional[Dict[str, Any]]:
-    """Resolve NSE ticker → Trendlyne {tid, slug} via their autosuggest endpoint."""
+    """Resolve NSE ticker → Trendlyne {tid, slug} via their autosuggest endpoint.
+    Disk-backed with 30-day TTL (see _tt_resolve_slug for the cache strategy)."""
+    _hydrate_from_disk()
     if symbol in _TL_META_CACHE: return _TL_META_CACHE[symbol]
     meta = None
     try:
@@ -180,6 +271,8 @@ def _tl_resolve(symbol: str) -> Optional[Dict[str, Any]]:
                     if tid and slug: meta = {"tid": tid, "slug": slug}; break
     except Exception: pass
     _TL_META_CACHE[symbol] = meta
+    if meta is not None:
+        _persist_resolve(symbol, tl_meta=meta)
     return meta
 
 
