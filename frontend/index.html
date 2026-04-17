@@ -1669,7 +1669,7 @@ function renderResults(data) {
     const pe=r.fundamentals?.pe_ratio?.value||r.pe||'--';
     const roe=r.fundamentals?.roe?.value||r.roe||'--';
     const rsi=r.indicators?.find(x=>x.name.toLowerCase().includes('rsi'))?.value||'--';
-    return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" onclick="openInsightsPro('${r.symbol}')">
+    return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" onclick="openInsightsPro('${r.symbol}')" onmouseenter="_analystPrefetch('${r.symbol}')">
       <td class="px-3 py-2.5 font-bold ${r.passed?'text-primary':'text-on-surface-variant'}">${r.rank||i+1}</td>
       <td class="px-3 py-2.5"><div class="font-bold text-on-surface">${r.symbol}</div><div class="text-[9px] text-on-surface-variant">${r.sector||''}</div></td>
       <td class="px-3 py-2.5 text-right text-on-surface">\u20b9${r.price||'--'}</td>
@@ -1687,7 +1687,7 @@ function renderResults(data) {
   const s2=document.getElementById('s2-body');
   document.getElementById('s2-count').textContent=data.stage2_results.length+' candidates';
   s2.innerHTML=data.stage2_results.map((r,i)=>`
-    <tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" onclick="openInsightsPro('${r.symbol}')">
+    <tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" onclick="openInsightsPro('${r.symbol}')" onmouseenter="_analystPrefetch('${r.symbol}')">
       <td class="px-3 py-2.5 font-bold text-secondary">${r.rank||i+1}</td>
       <td class="px-3 py-2.5 font-bold text-on-surface">${r.symbol}</td>
       <td class="px-3 py-2.5 text-right text-on-surface">\u20b9${r.price||'--'}</td>
@@ -5699,7 +5699,17 @@ function toggleInsightsPro() {
   const collapsed = body.classList.toggle('hidden');
   chev.textContent = collapsed ? 'expand_more' : 'expand_less';
 }
+// Fire-and-forget prefetch: warms the analyst cache (slow crawl4ai sources) while
+// the user looks at the chart. Popup will pick up the cached result when opened.
+function _analystPrefetch(symbol) {
+  if (!symbol) return;
+  if (!window._analystPrefetched) window._analystPrefetched = new Set();
+  if (window._analystPrefetched.has(symbol)) return;
+  window._analystPrefetched.add(symbol);
+  fetch(API + '/analyst/' + symbol + '?tf=1y').catch(() => {});
+}
 async function openInsightsPro(symbol) {
+  _analystPrefetch(symbol);
   _ipMount();
   const panel = document.getElementById('ip-panel');
   const body = document.getElementById('ip-body');
@@ -5791,17 +5801,23 @@ function _ipRenderAnalystBody(a, price) {
     ${srcRow(`News (${a.window_days}d)`, rss ? `↑${rss.upgrades} ↓${rss.downgrades}` : null)}
     ${(!hist && !rss && (a.sources_used||[]).length>0) ? `<div class="text-[9px] text-on-surface-variant/60 mt-1 italic">No rating changes in last ${a.window_days||'—'}d</div>`:''}`;
 }
-async function loadAnalystTF(tf) {
+async function loadAnalystTF(tf, _retryCount) {
   const card = document.getElementById('ip-analyst-card'); if (!card) return;
   const sym = card.dataset.symbol, price = parseFloat(card.dataset.price) || null;
   card.querySelectorAll('.analyst-tf-btn').forEach(b => {
     b.className = 'analyst-tf-btn text-[9px] font-bold px-2 py-0.5 rounded ' + (b.dataset.tf===tf ? 'bg-primary/20 text-primary' : 'text-on-surface-variant hover:text-primary bg-surface-container-highest');
   });
   const body = document.getElementById('ip-analyst-body');
-  body.innerHTML = '<div class="text-[10px] text-on-surface-variant">Loading…</div>';
+  const retry = _retryCount || 0;
+  if (retry === 0) body.innerHTML = '<div class="text-[10px] text-on-surface-variant">Fetching from 6 sources…</div>';
   try {
     const a = await fetch(API + '/analyst/' + sym + '?tf=' + tf).then(r => r.json());
     body.innerHTML = _ipRenderAnalystBody(a, price);
+    // If still empty and this is first attempt, retry after 5s (crawl4ai may still be running)
+    if (retry === 0 && (a.sources_used || []).length === 0 && card.dataset.symbol === sym) {
+      body.innerHTML = '<div class="text-[10px] text-on-surface-variant">Fetching from 6 sources… (Tickertape & Trendlyne take 3-5s)</div>';
+      setTimeout(() => { if (card.dataset.symbol === sym) loadAnalystTF(tf, 1); }, 5000);
+    }
   } catch(e) {
     body.innerHTML = `<div class="text-[10px] text-error">Failed: ${e.message}</div>`;
   }

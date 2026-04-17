@@ -7,3 +7,5 @@ uvicorn>=0.23.0
 PyJWT>=2.8.0
 bcrypt>=4.0.0
 httpx
+crawl4ai>=0.8.6
+curl_cffi>=0.7

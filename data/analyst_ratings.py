@@ -9,7 +9,7 @@ Three inputs, combined per stock:
 24h per-symbol disk cache at data_store/analyst/{SYM}.json.
 All three sources are best-effort; missing ones just get omitted.
 """
-import os, re, json, time, html
+import os, re, json, time, html, asyncio
 from typing import Dict, Any, Optional, List
 import requests
 
@@ -97,40 +97,66 @@ def _ct(text: str, pat: str) -> int:
 
 
 # ---------- A2. ET Markets broker recommendations ----------
+_ET_COMPANYID = {
+    "RELIANCE": ("reliance-industries-ltd", 13215),
+    "TCS": ("tata-consultancy-services-ltd", 11356),
+    "INFY": ("infosys-ltd", 11195),
+    "HDFCBANK": ("hdfc-bank-ltd", 9195),
+    "ICICIBANK": ("icici-bank-ltd", 9194),
+    "ITC": ("itc-ltd", 13554),
+    "WIPRO": ("wipro-ltd", 12799),
+    "SBIN": ("state-bank-of-india", 11984),
+}
+
+
 def _et_consensus(symbol: str) -> Optional[Dict[str, Any]]:
-    """Scrape ET Markets broker-recommendations block. Validates the page is actually
-    a stock-specific broker-reco page, not a generic search listing."""
+    """Scrape ET Markets per-stock page (requires companyid mapping).
+    Falls back to generic URL; validates page is stock-specific."""
     try:
-        url = f"https://economictimes.indiatimes.com/markets/stocks/stock-quotes?ticker={symbol}"
-        r = requests.get(url, headers=_HDR, timeout=12)
+        m = _ET_COMPANYID.get(symbol)
+        if m:
+            slug, cid = m
+            url = f"https://economictimes.indiatimes.com/{slug}/stocks/companyid-{cid}.cms"
+        else:
+            url = f"https://economictimes.indiatimes.com/markets/stocks/stock-quotes?ticker={symbol}"
+        # Try curl_cffi first for stealth
+        try:
+            from curl_cffi import requests as cf
+            r = cf.get(url, impersonate="chrome131", timeout=12)
+        except ImportError:
+            r = requests.get(url, headers=_HDR, timeout=12)
         if r.status_code != 200 or not r.text: return None
         t = r.text
-        # REJECT generic search/listing pages — those contain the "List of Companies Starting with X" title.
         title_m = re.search(r"<title[^>]*>([^<]+)</title>", t)
         title = (title_m.group(1) if title_m else "").lower()
         if "list of companies" in title or "starting with" in title:
             return None
-        # Require a broker-recommendations section on the page
-        if "broker" not in t.lower() or ("target" not in t.lower() and "recommend" not in t.lower()):
-            return None
-        # Extract target price if present
-        tgt = None
-        for pat in [r'"targetPrice"\s*:\s*"?([\d,\.]+)"?',
-                    r"target\s*price[^<]*<[^>]*>\s*Rs?\.?\s*([\d,]+\.?\d*)"]:
-            m = re.search(pat, t, re.I)
-            if m:
-                try: tgt = float(m.group(1).replace(",", "")); break
-                except Exception: pass
-        # Count broker ratings only within a broker-recommendations block (not whole page)
-        blk_m = re.search(r"broker[^<]*(?:recommend|call)[\s\S]{0,8000}", t, re.I)
+        # Rich analyst paragraph on ET's companyid page
+        tgt = tgt_hi = tgt_lo = None; analysts = None
+        mm = re.search(r"target price of Rs\.?\s*([\d,]+\.?\d*)\s*in\s*\d+\s*months?\s*by\s*(\d+)\s*analysts?\.?[\s\S]{0,400}", t, re.I)
+        if mm:
+            tgt = float(mm.group(1).replace(",", "")); analysts = int(mm.group(2))
+            ctx = mm.group(0)
+            hm = re.search(r"high\s*estimate\s*of\s*Rs\.?\s*([\d,]+\.?\d*)", ctx, re.I)
+            lm = re.search(r"low\s*estimate\s*of\s*Rs\.?\s*([\d,]+\.?\d*)", ctx, re.I)
+            if hm: tgt_hi = float(hm.group(1).replace(",", ""))
+            if lm: tgt_lo = float(lm.group(1).replace(",", ""))
+        if not tgt:
+            for pat in [r'"targetPrice"\s*:\s*"?([\d,\.]+)"?', r"target\s*price[^<]*<[^>]*>\s*Rs?\.?\s*([\d,]+\.?\d*)"]:
+                m = re.search(pat, t, re.I)
+                if m:
+                    try: tgt = float(m.group(1).replace(",", "")); break
+                    except Exception: pass
+        # Broker rating distribution (bounded block, cap at 20 each)
+        blk_m = re.search(r"broker[^<]*(?:recommend|call|view)[\s\S]{0,6000}", t, re.I)
         blk = blk_m.group(0) if blk_m else ""
-        if not blk: return None
-        sb = _ct(blk, r"\bstrong\s*buy\b"); bu = _ct(blk, r"(?<!strong\s)\bbuy\b")
-        ho = _ct(blk, r"\bhold\b"); se = _ct(blk, r"(?<!strong\s)\bsell\b")
-        ss = _ct(blk, r"\bstrong\s*sell\b")
-        if tgt is None and sb + bu + ho + se + ss == 0: return None
+        sb = min(_ct(blk, r"\bstrong\s*buy\b"), 20); bu = min(_ct(blk, r"(?<!strong\s)\bbuy\b"), 20)
+        ho = min(_ct(blk, r"\bhold\b"), 20); se = min(_ct(blk, r"(?<!strong\s)\bsell\b"), 20)
+        ss = min(_ct(blk, r"\bstrong\s*sell\b"), 20)
+        if tgt is None and analysts is None and sb + bu + ho + se + ss == 0: return None
         return {
-            "target_price": tgt,
+            "target_price": tgt, "target_high": tgt_hi, "target_low": tgt_lo,
+            "analysts": analysts,
             "strong_buy": sb, "buy": bu, "hold": ho, "sell": se, "strong_sell": ss,
             "source_url": url,
         }
@@ -245,7 +271,15 @@ def _composite(mc, et, yf_, rss) -> Dict[str, Any]:
 _TF_DAYS = {"1m": 30, "3m": 90, "6m": 180, "1y": 365}
 
 
-def get_analyst_signal(symbol: str, tf: str = "1y") -> Dict[str, Any]:
+async def _crawl_sources(symbol: str) -> Dict[str, Any]:
+    """Try crawl4ai for MC + Tickertape + Trendlyne. Returns empty dict if crawl4ai unavailable."""
+    try:
+        from data.analyst_crawl import fetch_all_crawl_sources
+        return await fetch_all_crawl_sources(symbol)
+    except Exception: return {}
+
+
+async def get_analyst_signal_async(symbol: str, tf: str = "1y") -> Dict[str, Any]:
     symbol = symbol.upper().strip()
     tf = tf if tf in _TF_DAYS else "1y"
     days = _TF_DAYS[tf]
@@ -253,24 +287,86 @@ def get_analyst_signal(symbol: str, tf: str = "1y") -> Dict[str, Any]:
     if os.path.exists(cache_f) and time.time() - os.path.getmtime(cache_f) < TTL:
         try: return json.load(open(cache_f))
         except Exception: pass
-    mc = _mc_consensus(symbol)  # static 12M target
-    et = _et_consensus(symbol)  # static 12M target
-    yf_ = _yf_rating(symbol)    # static 12M target
+    # Fast sources (sync) + crawl4ai parallel
+    et = _et_consensus(symbol)  # curl_cffi, ~300ms
+    yf_ = _yf_rating(symbol)    # yfinance, often rate-limited
     rss = _rss_activity(symbol, days=days)
     yf_hist = _yf_rating_history(symbol, days=days)
+    crawl = await _crawl_sources(symbol)
+    mc = crawl.get("moneycontrol")
+    tt = crawl.get("tickertape")
+    tl = crawl.get("trendlyne")
+    # Current price from local history (for target-based rating derivation)
+    cur_price = None
+    try:
+        import pickle
+        hp = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data_store", "history", f"{symbol}.pkl")
+        if os.path.exists(hp):
+            df = pickle.load(open(hp, "rb"))
+            cur_price = float(df["Close"].iloc[-1])
+    except Exception: pass
     result = {
         "symbol": symbol,
         "timeframe": tf,
         "window_days": days,
-        "target_horizon": "12M",  # industry standard, labeled for clarity
+        "target_horizon": "12M",
         "moneycontrol": mc,
         "et_markets": et,
+        "tickertape": tt,
+        "trendlyne": tl,
         "yfinance": yf_,
         "yfinance_history": yf_hist,
         "news_activity": rss,
-        "composite": _composite(mc, et, yf_, rss),
-        "sources_used": [n for n, v in [("moneycontrol", mc), ("et_markets", et), ("yfinance", yf_), ("yf_history", yf_hist), ("news", rss)] if v],
+        "composite": _composite_ext(mc, et, tt, tl, yf_, rss, current_price=cur_price),
+        "sources_used": [n for n, v in [("moneycontrol", mc), ("et_markets", et), ("tickertape", tt), ("trendlyne", tl), ("yfinance", yf_), ("yf_history", yf_hist), ("news", rss)] if v],
     }
     try: json.dump(result, open(cache_f, "w"))
     except Exception: pass
     return result
+
+
+def _composite_ext(mc, et, tt, tl, yf_, rss, current_price=None) -> Dict[str, Any]:
+    """Extended composite. Uses explicit ratings where present, derives rating
+    from target upside when only target prices are available."""
+    parts = []; targets = []
+    if yf_ and yf_.get("rating_mean") is not None: parts.append(float(yf_["rating_mean"]))
+    if yf_ and yf_.get("target_mean") is not None: targets.append(yf_["target_mean"])
+    for src in (mc, et, tt, tl):
+        if not src: continue
+        sb, b, h, s, ss = src.get("strong_buy", 0), src.get("buy", 0), src.get("hold", 0), src.get("sell", 0), src.get("strong_sell", 0)
+        tot = sb + b + h + s + ss
+        if tot > 0: parts.append((sb * 1 + b * 2 + h * 3 + s * 4 + ss * 5) / tot)
+        if src.get("target_price"): targets.append(src["target_price"])
+    if rss:
+        u, d = rss.get("upgrades", 0), rss.get("downgrades", 0)
+        if u + d > 0: parts.append(3 - (u - d) / max(1, u + d))
+    target_avg = round(sum(targets) / len(targets), 2) if targets else None
+    # Derive rating from target upside if no explicit ratings
+    if not parts and target_avg and current_price:
+        upside = (target_avg - current_price) / current_price * 100
+        if upside > 25: parts.append(1.5)
+        elif upside > 10: parts.append(2.2)
+        elif upside > -5: parts.append(3.0)
+        elif upside > -20: parts.append(3.8)
+        else: parts.append(4.5)
+    if not parts: return {"rating": None, "label": "No data", "inputs": 0, "target_avg": target_avg}
+    mean = sum(parts) / len(parts)
+    if mean < 2.0: label = "STRONG BUY"
+    elif mean < 2.7: label = "BUY"
+    elif mean < 3.3: label = "HOLD"
+    elif mean < 4.0: label = "REDUCE"
+    else: label = "SELL"
+    return {"rating": round(mean, 2), "label": label, "inputs": len(parts), "target_avg": target_avg}
+
+
+def get_analyst_signal(symbol: str, tf: str = "1y") -> Dict[str, Any]:
+    """Sync wrapper — runs the async fetch in a new event loop if needed."""
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # Called from async context (FastAPI) — caller should use _async directly
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as ex:
+                return ex.submit(lambda: asyncio.run(get_analyst_signal_async(symbol, tf))).result()
+    except RuntimeError: pass
+    return asyncio.run(get_analyst_signal_async(symbol, tf))

@@ -163,11 +163,16 @@ def insights_pro(symbol: str):
         reasons.append(f"FII+DII net {dir} ₹{abs(int(fii_dii_net))} Cr last session")
     reasons = reasons[:5]
 
-    # Analyst signal (optional — 4-source composite)
+    # Analyst signal: do NOT block the popup on crawl4ai (may take 5s). Only use
+    # the cache if it's already warm from the row-click prefetch. Frontend will
+    # also hit /analyst/{sym} directly and render the card when ready.
     analyst = None
     try:
-        from data.analyst_ratings import get_analyst_signal
-        analyst = get_analyst_signal(symbol)
+        from engine.multi_factor import CACHE_F as _mfs_f  # noqa
+        cache_p = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data_store", "analyst", f"{symbol}__1y.json")
+        if os.path.exists(cache_p):
+            import json as _j
+            analyst = _j.load(open(cache_p))
     except Exception: pass
 
     # News (top 3)
