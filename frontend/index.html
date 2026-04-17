@@ -5840,10 +5840,28 @@ function _ipRenderAnalystBody(a, price, state) {
       const rangeChip = earliest && latest && earliest !== latest
         ? ` <span class="text-[8px] text-on-surface-variant/70 ml-1">(${_fmtD(earliest)} – ${_fmtD(latest)})</span>`
         : _dateChip(latest);
-      const info = `${tl.reports_in_window||0} reports · ${tl.analysts||0} brokers${tl.target_price?` · ₹${tl.target_low||'?'}-${tl.target_high||'?'}`:''}`;
-      return `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">Trendlyne${rangeChip}</span><span class="font-mono text-on-surface">${info}</span></div>`;
+      const bits = [`${tl.reports_in_window||0} reports`, `${tl.analysts||0} brokers`];
+      // SB/B/H/S/SS distribution (only include non-zero)
+      const sb=tl.strong_buy||0, bu=tl.buy||0, ho=tl.hold||0, se=tl.sell||0, ss=tl.strong_sell||0;
+      if (sb+bu+ho+se+ss > 0) {
+        const parts = [];
+        if (sb) parts.push(`SB ${sb}`);
+        if (bu) parts.push(`B ${bu}`);
+        if (ho) parts.push(`H ${ho}`);
+        if (se) parts.push(`S ${se}`);
+        if (ss) parts.push(`SS ${ss}`);
+        bits.push(parts.join(' '));
+      }
+      if (tl.target_price) bits.push(`₹${tl.target_price} (${tl.target_low||'?'}-${tl.target_high||'?'})`);
+      if (tl.avg_upside_pct != null) {
+        const upCol = tl.avg_upside_pct > 0 ? 'text-[#00e5a0]' : tl.avg_upside_pct < 0 ? 'text-[#ff4757]' : '';
+        bits.push(`<span class="${upCol}">${tl.avg_upside_pct>=0?'+':''}${tl.avg_upside_pct}%</span>`);
+      }
+      return `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">Trendlyne${rangeChip}</span><span class="font-mono text-on-surface">${bits.join(' · ')}</span></div>`;
     })()}
-    ${srcRow('yfinance', yf ? `${yf.key||'—'} · ${yf.analysts||0} analysts · ₹${yf.target_low||'?'}-${yf.target_high||'?'}` : null, yf?.as_of)}
+    ${yf
+      ? `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">yfinance${_dateChip(yf.as_of)}</span><span class="font-mono text-on-surface">${yf.key||'—'} · ${yf.analysts||0} analysts · ₹${yf.target_low||'?'}-${yf.target_high||'?'}</span></div>`
+      : `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">yfinance</span><span class="font-mono text-on-surface-variant/50 italic">temporarily unavailable</span></div>`}
     ${(hist || rss) ? `<div class="mt-2 pt-2 border-t border-outline-variant/10 text-[9px] uppercase font-bold text-on-surface-variant mb-1">Activity (last ${a.window_days}d)</div>` : ''}
     ${srcRow('yfinance rating changes', hist ? `${hist.changes} change${hist.changes!==1?'s':''}` : null)}
     ${srcRow('News upgrades/downgrades', rss ? `↑${rss.upgrades} ↓${rss.downgrades}` : null)}
