@@ -186,25 +186,56 @@ def download_historical_prices(days: int = 260) -> dict:
                 print(f"    Rate limited, waiting 10s...")
                 time.sleep(10)
 
-    # Save each stock's history
-    print(f"\n  Saving {len(all_data)} stocks to disk...")
+    # Save each stock's history — MERGE with existing pickle (non-destructive).
+    # CRITICAL: writing only the newly-downloaded days would wipe older history,
+    # which is exactly what broke the 2-year refresh earlier. Load any existing
+    # pickle first, concat, dedupe by date, and save the combined result.
+    print(f"\n  Merging + saving {len(all_data)} stocks to disk...")
     saved = 0
+    preserved = 0  # stocks where merge preserved older bars
     for symbol, entries in all_data.items():
         try:
-            # Sort by date
             entries.sort(key=lambda x: x[0])
             dates = [e[0] for e in entries]
             ohlcv_list = [e[1] for e in entries]
 
-            stock_df = pd.DataFrame(ohlcv_list, index=pd.DatetimeIndex(dates))
-            stock_df.index.name = "Date"
+            new_df = pd.DataFrame(ohlcv_list, index=pd.DatetimeIndex(dates))
+            new_df.index.name = "Date"
 
             filepath = HISTORY_DIR / f"{symbol}.pkl"
-            with open(filepath, "wb") as f:
-                pickle.dump(stock_df, f)
+
+            # Load existing pickle if present, merge
+            existing_df = None
+            if filepath.exists():
+                try:
+                    with open(filepath, "rb") as f:
+                        existing_df = pickle.load(f)
+                except Exception:
+                    existing_df = None
+
+            if existing_df is not None and len(existing_df) > 0:
+                combined = pd.concat([existing_df, new_df])
+                # keep='last' → newly-downloaded row wins on exact date overlap
+                combined = combined[~combined.index.duplicated(keep="last")]
+                combined.sort_index(inplace=True)
+                if len(combined) > len(new_df):
+                    preserved += 1
+                out_df = combined
+            else:
+                out_df = new_df
+
+            # Atomic write: temp file + rename so a crash mid-write cannot
+            # leave a corrupted pickle in place.
+            tmp_path = filepath.with_suffix(".pkl.tmp")
+            with open(tmp_path, "wb") as f:
+                pickle.dump(out_df, f)
+            tmp_path.replace(filepath)
             saved += 1
         except Exception:
             pass
+
+    if preserved:
+        print(f"  Merge preserved older history in {preserved} of {saved} stocks.")
 
     stats = {
         "days_downloaded": downloaded,

@@ -36,10 +36,30 @@ def load_history(symbol: str) -> pd.DataFrame | None:
 
 
 def save_history(symbol: str, df: pd.DataFrame):
-    """Save price history for a symbol."""
+    """Save price history for a symbol.
+    Atomic: write to temp file first, then rename. A crash mid-write cannot
+    leave a partial pickle in place. Also refuses to overwrite a longer
+    existing pickle with a shorter one (guards against destructive-write bugs
+    like the one that wiped the 2-year refresh)."""
     path = _get_history_path(symbol)
-    with open(path, "wb") as f:
+    # Safety: if new data is shorter than existing, log and skip.
+    try:
+        if path.exists():
+            with open(path, "rb") as f:
+                existing = pickle.load(f)
+            if existing is not None and hasattr(existing, "__len__") and len(existing) > len(df) + 5:
+                # 5-bar tolerance so normal daily appends aren't blocked; only
+                # catastrophic truncation (e.g. 422 -> 5 bars) is refused.
+                print(f"  [SAFETY] save_history refused for {symbol}: "
+                      f"{len(existing)} existing bars vs {len(df)} new bars "
+                      f"— refusing to truncate. Merge at caller.")
+                return
+    except Exception:
+        pass
+    tmp = path.with_suffix(".pkl.tmp")
+    with open(tmp, "wb") as f:
         pickle.dump(df, f)
+    tmp.replace(path)
 
 
 def get_history_stats() -> dict:
