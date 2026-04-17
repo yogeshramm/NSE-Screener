@@ -16,12 +16,16 @@ Usage:
 """
 
 import argparse
+import json
+import threading
 import time
 import pickle
 import io
 import zipfile
 import requests
 import pandas as pd
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from requests.adapters import HTTPAdapter
 from pathlib import Path
 from datetime import datetime, timedelta
 
@@ -31,6 +35,7 @@ from data.screener_in import fetch_from_screener
 DATA_DIR = Path("data_store")
 HISTORY_DIR = DATA_DIR / "history"
 FUNDAMENTALS_DIR = DATA_DIR / "fundamentals"
+PROGRESS_FILE = Path("/tmp/history_refresh.progress.json")
 
 NSE_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
@@ -38,16 +43,110 @@ NSE_HEADERS = {
     "Referer": "https://www.nseindia.com/",
 }
 
+# NSE equity-market holidays 2024-2026 (Republic Day, Holi, Good Friday, Eid,
+# Independence Day, Janmashtami, Gandhi Jayanti, Dussehra, Diwali Laxmi Pujan,
+# Diwali Balipratipada, Guru Nanak Jayanti, Christmas + a few others).
+# Missing entries are caught by the 404 path, so this set is a speed hint only.
+NSE_HOLIDAYS = {
+    # 2024
+    "2024-01-26", "2024-03-08", "2024-03-25", "2024-03-29", "2024-04-11",
+    "2024-04-17", "2024-05-01", "2024-06-17", "2024-07-17", "2024-08-15",
+    "2024-10-02", "2024-11-01", "2024-11-15", "2024-12-25",
+    # 2025
+    "2025-02-26", "2025-03-14", "2025-03-31", "2025-04-10", "2025-04-14",
+    "2025-04-18", "2025-05-01", "2025-08-15", "2025-08-27", "2025-10-02",
+    "2025-10-21", "2025-10-22", "2025-11-05", "2025-12-25",
+    # 2026
+    "2026-01-26", "2026-03-03", "2026-03-19", "2026-04-03", "2026-04-14",
+    "2026-05-01", "2026-08-15", "2026-09-04", "2026-10-02",
+    "2026-11-08", "2026-11-09", "2026-11-24", "2026-12-25",
+}
+
+# Rate-limit / worker coordination
+_rate_lock = threading.Lock()
+_recent_429 = []  # rolling window of (timestamp, is_429_bool) for last 30 attempts
+_merge_lock = threading.Lock()
+
+
+def _is_trading_day(dt: datetime) -> bool:
+    """Weekend + NSE holiday check. Cheap, no HTTP."""
+    if dt.weekday() >= 5:
+        return False
+    if dt.strftime("%Y-%m-%d") in NSE_HOLIDAYS:
+        return False
+    return True
+
 
 def _get_nse_session():
-    """Create session with NSE cookies."""
+    """Create session with NSE cookies + pooled adapter."""
     session = requests.Session()
     session.headers.update(NSE_HEADERS)
+    adapter = HTTPAdapter(pool_connections=5, pool_maxsize=10)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
     try:
-        session.get("https://www.nseindia.com/", timeout=10)
+        session.get("https://www.nseindia.com/", timeout=(5, 10))
     except Exception:
         pass
     return session
+
+
+def _record_attempt(is_429: bool):
+    """Track rolling window of last 30 download attempts for 429 rate detection."""
+    with _rate_lock:
+        _recent_429.append((time.time(), is_429))
+        if len(_recent_429) > 30:
+            _recent_429.pop(0)
+
+
+def _recent_429_count() -> int:
+    with _rate_lock:
+        return sum(1 for _, f in _recent_429 if f)
+
+
+def _load_progress() -> dict:
+    """Load checkpoint file if present."""
+    if PROGRESS_FILE.exists():
+        try:
+            with open(PROGRESS_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+
+def _save_progress(state: dict):
+    """Atomically save checkpoint."""
+    state["last_checkpoint_at"] = datetime.utcnow().isoformat() + "Z"
+    tmp = PROGRESS_FILE.with_suffix(".json.tmp")
+    with open(tmp, "w") as f:
+        json.dump(state, f)
+    tmp.replace(PROGRESS_FILE)
+
+
+def _scan_existing_coverage() -> tuple:
+    """Fallback when no progress file: infer coverage from existing pickles.
+    Returns (min_date, max_date) across sample liquid stocks, or (None, None).
+    Caller treats the [min, max] range as already-covered and only fetches
+    OUTSIDE that range (older than min)."""
+    samples = ["RELIANCE", "TCS", "HDFCBANK"]
+    earliest = None
+    latest = None
+    for sym in samples:
+        p = HISTORY_DIR / f"{sym}.pkl"
+        if p.exists():
+            try:
+                with open(p, "rb") as f:
+                    df = pickle.load(f)
+                if len(df) > 0:
+                    d0, d1 = df.index[0], df.index[-1]
+                    if earliest is None or d0 < earliest:
+                        earliest = d0
+                    if latest is None or d1 > latest:
+                        latest = d1
+            except Exception:
+                continue
+    return earliest, latest
 
 
 def _download_bhavcopy_for_date(session, dt: datetime) -> pd.DataFrame | None:
@@ -101,150 +200,260 @@ def _parse_bhavcopy_row(row, col_map: dict, symbol_col: str, date_col: str) -> t
     return symbol, None, ohlcv
 
 
-def download_historical_prices(days: int = 260) -> dict:
-    """
-    Download historical Bhavcopies from NSE archives.
-    Each Bhavcopy has ALL stocks for that day — no rate limits.
+def _parse_bhavcopy_df(df: pd.DataFrame, fallback_dt: datetime) -> list[tuple]:
+    """Pure parse: returns [(symbol, trade_date, ohlcv_dict), ...]. No I/O."""
+    symbol_col = next((c for c in ["SYMBOL", "TckrSymb"] if c in df.columns), None)
+    series_col = next((c for c in ["SERIES", "SctySrs"] if c in df.columns), None)
+    date_col = next((c for c in ["DATE1", "TradDt", "TRADING_DATE"] if c in df.columns), None)
+    if symbol_col is None:
+        return []
 
-    Args:
-        days: number of calendar days to go back (260 ≈ 1 year of trading days)
-    """
-    HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+    col_map = {}
+    for target, candidates in {
+        "Open": ["OPEN_PRICE", "OPEN", "OpnPric"],
+        "High": ["HIGH_PRICE", "HIGH", "HghPric"],
+        "Low": ["LOW_PRICE", "LOW", "LwPric"],
+        "Close": ["CLOSE_PRICE", "CLOSE", "ClsPric"],
+        "Volume": ["TTL_TRD_QNTY", "TOTTRDQTY", "TtlTrdQnty"],
+    }.items():
+        for c in candidates:
+            if c in df.columns:
+                col_map[c] = target
+                break
 
-    session = _get_nse_session()
-    all_data = {}  # {symbol: list of (date, ohlcv)}
+    if series_col:
+        df = df[df[series_col].astype(str).str.strip() == "EQ"]
 
-    print(f"\n  Downloading {days} calendar days of Bhavcopies from NSE...")
-    print(f"  Each file has ALL stocks. No rate limits.\n")
+    rows = []
+    for _, row in df.iterrows():
+        symbol, trade_date, ohlcv = _parse_bhavcopy_row(row, col_map, symbol_col, date_col)
+        if trade_date is None:
+            trade_date = pd.Timestamp(fallback_dt.date())
+        if len(ohlcv) >= 4:
+            rows.append((symbol, trade_date, ohlcv))
+    return rows
 
-    downloaded = 0
-    skipped = 0
-    today = datetime.now()
 
-    for i in range(days):
-        dt = today - timedelta(days=i)
+def _fetch_one_day(dt: datetime, session_getter) -> tuple:
+    """Worker: fetch + parse one bhavcopy. Returns (date_str, rows_or_None, had_429).
+    On 429: waits 15s, retries ONCE."""
+    date_str = dt.strftime("%Y-%m-%d")
+    session = session_getter()
+    had_429 = False
 
-        # Skip weekends
-        if dt.weekday() >= 5:
-            continue
-
-        date_str = dt.strftime("%Y-%m-%d")
-
+    for attempt in range(2):
         try:
             df = _download_bhavcopy_for_date(session, dt)
             if df is None:
-                skipped += 1
+                # 404 or empty -> likely a holiday we didn't anticipate; not a 429
+                return date_str, None, had_429
+            rows = _parse_bhavcopy_df(df, dt)
+            time.sleep(0.1)  # polite per-worker pacing
+            return date_str, rows, had_429
+        except requests.HTTPError as e:
+            code = getattr(getattr(e, "response", None), "status_code", None)
+            if code == 429 and attempt == 0:
+                had_429 = True
+                _record_attempt(True)
+                time.sleep(15)
                 continue
-
-            # Find columns
-            symbol_col = next((c for c in ["SYMBOL", "TckrSymb"] if c in df.columns), None)
-            series_col = next((c for c in ["SERIES", "SctySrs"] if c in df.columns), None)
-            date_col = next((c for c in ["DATE1", "TradDt", "TRADING_DATE"] if c in df.columns), None)
-
-            if symbol_col is None:
-                skipped += 1
-                continue
-
-            # Column mapping
-            col_map = {}
-            for target, candidates in {
-                "Open": ["OPEN_PRICE", "OPEN", "OpnPric"],
-                "High": ["HIGH_PRICE", "HIGH", "HghPric"],
-                "Low": ["LOW_PRICE", "LOW", "LwPric"],
-                "Close": ["CLOSE_PRICE", "CLOSE", "ClsPric"],
-                "Volume": ["TTL_TRD_QNTY", "TOTTRDQTY", "TtlTrdQnty"],
-            }.items():
-                for c in candidates:
-                    if c in df.columns:
-                        col_map[c] = target
-                        break
-
-            # Filter EQ series
-            if series_col:
-                df = df[df[series_col].str.strip() == "EQ"]
-
-            # Parse all rows
-            for _, row in df.iterrows():
-                symbol, trade_date, ohlcv = _parse_bhavcopy_row(row, col_map, symbol_col, date_col)
-                if trade_date is None:
-                    trade_date = pd.Timestamp(dt.date())
-                if len(ohlcv) >= 4:
-                    if symbol not in all_data:
-                        all_data[symbol] = []
-                    all_data[symbol].append((trade_date, ohlcv))
-
-            downloaded += 1
-            if downloaded % 10 == 0:
-                print(f"    {downloaded} days downloaded... ({len(all_data)} stocks found)")
-
-            # Small delay to be polite to NSE
-            time.sleep(0.5)
-
+            return date_str, None, had_429
         except Exception as e:
-            skipped += 1
-            if "Rate" in str(e) or "429" in str(e):
-                print(f"    Rate limited, waiting 10s...")
-                time.sleep(10)
+            msg = str(e)
+            if ("429" in msg or "Rate" in msg) and attempt == 0:
+                had_429 = True
+                _record_attempt(True)
+                time.sleep(15)
+                continue
+            return date_str, None, had_429
 
-    # Save each stock's history — MERGE with existing pickle (non-destructive).
-    # CRITICAL: writing only the newly-downloaded days would wipe older history,
-    # which is exactly what broke the 2-year refresh earlier. Load any existing
-    # pickle first, concat, dedupe by date, and save the combined result.
-    print(f"\n  Merging + saving {len(all_data)} stocks to disk...")
-    saved = 0
-    preserved = 0  # stocks where merge preserved older bars
-    for symbol, entries in all_data.items():
-        try:
-            entries.sort(key=lambda x: x[0])
-            dates = [e[0] for e in entries]
-            ohlcv_list = [e[1] for e in entries]
+    _record_attempt(had_429)
+    return date_str, None, had_429
 
-            new_df = pd.DataFrame(ohlcv_list, index=pd.DatetimeIndex(dates))
-            new_df.index.name = "Date"
 
-            filepath = HISTORY_DIR / f"{symbol}.pkl"
+def _flush_batch(batch: dict) -> int:
+    """Merge the in-memory batch into existing pickles via merge + atomic write.
+    batch: {symbol: [(date, ohlcv), ...]}.
+    Returns number of stocks written. Respects the same merge path used before."""
+    if not batch:
+        return 0
+    written = 0
+    with _merge_lock:
+        for symbol, entries in batch.items():
+            try:
+                entries.sort(key=lambda x: x[0])
+                dates = [e[0] for e in entries]
+                ohlcv_list = [e[1] for e in entries]
+                new_df = pd.DataFrame(ohlcv_list, index=pd.DatetimeIndex(dates))
+                new_df.index.name = "Date"
 
-            # Load existing pickle if present, merge
-            existing_df = None
-            if filepath.exists():
-                try:
-                    with open(filepath, "rb") as f:
-                        existing_df = pickle.load(f)
-                except Exception:
-                    existing_df = None
+                filepath = HISTORY_DIR / f"{symbol}.pkl"
+                existing_df = None
+                if filepath.exists():
+                    try:
+                        with open(filepath, "rb") as f:
+                            existing_df = pickle.load(f)
+                    except Exception:
+                        existing_df = None
 
-            if existing_df is not None and len(existing_df) > 0:
-                combined = pd.concat([existing_df, new_df])
-                # keep='last' → newly-downloaded row wins on exact date overlap
-                combined = combined[~combined.index.duplicated(keep="last")]
-                combined.sort_index(inplace=True)
-                if len(combined) > len(new_df):
-                    preserved += 1
-                out_df = combined
-            else:
-                out_df = new_df
+                if existing_df is not None and len(existing_df) > 0:
+                    combined = pd.concat([existing_df, new_df])
+                    combined = combined[~combined.index.duplicated(keep="last")]
+                    combined.sort_index(inplace=True)
+                    out_df = combined
+                else:
+                    out_df = new_df
 
-            # Atomic write: temp file + rename so a crash mid-write cannot
-            # leave a corrupted pickle in place.
-            tmp_path = filepath.with_suffix(".pkl.tmp")
-            with open(tmp_path, "wb") as f:
-                pickle.dump(out_df, f)
-            tmp_path.replace(filepath)
-            saved += 1
-        except Exception:
-            pass
+                # Atomic write: temp + rename
+                tmp_path = filepath.with_suffix(".pkl.tmp")
+                with open(tmp_path, "wb") as f:
+                    pickle.dump(out_df, f)
+                tmp_path.replace(filepath)
+                written += 1
+            except Exception:
+                pass
+    return written
 
-    if preserved:
-        print(f"  Merge preserved older history in {preserved} of {saved} stocks.")
+
+def download_historical_prices(days: int = 260) -> dict:
+    """
+    Download historical Bhavcopies from NSE archives in parallel, with
+    checkpoint + resume + merge + atomic write.
+
+    Args:
+        days: number of calendar days to go back (800 ≈ 2 years of trading days)
+    """
+    HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+
+    # --- Resume bookkeeping -------------------------------------------------
+    progress = _load_progress()
+    completed_set = set(progress.get("completed_dates", []))
+    resume_mode = bool(completed_set)
+
+    # Target date list (most recent first — same shape as original).
+    today = datetime.now()
+    target_dates = []
+    for i in range(days):
+        dt = today - timedelta(days=i)
+        if not _is_trading_day(dt):
+            continue
+        target_dates.append(dt)
+
+    if not resume_mode:
+        # No progress file — skip dates already covered by existing pickles.
+        # Existing pickles span [emin, emax]; treat that whole range as covered
+        # and only fetch OLDER dates (the gap we're extending backward).
+        emin, emax = _scan_existing_coverage()
+        if emin is not None:
+            covered = {d.strftime("%Y-%m-%d") for d in target_dates
+                       if emin <= pd.Timestamp(d.date()) <= emax}
+            if covered:
+                completed_set = covered
+                print(f"  [resume-scan] skipping {len(covered)} dates already covered "
+                      f"({emin.date()} … {emax.date()})")
+
+    remaining = [d for d in target_dates if d.strftime("%Y-%m-%d") not in completed_set]
+
+    state = {
+        "target_days_back": days,
+        "completed_dates": sorted(completed_set),
+        "started_at": progress.get("started_at", datetime.utcnow().isoformat() + "Z"),
+        "last_checkpoint_at": progress.get("last_checkpoint_at"),
+    }
+    _save_progress(state)
+
+    print(f"\n  Downloading {days}d window (2-year target), {len(target_dates)} trading days.")
+    print(f"  Already complete: {len(completed_set)}. To fetch: {len(remaining)}.\n")
+
+    if not remaining:
+        PROGRESS_FILE.unlink(missing_ok=True)
+        return {"days_downloaded": 0, "days_skipped": 0, "stocks_saved": 0, "total_symbols": 0}
+
+    # --- Per-worker sessions -----------------------------------------------
+    thread_local = threading.local()
+
+    def _session():
+        if not hasattr(thread_local, "s"):
+            thread_local.s = _get_nse_session()
+        return thread_local.s
+
+    # --- Download loop ------------------------------------------------------
+    batch = {}  # {symbol: [(date, ohlcv), ...]}
+    batch_dates = []  # dates covered by current unflushed batch
+    downloaded = 0
+    empty = 0
+    max_workers = 3  # start at 3; hard ceiling 4; drop to 2 on sustained 429s
+    throttled = False
+
+    def _run_pool(dates_chunk, workers):
+        nonlocal downloaded, empty, throttled
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            futures = {ex.submit(_fetch_one_day, dt, _session): dt for dt in dates_chunk}
+            for fut in as_completed(futures):
+                date_str, rows, _ = fut.result()
+                if rows is None:
+                    empty += 1
+                    # mark empty dates complete too so resume doesn't re-try them
+                    batch_dates.append(date_str)
+                    continue
+                for symbol, trade_date, ohlcv in rows:
+                    batch.setdefault(symbol, []).append((trade_date, ohlcv))
+                batch_dates.append(date_str)
+                downloaded += 1
+
+                # 429 throttle check
+                if not throttled and _recent_429_count() >= 2:
+                    throttled = True
+                    print(f"    [throttle] 2+ 429s in rolling window — "
+                          f"dropping workers to 2 for rest of run")
+
+                # Flush batch every 50 dates covered
+                if len(batch_dates) >= 50:
+                    _checkpoint(batch, batch_dates, completed_set, state)
+                    batch.clear()
+                    batch_dates.clear()
+
+                if downloaded % 10 == 0:
+                    print(f"    {downloaded} days downloaded, {empty} empty "
+                          f"(batch {len(batch_dates)}, stocks {len(batch)})")
+
+    def _checkpoint(_batch, _dates, _completed_set, _state):
+        written = _flush_batch(_batch)
+        _completed_set.update(_dates)
+        _state["completed_dates"] = sorted(_completed_set)
+        _save_progress(_state)
+        print(f"    [checkpoint] +{len(_dates)} dates, merged {written} stocks, "
+              f"total complete {len(_completed_set)}")
+
+    # Process remaining in windowed batches of 60 so we revisit the throttle decision.
+    i = 0
+    while i < len(remaining):
+        chunk_size = 60
+        chunk = remaining[i : i + chunk_size]
+        workers = min(4, 2 if throttled else max_workers)
+        _run_pool(chunk, workers)
+        i += chunk_size
+
+    # Final flush for whatever remains in the batch.
+    if batch_dates:
+        _checkpoint(batch, batch_dates, completed_set, state)
+        batch.clear()
+        batch_dates.clear()
+
+    # --- Done — drop progress file so next run starts clean -----------------
+    PROGRESS_FILE.unlink(missing_ok=True)
+
+    # Count stocks present on disk for reporting (cheap listdir).
+    total_stocks = len(list(HISTORY_DIR.glob("*.pkl")))
 
     stats = {
         "days_downloaded": downloaded,
-        "days_skipped": skipped,
-        "stocks_saved": saved,
-        "total_symbols": len(all_data),
+        "days_skipped": empty,
+        "stocks_saved": total_stocks,
+        "total_symbols": total_stocks,
     }
-
-    print(f"\n  Prices complete: {saved} stocks, {downloaded} trading days")
+    print(f"\n  Prices complete: {total_stocks} stocks on disk, "
+          f"{downloaded} days fetched this run ({empty} empty).")
     return stats
 
 
