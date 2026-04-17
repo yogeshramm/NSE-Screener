@@ -171,12 +171,26 @@ def _et_consensus(symbol: str) -> Optional[Dict[str, Any]]:
                 if m:
                     try: tgt = float(m.group(1).replace(",", "")); break
                     except Exception: pass
-        # Broker rating distribution (bounded block, cap at 20 each)
-        blk_m = re.search(r"broker[^<]*(?:recommend|call|view)[\s\S]{0,6000}", t, re.I)
-        blk = blk_m.group(0) if blk_m else ""
-        sb = min(_ct(blk, r"\bstrong\s*buy\b"), 20); bu = min(_ct(blk, r"(?<!strong\s)\bbuy\b"), 20)
-        ho = min(_ct(blk, r"\bhold\b"), 20); se = min(_ct(blk, r"(?<!strong\s)\bsell\b"), 20)
-        ss = min(_ct(blk, r"\bstrong\s*sell\b"), 20)
+        # Analyst Trends Ratings table: "Strong Buy 17 17 17 17 / Buy 13 13 14 14 / ..."
+        # The first number after each label is the CURRENT count.
+        sb = bu = ho = se = ss = 0
+        clean = re.sub(r"<[^>]+>", " ", t)
+        clean = re.sub(r"\s+", " ", clean)
+        # Anchor inside the "Analyst Trends Ratings" section to avoid matching elsewhere
+        at_m = re.search(r"Analyst\s+Trends\s+Ratings[\s\S]{0,1500}", clean, re.I)
+        if at_m:
+            block = at_m.group(0)
+            def grab(label):
+                m = re.search(rf"{label}\s+([\d\-]+)", block, re.I)
+                if not m: return 0
+                v = m.group(1).replace("-", "0")
+                try: return int(v)
+                except: return 0
+            sb = grab(r"Strong\s+Buy")
+            bu = grab(r"(?<!Strong\s)Buy")
+            ho = grab(r"Hold")
+            se = grab(r"(?<!Strong\s)Sell")
+            ss = grab(r"Strong\s+Sell")
         if tgt is None and analysts is None and sb + bu + ho + se + ss == 0: return None
         from datetime import date
         return {

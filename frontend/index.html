@@ -5811,7 +5811,24 @@ function _ipRenderAnalystBody(a, price, state) {
       const ratingSources = ['yfinance','et_markets','tickertape','trendlyne'].filter(n => (a.sources_used||[]).includes(n));
       return `<div class="mt-2 pt-2 border-t border-outline-variant/10 text-[9px] uppercase font-bold text-on-surface-variant mb-1">Sources · ${ratingSources.length}/4</div>`;
     })()}
-    ${srcRow('ET Markets', et ? `${et.analysts||0} analysts${et.target_price?` · ₹${et.target_price}`:''}${et.target_low&&et.target_high?` (₹${et.target_low}-${et.target_high})`:''}` : null, et?.as_of)}
+    ${(() => {
+      if (!et) return '';
+      const bits = [];
+      bits.push(`${et.analysts||0} analysts`);
+      // Distribution if present
+      const sb=et.strong_buy||0, bu=et.buy||0, ho=et.hold||0, se=et.sell||0, ss=et.strong_sell||0;
+      if (sb+bu+ho+se+ss > 0) {
+        const parts = [];
+        if (sb) parts.push(`SB ${sb}`);
+        if (bu) parts.push(`B ${bu}`);
+        if (ho) parts.push(`H ${ho}`);
+        if (se) parts.push(`S ${se}`);
+        if (ss) parts.push(`SS ${ss}`);
+        bits.push(parts.join(' '));
+      }
+      if (et.target_price) bits.push(`₹${et.target_price}${et.target_low&&et.target_high?` (${et.target_low}-${et.target_high})`:''}`);
+      return `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">ET Markets${_dateChip(et.as_of)}</span><span class="font-mono text-on-surface">${bits.join(' · ')}</span></div>`;
+    })()}
     ${(() => {
       const tt = a.tickertape; if (!tt) return '';
       const info = `${tt.analysts||0} analysts${tt.perc_buy!=null?` · ${tt.perc_buy}% buy`:''}`;
