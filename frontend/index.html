@@ -5603,7 +5603,7 @@ function initApp() {
     const sd=document.getElementById('search-dropdown');
     if(sd&&!sd.classList.contains('hidden')&&!e.target.closest('#search-dropdown')&&!e.target.closest('#symbols-input')) sd.classList.add('hidden');
     const pd2=document.getElementById('prac-ind-dropdown');
-    if(pd2&&!pd2.classList.contains('hidden')&&!e.target.closest('#prac-ind-dropdown')&&!e.target.closest('[onclick*="prac-ind-dropdown"]')) pd2.classList.add('hidden');
+    if(pd2&&!pd2.classList.contains('hidden')&&!e.target.closest('#prac-ind-dropdown')&&!e.target.closest('#prac-ind-btn')) pd2.classList.add('hidden');
   });
 }
 
