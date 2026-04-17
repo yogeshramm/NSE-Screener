@@ -1,12 +1,12 @@
 """
-Analyst data via crawl4ai (headless Chromium w/ stealth).
-Handles JS-protected sites: Moneycontrol, Tickertape, Trendlyne.
-ET Markets stays on curl_cffi (faster, already works).
+Analyst data via crawl4ai (Chromium stealth) + cloudscraper (Cloudflare bypass).
+JS-protected sites: Moneycontrol, Tickertape, Trendlyne.
 
-Design: keep one warm browser crawler per process (module-level singleton),
-run multi-site fetches in parallel via asyncio.gather.
+Tickertape: parse __NEXT_DATA__ JSON (cleaner than regex on HTML).
+Trendlyne:  cloudscraper bypasses their Cloudflare in ~1s — no browser.
+Moneycontrol: crawl4ai + hardcoded SC_ID map (8 large caps).
 """
-import re, asyncio, threading
+import re, json, asyncio, threading
 from typing import Optional, Dict, Any, List
 
 _CRAWLER = None
@@ -55,7 +55,7 @@ _MC_INDUSTRY_MAP = {
 
 async def fetch_mc(symbol: str) -> Optional[Dict[str, Any]]:
     m = _MC_INDUSTRY_MAP.get(symbol)
-    if not m: return None  # need mapping — degrade gracefully
+    if not m: return None
     ind, name, sc = m
     url = f"https://www.moneycontrol.com/india/stockpricequote/{ind}/{name}/{sc}"
     try:
@@ -64,101 +64,168 @@ async def fetch_mc(symbol: str) -> Optional[Dict[str, Any]]:
         if not r.success or not r.html: return None
         h = r.html
         out: Dict[str, Any] = {"source_url": url}
-        # Target price (multiple possible labels)
         for pat in [r"target\s*price[^<>]{0,100}(?:rs\.?|₹)\s*([\d,]+\.?\d*)",
                    r"consensus[^<>]{0,100}(?:rs\.?|₹)\s*([\d,]+\.?\d*)",
                    r'"targetPrice"\s*:\s*"?([\d,\.]+)']:
             mm = re.search(pat, h, re.I)
             if mm:
                 out["target_price"] = _num(mm.group(1)); break
-        # Broker buy/hold/sell counts inside broker-reco block
         blk_m = re.search(r"broker[\s\S]{0,15000}?(?=</section|</div>\s*<section|$)", h, re.I)
-        blk = blk_m.group(0) if blk_m else h[:20000]
-        out["buy"] = len(re.findall(r"\bbuy\b", blk, re.I))
-        out["hold"] = len(re.findall(r"\bhold\b", blk, re.I))
-        out["sell"] = len(re.findall(r"\bsell\b", blk, re.I))
-        if out.get("target_price") is None and out["buy"] + out["hold"] + out["sell"] < 3:
-            return None
-        return out
-    except Exception: return None
-
-
-# ---------- Tickertape via crawl4ai ----------
-async def fetch_tickertape(symbol: str) -> Optional[Dict[str, Any]]:
-    # Tickertape slug format: company-name-SYMBOLSHORT (e.g. reliance-industries-RELI)
-    # Use their search API to resolve canonical slug
-    try:
-        c = await _get_crawler()
-        # Try common slug with full symbol first (often works for shorter tickers)
-        candidates = [
-            f"https://www.tickertape.in/stocks/{symbol.lower()}",
-            f"https://www.tickertape.in/stocks/{symbol}",
-        ]
-        if symbol == "RELIANCE": candidates.insert(0, "https://www.tickertape.in/stocks/reliance-industries-RELI")
-        if symbol == "TCS": candidates.insert(0, "https://www.tickertape.in/stocks/tata-consultancy-services-TCS")
-        if symbol == "INFY": candidates.insert(0, "https://www.tickertape.in/stocks/infosys-INFY")
-        if symbol == "HDFCBANK": candidates.insert(0, "https://www.tickertape.in/stocks/hdfc-bank-HDBK")
-        if symbol == "ITC": candidates.insert(0, "https://www.tickertape.in/stocks/itc-ITC")
-
-        for url in candidates:
-            r = await c.arun(url=url, config=_run_cfg())
-            if r.success and r.html and len(r.html) > 20000 and "Analyst" in r.html:
-                h = r.html
-                out: Dict[str, Any] = {"source_url": url}
-                for pat in [r"target\s*price[^<>]{0,80}(?:rs\.?|₹)\s*([\d,]+\.?\d*)",
-                           r"analyst\s*target[^<>]{0,120}([\d,]+\.?\d*)",
-                           r'"consensusTarget[^"]*"\s*:\s*"?([\d,\.]+)']:
-                    mm = re.search(pat, h, re.I)
-                    if mm:
-                        out["target_price"] = _num(mm.group(1)); break
-                mm = re.search(r"(\d+)\s*analysts?", h, re.I)
-                if mm: out["analysts"] = int(mm.group(1))
-                # Scope buy/hold/sell counting to the analyst-rating section only
-                # Tickertape block format: "Forecasts" or "Analysts say" around rating distribution
-                blk_m = re.search(r"(?:forecast|analysts?\s*(?:say|rating)|consensus)[\s\S]{0,3000}", h, re.I)
-                blk = blk_m.group(0) if blk_m else ""
-                if blk:
-                    for rk in ["strong buy", "buy", "hold", "sell", "strong sell"]:
-                        k = rk.replace(" ", "_")
-                        cnt = len(re.findall(rf"\b{rk}\b", blk, re.I))
-                        # sanity cap — any count above 20 is suspicious/phantom
-                        if 0 < cnt <= 20: out[k] = cnt
-                if out.get("target_price") or out.get("analysts"):
-                    return out
-    except Exception: pass
-    return None
-
-
-# ---------- Trendlyne via crawl4ai ----------
-async def fetch_trendlyne(symbol: str) -> Optional[Dict[str, Any]]:
-    try:
-        c = await _get_crawler()
-        # Trendlyne URL: /equity/<tid>/<SYM>/<slug>/
-        # Without a TID map we use their search-redirect URL which takes plain symbol
-        url = f"https://trendlyne.com/equity/share-price/{symbol}/"
-        r = await c.arun(url=url, config=_run_cfg())
-        if not r.success or not r.html or len(r.html) < 20000: return None
-        h = r.html
-        out: Dict[str, Any] = {"source_url": url}
-        for pat in [r"analyst\s*target[^<>]{0,100}(?:rs\.?|₹)?\s*([\d,]+\.?\d*)",
-                   r"consensus\s*target[^<>]{0,100}(?:rs\.?|₹)?\s*([\d,]+\.?\d*)",
-                   r"target\s*price[^<>]{0,100}(?:rs\.?|₹)?\s*([\d,]+\.?\d*)",
-                   r'"meanTarget"\s*:\s*"?([\d,\.]+)']:
-            mm = re.search(pat, h, re.I)
-            if mm:
-                out["target_price"] = _num(mm.group(1)); break
-        mm = re.search(r"(\d+)\s*analysts?", h, re.I)
-        if mm: out["analysts"] = int(mm.group(1))
-        # DVM score is Trendlyne-unique; capture for reference
-        mm = re.search(r"DVM[\s\S]{0,200}?(\d{1,3})\s*/\s*100", h)
-        if mm: out["dvm_score"] = int(mm.group(1))
-        blk_m = re.search(r"(?:broker\s*reco|analyst\s*(?:view|rating|call)|consensus)[\s\S]{0,3000}", h, re.I)
         blk = blk_m.group(0) if blk_m else ""
         if blk:
             for rk in ["strong buy", "buy", "hold", "sell", "strong sell"]:
                 k = rk.replace(" ", "_")
                 cnt = len(re.findall(rf"\b{rk}\b", blk, re.I))
                 if 0 < cnt <= 20: out[k] = cnt
+        if out.get("target_price") is None and not any(out.get(k, 0) for k in ["strong_buy","buy","hold","sell","strong_sell"]):
+            return None
+        return out
+    except Exception: return None
+
+
+# ---------- Tickertape via crawl4ai, parse __NEXT_DATA__ ----------
+_TT_SLUG_OVERRIDES = {
+    "RELIANCE": "reliance-industries-RELI",
+    "TCS": "tata-consultancy-services-TCS",
+    "INFY": "infosys-INFY",
+    "HDFCBANK": "hdfc-bank-HDBK",
+    "ITC": "itc-ITC",
+    "ICICIBANK": "icici-bank-ICIB",
+    "WIPRO": "wipro-WIPR",
+    "SBIN": "state-bank-of-india-SBI",
+    "HINDUNILVR": "hindustan-unilever-HUL",
+    "LT": "larsen-and-toubro-LT",
+    "BAJFINANCE": "bajaj-finance-BAF",
+    "BHARTIARTL": "bharti-airtel-BRTI",
+    "ASIANPAINT": "asian-paints-API",
+    "MARUTI": "maruti-suzuki-india-MRTI",
+    "HCLTECH": "hcl-technologies-HCLT",
+    "AXISBANK": "axis-bank-AXBK",
+    "KOTAKBANK": "kotak-mahindra-bank-KMB",
+    "SUNPHARMA": "sun-pharmaceutical-industries-SUN",
+    "TATAMOTORS": "tata-motors-TAMO",
+    "NESTLEIND": "nestle-india-NEST",
+    "TATAPOWER": "tata-power-company-TTPW",
+    "ULTRACEMCO": "ultratech-cement-ULTC",
+    "TITAN": "titan-company-TITN",
+    "ADANIENT": "adani-enterprises-APSE",
+    "POWERGRID": "power-grid-corporation-of-india-PGRD",
+    "NTPC": "ntpc-NTPC",
+    "ONGC": "oil-and-natural-gas-corporation-ONGC",
+    "COALINDIA": "coal-india-COAL",
+    "TECHM": "tech-mahindra-TEML",
+    "M&M": "mahindra-and-mahindra-MAHM",
+}
+
+
+async def fetch_tickertape(symbol: str) -> Optional[Dict[str, Any]]:
+    slug = _TT_SLUG_OVERRIDES.get(symbol)
+    candidates = []
+    if slug: candidates.append(f"https://www.tickertape.in/stocks/{slug}")
+    # Fallback: lowercase symbol (rare hit)
+    candidates.append(f"https://www.tickertape.in/stocks/{symbol.lower()}")
+    try:
+        c = await _get_crawler()
+        for url in candidates:
+            r = await c.arun(url=url, config=_run_cfg())
+            if not (r.success and r.html and len(r.html) > 50000): continue
+            h = r.html
+            # Parse __NEXT_DATA__ JSON — authoritative source
+            mj = re.search(r'<script id="__NEXT_DATA__"[^>]*>({.*?})</script>', h, re.S)
+            if not mj: continue
+            try: data = json.loads(mj.group(1))
+            except Exception: continue
+            pp = data.get("props", {}).get("pageProps", {})
+            ss = pp.get("securitySummary", {})
+            fc = ss.get("forecast") or {}
+            out = {"source_url": url}
+            tot = fc.get("totalReco")
+            pct_buy = fc.get("percBuyReco")
+            if isinstance(tot, (int, float)) and tot > 0:
+                out["analysts"] = int(tot)
+                # Derive buy/hold/sell from percBuy: high pct → dominantly buy
+                if isinstance(pct_buy, (int, float)):
+                    buy = int(round(tot * pct_buy / 100))
+                    out["buy"] = buy
+                    out["hold"] = tot - buy
+                    out["perc_buy"] = round(pct_buy, 1)
+            # Note: forecastsHistory.price contains historical price-at-date, not forward
+            # analyst target. Tickertape's target isn't in the public JSON, so we skip it.
+            if out.get("analysts") or out.get("target_price"):
+                return out
+    except Exception: pass
+    return None
+
+
+# ---------- Trendlyne via cloudscraper (Cloudflare bypass, no browser) ----------
+_TL_ID_MAP = {
+    "RELIANCE": 1257, "TCS": 783, "INFY": 630, "HDFCBANK": 576, "ICICIBANK": 651,
+    "ITC": 670, "WIPRO": 1549, "SBIN": 1378, "HINDUNILVR": 611, "LT": 834,
+    "BAJFINANCE": 239, "BHARTIARTL": 278, "ASIANPAINT": 170, "MARUTI": 921,
+    "HCLTECH": 571, "AXISBANK": 204, "KOTAKBANK": 810,
+}
+_TL_SLUG_MAP = {
+    "RELIANCE": "reliance-industries-ltd", "TCS": "tata-consultancy-services-ltd",
+    "INFY": "infosys-ltd", "HDFCBANK": "hdfc-bank-ltd", "ICICIBANK": "icici-bank-ltd",
+    "ITC": "itc-ltd", "WIPRO": "wipro-ltd", "SBIN": "state-bank-of-india",
+    "HINDUNILVR": "hindustan-unilever-ltd", "LT": "larsen--toubro-ltd",
+    "BAJFINANCE": "bajaj-finance-ltd", "BHARTIARTL": "bharti-airtel-ltd",
+    "ASIANPAINT": "asian-paints-ltd", "MARUTI": "maruti-suzuki-india-ltd",
+    "HCLTECH": "hcl-technologies-ltd", "AXISBANK": "axis-bank-ltd",
+    "KOTAKBANK": "kotak-mahindra-bank-ltd",
+}
+
+
+async def fetch_trendlyne(symbol: str) -> Optional[Dict[str, Any]]:
+    tid = _TL_ID_MAP.get(symbol); slug = _TL_SLUG_MAP.get(symbol)
+    if not tid or not slug: return None
+    try:
+        # Run cloudscraper in thread-executor (it's blocking)
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, _tl_sync, tid, symbol, slug)
+    except Exception: return None
+
+
+def _tl_sync(tid, symbol, slug) -> Optional[Dict[str, Any]]:
+    try:
+        import cloudscraper
+        s = cloudscraper.create_scraper(browser={"browser": "chrome", "platform": "darwin", "desktop": True})
+        url = f"https://trendlyne.com/equity/{tid}/{symbol}/{slug}/"
+        r = s.get(url, timeout=15)
+        if r.status_code != 200 or len(r.text) < 50000: return None
+        t = r.text
+        out = {"source_url": url}
+        # DVM Score (Durability / Valuation / Momentum) — Trendlyne unique
+        for pat in [r'"dvmScore"\s*:\s*"?(\d+)',
+                   r'DVM\s*[sS]core[\s\S]{0,200}?(\d{1,3})\s*/\s*100',
+                   r'class="dvm-score[^"]*"[^>]*>(\d+)']:
+            m = re.search(pat, t)
+            if m:
+                out["dvm_score"] = int(m.group(1)); break
+        # Target price — look in any data attributes or inline JSON
+        for pat in [r'"targetPrice"\s*:\s*"?([\d,\.]+)',
+                   r'"consensusTarget"\s*:\s*"?([\d,\.]+)',
+                   r'data-target-price="([\d,\.]+)"',
+                   r'[Cc]onsensus\s*Target[^<>]{0,80}(?:Rs\.?|₹)\s*([\d,]+\.?\d*)']:
+            m = re.search(pat, t)
+            if m:
+                v = _num(m.group(1))
+                if v and v > 10: out["target_price"] = v; break
+        # Analyst count — only trust if >= 3 (avoids phantom "1 analyst" noise from
+        # random mentions like "Top 1 Analyst pick")
+        m = re.search(r"(\d+)\s*[Aa]nalysts?", t)
+        if m:
+            n = int(m.group(1))
+            if 3 <= n < 100: out["analysts"] = n
+        # Any broker distribution counts in a bounded block
+        blk_m = re.search(r"[Bb]roker\s*[Rr]ecom[\s\S]{0,3000}", t)
+        blk = blk_m.group(0) if blk_m else ""
+        if blk:
+            for rk in ["strong buy", "buy", "hold", "sell", "strong sell"]:
+                k = rk.replace(" ", "_")
+                cnt = len(re.findall(rf"\b{rk}\b", blk, re.I))
+                if 0 < cnt <= 20: out[k] = cnt
+        # Only return if we got something meaningful
         if out.get("target_price") or out.get("analysts") or out.get("dvm_score"):
             return out
     except Exception: pass

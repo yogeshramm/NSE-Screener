@@ -9,3 +9,4 @@ bcrypt>=4.0.0
 httpx
 crawl4ai>=0.8.6
 curl_cffi>=0.7
+cloudscraper>=1.2.71
