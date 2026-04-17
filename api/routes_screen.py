@@ -101,11 +101,8 @@ def run_screen(request: ScreenRequest):
     # Determine which symbols to screen
     if request.scan_all or not request.symbols:
         from data.nse_history import get_history_stats, load_history
-        from data.nse_symbols import NIFTY_500_FALLBACK
+        from data.nse_symbols import NIFTY_500_FALLBACK, get_nifty500_live
         from setup_data import FUNDAMENTALS_DIR
-
-        # Nifty 200 — top 200 from our curated list
-        NIFTY_200 = list(NIFTY_500_FALLBACK[:120])
 
         hist = get_history_stats()
         all_symbols = set(hist.get("symbols", []))
@@ -113,11 +110,23 @@ def run_screen(request: ScreenRequest):
         if FUNDAMENTALS_DIR.exists():
             fund_symbols = {f.stem for f in FUNDAMENTALS_DIR.glob("*.pkl")}
 
+        # Resolve Nifty 500 — prefer live NSE list (500 symbols); the
+        # hardcoded NIFTY_500_FALLBACK is actually a curated 187-symbol
+        # subset and was never the real index.
+        try:
+            nifty500_list = list(get_nifty500_live())
+        except Exception:
+            nifty500_list = list(NIFTY_500_FALLBACK)
+        # Nifty 200 — first 200 of the live Nifty 500 (index constituents
+        # are market-cap ordered). Falls back to first 120 of the fallback
+        # list if live fetch failed.
+        nifty200_list = nifty500_list[:200] if len(nifty500_list) >= 200 else list(NIFTY_500_FALLBACK[:120])
+
         # Choose scope
         if request.scope == "nifty200":
-            candidates = [s for s in NIFTY_200 if s in all_symbols]
+            candidates = [s for s in nifty200_list if s in all_symbols]
         elif request.scope == "nifty500":
-            candidates = [s for s in NIFTY_500_FALLBACK if s in all_symbols]
+            candidates = [s for s in nifty500_list if s in all_symbols]
         else:  # "all"
             candidates = sorted(fund_symbols & all_symbols) + sorted(all_symbols - fund_symbols)
 
