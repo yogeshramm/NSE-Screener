@@ -5519,6 +5519,21 @@ function _computeMinervini(candles, volumes) {
       pass: rsi >= 40 && rsi <= 75,
       value: rsi.toFixed(1),
       hint:'Don\'t chase; avoid parabolic entries' },
+    ...(function(){
+      // Institutional footprint check — use volume-surge days as a proxy when
+      // real bulk/block archive data doesn't cover the game window.
+      const surges = _volumeSurgeDays(candles, volumes || [], 2.0, 20);
+      const windowStart = Math.max(0, n - 10);
+      let distCount = 0;
+      for (let i = windowStart; i < n; i++) if (surges.dist.has(i)) distCount++;
+      return [{
+        key: 'no_heavy_distribution',
+        label: 'No heavy distribution in last 10 days',
+        pass: distCount <= 1,
+        value: distCount + ' dist day' + (distCount === 1 ? '' : 's'),
+        hint: 'Big-volume down days = institutional selling; ≤ 1 is acceptable',
+      }];
+    })(),
   ];
 }
 
@@ -5536,7 +5551,7 @@ function openMinerviniModal(side) {
   const violations = checks.filter(c => !c.pass);
   _pracPendingViolations = violations.map(v => v.key);
   document.getElementById('prac-mv-subtitle').textContent =
-    `${practiceState.symbol} · Day ${practiceState.day} · ${passed}/7 rules pass`;
+    `${practiceState.symbol} · Day ${practiceState.day} · ${passed}/${checks.length} rules pass`;
   document.getElementById('prac-mv-score').textContent = violations.length
     ? `${violations.length} rule${violations.length>1?'s':''} violated`
     : 'All rules clear';
@@ -5826,6 +5841,7 @@ async function practiceEnd() {
       trades: merged,
       candles: pracVisibleCandles.slice(),
     };
+    window._pracLastRoundVolumes = pracVisibleVolumes.slice();
 
     // Save to history
     savePracticeSession(data);
@@ -6026,6 +6042,26 @@ function closePracticeSummary() {
 
 // ---- HISTORY & LEADERBOARD (localStorage) ----
 // ===== POST-GAME TRADE REVIEW =====
+// _volumeSurgeDays: per-candle institutional proxy. When real bulk/block deal
+// data isn't available for the round's date range (archive only covers last
+// ~30 days), a green candle with volume > 2× 20-day avg is a reasonable
+// accumulation signal; the same on a red candle is distribution. Both sides
+// are trackable from data already in memory (pracVisibleVolumes).
+function _volumeSurgeDays(candles, volumes, mult=2.0, lookback=20) {
+  const acc = new Set(), dist = new Set();
+  const n = candles.length;
+  const vols = (volumes || []).map(v => (v && typeof v === 'object') ? (v.value || 0) : (v || 0));
+  if (n < lookback + 1 || vols.length !== n) return { acc, dist };
+  for (let i = lookback; i < n; i++) {
+    const avg = vols.slice(i - lookback, i).reduce((a,b)=>a+b, 0) / lookback;
+    if (avg <= 0) continue;
+    if (vols[i] < avg * mult) continue;
+    if (candles[i].close >= candles[i].open) acc.add(i);
+    else dist.add(i);
+  }
+  return { acc, dist };
+}
+
 // _chaosBars: flag bars with extreme ATR or large gap-open — excluded from
 // optimal-entry/exit search so "optimal" never points at a crash/earnings-gap
 // day the user couldn't realistically have traded.
@@ -6091,6 +6127,13 @@ function openReviewModal() {
   }).join('');
   document.getElementById('prac-review-tabs').innerHTML = tabs;
   _prReviewActive = 0;
+  // Kick off institutional fetch in parallel — the chart will pick up any
+  // bulk/block deals whose date overlaps the visible window on next render.
+  window._pracInstitutional = null;
+  fetch(API + '/institutional/' + encodeURIComponent(R.symbol))
+    .then(r => r.json())
+    .then(d => { window._pracInstitutional = d; renderReviewChart(); })
+    .catch(() => {});
   setTimeout(renderReviewChart, 0);  // defer so container has width
 }
 function closeReviewModal() {
@@ -6151,6 +6194,10 @@ function renderReviewChart() {
     ch.setData(chaosData);
   }
 
+  // Institutional-proxy markers: volume-surge accumulation/distribution days.
+  // Uses pracVisibleVolumes captured in practiceEnd() — no extra fetch.
+  const surges = _volumeSurgeDays(candles, window._pracLastRoundVolumes || [], 2.0, 20);
+
   // Markers: your entry/exit + optimal entry/exit
   const isShort = t.side === 'short';
   const markers = [];
@@ -6176,6 +6223,50 @@ function renderReviewChart() {
       text: 'OPT EXIT \u20b9' + Math.round(opt.exit_price) + ' (' + (opt.pnl_pct >= 0 ? '+' : '') + opt.pnl_pct.toFixed(1) + '%)',
     });
   }
+  // Add accumulation (green A) / distribution (red D) flags for volume-surge
+  // bars within the visible window.
+  for (let k = 0; k < win.length; k++) {
+    const absIdx = from + k;
+    if (surges.acc.has(absIdx)) {
+      markers.push({
+        time: win[k].time, position: 'belowBar', color: '#22d3ee',
+        shape: 'square', text: 'ACC',
+      });
+    } else if (surges.dist.has(absIdx)) {
+      markers.push({
+        time: win[k].time, position: 'aboveBar', color: '#f472b6',
+        shape: 'square', text: 'DIST',
+      });
+    }
+  }
+
+  // Real bulk/block deal markers if /institutional/{sym} has rows whose date
+  // matches a candle's timestamp in the visible window. Usually applies only
+  // when the round's window overlaps the last ~30 days (archive coverage).
+  const inst = window._pracInstitutional || {};
+  const tsByDate = {};
+  for (const b of win) {
+    const d = new Date(b.time * 1000);
+    const key = d.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'}).replace(/ /g, '-').toUpperCase();
+    tsByDate[key] = b.time;
+  }
+  (inst.bulk || []).forEach(r => {
+    const ts = tsByDate[(r.date || '').toUpperCase()];
+    if (!ts) return;
+    markers.push({
+      time: ts, position: 'aboveBar', color: r.action === 'BUY' ? '#00e5a0' : '#ff4757',
+      shape: 'arrowDown', text: 'BULK ' + r.action + ' ' + (r.qty/1000).toFixed(0) + 'K',
+    });
+  });
+  (inst.block || []).forEach(r => {
+    const ts = tsByDate[(r.date || '').toUpperCase()];
+    if (!ts) return;
+    markers.push({
+      time: ts, position: 'aboveBar', color: '#facc15',
+      shape: 'arrowDown', text: 'BLOCK ' + r.action + ' ' + (r.qty/1000).toFixed(0) + 'K',
+    });
+  });
+
   markers.sort((a,b)=>a.time - b.time);
   cs.setMarkers(markers);
   _prReviewChart.timeScale().fitContent();
