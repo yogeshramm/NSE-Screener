@@ -564,13 +564,13 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
       <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-6">
         <div>
           <h1 class="text-3xl font-extrabold tracking-tighter text-on-surface mb-2 uppercase">Chart Patterns <span class="text-primary">Library</span></h1>
-          <p class="text-on-surface-variant max-w-xl text-sm">10+ candlestick patterns with synthetic snippets and live detection across Nifty 500 / Next 500.</p>
+          <p class="text-on-surface-variant max-w-xl text-sm">10+ candlestick patterns with synthetic snippets and live detection across Nifty 500 + rest of NSE (~2.2k).</p>
         </div>
         <div class="flex items-center gap-2">
           <span class="text-[9px] text-on-surface-variant font-bold uppercase">Scan Universe:</span>
           <div class="flex bg-surface-container-highest rounded-md p-0.5 gap-0.5" id="pat-universe-tabs">
             <button onclick="setPatternUniverse('nifty500',this)" class="pat-uni-btn px-3 py-1 text-[9px] font-bold rounded bg-surface-variant text-primary">Nifty 500</button>
-            <button onclick="setPatternUniverse('next500',this)" class="pat-uni-btn px-3 py-1 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">Next 500</button>
+            <button onclick="setPatternUniverse('next500',this)" class="pat-uni-btn px-3 py-1 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">Non-Nifty 500 (~2.2k)</button>
           </div>
         </div>
       </div>
@@ -590,7 +590,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
           <span class="text-[9px] text-on-surface-variant font-bold uppercase">Scan Universe:</span>
           <div class="flex bg-surface-container-highest rounded-md p-0.5 gap-0.5" id="cp-universe-tabs">
             <button onclick="setCPUniverse('nifty500',this)" class="cp-uni-btn px-3 py-1 text-[9px] font-bold rounded bg-surface-variant text-primary">Nifty 500</button>
-            <button onclick="setCPUniverse('next500',this)" class="cp-uni-btn px-3 py-1 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">Next 500</button>
+            <button onclick="setCPUniverse('next500',this)" class="cp-uni-btn px-3 py-1 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">Non-Nifty 500 (~2.2k)</button>
           </div>
         </div>
       </div>
@@ -803,7 +803,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
       </div>
       <div class="flex bg-surface-container-highest rounded-md p-0.5 gap-0.5">
         <button onclick="setBOUniverse('nifty500',this)" class="bo-uni-btn px-3 py-1.5 text-[9px] font-bold rounded bg-surface-variant text-primary">Nifty 500</button>
-        <button onclick="setBOUniverse('next500',this)" class="bo-uni-btn px-3 py-1.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">Next 500</button>
+        <button onclick="setBOUniverse('next500',this)" class="bo-uni-btn px-3 py-1.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">Non-Nifty 500 (~2.2k)</button>
       </div>
       <button onclick="runBOScan()" class="flex items-center gap-2 px-5 py-2 bg-primary-container text-on-primary font-bold rounded-lg text-xs uppercase tracking-wider active:scale-95 transition-transform">
         <span class="material-symbols-outlined text-sm">radar</span> Scan
@@ -829,7 +829,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
         </div>
         <div class="flex bg-surface-container-highest rounded-md p-0.5 gap-0.5">
           <button onclick="setPracticeUniverse('nifty500',this)" class="prac-uni-btn px-3 py-1 text-[9px] font-bold rounded bg-surface-variant text-primary">Nifty 500</button>
-          <button onclick="setPracticeUniverse('next500',this)" class="prac-uni-btn px-3 py-1 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">Next 500</button>
+          <button onclick="setPracticeUniverse('next500',this)" class="prac-uni-btn px-3 py-1 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">Non-Nifty 500 (~2.2k)</button>
         </div>
         <button onclick="startPracticeRound()" class="flex items-center gap-2 px-4 py-2 bg-primary-container text-on-primary font-bold rounded-lg text-xs uppercase tracking-wider active:scale-95 transition-transform">
           <span class="material-symbols-outlined text-sm">play_arrow</span> New Round
@@ -3115,7 +3115,7 @@ function renderChartPatternGrid() {
         <div class="px-3 pb-3 text-[10px]"><span class="text-yellow-400 font-bold">◉ Context:</span> <span class="text-on-surface-variant">${p.context}</span></div>
         <div class="p-3 border-t border-outline-variant/10">
           <button onclick="scanChartPattern('${p.key}','${p.name.replace(/'/g,"\\'")}')" class="w-full py-2 bg-primary-container text-on-primary font-bold rounded-lg text-[10px] uppercase tracking-wider active:scale-95 transition-transform">
-            <span class="material-symbols-outlined text-sm align-middle mr-1">radar</span>Scan ${cpUniverse === 'nifty500' ? 'Nifty 500' : 'Next 500'}
+            <span class="material-symbols-outlined text-sm align-middle mr-1">radar</span>Scan ${cpUniverse === 'nifty500' ? 'Nifty 500' : 'Non-Nifty 500 (~2.2k)'}
           </button>
         </div>
       </div>`;
@@ -3167,7 +3167,7 @@ function drawChartSnippet(canvas, candles) {
 async function scanChartPattern(key, name) {
   const modal = document.getElementById('pat-scan-modal');
   document.getElementById('pat-scan-title').textContent = `Scanning: ${name}`;
-  document.getElementById('pat-scan-sub').textContent = `Universe: ${cpUniverse === 'nifty500' ? 'Nifty 500' : 'Next 500'}`;
+  document.getElementById('pat-scan-sub').textContent = `Universe: ${cpUniverse === 'nifty500' ? 'Nifty 500' : 'Non-Nifty 500 (~2.2k)'}`;
   document.getElementById('pat-scan-body').innerHTML = '<div class="text-center py-8 text-on-surface-variant">Scanning…</div>';
   modal.style.display = 'flex';
   try {
@@ -3177,7 +3177,7 @@ async function scanChartPattern(key, name) {
       document.getElementById('pat-scan-body').innerHTML = '<div class="text-center py-8 text-on-surface-variant">No current matches for this pattern.</div>';
       return;
     }
-    document.getElementById('pat-scan-sub').textContent = `${d.count} matches in ${cpUniverse === 'nifty500' ? 'Nifty 500' : 'Next 500'} · sorted by confidence`;
+    document.getElementById('pat-scan-sub').textContent = `${d.count} matches in ${cpUniverse === 'nifty500' ? 'Nifty 500' : 'Non-Nifty 500 (~2.2k)'} · sorted by confidence`;
     const rows = d.hits.map(h => {
       const confCol = h.confidence >= 80 ? 'text-[#00e5a0]' : h.confidence >= 65 ? 'text-yellow-400' : 'text-on-surface-variant';
       // Pick 2-3 key fields for the meta column based on pattern
@@ -3268,7 +3268,7 @@ function renderPatternGrid() {
         <div class="px-3 pb-3 text-[10px] text-on-surface-variant"><span class="text-[#ff4757] font-bold">✗ Invalidate:</span> ${p.invalidate}</div>
         <div class="p-3 border-t border-outline-variant/10">
           <button onclick="scanPattern('${p.key}','${p.name.replace(/'/g,"\\'")}')" class="w-full py-2 bg-primary-container text-on-primary font-bold rounded-lg text-[10px] uppercase tracking-wider active:scale-95 transition-transform">
-            <span class="material-symbols-outlined text-sm align-middle mr-1">radar</span>Scan ${patternUniverse === 'nifty500' ? 'Nifty 500' : 'Next 500'}
+            <span class="material-symbols-outlined text-sm align-middle mr-1">radar</span>Scan ${patternUniverse === 'nifty500' ? 'Nifty 500' : 'Non-Nifty 500 (~2.2k)'}
           </button>
         </div>
       </div>`;
@@ -3653,7 +3653,7 @@ function _drawSectorBars(ctx, W, H) {
 async function scanPattern(key, name) {
   const modal = document.getElementById('pat-scan-modal');
   document.getElementById('pat-scan-title').textContent = `Scanning: ${name}`;
-  document.getElementById('pat-scan-sub').textContent = `Universe: ${patternUniverse === 'nifty500' ? 'Nifty 500' : 'Next 500'} · Last 5 bars`;
+  document.getElementById('pat-scan-sub').textContent = `Universe: ${patternUniverse === 'nifty500' ? 'Nifty 500' : 'Non-Nifty 500 (~2.2k)'} · Last 5 bars`;
   document.getElementById('pat-scan-body').innerHTML = '<div class="text-center py-8 text-on-surface-variant">Scanning...</div>';
   modal.style.display = 'flex';
   try {
@@ -3667,7 +3667,7 @@ async function scanPattern(key, name) {
       document.getElementById('pat-scan-body').innerHTML = '<div class="text-center py-8 text-on-surface-variant">No stocks currently showing this pattern.</div>';
       return;
     }
-    document.getElementById('pat-scan-sub').textContent = `${data.count} matches in ${patternUniverse === 'nifty500' ? 'Nifty 500' : 'Next 500'}`;
+    document.getElementById('pat-scan-sub').textContent = `${data.count} matches in ${patternUniverse === 'nifty500' ? 'Nifty 500' : 'Non-Nifty 500 (~2.2k)'}`;
     document.getElementById('pat-scan-body').innerHTML = `
       <table class="w-full text-left">
         <thead class="text-[9px] uppercase text-on-surface-variant font-bold border-b border-outline-variant/10">
