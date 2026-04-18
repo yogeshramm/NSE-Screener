@@ -201,6 +201,33 @@ def insights_pro(symbol: str):
         events = events_for_symbol(symbol)[:2]
     except Exception: pass
 
+    # Per-stock institutional footprint — bulk/block deals from the rolling
+    # 30-day NSE archive + accumulation/distribution counts from the local
+    # history pickle (volume > 2× 20-day avg, green = acc, red = dist).
+    inst_stock = {"bulk": [], "block": [], "acc_days": 0, "dist_days": 0}
+    try:
+        from data.nse_institutional import deals_for_symbol
+        d = deals_for_symbol(symbol)
+        inst_stock["bulk"] = (d.get("bulk") or [])[:3]
+        inst_stock["block"] = (d.get("block") or [])[:3]
+    except Exception: pass
+    try:
+        n = len(df)
+        if n >= 21:
+            closes = df["Close"].astype(float).tolist()
+            opens = df["Open"].astype(float).tolist()
+            vols = df["Volume"].astype(float).tolist() if "Volume" in df.columns else []
+            if len(vols) == n:
+                acc = dist = 0
+                for i in range(max(0, n - 20), n):
+                    avg = sum(vols[max(0, i-20):i]) / max(1, min(20, i))
+                    if avg <= 0 or vols[i] < avg * 2.0: continue
+                    if closes[i] >= opens[i]: acc += 1
+                    else: dist += 1
+                inst_stock["acc_days"] = acc
+                inst_stock["dist_days"] = dist
+    except Exception: pass
+
     return {
         "symbol": symbol,
         "verdict": verdict,
@@ -217,6 +244,7 @@ def insights_pro(symbol: str):
         "multi_factor": mfs_bundle,
         "sector": {"name": sector_name, "return_1m": sector_1m},
         "flows": {"net_cr": fii_dii_net},
+        "inst_stock": inst_stock,
         "news": news,
         "events": events,
         "analyst": analyst,
