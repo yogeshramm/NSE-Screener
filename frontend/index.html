@@ -1156,6 +1156,14 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
         <input id="prac-profile-input" type="text" maxlength="20" placeholder="Enter a trader nickname" class="w-full mt-2 bg-surface-container-highest border-none rounded-lg py-3 px-4 text-on-surface placeholder:text-on-surface-variant/40 focus:ring-1 focus:ring-primary text-sm" onkeydown="if(event.key==='Enter')savePracticeProfile()"/>
         <p class="text-[9px] text-on-surface-variant mt-1.5">Stored locally in this browser. Used to tag your sessions on the leaderboard.</p>
       </div>
+      <div>
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Trading Framework</label>
+        <div class="grid grid-cols-2 gap-2 mt-2">
+          <button id="prac-fw-minervini" onclick="setPracticeFramework('minervini')" class="px-3 py-2 bg-surface-container-highest text-on-surface-variant font-bold rounded-lg text-[11px] uppercase tracking-wider hover:bg-surface-variant">Minervini SEPA</button>
+          <button id="prac-fw-free" onclick="setPracticeFramework('free')" class="px-3 py-2 bg-surface-container-highest text-on-surface-variant font-bold rounded-lg text-[11px] uppercase tracking-wider hover:bg-surface-variant">Free Mode</button>
+        </div>
+        <p class="text-[9px] text-on-surface-variant mt-1.5">Minervini surfaces a pre-entry checklist — 7 auto-evaluated trend/strength/volume rules. Free mode skips it.</p>
+      </div>
       <div id="prac-profile-list" class="space-y-1.5 max-h-40 overflow-y-auto"></div>
     </div>
     <div class="p-4 border-t border-outline-variant/20 flex justify-between items-center">
@@ -1163,6 +1171,25 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
       <div class="flex gap-2">
         <button onclick="closeProfileModal()" class="px-5 py-2 text-on-surface-variant font-bold text-xs uppercase hover:text-on-surface">Cancel</button>
         <button onclick="savePracticeProfile()" class="px-5 py-2 bg-primary-container text-on-primary font-bold rounded-lg text-xs uppercase active:scale-95 transition-transform">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== PRACTICE PRE-ENTRY CHECKLIST (MINERVINI) ==================== -->
+<div id="prac-mv-modal" class="fixed inset-0 z-[86] flex items-center justify-center bg-black/70" style="display:none">
+  <div class="w-[520px] max-h-[85vh] glass-panel rounded-2xl border border-outline-variant/20 flex flex-col overflow-hidden">
+    <div class="p-4 border-b border-outline-variant/20">
+      <h3 class="text-sm font-black uppercase text-on-surface tracking-widest">Minervini SEPA · Pre-Entry Checklist</h3>
+      <span id="prac-mv-subtitle" class="text-[10px] text-on-surface-variant"></span>
+    </div>
+    <div id="prac-mv-rows" class="p-4 space-y-2 overflow-y-auto flex-1"></div>
+    <div id="prac-mv-footer" class="p-4 border-t border-outline-variant/20 flex items-center justify-between gap-2">
+      <span id="prac-mv-score" class="text-[10px] font-mono text-on-surface-variant"></span>
+      <div class="flex gap-2">
+        <button onclick="closeMinerviniModal()" class="px-4 py-2 text-on-surface-variant font-bold text-[11px] uppercase hover:text-on-surface">Cancel</button>
+        <button id="prac-mv-override" onclick="minerviniOverride()" class="hidden px-4 py-2 bg-error/20 text-[#ff4757] font-bold rounded-lg text-[11px] uppercase hover:bg-error/30">Override &amp; Proceed</button>
+        <button id="prac-mv-proceed" onclick="minerviniProceed()" class="hidden px-4 py-2 bg-primary-container text-on-primary font-bold rounded-lg text-[11px] uppercase active:scale-95">Proceed to Buy</button>
       </div>
     </div>
   </div>
@@ -4013,6 +4040,7 @@ function setPracticeProfile(name) {
 function openProfileModal() {
   const modal = document.getElementById('prac-profile-modal');
   document.getElementById('prac-profile-input').value = getPracticeProfile();
+  _refreshFwButtons();
   modal.style.display = 'flex';
   // Populate existing profiles from leaderboard
   const all = getAllPracticeSessions();
@@ -5359,6 +5387,9 @@ async function practiceNextDay() {
         holding_days: ax.holding_days,
         entry_day: practiceState.position.entry_day,
         exit_day: ax.day,
+        side: practiceState.position.side || 'long',
+        sl: practiceState.position.sl, tp: practiceState.position.tp,
+        mv_violations: practiceState.position.mv_violations || [],
         auto: true, reason: ax.reason,
       });
       practiceState.position = null;
@@ -5406,9 +5437,162 @@ async function practiceNextDay() {
 
 // Open BUY modal with defaults from current state
 let pracBuySide = 'long';
+// ===== MINERVINI SEPA PRE-ENTRY CHECKLIST =====
+// 7 auto-evaluated checks using the candle window already in memory.
+// Relies on 260-bar warmup from engine/practice.py so 150/200-DMA, 52W, 6M
+// return are all computable at game day 0. Client-side only.
+const PRAC_FW_KEY = 'yointell_practice_framework';
+function getPracticeFramework() {
+  return localStorage.getItem(PRAC_FW_KEY) || 'minervini';
+}
+function setPracticeFramework(fw) {
+  localStorage.setItem(PRAC_FW_KEY, fw);
+  _refreshFwButtons();
+  showPracticeToast('Framework: ' + (fw === 'minervini' ? 'Minervini SEPA' : 'Free Mode'), 'ok');
+}
+function _refreshFwButtons() {
+  const fw = getPracticeFramework();
+  const onCls = 'px-3 py-2 bg-primary-container text-on-primary font-bold rounded-lg text-[11px] uppercase tracking-wider';
+  const offCls = 'px-3 py-2 bg-surface-container-highest text-on-surface-variant font-bold rounded-lg text-[11px] uppercase tracking-wider hover:bg-surface-variant';
+  const m = document.getElementById('prac-fw-minervini');
+  const f = document.getElementById('prac-fw-free');
+  if (m) m.className = fw === 'minervini' ? onCls : offCls;
+  if (f) f.className = fw === 'free' ? onCls : offCls;
+}
+
+function _computeMinervini(candles, volumes) {
+  // candles: full visible series (260 warmup + game days so far).
+  // volumes: parallel array from pracVisibleVolumes (each item has .value).
+  // Returns array of {key, label, pass, value, threshold, hint}.
+  const n = candles.length;
+  if (n < 210) return null;  // not enough history
+  const closes = candles.map(c => c.close);
+  const highs = candles.map(c => c.high);
+  const lows = candles.map(c => c.low);
+  const vols = (volumes || []).map(v => (v && typeof v === 'object') ? (v.value || 0) : (v || 0));
+  const price = closes[n - 1];
+  const sma = (arr, p) => arr.slice(-p).reduce((a,b)=>a+b,0) / p;
+  const sma150 = sma(closes, 150);
+  const sma200 = sma(closes, 200);
+  const sma200_20ago = closes.slice(-220, -20).slice(-200).reduce((a,b)=>a+b,0) / 200;
+  const high252 = Math.max(...highs.slice(-Math.min(252, n)));
+  const low252  = Math.min(...lows.slice(-Math.min(252, n)));
+  const pctFromHigh = (price - high252) / high252 * 100;
+  const pctFromLow  = (price - low252) / low252 * 100;
+  const ret6m = n >= 126 ? (price - closes[n - 127]) / closes[n - 127] * 100 : null;
+  const avgVol20 = vols.slice(-21, -1).reduce((a,b)=>a+b,0) / 20;
+  const volRatio = avgVol20 > 0 ? vols[n - 1] / avgVol20 : 0;
+  // RSI-14
+  let gain = 0, loss = 0;
+  for (let i = n - 14; i < n; i++) {
+    const d = closes[i] - closes[i - 1];
+    if (d > 0) gain += d; else loss -= d;
+  }
+  const rs = loss === 0 ? 100 : gain / loss;
+  const rsi = 100 - 100 / (1 + rs);
+  return [
+    { key:'trend_stack', label:'Price > 150DMA > 200DMA',
+      pass: price > sma150 && sma150 > sma200,
+      value: `₹${price.toFixed(0)} / ${sma150.toFixed(0)} / ${sma200.toFixed(0)}`,
+      hint:'Stage-2 uptrend: price above both long MAs, 150 above 200' },
+    { key:'ma200_rising', label:'200DMA rising past month',
+      pass: sma200 > sma200_20ago,
+      value:`Δ ${((sma200 - sma200_20ago) / sma200_20ago * 100).toFixed(1)}%`,
+      hint:'The longest trendline itself must be sloping up' },
+    { key:'near_52w_high', label:'Within 25% of 52W high',
+      pass: pctFromHigh > -25,
+      value:`${pctFromHigh.toFixed(1)}%`,
+      hint:'Strong stocks stay close to recent highs' },
+    { key:'above_52w_low', label:'>30% above 52W low',
+      pass: pctFromLow > 30,
+      value:`+${pctFromLow.toFixed(1)}%`,
+      hint:'Filters out broken-down bases' },
+    { key:'rel_strength', label:'6M return > 10% (RS proxy)',
+      pass: ret6m !== null && ret6m > 10,
+      value: ret6m !== null ? `${ret6m.toFixed(1)}%` : '—',
+      hint:'Proxy for Minervini RS-rank ≥ 70 — strong stocks outperform' },
+    { key:'volume_surge', label:'Today\'s volume ≥ 1.5× 20D avg',
+      pass: volRatio >= 1.5,
+      value:`${volRatio.toFixed(2)}×`,
+      hint:'Breakouts without volume tend to fail' },
+    { key:'not_overextended', label:'RSI-14 between 40 and 75',
+      pass: rsi >= 40 && rsi <= 75,
+      value: rsi.toFixed(1),
+      hint:'Don\'t chase; avoid parabolic entries' },
+  ];
+}
+
+let _pracPendingBuySide = null;
+let _pracPendingViolations = [];
+function openMinerviniModal(side) {
+  const checks = _computeMinervini(pracVisibleCandles, pracVisibleVolumes);
+  if (!checks) {
+    // Not enough history — fall straight through to BUY modal
+    _rawPracticeBuy(side);
+    return;
+  }
+  _pracPendingBuySide = side;
+  const passed = checks.filter(c => c.pass).length;
+  const violations = checks.filter(c => !c.pass);
+  _pracPendingViolations = violations.map(v => v.key);
+  document.getElementById('prac-mv-subtitle').textContent =
+    `${practiceState.symbol} · Day ${practiceState.day} · ${passed}/7 rules pass`;
+  document.getElementById('prac-mv-score').textContent = violations.length
+    ? `${violations.length} rule${violations.length>1?'s':''} violated`
+    : 'All rules clear';
+  const rows = checks.map(c => {
+    const icon = c.pass ? 'check_circle' : 'cancel';
+    const col = c.pass ? 'text-[#00e5a0]' : 'text-[#ff4757]';
+    return `<div class="flex items-center gap-3 p-2.5 bg-surface-container-highest rounded-lg">
+      <span class="material-symbols-outlined ${col} text-lg">${icon}</span>
+      <div class="flex-1 min-w-0">
+        <div class="text-[11px] font-bold text-on-surface">${c.label}</div>
+        <div class="text-[9px] text-on-surface-variant leading-snug">${c.hint}</div>
+      </div>
+      <span class="text-[10px] font-mono ${col} whitespace-nowrap">${c.value}</span>
+    </div>`;
+  }).join('');
+  document.getElementById('prac-mv-rows').innerHTML = rows;
+  document.getElementById('prac-mv-proceed').classList.toggle('hidden', violations.length > 0);
+  document.getElementById('prac-mv-override').classList.toggle('hidden', violations.length === 0);
+  document.getElementById('prac-mv-modal').style.display = 'flex';
+}
+function closeMinerviniModal() {
+  document.getElementById('prac-mv-modal').style.display = 'none';
+  _pracPendingBuySide = null;
+  _pracPendingViolations = [];
+}
+function minerviniProceed() {
+  document.getElementById('prac-mv-modal').style.display = 'none';
+  const side = _pracPendingBuySide || 'long';
+  _pracPendingBuySide = null;
+  // No violations — clear any prior list
+  window._pracLastBuyViolations = [];
+  _rawPracticeBuy(side);
+}
+function minerviniOverride() {
+  document.getElementById('prac-mv-modal').style.display = 'none';
+  const side = _pracPendingBuySide || 'long';
+  // Stash violations so practiceBuy can attach them to the trade record
+  window._pracLastBuyViolations = _pracPendingViolations.slice();
+  _pracPendingBuySide = null;
+  showPracticeToast('Override logged · ' + window._pracLastBuyViolations.length + ' rules broken', 'err');
+  _rawPracticeBuy(side);
+}
+
 function practiceBuy(side = 'long') {
   if (!practiceState || practiceState.position) return;
   if (!pracVisibleCandles.length) return;
+  // Route through the Minervini pre-entry checklist if framework is active.
+  if (getPracticeFramework() === 'minervini') {
+    openMinerviniModal(side);
+    return;
+  }
+  // Free mode — clear any stale violations, proceed to BUY modal directly
+  window._pracLastBuyViolations = [];
+  _rawPracticeBuy(side);
+}
+function _rawPracticeBuy(side = 'long') {
   pracBuySide = side;
   const price = pracVisibleCandles[pracVisibleCandles.length - 1].close;
   const cash = practiceState.cash;
@@ -5527,7 +5711,10 @@ async function confirmBuy() {
       cost: data.cost, sl: data.sl, tp: data.tp,
       side: pracBuySide,
       note, conviction: conv,
+      // Minervini rules the user overrode at entry — shown in post-game review
+      mv_violations: (window._pracLastBuyViolations || []).slice(),
     };
+    window._pracLastBuyViolations = [];
     practiceState.cash = data.cash_remaining;
     pracPnlTrail = [0];
     closeBuyModal();
@@ -5588,6 +5775,8 @@ async function practiceSell() {
       entry_day: practiceState.position.entry_day,
       exit_day: data.day,
       side: _wasShort ? 'short' : 'long',
+      sl: practiceState.position.sl, tp: practiceState.position.tp,
+      mv_violations: practiceState.position.mv_violations || [],
     });
     practiceState.position = null;
     practiceState.cash = data.cash_remaining;
@@ -5623,10 +5812,18 @@ async function practiceEnd() {
     const res = await fetch(API + '/practice/end', { method: 'POST' });
     const data = await res.json();
 
-    // Capture for post-game Review modal (chart + optimal entry/exit overlays)
+    // Capture for post-game Review modal (chart + optimal entry/exit overlays).
+    // Merge client-side fields (mv_violations, sl, tp) into the server's trade
+    // list by entry_day so the review can surface them.
+    const serverTrades = Array.isArray(data.trades) ? data.trades : [];
+    const clientTrades = Array.isArray(practiceState.trades) ? practiceState.trades : [];
+    const merged = serverTrades.map(st => {
+      const ct = clientTrades.find(c => c.entry_day === st.entry_day) || {};
+      return { ...st, mv_violations: ct.mv_violations || [], sl: ct.sl ?? st.sl, tp: ct.tp ?? st.tp };
+    });
     window._pracLastRound = {
       symbol: data.symbol,
-      trades: Array.isArray(data.trades) ? data.trades : [],
+      trades: merged,
       candles: pracVisibleCandles.slice(),
     };
 
@@ -6006,6 +6203,9 @@ function renderReviewChart() {
     if (chaosCount) cm.push(`${chaosCount} chaos bar${chaosCount>1?'s were':' was'} excluded from the optimal path (extreme ATR or gap > 7%).`);
   } else {
     cm.push('No better entry/exit existed within your SL rules for this trade.');
+  }
+  if (t.mv_violations && t.mv_violations.length) {
+    cm.push(`<span class="text-[#ff4757]">⚠ Minervini violations at entry: ${t.mv_violations.length} rule${t.mv_violations.length>1?'s':''} overridden — ${t.mv_violations.join(', ')}.</span>`);
   }
   document.getElementById('prac-review-commentary').innerHTML = cm.map(s => '• ' + s).join('<br>');
 }

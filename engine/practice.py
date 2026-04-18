@@ -57,7 +57,11 @@ def start_round(symbol=None, universe="nifty500", max_days=MAX_DAYS_DEFAULT, mod
     if max_days not in (30, 60, 90):
         max_days = MAX_DAYS_DEFAULT
 
-    warmup_bars = 60
+    # 260 warmup bars so the frontend has enough data to evaluate 150/200-DMA,
+    # 52W high/low, and 6-month return at game day 0 (needed for the Minervini
+    # pre-entry checklist). Every Nifty-500 stock has 538 bars on disk so 260
+    # + 90 = 350 is comfortably inside that budget.
+    warmup_bars = 260
     needed = warmup_bars + max_days
 
     # For daily challenge, seed the RNG from date+universe+max_days so all players get the same setup.
