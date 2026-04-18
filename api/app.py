@@ -84,8 +84,15 @@ FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 
 @app.get("/", tags=["Frontend"])
 def serve_frontend():
-    """Serve the screener frontend."""
-    return FileResponse(FRONTEND_DIR / "index.html")
+    """Serve the screener frontend.
+    Cache-Control: no-cache (+ ETag) forces the browser to revalidate on every
+    load, so a fresh index.html is picked up immediately after a push
+    (previously users saw stale/misaligned versions for days until the
+    browser naturally expired its cache)."""
+    return FileResponse(
+        FRONTEND_DIR / "index.html",
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
 
 
 @app.get("/health", tags=["Health"])
