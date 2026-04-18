@@ -1159,10 +1159,10 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
       <div>
         <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Trading Framework</label>
         <div class="grid grid-cols-2 gap-2 mt-2">
-          <button id="prac-fw-minervini" onclick="setPracticeFramework('minervini')" class="px-3 py-2 bg-surface-container-highest text-on-surface-variant font-bold rounded-lg text-[11px] uppercase tracking-wider hover:bg-surface-variant">Minervini SEPA</button>
+          <button id="prac-fw-minervini" onclick="setPracticeFramework('minervini')" class="px-3 py-2 bg-surface-container-highest text-on-surface-variant font-bold rounded-lg text-[11px] uppercase tracking-wider hover:bg-surface-variant">Trend Template</button>
           <button id="prac-fw-free" onclick="setPracticeFramework('free')" class="px-3 py-2 bg-surface-container-highest text-on-surface-variant font-bold rounded-lg text-[11px] uppercase tracking-wider hover:bg-surface-variant">Free Mode</button>
         </div>
-        <p class="text-[9px] text-on-surface-variant mt-1.5">Minervini surfaces a pre-entry checklist — 7 auto-evaluated trend/strength/volume rules. Free mode skips it.</p>
+        <p class="text-[9px] text-on-surface-variant mt-1.5">Trend Template surfaces a pre-entry checklist — 8 auto-evaluated trend/strength/volume rules. Free mode skips it.</p>
       </div>
       <div id="prac-profile-list" class="space-y-1.5 max-h-40 overflow-y-auto"></div>
     </div>
@@ -1176,11 +1176,11 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
   </div>
 </div>
 
-<!-- ==================== PRACTICE PRE-ENTRY CHECKLIST (MINERVINI) ==================== -->
+<!-- ==================== PRACTICE PRE-ENTRY CHECKLIST (TREND TEMPLATE) ==================== -->
 <div id="prac-mv-modal" class="fixed inset-0 z-[86] flex items-center justify-center bg-black/70" style="display:none">
   <div class="w-[520px] max-h-[85vh] glass-panel rounded-2xl border border-outline-variant/20 flex flex-col overflow-hidden">
     <div class="p-4 border-b border-outline-variant/20">
-      <h3 class="text-sm font-black uppercase text-on-surface tracking-widest">Minervini SEPA · Pre-Entry Checklist</h3>
+      <h3 class="text-sm font-black uppercase text-on-surface tracking-widest">Trend Template · Pre-Entry Checklist</h3>
       <span id="prac-mv-subtitle" class="text-[10px] text-on-surface-variant"></span>
     </div>
     <div id="prac-mv-rows" class="p-4 space-y-2 overflow-y-auto flex-1"></div>
@@ -4228,7 +4228,10 @@ async function startPracticeRound(mode = 'free') {
       trades: [],
     };
     pracBriefing = data.briefing || null;
+    // Briefing panel stays hidden at round start — user opens via INFO.
+    // Auto-opening consumed ~131px and pushed the chart below the fold.
     renderBriefing();
+    document.getElementById('prac-briefing-panel')?.classList.add('hidden');
 
     // Remember round parameters so the user can Replay later
     pracLastRound = {
@@ -5437,8 +5440,9 @@ async function practiceNextDay() {
 
 // Open BUY modal with defaults from current state
 let pracBuySide = 'long';
-// ===== MINERVINI SEPA PRE-ENTRY CHECKLIST =====
-// 7 auto-evaluated checks using the candle window already in memory.
+// ===== TREND TEMPLATE PRE-ENTRY CHECKLIST =====
+// 8 auto-evaluated checks (the classic trend template used by momentum /
+// stage-analysis traders) using the candle window already in memory.
 // Relies on 260-bar warmup from engine/practice.py so 150/200-DMA, 52W, 6M
 // return are all computable at game day 0. Client-side only.
 const PRAC_FW_KEY = 'yointell_practice_framework';
@@ -5448,7 +5452,7 @@ function getPracticeFramework() {
 function setPracticeFramework(fw) {
   localStorage.setItem(PRAC_FW_KEY, fw);
   _refreshFwButtons();
-  showPracticeToast('Framework: ' + (fw === 'minervini' ? 'Minervini SEPA' : 'Free Mode'), 'ok');
+  showPracticeToast('Framework: ' + (fw === 'minervini' ? 'Trend Template' : 'Free Mode'), 'ok');
 }
 function _refreshFwButtons() {
   const fw = getPracticeFramework();
@@ -5461,6 +5465,7 @@ function _refreshFwButtons() {
 }
 
 function _computeMinervini(candles, volumes) {
+  // Function name kept for backward-compat with existing localStorage values.
   // candles: full visible series (260 warmup + game days so far).
   // volumes: parallel array from pracVisibleVolumes (each item has .value).
   // Returns array of {key, label, pass, value, threshold, hint}.
@@ -5510,7 +5515,7 @@ function _computeMinervini(candles, volumes) {
     { key:'rel_strength', label:'6M return > 10% (RS proxy)',
       pass: ret6m !== null && ret6m > 10,
       value: ret6m !== null ? `${ret6m.toFixed(1)}%` : '—',
-      hint:'Proxy for Minervini RS-rank ≥ 70 — strong stocks outperform' },
+      hint:'Relative-strength proxy — strong stocks outperform the market' },
     { key:'volume_surge', label:'Today\'s volume ≥ 1.5× 20D avg',
       pass: volRatio >= 1.5,
       value:`${volRatio.toFixed(2)}×`,
@@ -6296,7 +6301,7 @@ function renderReviewChart() {
     cm.push('No better entry/exit existed within your SL rules for this trade.');
   }
   if (t.mv_violations && t.mv_violations.length) {
-    cm.push(`<span class="text-[#ff4757]">⚠ Minervini violations at entry: ${t.mv_violations.length} rule${t.mv_violations.length>1?'s':''} overridden — ${t.mv_violations.join(', ')}.</span>`);
+    cm.push(`<span class="text-[#ff4757]">⚠ Trend Template violations at entry: ${t.mv_violations.length} rule${t.mv_violations.length>1?'s':''} overridden — ${t.mv_violations.join(', ')}.</span>`);
   }
   document.getElementById('prac-review-commentary').innerHTML = cm.map(s => '• ' + s).join('<br>');
 }
