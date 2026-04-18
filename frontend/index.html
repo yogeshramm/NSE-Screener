@@ -1810,6 +1810,9 @@ function openChart(symbol) {
   document.getElementById('chart-container').innerHTML='';
   document.getElementById('rsi-container').innerHTML='';
   document.getElementById('vol-container').innerHTML='';
+  // Apply user-starred indicator defaults before loadChart — renderChart
+  // iterates the checkboxes and paints whatever is checked.
+  applyStarredChartDefaults();
   loadChart(symbol);
 }
 function resetScreenerTab() {
@@ -2326,6 +2329,61 @@ function removeSubPanel(key) {
   const div = document.getElementById('subpanel-'+key);
   if(div) div.remove();
   delete subPanelCharts[key];
+}
+
+// ===== STARRED / FAVOURITE CHART INDICATORS =====
+// Persists per-user in localStorage. When the set is non-empty, it overrides
+// the HTML-declared defaults on every chart open — only starred indicators
+// are pre-checked. The user can still tick/untick anything ad-hoc; the star
+// controls the INITIAL state on each new chart, nothing more.
+const CHART_STAR_KEY = 'yointell_starred_chart_indicators';
+function getChartStarred() {
+  try { return new Set(JSON.parse(localStorage.getItem(CHART_STAR_KEY) || '[]')); }
+  catch (e) { return new Set(); }
+}
+function saveChartStarred(set) {
+  try { localStorage.setItem(CHART_STAR_KEY, JSON.stringify([...set])); } catch (e) {}
+}
+function toggleChartIndStar(key, ev) {
+  if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+  const s = getChartStarred();
+  if (s.has(key)) s.delete(key); else s.add(key);
+  saveChartStarred(s);
+  _syncChartStarUI();
+}
+function _syncChartStarUI() {
+  const s = getChartStarred();
+  document.querySelectorAll('.chart-ind-star').forEach(el => {
+    const on = s.has(el.dataset.key);
+    el.textContent = on ? '★' : '☆';
+    el.style.color = on ? '#facc15' : 'rgba(255,255,255,0.35)';
+    el.title = on ? 'Starred — auto-enabled on every chart open. Click to unstar.' : 'Click to star — will auto-enable on every chart open.';
+  });
+}
+function injectChartIndStars() {
+  document.querySelectorAll('#chart-ind-dropdown [data-chart-ind]').forEach(cb => {
+    const key = cb.dataset.chartInd;
+    const label = cb.closest('label');
+    if (!label || label.querySelector('.chart-ind-star')) return;
+    const star = document.createElement('span');
+    star.className = 'chart-ind-star cursor-pointer text-[12px] select-none ml-auto leading-none';
+    star.dataset.key = key;
+    star.textContent = '☆';
+    star.addEventListener('click', (e) => toggleChartIndStar(key, e));
+    label.appendChild(star);
+  });
+  _syncChartStarUI();
+}
+function applyStarredChartDefaults() {
+  const s = getChartStarred();
+  // Empty set → keep HTML-declared defaults (supertrend, vwap_sd, vortex).
+  if (s.size === 0) return;
+  document.querySelectorAll('#chart-ind-dropdown [data-chart-ind]').forEach(cb => {
+    cb.checked = s.has(cb.dataset.chartInd);
+  });
+  // scVolSurgeOn tracks the vol_surge checkbox independently (marker overlay),
+  // so sync it here or its flag won't match the new checkbox state.
+  scVolSurgeOn = s.has('vol_surge');
 }
 
 function toggleChartIndicator(key, checked) {
@@ -6611,6 +6669,8 @@ function initApp() {
   loadFilterPanel();
   populatePresetDropdowns();
   initData();
+  // Add the star/favourite toggle to each chart-indicator checkbox row.
+  injectChartIndStars();
   // Close dropdowns on outside click
   document.addEventListener('click',e=>{
     const pd=document.getElementById('preset-dropdown');
