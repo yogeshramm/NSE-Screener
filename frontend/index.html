@@ -4997,14 +4997,19 @@ function renderPracticeChart() {
   if (chartWrapper && !chartWrapper._pracWheelHandler) {
     chartWrapper._pracWheelHandler = (e) => {
       if (!pracChart) return;
-      // Vertical scroll is the common case (most mice); trackpads may emit
-      // deltaX natively. Take whichever is larger in magnitude.
+      // Only intercept when the wheel is over a SUB-PANEL (RSI / MACD / etc).
+      // If it's over the main chart, let lightweight-charts handle it natively
+      // — vertical wheel = zoom, horizontal wheel = pan, which is what users
+      // expect on the primary chart.
+      const mainEl = document.getElementById('prac-chart-container');
+      if (mainEl && mainEl.contains(e.target)) return;
+      // Sub-panels only: translate wheel into horizontal pan on the main chart.
+      // Sub-panels have handleScroll:false so without this they'd be dead.
       const delta = Math.abs(e.deltaX) >= Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
       if (!delta) return;
       const lr = pracChart.timeScale().getVisibleLogicalRange();
       if (!lr) return;
       const span = lr.to - lr.from || 1;
-      // Shift by ~3% of the visible span per wheel notch; positive delta → pan right (forward in time).
       const shift = (delta > 0 ? 1 : -1) * Math.max(1, span * 0.03);
       try {
         pracChart.timeScale().setVisibleLogicalRange({ from: lr.from + shift, to: lr.to + shift });
