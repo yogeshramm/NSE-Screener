@@ -443,6 +443,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
               <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" autocomplete="off" checked data-chart-ind="vwap_sd" onchange="toggleChartIndicator('vwap_sd',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#06b6d4] rounded inline-block" style="opacity:0.5"></span>VWAP + SD Bands</label>
               <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" autocomplete="off" data-chart-ind="ichimoku" onchange="toggleChartIndicator('ichimoku',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#ef4444] rounded inline-block"></span>Ichimoku Cloud</label>
               <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" autocomplete="off" data-chart-ind="pivots" onchange="toggleChartIndicator('pivots',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#facc15] rounded inline-block"></span>Pivot Levels</label>
+              <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded" title="Accumulation (cyan square, below green candle) / Distribution (pink square, above red candle) on bars with volume ≥ 2× 20-day avg — institutional-footprint flags"><input type="checkbox" autocomplete="off" data-chart-ind="vol_surge" onchange="toggleChartIndicator('vol_surge',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#22d3ee] rounded inline-block"></span>Volume Surge (ACC/DIST)</label>
               <div class="border-t border-outline-variant/20 mt-2 pt-2"><div class="text-[8px] font-black text-on-surface-variant uppercase tracking-widest mb-2">Panels</div></div>
               <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" autocomplete="off" data-chart-ind="rsi" onchange="toggleChartIndicator('rsi',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#a855f7] rounded inline-block"></span>RSI (14)</label>
               <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" autocomplete="off" data-chart-ind="macd" onchange="toggleChartIndicator('macd',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#f97316] rounded inline-block"></span>MACD</label>
@@ -2001,7 +2002,7 @@ function renderChart(data) {
     const key=cb.dataset.chartInd;
     if(!cb.checked) return;
     // Simple overlays
-    if(!['rsi','macd','bollinger','vwap_sd','ichimoku','pivots'].includes(key) && !SUB_PANEL_CONFIG[key]) {
+    if(!['rsi','macd','bollinger','vwap_sd','ichimoku','pivots','vol_surge'].includes(key) && !SUB_PANEL_CONFIG[key]) {
       addChartOverlay(key);
     }
     // Multi-line overlay groups
@@ -2328,6 +2329,9 @@ function removeSubPanel(key) {
 }
 
 function toggleChartIndicator(key, checked) {
+  // Volume-surge ACC/DIST marker overlay (uses the same shared marker array
+  // as HELP + EVENTS — scApplyMarkers picks up the state flag).
+  if(key==='vol_surge') { scVolSurgeOn = !!checked; scApplyMarkers(); return; }
   // Multi-line overlays
   if(key==='bollinger') {
     if(checked){ addChartOverlay('bb_upper'); addChartOverlay('bb_mid'); addChartOverlay('bb_lower'); }
@@ -2621,7 +2625,7 @@ async function runBacktest() {
 }
 
 // ============ SCREENER CHART OVERLAYS (INFO + HELP + EVENTS) ============
-let scInfoOn = false, scHelpOn = false, scEventsOn = false;
+let scInfoOn = false, scHelpOn = false, scEventsOn = false, scVolSurgeOn = false;
 let scBriefingCache = {}; // {symbol: data}
 let scEventsCache = {};   // {symbol: events[]}
 let sc52HiLine = null, sc52LoLine = null;
@@ -2803,6 +2807,19 @@ function scApplyMarkers() {
         time: nearest.time,
         position: 'aboveBar', color: '#06b6d4', shape: 'square',
         text: `${emojiFor(e.event)} ${e.event}`,
+      });
+    }
+  }
+  // VOL SURGE: opt-in ACC/DIST flags (volume ≥ 2× 20-day avg; green = ACC, red = DIST)
+  if (scVolSurgeOn && chartData.candles?.length && chartData.volumes?.length) {
+    const surges = _volumeSurgeDays(chartData.candles, chartData.volumes, 2.0, 20);
+    for (let i = 0; i < chartData.candles.length; i++) {
+      const t = chartData.candles[i].time;
+      if (surges.acc.has(i)) markers.push({
+        time: t, position: 'belowBar', color: '#22d3ee', shape: 'square', text: 'ACC',
+      });
+      else if (surges.dist.has(i)) markers.push({
+        time: t, position: 'aboveBar', color: '#f472b6', shape: 'square', text: 'DIST',
       });
     }
   }
