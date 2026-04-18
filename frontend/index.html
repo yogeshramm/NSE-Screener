@@ -4228,10 +4228,32 @@ async function startPracticeRound(mode = 'free') {
       trades: [],
     };
     pracBriefing = data.briefing || null;
+    // Fetch rolling-archive bulk/block for this stock so the briefing panel
+    // and the live chart both have institutional footprint. Fire-and-forget;
+    // the briefing re-renders when this returns, and _institutionalMarkersTick
+    // uses the cached result.
+    window._pracGameInstitutional = null;
+    if (data.symbol) {
+      fetch(API + '/institutional/' + encodeURIComponent(data.symbol))
+        .then(r => r.json())
+        .then(d => {
+          window._pracGameInstitutional = d;
+          // Re-render briefing so the inst panel populates, and paint any
+          // real bulk/block deals whose date falls inside the currently-
+          // visible candles.
+          renderBriefing();
+          document.getElementById('prac-briefing-panel')?.classList.add('hidden');
+          _paintHistoricalInstitutionalMarkers();
+        })
+        .catch(() => {});
+    }
     // Briefing panel stays hidden at round start — user opens via INFO.
-    // Auto-opening consumed ~131px and pushed the chart below the fold.
     renderBriefing();
     document.getElementById('prac-briefing-panel')?.classList.add('hidden');
+    // Paint volume-surge ACC/DIST markers on the LAST 30 bars of warmup so
+    // the user lands on a chart that already shows recent institutional
+    // context (the whole point of the habit loop).
+    setTimeout(_paintHistoricalInstitutionalMarkers, 400);
 
     // Remember round parameters so the user can Replay later
     pracLastRound = {
@@ -4284,6 +4306,44 @@ function renderBriefing() {
     <div><div class="text-on-surface-variant uppercase font-bold text-[9px]">30D Volatility</div><div class="font-mono text-on-surface mt-0.5">${b.volatility_30d !== null ? b.volatility_30d + '%' : '—'}</div></div>`;
   if (b.sector) html += `<div><div class="text-on-surface-variant uppercase font-bold text-[9px]">Sector</div><div class="text-on-surface mt-0.5">${b.sector}</div></div>`;
   if (mcap) html += `<div><div class="text-on-surface-variant uppercase font-bold text-[9px]">Market Cap</div><div class="font-mono text-on-surface mt-0.5">${mcap}</div></div>`;
+
+  // Institutional footprint — last 20 revealed bars. Uses volume-surge as the
+  // universal proxy (works on any round's date range) + real bulk/block deals
+  // when the game window overlaps the rolling 30-day NSE archive.
+  const inst = window._pracGameInstitutional || {};
+  const n = pracVisibleCandles.length;
+  const windowStart = Math.max(0, n - 20);
+  let accN = 0, distN = 0;
+  if (n >= 21 && pracVisibleVolumes.length === n) {
+    const s = _volumeSurgeDays(pracVisibleCandles, pracVisibleVolumes, 2.0, 20);
+    for (let i = windowStart; i < n; i++) {
+      if (s.acc.has(i)) accN++;
+      else if (s.dist.has(i)) distN++;
+    }
+  }
+  const bulkCount = (inst.bulk || []).length;
+  const blockCount = (inst.block || []).length;
+  const latestBulk = (inst.bulk || [])[0];
+  const latestBlock = (inst.block || [])[0];
+  html += `
+    <div class="col-span-full border-t border-outline-variant/20 mt-1 pt-2">
+      <div class="text-on-surface-variant uppercase font-bold text-[9px] mb-1.5">Institutional (last 20 bars + rolling archive)</div>
+      <div class="grid grid-cols-4 gap-3">
+        <div><div class="text-on-surface-variant uppercase font-bold text-[8px]">Accumulation</div><div class="font-mono mt-0.5 ${accN?'text-[#00e5a0]':'text-on-surface-variant'}">${accN} day${accN===1?'':'s'}</div></div>
+        <div><div class="text-on-surface-variant uppercase font-bold text-[8px]">Distribution</div><div class="font-mono mt-0.5 ${distN?'text-[#ff4757]':'text-on-surface-variant'}">${distN} day${distN===1?'':'s'}</div></div>
+        <div><div class="text-on-surface-variant uppercase font-bold text-[8px]">Bulk Deals (30d)</div><div class="font-mono mt-0.5 ${bulkCount?'text-[#facc15]':'text-on-surface-variant'}">${bulkCount}</div></div>
+        <div><div class="text-on-surface-variant uppercase font-bold text-[8px]">Block Deals (30d)</div><div class="font-mono mt-0.5 ${blockCount?'text-[#facc15]':'text-on-surface-variant'}">${blockCount}</div></div>
+      </div>`;
+  if (latestBulk) {
+    html += `<div class="text-[9px] text-on-surface-variant mt-1.5">Latest bulk: <span class="text-on-surface">${latestBulk.date} · ${latestBulk.action} ${(latestBulk.qty/1000).toFixed(0)}K @ \u20b9${latestBulk.price} · ${(latestBulk.client||'').slice(0,40)}</span></div>`;
+  }
+  if (latestBlock) {
+    html += `<div class="text-[9px] text-on-surface-variant mt-0.5">Latest block: <span class="text-on-surface">${latestBlock.date} · ${latestBlock.action} ${(latestBlock.qty/1000).toFixed(0)}K @ \u20b9${latestBlock.price} · ${(latestBlock.client||'').slice(0,40)}</span></div>`;
+  }
+  if (!bulkCount && !blockCount && n >= 20) {
+    html += `<div class="text-[9px] text-on-surface-variant/60 mt-1 italic">No recent bulk/block deals visible for this stock in the rolling archive. Rely on accumulation/distribution flags on the chart.</div>`;
+  }
+  html += `</div>`;
   content.innerHTML = html;
   panel.classList.remove('hidden');
 }
@@ -5407,6 +5467,10 @@ async function practiceNextDay() {
 
     // Refresh all active indicators with the new candle
     refreshPracticeIndicators();
+    // Institutional flag on the just-revealed candle (volume surge + any
+    // matching real bulk/block deal). Needs a refreshMarkers call to paint.
+    const newMarker = _institutionalMarkerFor(pracVisibleCandles.length - 1);
+    if (newMarker) { pracMarkers.push(newMarker); refreshMarkers(); }
     // Re-run HELP/NEWS detection with the new candle
     if (pracHelpMode || pracNewsMode) refreshMarkers();
 
@@ -6101,6 +6165,59 @@ function _volumeSurgeDays(candles, volumes, mult=2.0, lookback=20) {
     else dist.add(i);
   }
   return { acc, dist };
+}
+
+// _institutionalMarkerFor(idx): returns a marker object for the candle at
+// index `idx` if it's a volume surge day or matches a real bulk/block deal.
+// Used both during the LIVE game (on each tick) and at round start (to paint
+// the last 30 bars of warmup context). Returns null for ordinary candles.
+function _institutionalMarkerFor(idx) {
+  const c = pracVisibleCandles[idx];
+  if (!c) return null;
+  // Real bulk/block deal on this candle's date — highest-priority marker.
+  const inst = window._pracGameInstitutional || {};
+  const d = new Date(c.time * 1000);
+  const key = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+    .replace(/ /g, '-').toUpperCase();
+  const bulkHit = (inst.bulk || []).find(r => (r.date || '').toUpperCase() === key);
+  if (bulkHit) return {
+    time: c.time, position: 'aboveBar', shape: 'arrowDown',
+    color: bulkHit.action === 'BUY' ? '#00e5a0' : '#ff4757',
+    text: 'BULK ' + bulkHit.action + ' ' + (bulkHit.qty/1000).toFixed(0) + 'K',
+  };
+  const blockHit = (inst.block || []).find(r => (r.date || '').toUpperCase() === key);
+  if (blockHit) return {
+    time: c.time, position: 'aboveBar', shape: 'arrowDown', color: '#facc15',
+    text: 'BLOCK ' + blockHit.action + ' ' + (blockHit.qty/1000).toFixed(0) + 'K',
+  };
+  // Volume-surge proxy — universal fallback that works on any round's date.
+  if (idx < 20 || pracVisibleVolumes.length !== pracVisibleCandles.length) return null;
+  const vols = pracVisibleVolumes.slice(idx - 20, idx).map(v => (v && typeof v === 'object') ? (v.value || 0) : (v || 0));
+  const avg = vols.reduce((a,b)=>a+b, 0) / 20;
+  const cur = (pracVisibleVolumes[idx] && typeof pracVisibleVolumes[idx] === 'object')
+    ? (pracVisibleVolumes[idx].value || 0) : (pracVisibleVolumes[idx] || 0);
+  if (avg <= 0 || cur < avg * 2.0) return null;
+  if (c.close >= c.open) return {
+    time: c.time, position: 'belowBar', shape: 'square', color: '#22d3ee', text: 'ACC',
+  };
+  return { time: c.time, position: 'aboveBar', shape: 'square', color: '#f472b6', text: 'DIST' };
+}
+
+// _paintHistoricalInstitutionalMarkers: scan the last 30 visible candles and
+// push any institutional markers into pracMarkers. Called at round start +
+// after the async /institutional/ fetch returns (so real bulk/block markers
+// appear as soon as the data lands).
+function _paintHistoricalInstitutionalMarkers() {
+  const n = pracVisibleCandles.length;
+  if (!n) return;
+  // De-duplicate: drop any existing institutional markers before repainting.
+  pracMarkers = pracMarkers.filter(m => !['ACC', 'DIST'].includes(m.text) && !(m.text || '').startsWith('BULK ') && !(m.text || '').startsWith('BLOCK '));
+  const from = Math.max(0, n - 30);
+  for (let i = from; i < n; i++) {
+    const m = _institutionalMarkerFor(i);
+    if (m) pracMarkers.push(m);
+  }
+  if (typeof refreshMarkers === 'function') refreshMarkers();
 }
 
 // _chaosBars: flag bars with extreme ATR or large gap-open — excluded from
