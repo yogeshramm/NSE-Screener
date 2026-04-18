@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from data.nse_fii_dii import get_net_fii_dii_summary
 from data.nse_institutional import (
     fetch_bulk_deals, fetch_block_deals, fetch_delivery_leaders, compute_market_breadth,
+    deals_for_symbol,
 )
 
 router = APIRouter()
@@ -22,3 +23,14 @@ def institutional_radar():
     try: breadth = compute_market_breadth()
     except Exception: breadth = {}
     return {"flows": flows, "bulk_deals": bulk, "block_deals": block, "delivery_leaders": deliv, "breadth": breadth}
+
+
+@router.get("/institutional/{symbol}")
+def institutional_symbol(symbol: str):
+    """Per-stock bulk + block deal footprint from the rolling ~30-day
+    archive. Used by the Insights popup + Practice review overlay when the
+    game window overlaps with the current archive window."""
+    try:
+        return {"symbol": symbol.upper(), **deals_for_symbol(symbol)}
+    except Exception as e:
+        return {"symbol": symbol.upper(), "bulk": [], "block": [], "error": str(e)}
