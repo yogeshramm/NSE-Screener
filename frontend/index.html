@@ -1850,11 +1850,13 @@ function closeChart() {
   chart.style.display='none'; chart.style.width='0';
   currentChartSymbol=null;
   // Reset chart overlay toggles so they're OFF on next chart open
-  scInfoOn=false; scHelpOn=false; scEventsOn=false;
+  scInfoOn=false; scHelpOn=false; scEventsOn=false; scTemplateOn=false;
   const ib=document.getElementById('sc-info-btn'); if(ib) ib.className='text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
   const hb=document.getElementById('sc-help-btn'); if(hb) hb.className='text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
   const eb=document.getElementById('sc-events-btn'); if(eb) eb.className='text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
   const ab=document.getElementById('sc-avwap-btn'); if(ab) { ab.className='text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded'; ab.textContent='aVWAP'; }
+  const tb=document.getElementById('sc-tt-btn'); if(tb) tb.className='text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
+  const tp=document.getElementById('sc-tt-panel'); if(tp) tp.classList.add('hidden');
   avwapMode=false; avwapSeries=[]; avwapAnchors=[];
   const bp=document.getElementById('sc-briefing-panel'); if(bp) bp.classList.add('hidden');
   scClear52WLines();
@@ -2850,15 +2852,45 @@ function toggleScreenerTemplate() {
   if (scTemplateOn) renderScreenerTemplate();
 }
 
-function renderScreenerTemplate() {
+// Per-symbol deep-history cache for trend-template evaluation. The chart
+// endpoint defaults to ~180 trading days — not enough to compute 150/200-DMA
+// + 52W + 6M return. We refetch ?days=400 once per symbol (server is local
+// and has full 538-bar history already), cache the result, and reuse.
+const _scTTCache = {};
+async function _scTTFetchDeep(symbol) {
+  if (_scTTCache[symbol]) return _scTTCache[symbol];
+  try {
+    const r = await fetch(API + '/chart/' + encodeURIComponent(symbol) + '?days=400');
+    if (!r.ok) return null;
+    const d = await r.json();
+    _scTTCache[symbol] = d;
+    return d;
+  } catch (e) { return null; }
+}
+
+async function renderScreenerTemplate() {
   const panel = document.getElementById('sc-tt-panel');
   const rows = document.getElementById('sc-tt-rows');
   const scoreEl = document.getElementById('sc-tt-score');
-  if (!panel || !rows || !chartData) return;
-  const checks = _computeMinervini(chartData.candles || [], chartData.volumes || []);
-  if (!checks) {
-    rows.innerHTML = '<div class="text-[10px] text-on-surface-variant/70 text-center py-6">Need ≥ 210 bars of history for this stock to evaluate.</div>';
+  if (!panel || !rows) return;
+  const sym = currentChartSymbol;
+  if (!sym) {
+    rows.innerHTML = '<div class="text-[10px] text-on-surface-variant/70 text-center py-6">No chart open.</div>';
     scoreEl.textContent = '';
+    return;
+  }
+  rows.innerHTML = '<div class="text-[10px] text-on-surface-variant/70 text-center py-6">Loading…</div>';
+  scoreEl.textContent = '';
+  const deep = await _scTTFetchDeep(sym);
+  // Panel may have been closed / chart switched while we were fetching.
+  if (!scTemplateOn || currentChartSymbol !== sym) return;
+  if (!deep || !deep.candles || !deep.candles.length) {
+    rows.innerHTML = '<div class="text-[10px] text-on-surface-variant/70 text-center py-6">Could not load deep history for ' + sym + '.</div>';
+    return;
+  }
+  const checks = _computeMinervini(deep.candles, deep.volumes || []);
+  if (!checks) {
+    rows.innerHTML = `<div class="text-[10px] text-on-surface-variant/70 text-center py-6">Need \u2265 210 bars of history for this stock to evaluate (have ${deep.candles.length}).</div>`;
     return;
   }
   const passed = checks.filter(c => c.pass).length;
