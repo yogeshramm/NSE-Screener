@@ -406,7 +406,18 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
       </div>
     </div>
     <!-- RIGHT: CHART PANEL -->
-    <div id="chart-panel" class="flex-col bg-surface-container-lowest border-l border-outline-variant/20" style="display:none;width:0">
+    <div id="chart-panel" class="relative flex-col bg-surface-container-lowest border-l border-outline-variant/20" style="display:none;width:0">
+      <!-- Trend Template side panel (absolute overlay; toggled via TEMPLATE button) -->
+      <div id="sc-tt-panel" class="hidden absolute top-10 right-0 w-[300px] bottom-0 bg-surface-container border-l border-outline-variant/20 z-30 flex flex-col overflow-hidden">
+        <div class="px-3 py-2 border-b border-outline-variant/20 flex items-center justify-between">
+          <div>
+            <div class="text-[10px] font-black uppercase tracking-widest text-primary">Trend Template</div>
+            <div class="text-[8px] text-on-surface-variant">Momentum framework · one school of thought</div>
+          </div>
+          <span id="sc-tt-score" class="text-[10px] font-mono text-on-surface-variant"></span>
+        </div>
+        <div id="sc-tt-rows" class="flex-1 overflow-y-auto p-3 space-y-2 text-[10px]"></div>
+      </div>
       <div class="h-10 border-b border-outline-variant/20 px-4 flex items-center justify-between bg-surface-container">
         <div class="flex items-center gap-3">
           <span class="text-[10px] font-black uppercase tracking-widest text-on-surface">
@@ -462,6 +473,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
           <button id="sc-help-btn" onclick="toggleScreenerHelp()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded" title="Candlestick pattern annotations">HELP</button>
           <button id="sc-events-btn" onclick="toggleScreenerEvents()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded" title="Corporate event markers">EVENTS</button>
           <button id="sc-avwap-btn" onclick="toggleAnchoredVWAP()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded" title="Anchored VWAP: click, then click a candle to anchor. ±1σ / ±2σ bands.">aVWAP</button>
+          <button id="sc-tt-btn" onclick="toggleScreenerTemplate()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded" title="Trend Template — 8 momentum-framework rules checked against this stock's current state. One glance = pass/fail diagnostic before entry.">TEMPLATE</button>
           <span class="material-symbols-outlined text-sm cursor-pointer hover:text-primary" onclick="openInsightsFromChart()">psychology</span>
           <span class="material-symbols-outlined text-sm cursor-pointer hover:text-error" onclick="closeChart()">close</span>
         </div>
@@ -1973,8 +1985,8 @@ function renderChart(data) {
   const cs=currentChart.addCandlestickSeries({upColor:cc.up,downColor:cc.down,borderUpColor:cc.up,borderDownColor:cc.down,wickUpColor:cc.up,wickDownColor:cc.down});
   cs.setData(data.candles);
   window._scCandleSeries = cs;
-  // Re-apply any active toggles (INFO/HELP/EVENTS) to the new chart instance
-  setTimeout(()=>{ try { scApplyAllChartOverlays(); } catch(e){} }, 50);
+  // Re-apply any active toggles (INFO/HELP/EVENTS/TEMPLATE) to the new chart instance
+  setTimeout(()=>{ try { scApplyAllChartOverlays(); if (scTemplateOn) renderScreenerTemplate(); } catch(e){} }, 50);
 
   // Volume integrated into main chart (TradingView style — bottom 20%)
   const volSeries=currentChart.addHistogramSeries({
@@ -2685,7 +2697,7 @@ async function runBacktest() {
 }
 
 // ============ SCREENER CHART OVERLAYS (INFO + HELP + EVENTS) ============
-let scInfoOn = false, scHelpOn = false, scEventsOn = false, scVolSurgeOn = false;
+let scInfoOn = false, scHelpOn = false, scEventsOn = false, scVolSurgeOn = false, scTemplateOn = false;
 let scBriefingCache = {}; // {symbol: data}
 let scEventsCache = {};   // {symbol: events[]}
 let sc52HiLine = null, sc52LoLine = null;
@@ -2820,6 +2832,51 @@ async function toggleScreenerEvents() {
     } catch(e) { scEventsCache[currentChartSymbol] = []; }
   }
   scApplyMarkers();
+}
+
+// ===== TREND TEMPLATE SIDE PANEL =====
+// Reuses the Practice-game Trend Template checklist on the Screener chart
+// as a collapsible right-side overlay. Pure client-side computation on
+// chartData — zero new fetches, same _computeMinervini primitive.
+function toggleScreenerTemplate() {
+  scTemplateOn = !scTemplateOn;
+  const btn = document.getElementById('sc-tt-btn');
+  const panel = document.getElementById('sc-tt-panel');
+  if (!btn || !panel) return;
+  btn.className = scTemplateOn
+    ? 'text-[9px] font-bold text-on-primary bg-primary-container px-2 py-0.5 rounded'
+    : 'text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
+  panel.classList.toggle('hidden', !scTemplateOn);
+  if (scTemplateOn) renderScreenerTemplate();
+}
+
+function renderScreenerTemplate() {
+  const panel = document.getElementById('sc-tt-panel');
+  const rows = document.getElementById('sc-tt-rows');
+  const scoreEl = document.getElementById('sc-tt-score');
+  if (!panel || !rows || !chartData) return;
+  const checks = _computeMinervini(chartData.candles || [], chartData.volumes || []);
+  if (!checks) {
+    rows.innerHTML = '<div class="text-[10px] text-on-surface-variant/70 text-center py-6">Need ≥ 210 bars of history for this stock to evaluate.</div>';
+    scoreEl.textContent = '';
+    return;
+  }
+  const passed = checks.filter(c => c.pass).length;
+  const total = checks.length;
+  const scoreCol = passed >= 6 ? 'text-[#00e5a0]' : passed >= 4 ? 'text-yellow-400' : 'text-[#ff4757]';
+  scoreEl.innerHTML = `<span class="${scoreCol} font-bold">${passed}/${total}</span>`;
+  rows.innerHTML = checks.map(c => {
+    const icon = c.pass ? 'check_circle' : 'cancel';
+    const col = c.pass ? 'text-[#00e5a0]' : 'text-[#ff4757]';
+    return `<div class="flex items-start gap-2 p-2 bg-surface-container-highest/40 rounded">
+      <span class="material-symbols-outlined ${col} text-[16px] leading-none mt-[1px]">${icon}</span>
+      <div class="flex-1 min-w-0">
+        <div class="text-[10px] font-bold text-on-surface leading-tight">${c.label}</div>
+        <div class="text-[9px] text-on-surface-variant/80 leading-snug mt-0.5">${c.hint}</div>
+      </div>
+      <span class="text-[9px] font-mono ${col} whitespace-nowrap shrink-0">${c.value}</span>
+    </div>`;
+  }).join('');
 }
 
 function scApplyMarkers() {
