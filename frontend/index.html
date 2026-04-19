@@ -4228,11 +4228,15 @@ function openProfileModal() {
 }
 function closeProfileModal() { document.getElementById('prac-profile-modal').style.display = 'none'; }
 function resetPracticeData() {
-  if (!confirm('Clear ALL practice history and leaderboard entries across all profiles? This cannot be undone.')) return;
+  if (!confirm('Reset ALL practice scores and session history?\n\nYour nickname, framework choice, and starred indicators will be kept — only session history, stats, and the Replay target are cleared. This cannot be undone.')) return;
   localStorage.removeItem(PRAC_HISTORY_KEY);
-  localStorage.removeItem('yointell_practice_nickname');
+  localStorage.removeItem(PRAC_LAST_ROUND_KEY);
+  pracLastRound = null;
+  // Hide the Replay button since we just invalidated its target.
+  const rb = document.getElementById('prac-replay-btn');
+  if (rb) rb.classList.add('hidden');
   closeProfileModal();
-  showPracticeToast('All practice data cleared', 'ok');
+  showPracticeToast('Scores reset · profile preserved', 'ok');
   loadPracticeHistory();
 }
 function savePracticeProfile() {
