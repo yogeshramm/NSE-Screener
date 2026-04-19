@@ -4102,7 +4102,14 @@ let pracAutoPlaySpeed = 1; // 1x = 1 candle/sec
 let pracBriefing = null;
 let pracHelpMode = false;   // candle pattern detection HELP toggle
 let pracNewsMode = false;   // news anomaly markers
-let pracLastRound = null;   // {universe, max_days, symbol, start_idx} for replay
+// {universe, max_days, symbol, start_idx} for replay — persisted to
+// localStorage so the Replay button stays available across page reloads
+// (in-memory only vanished on every refresh and confused users).
+const PRAC_LAST_ROUND_KEY = 'yointell_prac_last_round';
+let pracLastRound = (() => {
+  try { return JSON.parse(localStorage.getItem(PRAC_LAST_ROUND_KEY) || 'null'); }
+  catch (e) { return null; }
+})();
 let pracRoundMode = 'free'; // 'free' | 'daily' | 'replay'
 
 // ---- PROFILE ----
@@ -4339,6 +4346,7 @@ async function startPracticeRound(mode = 'free') {
       max_days: data.max_days,
       start_idx: data.start_idx,
     };
+    try { localStorage.setItem(PRAC_LAST_ROUND_KEY, JSON.stringify(pracLastRound)); } catch (e) {}
     const rb = document.getElementById('prac-replay-btn');
     if (rb) rb.classList.remove('hidden');
     pracVisibleCandles = [...data.warmup_candles];
@@ -6673,6 +6681,12 @@ function initApp() {
   initData();
   // Add the star/favourite toggle to each chart-indicator checkbox row.
   injectChartIndStars();
+  // If a Replay target was persisted from a previous session, reveal the
+  // Replay button on the Practice welcome screen.
+  if (pracLastRound) {
+    const rb = document.getElementById('prac-replay-btn');
+    if (rb) rb.classList.remove('hidden');
+  }
   // Close dropdowns on outside click
   document.addEventListener('click',e=>{
     const pd=document.getElementById('preset-dropdown');
