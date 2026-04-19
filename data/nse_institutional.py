@@ -13,10 +13,13 @@ os.makedirs(CACHE_DIR, exist_ok=True)
 TTL = 24 * 3600
 STALE_TTL = 7 * 24 * 3600
 
-# Rolling-window CSVs on archives.nseindia.com — no auth, no cookies, ~30 days
-# back. The /api/historical/cm/bulk endpoint consistently 404s, so the archives
-# path is the reliable server-side source. BSE's equivalent redirects to an
-# error page.
+# CSVs on archives.nseindia.com — no auth, no cookies. NOTE: the file
+# contains only the LATEST TRADING DAY's deals (not a rolling 30-day window
+# as the filename might suggest). NSE overwrites the file after each session.
+# The /api/historical/cm/bulk endpoint consistently 404s, and BSE's equivalent
+# redirects to an error page, so this daily CSV is the reliable public source.
+# For true 30-day history, we'd need to accumulate locally via a daily cron
+# (not built yet).
 BULK_ARCHIVE = "https://archives.nseindia.com/content/equities/bulk.csv"
 BLOCK_ARCHIVE = "https://archives.nseindia.com/content/equities/block.csv"
 
@@ -121,9 +124,10 @@ def _read_cache_tier(name: str):
 
 
 def fetch_bulk_deals(days: int = 7, nifty_only: bool = True) -> List[Dict[str, Any]]:
-    """Rolling ~30-day bulk deals from archives.nseindia.com. `days` is kept
-    for backward-compat with callers that filter by age client-side; the
-    underlying archive always returns the full rolling window."""
+    """Latest-trading-day bulk deals from archives.nseindia.com. `days` is
+    kept as a backward-compat parameter that trims older entries, but in
+    practice the source CSV only contains one trading day so the filter is
+    usually a no-op."""
     cached, age = _read_cache_tier("bulk_archive")
     if cached is not None and age is not None and age <= TTL and isinstance(cached, list):
         return _apply_filter_deals(cached, days, nifty_only)

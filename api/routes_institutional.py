@@ -27,9 +27,11 @@ def institutional_radar():
 
 @router.get("/institutional/{symbol}")
 def institutional_symbol(symbol: str):
-    """Per-stock bulk + block deal footprint from the rolling ~30-day
-    archive. Used by the Insights popup + Practice review overlay when the
-    game window overlaps with the current archive window."""
+    """Per-stock bulk + block deal footprint from NSE's daily archive CSV.
+    Note: the source file contains only the LATEST TRADING DAY's deals (not
+    rolling 30-day, despite the filename's appearance). Used by the Insights
+    popup + Practice review overlay when the game window overlaps with that
+    single trading day."""
     try:
         return {"symbol": symbol.upper(), **deals_for_symbol(symbol)}
     except Exception as e:

@@ -4483,7 +4483,7 @@ function renderBriefing() {
 
   // Institutional footprint — last 20 revealed bars. Uses volume-surge as the
   // universal proxy (works on any round's date range) + real bulk/block deals
-  // when the game window overlaps the rolling 30-day NSE archive.
+  // when the game window overlaps the LATEST-TRADING-DAY NSE archive.
   const inst = window._pracGameInstitutional || {};
   const n = pracVisibleCandles.length;
   const windowStart = Math.max(0, n - 20);
@@ -4501,12 +4501,12 @@ function renderBriefing() {
   const latestBlock = (inst.block || [])[0];
   html += `
     <div class="col-span-full border-t border-outline-variant/20 mt-1 pt-2">
-      <div class="text-on-surface-variant uppercase font-bold text-[9px] mb-1.5">Institutional (last 20 bars + rolling archive)</div>
+      <div class="text-on-surface-variant uppercase font-bold text-[9px] mb-1.5">Institutional (acc/dist last 20 bars + bulk/block latest session)</div>
       <div class="grid grid-cols-4 gap-3">
         <div><div class="text-on-surface-variant uppercase font-bold text-[8px]">Accumulation</div><div class="font-mono mt-0.5 ${accN?'text-[#00e5a0]':'text-on-surface-variant'}">${accN} day${accN===1?'':'s'}</div></div>
         <div><div class="text-on-surface-variant uppercase font-bold text-[8px]">Distribution</div><div class="font-mono mt-0.5 ${distN?'text-[#ff4757]':'text-on-surface-variant'}">${distN} day${distN===1?'':'s'}</div></div>
-        <div><div class="text-on-surface-variant uppercase font-bold text-[8px]">Bulk Deals (30d)</div><div class="font-mono mt-0.5 ${bulkCount?'text-[#facc15]':'text-on-surface-variant'}">${bulkCount}</div></div>
-        <div><div class="text-on-surface-variant uppercase font-bold text-[8px]">Block Deals (30d)</div><div class="font-mono mt-0.5 ${blockCount?'text-[#facc15]':'text-on-surface-variant'}">${blockCount}</div></div>
+        <div><div class="text-on-surface-variant uppercase font-bold text-[8px]">Bulk Deals (today)</div><div class="font-mono mt-0.5 ${bulkCount?'text-[#facc15]':'text-on-surface-variant'}">${bulkCount}</div></div>
+        <div><div class="text-on-surface-variant uppercase font-bold text-[8px]">Block Deals (today)</div><div class="font-mono mt-0.5 ${blockCount?'text-[#facc15]':'text-on-surface-variant'}">${blockCount}</div></div>
       </div>`;
   if (latestBulk) {
     html += `<div class="text-[9px] text-on-surface-variant mt-1.5">Latest bulk: <span class="text-on-surface">${latestBulk.date} · ${latestBulk.action} ${(latestBulk.qty/1000).toFixed(0)}K @ \u20b9${latestBulk.price} · ${(latestBulk.client||'').slice(0,40)}</span></div>`;
@@ -4515,7 +4515,7 @@ function renderBriefing() {
     html += `<div class="text-[9px] text-on-surface-variant mt-0.5">Latest block: <span class="text-on-surface">${latestBlock.date} · ${latestBlock.action} ${(latestBlock.qty/1000).toFixed(0)}K @ \u20b9${latestBlock.price} · ${(latestBlock.client||'').slice(0,40)}</span></div>`;
   }
   if (!bulkCount && !blockCount && n >= 20) {
-    html += `<div class="text-[9px] text-on-surface-variant/60 mt-1 italic">No recent bulk/block deals visible for this stock in the rolling archive. Rely on accumulation/distribution flags on the chart.</div>`;
+    html += `<div class="text-[9px] text-on-surface-variant/60 mt-1 italic">No bulk/block deals in this stock today. Rely on accumulation/distribution flags on the chart (20-bar window from price + volume).</div>`;
   }
   html += `</div>`;
   content.innerHTML = html;
@@ -7193,7 +7193,7 @@ function _ipRender(d) {
             let rows = `
               <div class="flex justify-between"><span class="text-on-surface-variant">Accumulation (20d)</span><span class="font-mono font-bold ${accCol}">${is.acc_days||0} day${(is.acc_days||0)===1?'':'s'}</span></div>
               <div class="flex justify-between"><span class="text-on-surface-variant">Distribution (20d)</span><span class="font-mono font-bold ${distCol}">${is.dist_days||0} day${(is.dist_days||0)===1?'':'s'}</span></div>
-              <div class="flex justify-between"><span class="text-on-surface-variant">Bulk / Block (30d)</span><span class="font-mono font-bold ${bulk.length+block.length?'text-[#facc15]':'text-on-surface-variant'}">${bulk.length} / ${block.length}</span></div>`;
+              <div class="flex justify-between"><span class="text-on-surface-variant">Bulk / Block (today)</span><span class="font-mono font-bold ${bulk.length+block.length?'text-[#facc15]':'text-on-surface-variant'}">${bulk.length} / ${block.length}</span></div>`;
             // Latest deal, one line, truncated client name
             const latest = bulk[0] || block[0];
             if (latest) {
