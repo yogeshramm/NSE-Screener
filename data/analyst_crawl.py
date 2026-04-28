@@ -168,77 +168,203 @@ async def fetch_mc(symbol: str) -> Optional[Dict[str, Any]]:
     except Exception: return None
 
 
-# ---------- Tickertape via crawl4ai + __NEXT_DATA__ ----------
-# Slug resolved DYNAMICALLY via Tickertape's own search API — no hardcoded map needed.
-# Cached per session to avoid re-lookup.
+# ---------- Tickertape via sitemap + curl_cffi (no crawl4ai / no API subdomain) ----------
+# The Tickertape search API (api.tickertape.in) returns 403 from datacenter IPs.
+# BUT: the main page loads fine with curl_cffi + full Sec-Fetch navigation headers.
+# Slug is resolved from Tickertape's public sitemap (5410 stock URLs, 30-day disk cache).
+#
+# Resolution priority: 1) memory cache, 2) disk cache, 3) sitemap code-match,
+#                      4) sitemap company-name fuzzy-match, 5) API fallback (local IPs)
+
 _TT_SLUG_CACHE: Dict[str, Optional[str]] = {}
+_TT_SITEMAP_CACHE: Dict[str, str] = {}   # tickertape-code → slug
+_TT_SITEMAP_LOADED = False
+_TT_SITEMAP_FILE = _RESOLVE_CACHE_FILE.parent / "tt_sitemap.json"
+
+_TT_FETCH_HDR = {
+    "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+    "Accept-Language": "en-IN,en;q=0.9",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "DNT": "1",
+    "Upgrade-Insecure-Requests": "1",
+}
+
+
+def _tt_load_sitemap() -> None:
+    """Download Tickertape stocks sitemap once (30-day disk cache) → code→slug dict."""
+    global _TT_SITEMAP_LOADED
+    if _TT_SITEMAP_LOADED:
+        return
+    _TT_SITEMAP_LOADED = True
+    # Try disk cache
+    if _TT_SITEMAP_FILE.exists():
+        try:
+            mtime = datetime.fromtimestamp(_TT_SITEMAP_FILE.stat().st_mtime, tz=timezone.utc)
+            if (datetime.now(timezone.utc) - mtime) < _RESOLVE_TTL:
+                with open(_TT_SITEMAP_FILE) as f:
+                    _TT_SITEMAP_CACHE.update(json.load(f))
+                return
+        except Exception:
+            pass
+    # Fetch sitemap fresh
+    try:
+        from curl_cffi import requests as cf
+        r = cf.get("https://www.tickertape.in/sitemaps/stocks/sitemap.xml",
+                   impersonate="chrome131", timeout=20, headers=_TT_FETCH_HDR)
+        if r.status_code != 200:
+            return
+        for slug in re.findall(r"<loc>https://www\.tickertape\.in/stocks/([^<]+)</loc>", r.text):
+            parts = slug.rsplit("-", 1)
+            if len(parts) == 2:
+                _TT_SITEMAP_CACHE[parts[1].upper()] = slug
+        _TT_SITEMAP_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(_TT_SITEMAP_FILE, "w") as f:
+            json.dump(_TT_SITEMAP_CACHE, f)
+    except Exception:
+        pass
+
+
+def _tt_company_name(symbol: str) -> Optional[str]:
+    """Read company long/short name from local fundamentals pickle."""
+    try:
+        import pickle
+        p = Path(__file__).resolve().parent.parent / "data_store" / "fundamentals" / f"{symbol}.pkl"
+        if not p.exists():
+            return None
+        with open(p, "rb") as f:
+            fund = pickle.load(f)
+        if isinstance(fund, dict):
+            return fund.get("longName") or fund.get("shortName")
+    except Exception:
+        pass
+    return None
+
+
+def _tt_slug_from_sitemap(symbol: str) -> Optional[str]:
+    """NSE ticker → Tickertape slug via sitemap code/name matching (no API call).
+
+    Priority:
+      1. Exact NSE symbol == Tickertape code  (TCS, INFY, WIPRO, SBI…)
+      2. Company name fuzzy match — most reliable for complex symbols
+         (HDFCBANK→"hdfc-bank-HDBK", BAJFINANCE→"bajaj-finance-BJFN", SBIN→"state-bank-…-SBI")
+      3. First-4-char code as last resort (RELIANCE→RELI when no fundamentals available)
+    """
+    _tt_load_sitemap()
+    if not _TT_SITEMAP_CACHE:
+        return None
+
+    # 1. Exact code match
+    s = _TT_SITEMAP_CACHE.get(symbol)
+    if s:
+        return s
+
+    # 2. Company name fuzzy match (uses fundamentals pkl — available for downloaded stocks)
+    cname = _tt_company_name(symbol)
+    if cname:
+        # Strip generic suffixes; keep differentiating words like "bank", "finance", "auto"
+        norm = re.sub(
+            r"\b(ltd|limited|pvt|private|corp|corporation|the|and|enterprise|company)\b",
+            "", cname, flags=re.I,
+        )
+        norm = re.sub(r"[^a-z0-9 ]", " ", norm.lower()).strip()
+        words = [w for w in norm.split() if len(w) >= 2]
+        # Try from most-specific (N words) down to 2 words
+        for size in range(min(4, len(words)), 1, -1):
+            prefix = "-".join(words[:size])
+            for slug in _TT_SITEMAP_CACHE.values():
+                if slug.startswith(prefix):
+                    return slug
+
+    # 3. First-4-char code (fallback when fundamentals absent)
+    if len(symbol) >= 4:
+        s = _TT_SITEMAP_CACHE.get(symbol[:4])
+        if s:
+            return s
+
+    return None
 
 
 def _tt_resolve_slug(symbol: str) -> Optional[str]:
-    """Resolve NSE ticker → Tickertape canonical slug via their public search API.
-    Endpoint: https://api.tickertape.in/search?text=X&types=stock
-    Disk-backed with 30-day TTL; in-memory cache hit is free, disk hit is one
-    small JSON read, miss is a network call that gets persisted to both."""
+    """Resolve NSE ticker → Tickertape slug. Sitemap-first; API as fallback."""
     _hydrate_from_disk()
-    if symbol in _TT_SLUG_CACHE: return _TT_SLUG_CACHE[symbol]
-    slug = None
+    if symbol in _TT_SLUG_CACHE:
+        return _TT_SLUG_CACHE[symbol]
+    # Sitemap resolution (works from any IP)
+    slug = _tt_slug_from_sitemap(symbol)
+    if slug:
+        _TT_SLUG_CACHE[symbol] = slug
+        _persist_resolve(symbol, tt_slug=slug)
+        return slug
+    # API fallback (works from residential IPs only)
     try:
         from curl_cffi import requests as cf
         r = cf.get(
             f"https://api.tickertape.in/search?text={symbol}&types=stock",
             impersonate="chrome131", timeout=8,
-            headers={"Origin":"https://www.tickertape.in","Referer":"https://www.tickertape.in/"},
+            headers={"Origin": "https://www.tickertape.in", "Referer": "https://www.tickertape.in/"},
         )
         if r.status_code == 200:
             d = r.json()
             for stk in (d.get("data", {}) or {}).get("stocks", []):
                 if (stk.get("ticker") or "").upper() == symbol.upper():
                     s = (stk.get("slug") or "").lstrip("/")
-                    if s.startswith("stocks/"): s = s[len("stocks/"):]
-                    if s: slug = s; break
-    except Exception: pass
+                    if s.startswith("stocks/"):
+                        s = s[len("stocks/"):]
+                    if s:
+                        slug = s
+                        break
+    except Exception:
+        pass
     _TT_SLUG_CACHE[symbol] = slug
     _persist_resolve(symbol, tt_slug=slug)
     return slug
 
 
+def _tt_fetch_sync(slug: str) -> Optional[Dict[str, Any]]:
+    """Fetch Tickertape page via curl_cffi (works from datacenter IPs with nav headers)."""
+    from curl_cffi import requests as cf
+    url = f"https://www.tickertape.in/stocks/{slug}"
+    try:
+        r = cf.get(url, impersonate="chrome131", timeout=20, headers=_TT_FETCH_HDR)
+        if r.status_code != 200 or len(r.text) < 50000:
+            return None
+        mj = re.search(r'<script id="__NEXT_DATA__"[^>]*>({.*?})</script>', r.text, re.S)
+        if not mj:
+            return None
+        try:
+            data = json.loads(mj.group(1))
+        except Exception:
+            return None
+        pp = data.get("props", {}).get("pageProps", {})
+        ss = pp.get("securitySummary", {})
+        fc = ss.get("forecast") or {}
+        out: Dict[str, Any] = {"source_url": url}
+        tot = fc.get("totalReco")
+        pct_buy = fc.get("percBuyReco")
+        if isinstance(tot, (int, float)) and tot > 0:
+            out["analysts"] = int(tot)
+            if isinstance(pct_buy, (int, float)):
+                buy = int(round(tot * pct_buy / 100))
+                out["buy"] = buy
+                out["hold"] = tot - buy
+                out["perc_buy"] = round(pct_buy, 1)
+        if out.get("analysts") or out.get("target_price"):
+            from datetime import date
+            out["as_of"] = date.today().isoformat()
+            return out
+    except Exception:
+        pass
+    return None
+
+
 async def fetch_tickertape(symbol: str) -> Optional[Dict[str, Any]]:
     slug = _tt_resolve_slug(symbol)
-    if not slug: return None
-    candidates = [f"https://www.tickertape.in/stocks/{slug}"]
-    try:
-        c = await _get_crawler()
-        for url in candidates:
-            r = await c.arun(url=url, config=_run_cfg())
-            if not (r.success and r.html and len(r.html) > 50000): continue
-            h = r.html
-            # Parse __NEXT_DATA__ JSON — authoritative source
-            mj = re.search(r'<script id="__NEXT_DATA__"[^>]*>({.*?})</script>', h, re.S)
-            if not mj: continue
-            try: data = json.loads(mj.group(1))
-            except Exception: continue
-            pp = data.get("props", {}).get("pageProps", {})
-            ss = pp.get("securitySummary", {})
-            fc = ss.get("forecast") or {}
-            out = {"source_url": url}
-            tot = fc.get("totalReco")
-            pct_buy = fc.get("percBuyReco")
-            if isinstance(tot, (int, float)) and tot > 0:
-                out["analysts"] = int(tot)
-                # Derive buy/hold/sell from percBuy: high pct → dominantly buy
-                if isinstance(pct_buy, (int, float)):
-                    buy = int(round(tot * pct_buy / 100))
-                    out["buy"] = buy
-                    out["hold"] = tot - buy
-                    out["perc_buy"] = round(pct_buy, 1)
-            # Note: forecastsHistory.price contains historical price-at-date, not forward
-            # analyst target. Tickertape's target isn't in the public JSON, so we skip it.
-            if out.get("analysts") or out.get("target_price"):
-                from datetime import date
-                out["as_of"] = date.today().isoformat()  # Tickertape aggregates are current
-                return out
-    except Exception: pass
-    return None
+    if not slug:
+        return None
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _tt_fetch_sync, slug)
 
 
 # ---------- Trendlyne via cloudscraper (Cloudflare bypass, no browser) ----------
