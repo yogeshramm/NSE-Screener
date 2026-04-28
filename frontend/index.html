@@ -594,12 +594,14 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
           <button id="sc-events-btn" onclick="toggleScreenerEvents()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded" title="Corporate event markers">EVENTS</button>
           <button id="sc-avwap-btn" onclick="toggleAnchoredVWAP()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded" title="Anchored VWAP: click, then click a candle to anchor. ±1σ / ±2σ bands.">aVWAP</button>
           <button id="sc-tt-btn" onclick="toggleScreenerTemplate()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded" title="Trend Template — 8 momentum-framework rules checked against this stock's current state. One glance = pass/fail diagnostic before entry.">TEMPLATE</button>
+          <button id="sc-oe-btn" onclick="toggleScreenerOptimal()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded" title="Optimal Entry / Stop / Target — synthesizes trend regime + ADX + ATR + chart patterns + MFS + MTF + institutional flows into a single trade plan with 0-100 score. Educational, not advice. Backtest: 30% win rate overall; 'moderate' band has the best edge (~40% WR, +0.09R/trade).">ENTRY/EXIT</button>
           <span class="material-symbols-outlined text-sm cursor-pointer hover:text-primary" onclick="openInsightsFromChart()">psychology</span>
           <span class="material-symbols-outlined text-sm cursor-pointer hover:text-error" onclick="closeChart()">close</span>
         </div>
       </div>
       <div class="flex-1 flex flex-col p-2 gap-2 overflow-y-auto">
         <div id="sc-help-summary" class="hidden bg-surface-container-highest rounded-lg px-3 py-1.5 border border-outline-variant/20 flex flex-wrap items-center"></div>
+        <div id="sc-optimal-panel" class="hidden bg-surface-container-highest rounded-lg p-3 border border-outline-variant/20 text-xs"></div>
         <div id="sc-briefing-panel" class="hidden bg-surface-container-highest rounded-lg p-3 text-xs border border-outline-variant/20">
           <div class="flex items-center justify-between mb-2">
             <span class="text-[10px] font-black uppercase tracking-widest text-primary">Stock Briefing</span>
@@ -1527,6 +1529,19 @@ const BREAKOUT_KEYS = ['breakout_proximity','breakout_volume','breakout_rsi','br
   'late_entry_stage1','late_entry_stage2','risk_management'];
 const HIGHLIGHTED = ['supertrend','vwap_bands','vortex'];
 
+// ============ STOCK LINK HELPER (right-click "Open in New Tab" support) ============
+// Wraps a symbol in an <a> tag with href="#stock=SYM". Left-click is suppressed
+// (preventDefault) so the row's onclick still opens the inline insights modal.
+// Middle-click / Cmd+click / right-click → Open in New Tab use the href to open
+// a new browser tab at https://moneystx.com/#stock=SYM, which on load auto-
+// switches to the Screener tab and opens the chart for that stock.
+function _stockLink(symbol, label) {
+  const lbl = (label !== undefined) ? label : symbol;
+  // Encode symbol so things like M&M survive the URL hash
+  const enc = encodeURIComponent(symbol);
+  return `<a href="#stock=${enc}" onclick="event.preventDefault();" class="hover:text-primary transition-colors">${lbl}</a>`;
+}
+
 // ============ AUTH ============
 function showAuthTab(mode) {
   authMode = mode;
@@ -1821,15 +1836,39 @@ window.addEventListener('popstate', (e) => {
   }
 });
 
-// On first page load, restore tab from hash (e.g. landing on /#practice)
-(function initTabFromHash(){
-  const hash = window.location.hash.replace('#','');
-  if (!hash) return;
-  // Defer until DOM + tab handlers are defined
+// On first page load, restore from URL hash:
+//   #screener / #practice / etc.   → switch to that tab
+//   #stock=RELIANCE                → screener tab + auto-open chart
+//   #insights=RELIANCE             → screener tab + open insights-pro modal
+(function initFromHash(){
+  const raw = window.location.hash.replace('#','');
+  if (!raw) return;
   const apply = () => {
+    // Tab navigation
     const validTabs = Array.from(document.querySelectorAll('.nav-tab[data-tab]')).map(el => el.dataset.tab);
-    if (validTabs.includes(hash) && hash !== 'screener' && document.getElementById('tab-' + hash)) {
-      switchTab(hash, {fromHistory: true});
+    if (validTabs.includes(raw) && raw !== 'screener' && document.getElementById('tab-' + raw)) {
+      switchTab(raw, {fromHistory: true});
+      return;
+    }
+    // Stock deep-link → screener + chart
+    const stockMatch = raw.match(/^stock=(.+)$/);
+    if (stockMatch) {
+      let symbol;
+      try { symbol = decodeURIComponent(stockMatch[1]).toUpperCase(); }
+      catch(e) { symbol = stockMatch[1].toUpperCase(); }
+      switchTab('screener', {fromHistory: true});
+      setTimeout(() => { try { if (typeof openChart === 'function') openChart(symbol); } catch(e) {} }, 250);
+      return;
+    }
+    // Insights deep-link → screener + insights modal
+    const insightsMatch = raw.match(/^insights=(.+)$/);
+    if (insightsMatch) {
+      let symbol;
+      try { symbol = decodeURIComponent(insightsMatch[1]).toUpperCase(); }
+      catch(e) { symbol = insightsMatch[1].toUpperCase(); }
+      switchTab('screener', {fromHistory: true});
+      setTimeout(() => { try { if (typeof openInsightsPro === 'function') openInsightsPro(symbol); } catch(e) {} }, 250);
+      return;
     }
   };
   if (document.readyState === 'loading') {
@@ -1968,10 +2007,21 @@ async function runScreenAll() {
   screenAbort = new AbortController();
   try {
     const res = await fetch(API+'/screen',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scan_all:true,config,scope,min_price:50,min_volume:100000}),signal:screenAbort.signal});
+    // Detect non-JSON responses (504 timeouts, gateway errors) BEFORE
+    // calling .json() — Safari throws a cryptic "string did not match
+    // expected pattern" error on JSON.parse('') which confuses users.
+    const ct = res.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      const text = await res.text();
+      if (res.status === 504 || /timeout/i.test(text)) {
+        throw new Error('Server timeout — scan took longer than allowed. Try a smaller scope (Nifty 50/100) or fewer filters.');
+      }
+      throw new Error(`Server returned ${res.status} ${res.statusText} — ${text.slice(0,120)}`);
+    }
     const data = await res.json();
     if(!res.ok) throw new Error(data.detail||'Screen failed');
     renderResults(data);
-  } catch(e) { if(e.name!=='AbortError') alert('Error: '+e.message); }
+  } catch(e) { if(e.name!=='AbortError') alert('Scan failed: '+e.message); }
   finally { screenAbort=null; document.getElementById('loading').firstElementChild.style.width='0%'; document.getElementById('scan-all-btn').disabled=false; document.getElementById('stop-btn').classList.add('hidden'); }
 }
 
@@ -2049,10 +2099,18 @@ async function runScreen() {
   screenAbort=new AbortController();
   try {
     const res=await fetch(API+'/screen',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbols,config}),signal:screenAbort.signal});
+    const ct = res.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      const text = await res.text();
+      if (res.status === 504 || /timeout/i.test(text)) {
+        throw new Error('Server timeout — try fewer symbols at a time.');
+      }
+      throw new Error(`Server returned ${res.status} ${res.statusText} — ${text.slice(0,120)}`);
+    }
     const data=await res.json();
     if(!res.ok) throw new Error(data.detail||'Screen failed');
     renderResults(data);
-  } catch(e){ if(e.name!=='AbortError') alert('Error: '+e.message); }
+  } catch(e){ if(e.name!=='AbortError') alert('Scan failed: '+e.message); }
   finally { screenAbort=null; document.getElementById('loading').firstElementChild.style.width='0%'; document.getElementById('run-btn').disabled=false; }
 }
 
@@ -2081,7 +2139,7 @@ function renderResults(data) {
     const rsi=r.indicators?.find(x=>x.name.toLowerCase().includes('rsi'))?.value||'--';
     return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" onclick="openInsightsPro('${r.symbol}')">
       <td class="px-3 py-2.5 font-bold ${r.passed?'text-primary':'text-on-surface-variant'}">${r.rank||i+1}</td>
-      <td class="px-3 py-2.5"><div class="font-bold text-on-surface">${r.symbol}</div><div class="text-[9px] text-on-surface-variant">${r.sector||''}</div></td>
+      <td class="px-3 py-2.5"><div class="font-bold text-on-surface">${_stockLink(r.symbol)}</div><div class="text-[9px] text-on-surface-variant">${r.sector||''}</div></td>
       <td class="px-3 py-2.5 text-right text-on-surface">\u20b9${r.price||'--'}</td>
       <td class="px-3 py-2.5 text-right text-on-surface-variant">${pe}</td>
       <td class="px-3 py-2.5 text-right text-on-surface-variant">${rsi}</td>
@@ -2099,7 +2157,7 @@ function renderResults(data) {
   s2.innerHTML=data.stage2_results.map((r,i)=>`
     <tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" onclick="openInsightsPro('${r.symbol}')">
       <td class="px-3 py-2.5 font-bold text-secondary">${r.rank||i+1}</td>
-      <td class="px-3 py-2.5 font-bold text-on-surface">${r.symbol}</td>
+      <td class="px-3 py-2.5 font-bold text-on-surface">${_stockLink(r.symbol)}</td>
       <td class="px-3 py-2.5 text-right text-on-surface">\u20b9${r.price||'--'}</td>
       <td class="px-3 py-2.5 text-right text-error font-mono">${r.stop_loss?'\u20b9'+r.stop_loss:'--'}</td>
       <td class="px-3 py-2.5 text-right text-primary font-mono">${r.target?'\u20b9'+r.target:'--'}</td>
@@ -2195,7 +2253,10 @@ function closeChart() {
   chart.style.display='none'; chart.style.width='0';
   currentChartSymbol=null;
   // Reset chart overlay toggles so they're OFF on next chart open
-  scInfoOn=false; scHelpOn=false; scEventsOn=false; scTemplateOn=false;
+  scInfoOn=false; scHelpOn=false; scEventsOn=false; scTemplateOn=false; scOptimalOn=false;
+  scClearOptimalLines();
+  const _op = document.getElementById('sc-optimal-panel'); if (_op) _op.classList.add('hidden');
+  const _ob = document.getElementById('sc-oe-btn'); if (_ob) _ob.className = 'text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
   const ib=document.getElementById('sc-info-btn'); if(ib) ib.className='text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
   const hb=document.getElementById('sc-help-btn'); if(hb) hb.className='text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
   const eb=document.getElementById('sc-events-btn'); if(eb) eb.className='text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
@@ -3043,11 +3104,13 @@ async function runBacktest() {
   }
 }
 
-// ============ SCREENER CHART OVERLAYS (INFO + HELP + EVENTS) ============
-let scInfoOn = false, scHelpOn = false, scEventsOn = false, scVolSurgeOn = false, scTemplateOn = false;
+// ============ SCREENER CHART OVERLAYS (INFO + HELP + EVENTS + ENTRY/EXIT) ============
+let scInfoOn = false, scHelpOn = false, scEventsOn = false, scVolSurgeOn = false, scTemplateOn = false, scOptimalOn = false;
 let scBriefingCache = {}; // {symbol: data}
 let scEventsCache = {};   // {symbol: events[]}
+let scOptimalCache = {};  // {symbol: optimal-levels response}
 let sc52HiLine = null, sc52LoLine = null;
+let scOptLines = [];      // entry / stop / target price lines
 
 function scApplyAllChartOverlays() {
   if (scInfoOn) scApply52WLines();
@@ -3127,6 +3190,131 @@ function scClearTriggerLines() {
   const cs = window._scCandleSeries;
   if (cs) scTriggerLines.forEach(ln => { try { cs.removePriceLine(ln); } catch(e){} });
   scTriggerLines = [];
+}
+
+// ───────── ENTRY/EXIT (Optimal Levels) overlay ─────────
+async function toggleScreenerOptimal() {
+  scOptimalOn = !scOptimalOn;
+  const btn = document.getElementById('sc-oe-btn');
+  const panel = document.getElementById('sc-optimal-panel');
+  btn.className = scOptimalOn
+    ? 'text-[9px] font-bold text-on-primary bg-primary-container px-2 py-0.5 rounded'
+    : 'text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
+  if (!scOptimalOn) { if (panel) panel.classList.add('hidden'); scClearOptimalLines(); return; }
+  if (!currentChartSymbol) return;
+  let plan = scOptimalCache[currentChartSymbol];
+  if (!plan) {
+    try {
+      const r = await fetch(API + '/stock/' + currentChartSymbol + '/optimal-levels');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      plan = await r.json();
+      scOptimalCache[currentChartSymbol] = plan;
+    } catch(e) {
+      showPracticeToast?.('Optimal levels unavailable: ' + e.message, 'err');
+      return;
+    }
+  }
+  scRenderOptimalPanel(plan);
+  scApplyOptimalLines(plan);
+}
+
+function scApplyOptimalLines(plan) {
+  scClearOptimalLines();
+  const cs = window._scCandleSeries;
+  if (!cs || !plan || !plan.tradeable) return;
+  try {
+    if (plan.entry !== null) scOptLines.push(cs.createPriceLine({price:plan.entry, color:'#3b82f6', lineWidth:2, lineStyle:0, axisLabelVisible:true, title:'Entry'}));
+    if (plan.stop_loss !== null) scOptLines.push(cs.createPriceLine({price:plan.stop_loss, color:'#ff4757', lineWidth:2, lineStyle:2, axisLabelVisible:true, title:'Stop'}));
+    if (plan.target !== null) scOptLines.push(cs.createPriceLine({price:plan.target, color:'#00e5a0', lineWidth:2, lineStyle:0, axisLabelVisible:true, title:'Target'}));
+  } catch(e) {}
+}
+
+function scClearOptimalLines() {
+  const cs = window._scCandleSeries;
+  if (cs) scOptLines.forEach(ln => { try { cs.removePriceLine(ln); } catch(e){} });
+  scOptLines = [];
+}
+
+function scRenderOptimalPanel(plan) {
+  const panel = document.getElementById('sc-optimal-panel');
+  if (!panel) return;
+  const confColors = {high:'#00e5a0', moderate:'#fbbf24', low:'#fb923c', very_low:'#ff4757', no_setup:'#9ca3af'};
+  const c = confColors[plan.confidence] || '#9ca3af';
+  let h = '';
+  // Header
+  h += `<div class="flex items-center justify-between mb-2">
+    <span class="text-[10px] font-black uppercase tracking-widest text-primary">Optimal Entry / Exit</span>
+    <span class="material-symbols-outlined text-xs cursor-pointer hover:text-error" onclick="toggleScreenerOptimal()">close</span>
+  </div>`;
+
+  // Score + confidence
+  h += `<div class="flex items-center justify-between mb-3 pb-2 border-b border-outline-variant/10">
+    <div><div class="text-[9px] uppercase font-bold text-on-surface-variant">Score</div>
+         <div class="font-mono text-lg" style="color:${c}">${plan.score}<span class="text-on-surface-variant text-xs">/100</span></div></div>
+    <div><div class="text-[9px] uppercase font-bold text-on-surface-variant">Confidence</div>
+         <div class="font-bold uppercase text-xs" style="color:${c}">${plan.confidence.replace('_',' ')}</div></div>
+    <div><div class="text-[9px] uppercase font-bold text-on-surface-variant">Regime</div>
+         <div class="font-bold text-xs">${(plan.regime||'').replace('_',' ')}</div></div>
+  </div>`;
+
+  // Levels grid (only if tradeable)
+  if (plan.tradeable) {
+    const fmt = (v) => v !== null && v !== undefined ? '\u20b9' + v.toLocaleString('en-IN') : '—';
+    h += `<div class="grid grid-cols-3 gap-2 mb-3">
+      <div class="bg-surface-container rounded p-2 border-l-2" style="border-color:#3b82f6"><div class="text-[8px] uppercase font-bold text-on-surface-variant">Entry</div><div class="font-mono text-sm font-bold">${fmt(plan.entry)}</div></div>
+      <div class="bg-surface-container rounded p-2 border-l-2" style="border-color:#ff4757"><div class="text-[8px] uppercase font-bold text-error">Stop</div><div class="font-mono text-sm font-bold text-error">${fmt(plan.stop_loss)}</div><div class="text-[8px] text-on-surface-variant">${plan.risk_pct}%</div></div>
+      <div class="bg-surface-container rounded p-2 border-l-2" style="border-color:#00e5a0"><div class="text-[8px] uppercase font-bold text-primary">Target</div><div class="font-mono text-sm font-bold text-primary">${fmt(plan.target)}</div><div class="text-[8px] text-on-surface-variant">${plan.risk_reward}:1 R:R</div></div>
+    </div>`;
+  }
+
+  // Score breakdown (compact bars)
+  if (Array.isArray(plan.score_breakdown) && plan.score_breakdown.length) {
+    h += `<div class="mb-3"><div class="text-[9px] uppercase font-bold text-on-surface-variant mb-1.5">Score Breakdown</div>`;
+    for (const f of plan.score_breakdown) {
+      const pct = f.max > 0 ? Math.max(0, Math.min(100, (f.points / f.max) * 100)) : 0;
+      const isNeg = f.points < 0;
+      h += `<div class="flex items-center gap-2 mb-0.5 text-[9px]">
+        <div class="flex-1 truncate">${f.factor}</div>
+        <div class="w-20 bg-surface-container-high rounded-full h-1.5 overflow-hidden">
+          <div class="h-full ${isNeg ? 'bg-error' : 'bg-primary'}" style="width:${Math.abs(pct)}%"></div>
+        </div>
+        <div class="font-mono w-10 text-right ${isNeg ? 'text-error' : 'text-on-surface'}">${f.points >= 0 ? '+' : ''}${f.points}</div>
+      </div>`;
+    }
+    h += `</div>`;
+  }
+
+  // Consensus signals summary
+  const consBits = [];
+  if (plan.mfs_percentile !== null && plan.mfs_percentile !== undefined) consBits.push(`MFS ${plan.mfs_percentile}/99`);
+  if (plan.mtf_confluence) {
+    const m = plan.mtf_confluence;
+    const trends = ['d1','w1','m1'].map(k => (m[k] && m[k].trend === 'up') ? '↑' : (m[k] && m[k].trend === 'down') ? '↓' : '–').join('');
+    consBits.push(`MTF ${trends}`);
+  }
+  if (plan.top_chart_pattern) consBits.push(`📊 ${plan.top_chart_pattern}`);
+  if (plan.institutional_summary) {
+    const i = plan.institutional_summary;
+    if ((i.buys || 0) + (i.sells || 0) > 0) consBits.push(`🏛 ${i.buys || 0}B / ${i.sells || 0}S`);
+  }
+  if (consBits.length) {
+    h += `<div class="mb-3 flex flex-wrap gap-1">${consBits.map(b => `<span class="text-[9px] px-1.5 py-0.5 bg-surface-container-high rounded">${b}</span>`).join('')}</div>`;
+  }
+
+  // Rationale (collapsible if many)
+  if (Array.isArray(plan.rationale) && plan.rationale.length) {
+    h += `<div><div class="text-[9px] uppercase font-bold text-on-surface-variant mb-1">Rationale</div>`;
+    for (const line of plan.rationale.slice(0, 8)) {
+      h += `<div class="text-[10px] text-on-surface-variant mb-0.5 leading-snug">${line}</div>`;
+    }
+    h += `</div>`;
+  }
+
+  // Disclaimer
+  h += `<div class="text-[8px] text-on-surface-variant/60 italic mt-3 pt-2 border-t border-outline-variant/10">Educational decision-support only. Not investment advice. Backtest: ~30% win rate overall — moderate-confidence band has the most measured edge (~40% WR, +0.09R/trade across 100 stocks × 4 historical samples).</div>`;
+
+  panel.innerHTML = h;
+  panel.classList.remove('hidden');
 }
 
 function scDrawTriggerLines() {
@@ -3488,7 +3676,7 @@ async function runBOScan() {
       const scCol = sc >= 100 ? 'text-[#00e5a0]' : sc >= 60 ? 'text-yellow-400' : 'text-on-surface-variant';
       const fmt = (v) => v === null || v === undefined ? '—' : typeof v === 'number' ? v : v;
       return `<tr class="hover:bg-surface-container-highest/30">
-        <td class="px-4 py-2.5 font-bold text-on-surface">${h.symbol}</td>
+        <td class="px-4 py-2.5 font-bold text-on-surface">${_stockLink(h.symbol)}</td>
         <td class="px-4 py-2.5 text-right">\u20b9${h.close}</td>
         <td class="px-4 py-2.5 text-right font-bold ${scCol}">${sc}</td>
         ${modeCols.map(([k]) => `<td class="px-4 py-2.5 text-right">${fmt(h[k])}</td>`).join('')}
@@ -3624,7 +3812,7 @@ async function scanChartPattern(key, name) {
           return `${lbl}=${typeof v === 'number' ? v : Array.isArray(v) ? '[' + v.join(',') + ']' : v}`;
         }).filter(Boolean).slice(0, 3).join(' · ');
       return `<tr class="border-b border-outline-variant/5 hover:bg-surface-container-highest/40 cursor-pointer" onclick="document.getElementById('pat-scan-modal').style.display='none'; switchTab('screener'); setTimeout(()=>openChart('${h.symbol}'),100);">
-        <td class="py-2 pr-3 font-bold text-on-surface">${h.symbol}</td>
+        <td class="py-2 pr-3 font-bold text-on-surface">${_stockLink(h.symbol)}</td>
         <td class="py-2 pr-3 text-right font-mono">\u20b9${h.close}</td>
         <td class="py-2 pr-3 text-right font-mono font-bold ${confCol}">${h.confidence}</td>
         <td class="py-2 text-[10px] text-on-surface-variant">${meta}</td>
@@ -4114,7 +4302,7 @@ async function scanPattern(key, name) {
             const col = (h.pct_change_5d ?? 0) >= 0 ? 'text-[#00e5a0]' : 'text-[#ff4757]';
             const when = h.days_ago === 0 ? 'Today' : `${h.days_ago}d ago`;
             return `<tr class="border-b border-outline-variant/5 hover:bg-surface-container-highest/40 cursor-pointer" onclick="document.getElementById('pat-scan-modal').style.display='none'; switchTab('screener'); setTimeout(()=>openChart('${h.symbol}'),100);">
-              <td class="py-2 pr-3 font-bold text-on-surface">${h.symbol}</td>
+              <td class="py-2 pr-3 font-bold text-on-surface">${_stockLink(h.symbol)}</td>
               <td class="py-2 pr-3 text-right">\u20b9${h.last_close}</td>
               <td class="py-2 pr-3 text-right ${col}">${h.pct_change_5d !== null ? (h.pct_change_5d >= 0 ? '+' : '') + h.pct_change_5d + '%' : '—'}</td>
               <td class="py-2 text-right text-on-surface-variant">${when}</td>
@@ -4294,7 +4482,7 @@ function renderWatchlist() {
     }
 
     return `<tr class="group hover:bg-surface-container-highest/30 transition-colors cursor-pointer ${triggered>0?'bg-primary/5':''}">
-      <td class="px-6 py-4"><div class="flex flex-col"><span class="text-sm font-bold text-on-surface" onclick="viewWatchlistStock('${item.symbol}')">${item.symbol}</span><span class="text-[0.65rem] text-on-surface-variant/60">${item.added_date?new Date(item.added_date).toLocaleDateString():''}</span></div></td>
+      <td class="px-6 py-4"><div class="flex flex-col"><span class="text-sm font-bold text-on-surface cursor-pointer" onclick="viewWatchlistStock('${item.symbol}')">${_stockLink(item.symbol)}</span><span class="text-[0.65rem] text-on-surface-variant/60">${item.added_date?new Date(item.added_date).toLocaleDateString():''}</span></div></td>
       <td class="px-6 py-4 text-right"><span class="text-sm tabular-nums font-mono text-on-surface font-medium">${price}</span></td>
       <td class="px-6 py-4 text-right"><span class="text-xs font-bold ${scoreColor} tabular-nums">${score}</span></td>
       <td class="px-6 py-4 text-center"><span class="text-[0.65rem] font-bold px-2 py-0.5 bg-surface-variant/30 border border-outline-variant/10 rounded">${alertCount}</span></td>
