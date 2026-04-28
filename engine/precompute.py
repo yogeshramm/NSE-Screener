@@ -58,7 +58,14 @@ def warm_cache(scope: str = "nifty500", symbols: Iterable[str] | None = None,
     Returns a summary dict {computed, cached_hit, errors, elapsed_s}.
     Safe to run repeatedly — already-fresh entries are skipped.
     """
-    from api.data_helper import get_stock_bundle  # lazy import (heavy deps)
+    # IMPORTANT: bypass api.data_helper.get_stock_bundle here. That helper
+    # falls through to live yfinance fetches when local data is short, which
+    # would turn a 6-minute precompute into hours of rate-limited yfinance
+    # calls (each small-cap with < 50 local bars triggers an 8-step fetch).
+    # We only ever want to warm symbols that already have sufficient local
+    # history, so read pickles directly and skip the rest immediately.
+    import pickle as _pk
+    from setup_data import HISTORY_DIR, FUNDAMENTALS_DIR
 
     config = get_default_config()
     enabled, params = _build_inputs(config)
@@ -76,12 +83,23 @@ def warm_cache(scope: str = "nifty500", symbols: Iterable[str] | None = None,
 
     for i, sym in enumerate(symbols, 1):
         try:
-            bundle = get_stock_bundle(sym)
-            df = bundle.get("daily_df")
+            hist_path = HISTORY_DIR / f"{sym}.pkl"
+            if not hist_path.exists():
+                skipped += 1
+                continue
+            with open(hist_path, "rb") as f:
+                df = _pk.load(f)
             if df is None or len(df) < 50:
                 skipped += 1
                 continue
-            sector = bundle.get("stock_data", {}).get("sector")
+            sector = None
+            fund_path = FUNDAMENTALS_DIR / f"{sym}.pkl"
+            if fund_path.exists():
+                try:
+                    with open(fund_path, "rb") as f:
+                        sector = _pk.load(f).get("sector")
+                except Exception:
+                    pass
             last_bar = str(df.index[-1].date())
 
             if load_cached(sym, config, sector, last_bar) is not None:
