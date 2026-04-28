@@ -33,10 +33,28 @@ _INDICATOR_CONFIG_KEYS = {
 }
 
 
+def _normalize_indicator_cfg(v) -> dict:
+    """Drop UI metadata + None values so hash isn't perturbed by frontend extras
+    like `_category`, `display_name`, or null fields. Keep only scalar params
+    that actually affect indicator output: int, float, bool, str."""
+    if not isinstance(v, dict):
+        return {}
+    out = {}
+    for k, val in v.items():
+        if k.startswith("_"):
+            continue
+        if val is None:
+            continue
+        if isinstance(val, (int, float, bool, str)):
+            out[k] = val
+    return out
+
+
 def _config_hash(config: dict, sector: str | None) -> str:
-    relevant = {k: config[k] for k in _INDICATOR_CONFIG_KEYS if k in config}
+    relevant = {k: _normalize_indicator_cfg(config[k])
+                for k in _INDICATOR_CONFIG_KEYS if k in config}
     payload = json.dumps({"cfg": relevant, "sec": sector or ""},
-                         sort_keys=True, default=str)
+                         sort_keys=True)
     return hashlib.md5(payload.encode()).hexdigest()[:12]
 
 
