@@ -305,12 +305,12 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
         </svg>
         <span id="ring-text" class="absolute inset-0 flex items-center justify-center text-[8px] font-bold">0%</span>
       </div>
-      <div class="flex flex-col">
+      <div class="flex flex-col whitespace-nowrap">
         <span id="data-status" class="text-[9px] uppercase font-bold leading-none text-on-surface-variant">Loading...</span>
-        <span id="data-detail" class="text-[10px] font-mono leading-none text-primary" id="dl-btn-text">SYNC</span>
+        <span id="data-detail" class="text-[10px] font-mono leading-none text-primary mt-0.5" id="dl-btn-text">SYNC</span>
       </div>
     </div>
-    <span id="data-date" class="text-[9px] text-on-surface-variant hidden"></span>
+    <span id="data-date" class="hidden"></span>
     <button class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-variant/40 transition-colors" onclick="triggerCatchup()">
       <span class="material-symbols-outlined text-primary">sync</span>
     </button>
@@ -4586,9 +4586,8 @@ async function checkDataStatus() {
     const count=data.today_downloaded||0;
     const ready=data.ready_for_screening;
     const inProgress=data.download_in_progress;
-    document.getElementById('data-status').textContent=count+' stocks';
     const dataDate=data.data_as_of||data.history_latest_date||'';
-    if(dataDate&&dataDate!=='N/A'){const dd=document.getElementById('data-date');dd.textContent='Data: '+dataDate;dd.classList.remove('hidden');}
+    document.getElementById('data-status').textContent=(data.cron_stale?'STALE':'READY');
     const bars=data.bars_per_stock||0;
     // Cron freshness — red border + tooltip when last morning sync is stale or failed
     const ring=document.getElementById('data-ring')||document.querySelector('[data-ring]');
@@ -4598,11 +4597,11 @@ async function checkDataStatus() {
       ? `Stale: last sync ${data.cron_hours_since==null?'never':data.cron_hours_since+'h ago'}${data.cron_last_error?'\n'+data.cron_last_error.split('\n')[0]:''}`
       : `Synced ${data.cron_hours_since}h ago${data.cron_duration_s?' ('+data.cron_duration_s+'s)':''}`;
     if(wrap){wrap.title=tip;wrap.classList.toggle('ring-2',stale);wrap.classList.toggle('ring-error',stale);wrap.classList.toggle('animate-pulse',stale);}
-    if(ready&&!data.needs_history){updateRing(100);document.getElementById('ring-text').textContent=stale?'!':'\u2713';document.getElementById('data-detail').textContent=count+' stocks | '+bars+'d';if(downloadPolling){clearInterval(downloadPolling);downloadPolling=null;}}
-    else if(data.needs_history&&!inProgress){updateRing(30);document.getElementById('ring-text').textContent=bars+'d';document.getElementById('data-detail').textContent='Need 200+ days';}
-    else if(inProgress){updateRing(Math.min((count/totalExpected)*100,95));document.getElementById('data-detail').textContent='Syncing...';}
-    else if(count===0){updateRing(0);document.getElementById('data-detail').textContent='Click to sync';}
-    else{updateRing(Math.min((count/totalExpected)*100,99));document.getElementById('data-detail').textContent=count+'/~'+totalExpected;}
+    if(ready&&!data.needs_history){updateRing(100);document.getElementById('ring-text').textContent=stale?'!':'\u2713';document.getElementById('data-detail').textContent=count+' \u00b7 '+bars+'d';if(downloadPolling){clearInterval(downloadPolling);downloadPolling=null;}}
+    else if(data.needs_history&&!inProgress){updateRing(30);document.getElementById('ring-text').textContent=bars+'d';document.getElementById('data-detail').textContent='Need 200d';}
+    else if(inProgress){updateRing(Math.min((count/totalExpected)*100,95));document.getElementById('data-detail').textContent='Syncing\u2026';}
+    else if(count===0){updateRing(0);document.getElementById('data-detail').textContent='Click sync';}
+    else{updateRing(Math.min((count/totalExpected)*100,99));document.getElementById('data-detail').textContent=count+'/'+totalExpected;}
     return data;
   } catch(e){document.getElementById('data-status').textContent='Offline';document.getElementById('data-detail').textContent='Start server';updateRing(0);return null;}
 }
