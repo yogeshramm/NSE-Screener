@@ -143,3 +143,30 @@ def get_stock_insights(symbol: str):
 
     insights = generate_insights(symbol, s1, s2)
     return insights
+
+
+@router.get("/stock/{symbol}/optimal-levels")
+def get_optimal_levels(symbol: str):
+    """
+    Optimal Entry / Stop / Target trade plan for a single stock.
+
+    Synthesizes:
+      • Trend regime (EMA21/50/200) + ADX strength
+      • ATR-based stop placement
+      • 2.0R baseline target (capped near 52W high)
+      • VCP / Bull Flag / Cup-and-Handle / Pivot Breakout pattern detection
+      • Multi-Factor Score percentile
+      • Multi-Timeframe (1D/1W/1M) confluence
+      • Bulk + block deal institutional flows
+      • Volume contraction quality
+      • Exhaustion penalty (60d return + RSI)
+
+    Returns a 0-100 confidence score with a full breakdown and rationale.
+    Educational tool — not investment advice.
+    """
+    from engine.optimal_levels import compute_optimal_levels
+    symbol = symbol.strip().upper()
+    plan = compute_optimal_levels(symbol)
+    if plan is None:
+        raise HTTPException(404, f"Insufficient history for {symbol} (need 60+ bars)")
+    return plan
