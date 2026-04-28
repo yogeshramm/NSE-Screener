@@ -20,9 +20,42 @@ from data.nse_symbols import NIFTY_500_FALLBACK, get_nifty500_live
 
 
 _CRON_STATUS_FILE = Path(__file__).parent.parent / "data_store" / "cron_status.json"
+_INTEGRITY_REPORT_FILE = Path(__file__).parent.parent / "data_store" / "integrity_report.json"
 # >48h with no successful run = stale. Cron is daily (~24h cadence); one missed
 # run leaves room for a one-day NSE holiday before alarming.
 _CRON_STALE_HOURS = 48.0
+# >10 days without an integrity check = stale (it's weekly).
+_INTEGRITY_STALE_DAYS = 10.0
+
+
+def _read_integrity_summary() -> dict:
+    if not _INTEGRITY_REPORT_FILE.exists():
+        return {"integrity_seen": False, "integrity_stale": True,
+                "integrity_with_issues": None, "integrity_total": None,
+                "integrity_issue_counts": None, "integrity_checked_at": None,
+                "integrity_age_days": None}
+    try:
+        rep = json.loads(_INTEGRITY_REPORT_FILE.read_text())
+        checked = rep.get("checked_at")
+        checked_dt = datetime.fromisoformat(checked) if checked else None
+        age_days = ((datetime.now(timezone.utc) - checked_dt).total_seconds() / 86400.0
+                    if checked_dt else None)
+        return {
+            "integrity_seen": True,
+            "integrity_stale": age_days is None or age_days > _INTEGRITY_STALE_DAYS,
+            "integrity_with_issues": rep.get("with_issues"),
+            "integrity_total": rep.get("total_symbols"),
+            "integrity_issue_counts": rep.get("issue_counts"),
+            "integrity_checked_at": checked,
+            "integrity_age_days": round(age_days, 1) if age_days is not None else None,
+            "integrity_load_errors": rep.get("load_errors"),
+        }
+    except Exception as e:
+        return {"integrity_seen": False, "integrity_stale": True,
+                "integrity_with_issues": None, "integrity_total": None,
+                "integrity_issue_counts": None, "integrity_checked_at": None,
+                "integrity_age_days": None,
+                "integrity_error": f"unreadable: {e}"}
 
 
 def _read_cron_status() -> dict:
@@ -110,7 +143,19 @@ def data_status():
         "history_latest_date": latest_price_date,
         "history_symbols": history_count,
         **_read_cron_status(),
+        **_read_integrity_summary(),
     }
+
+
+@router.get("/data/integrity")
+def integrity_report():
+    """Return the latest integrity check report (full detail). 404 if never run."""
+    if not _INTEGRITY_REPORT_FILE.exists():
+        raise HTTPException(404, "Integrity check has not run yet.")
+    try:
+        return json.loads(_INTEGRITY_REPORT_FILE.read_text())
+    except Exception as e:
+        raise HTTPException(500, f"Could not read report: {e}")
 
 
 @router.get("/data/search")
