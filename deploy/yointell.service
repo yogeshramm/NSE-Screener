@@ -1,0 +1,44 @@
+[Unit]
+Description=YOINTELL FastAPI server
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=yointell
+Group=yointell
+WorkingDirectory=/home/yointell/NSE-Screener
+Environment="PATH=/home/yointell/NSE-Screener/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+
+# Run uvicorn directly (no run_server.py wrapper — skip Ollama auto-start on prod)
+# --host 127.0.0.1 → only Caddy can reach it (firewall already blocks :8000)
+# --workers 1     → in-memory caches must not be split across processes
+ExecStart=/home/yointell/NSE-Screener/.venv/bin/uvicorn api.app:app \
+    --host 127.0.0.1 \
+    --port 8000 \
+    --workers 1 \
+    --proxy-headers \
+    --forwarded-allow-ips=127.0.0.1
+
+# Auto-restart on any crash with 10s backoff
+Restart=always
+RestartSec=10
+
+# Resource limits
+LimitNOFILE=65536
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/yointell/NSE-Screener
+
+# Logs
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=yointell
+
+[Install]
+WantedBy=multi-user.target
