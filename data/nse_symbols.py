@@ -96,8 +96,25 @@ def get_nse_stock_list(source: str = "bhavcopy") -> list[str]:
     return list(NIFTY_500_FALLBACK)
 
 
+# In-memory cache for Nifty 500 list. Was being re-fetched from NSE on
+# every API call that needed it — saturated 1-vCPU droplet with repeated
+# HTTP requests every ~80s in production. Now cached for 24h, refreshed
+# on first call after expiry.
+_nifty500_cache = {"data": None, "ts": 0.0}
+_NIFTY500_TTL = 86400  # 24 hours
+
+
 def get_nifty500_live():
-    """Fetch the current Nifty 500 constituent list from NSE archives."""
+    """Fetch current Nifty 500 constituents from NSE archives.
+
+    Cached in-memory for 24 hours to avoid hammering NSE on every request.
+    Falls back to NIFTY_500_FALLBACK on any error.
+    """
+    import time
+    now = time.time()
+    if _nifty500_cache["data"] and (now - _nifty500_cache["ts"]) < _NIFTY500_TTL:
+        return _nifty500_cache["data"]
+
     url = "https://archives.nseindia.com/content/indices/ind_nifty500list.csv"
     try:
         r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
@@ -109,9 +126,12 @@ def get_nifty500_live():
                 if len(parts) >= 3:
                     symbols.append(parts[2].strip().strip('"'))
             if len(symbols) > 400:
-                print(f"  Fetched {len(symbols)} Nifty 500 symbols from NSE")
+                print(f"  Fetched {len(symbols)} Nifty 500 symbols from NSE (cached 24h)")
+                _nifty500_cache["data"] = symbols
+                _nifty500_cache["ts"] = now
                 return symbols
     except Exception as e:
         print(f"  Nifty 500 live fetch failed: {e}")
-    # Fallback to curated list
+
+    # Fallback to curated list (don't cache the fallback — let next call retry)
     return list(NIFTY_500_FALLBACK)

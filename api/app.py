@@ -95,6 +95,19 @@ def serve_frontend():
     )
 
 
+# Browsers always probe for /favicon.ico, /apple-touch-icon.png etc. Inline-SVG
+# favicon in the HTML covers modern browsers; these 204 stubs silence the
+# legacy probes (which were spamming the access log with 404s).
+from fastapi.responses import Response
+
+@app.get("/favicon.ico", include_in_schema=False)
+@app.get("/favicon.png", include_in_schema=False)
+@app.get("/apple-touch-icon.png", include_in_schema=False)
+@app.get("/apple-touch-icon-precomposed.png", include_in_schema=False)
+def _favicon_stub():
+    return Response(status_code=204)
+
+
 @app.get("/health", tags=["Health"])
 def health_check():
     """Health check endpoint."""
