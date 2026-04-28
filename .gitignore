@@ -4,5 +4,8 @@ __pycache__/
 *.pages
 .DS_Store
 .cache/
-data_store/
+data_store/*
+# Allow analyst JSON cache (populated by GitHub Actions, pulled by server)
+!data_store/analyst/
+!data_store/analyst/*.json
 .history_*.tar.gz
