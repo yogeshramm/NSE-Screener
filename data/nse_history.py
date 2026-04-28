@@ -63,21 +63,57 @@ def save_history(symbol: str, df: pd.DataFrame):
 
 
 def get_history_stats() -> dict:
-    """Get stats about stored history."""
+    """Get stats about stored history.
+
+    `latest_date` reflects the freshest data we have. Previously we sampled
+    `symbols[0]` (filesystem order, not sorted) which sometimes hit an
+    illiquid stock that hasn't traded in weeks — yielding a misleading
+    "data_as_of" months in the past even when 99% of stocks were current.
+    Fix: probe known-liquid Nifty stocks first (they trade every session),
+    fall back to the max across the first N symbols if none found.
+    """
     HISTORY_DIR.mkdir(parents=True, exist_ok=True)
     files = list(HISTORY_DIR.glob("*.pkl"))
     if not files:
         return {"total_symbols": 0, "symbols": []}
 
-    symbols = [f.stem for f in files]
-    # Check one file for date range
-    sample = load_history(symbols[0])
-    latest_date = str(sample.index[-1].date()) if sample is not None and len(sample) > 0 else "N/A"
+    symbols = sorted([f.stem for f in files])
+
+    # Liquid bellwethers — these trade every NSE session, so their last bar
+    # is a reliable proxy for "the most recent trading day we have data for".
+    LIQUID_SAMPLES = ("RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK",
+                      "SBIN", "ITC", "AXISBANK", "LT", "BHARTIARTL")
+    latest_date = "N/A"
+    for sym in LIQUID_SAMPLES:
+        if sym in symbols:
+            try:
+                df = load_history(sym)
+                if df is not None and len(df) > 0:
+                    latest_date = str(df.index[-1].date())
+                    break
+            except Exception:
+                continue
+
+    # Fallback: scan first 25 symbols, take the maximum last-bar date.
+    # Defensive — if no Nifty bellwether is available somehow.
+    if latest_date == "N/A":
+        max_date = None
+        for sym in symbols[:25]:
+            try:
+                df = load_history(sym)
+                if df is not None and len(df) > 0:
+                    d = df.index[-1].date()
+                    if max_date is None or d > max_date:
+                        max_date = d
+            except Exception:
+                continue
+        if max_date is not None:
+            latest_date = str(max_date)
 
     return {
         "total_symbols": len(symbols),
         "latest_date": latest_date,
-        "symbols": sorted(symbols),
+        "symbols": symbols,
     }
 
 

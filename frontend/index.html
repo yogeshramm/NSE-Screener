@@ -3,7 +3,30 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>YOINTELL | Institutional Intelligence Terminal</title>
+<title>MONEYSTX | Institutional Intelligence Terminal</title>
+
+<!-- SEO + share previews -->
+<meta name="description" content="MONEYSTX — NSE swing-trading intelligence terminal. 25 indicators, 2-stage screener, real-time charts, candlestick + chart pattern scanners, paper-trading practice game. Built for the Indian markets."/>
+<meta name="theme-color" content="#0a0e1a"/>
+<meta name="application-name" content="MONEYSTX"/>
+<meta name="robots" content="index, follow"/>
+
+<!-- Open Graph (Facebook/WhatsApp/LinkedIn previews) -->
+<meta property="og:type" content="website"/>
+<meta property="og:title" content="MONEYSTX — Institutional Intelligence Terminal"/>
+<meta property="og:description" content="NSE swing-trading screener with 25 indicators, 2-stage filter, real-time charts, and a paper-trading practice game. Made for Indian markets."/>
+<meta property="og:url" content="https://moneystx.com/"/>
+<meta property="og:site_name" content="MONEYSTX"/>
+
+<!-- Twitter card -->
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="MONEYSTX — Institutional Intelligence Terminal"/>
+<meta name="twitter:description" content="NSE swing-trading screener with 25 indicators, 2-stage filter, charts, and practice game."/>
+
+<!-- Inline SVG favicon (mint-green M monogram on dark; matches brand) -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230a0e1a'/%3E%3Cpath d='M14 48 V20 L24 36 L34 20 V48 M40 48 V20 L50 36' stroke='%236effc0' stroke-width='4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"/>
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230a0e1a'/%3E%3Cpath d='M14 48 V20 L24 36 L34 20 V48 M40 48 V20 L50 36' stroke='%236effc0' stroke-width='4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"/>
+
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
@@ -100,6 +123,72 @@ tailwind.config = {
 }
 
 body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--on-surface); }
+
+/* ========== LIGHT MODE OVERRIDES ==========
+   Tailwind's color palette is baked in as fixed dark hex values at compile
+   time, so toggling .dark on/off only affected `var(--*)` consumers. These
+   high-specificity overrides remap the most-used Tailwind surface/text
+   classes when html is NOT .dark, making light mode actually look light
+   without rewriting every color reference in the HTML. */
+html:not(.dark) body { background:#f5f7fa; color:#131722; }
+html:not(.dark) .bg-surface-container-lowest { background-color:#f5f7fa; }
+html:not(.dark) .bg-surface-container-low     { background-color:#f8f9fb; }
+html:not(.dark) .bg-surface-container         { background-color:#f0f3fa; }
+html:not(.dark) .bg-surface-container-high    { background-color:#e8eaed; }
+html:not(.dark) .bg-surface-container-highest { background-color:#dde0e4; }
+html:not(.dark) .bg-surface-variant           { background-color:#e0e3eb; }
+html:not(.dark) .bg-surface                   { background-color:#ffffff; }
+html:not(.dark) .bg-surface-bright            { background-color:#ffffff; }
+html:not(.dark) .bg-surface-dim               { background-color:#f0f3fa; }
+html:not(.dark) .bg-background                { background-color:#f5f7fa; }
+html:not(.dark) .text-on-surface              { color:#131722; }
+html:not(.dark) .text-on-surface-variant      { color:#5d6470; }
+html:not(.dark) .text-on-background           { color:#131722; }
+html:not(.dark) .text-primary                 { color:#2962ff; }
+html:not(.dark) .bg-primary                   { background-color:#2962ff; }
+html:not(.dark) .border-primary               { border-color:#2962ff; }
+html:not(.dark) .ring-primary                 { --tw-ring-color:#2962ff; }
+html:not(.dark) .bg-primary-container         { background-color:#2962ff; }
+html:not(.dark) .text-on-primary              { color:#ffffff; }
+html:not(.dark) .border-outline-variant       { border-color:#e0e3eb; }
+html:not(.dark) .text-error                   { color:#ef5350; }
+html:not(.dark) .text-secondary               { color:#1e88e5; }
+html:not(.dark) .bg-secondary                 { background-color:#1e88e5; }
+
+/* Tailwind opacity-suffix variants need their CSS-escaped class selectors */
+html:not(.dark) .border-outline-variant\/20   { border-color:rgba(0,0,0,0.08); }
+html:not(.dark) .border-outline-variant\/10   { border-color:rgba(0,0,0,0.05); }
+html:not(.dark) .bg-surface-container-highest\/30 { background-color:rgba(221,224,228,0.5); }
+html:not(.dark) .bg-surface-container-highest\/40 { background-color:rgba(221,224,228,0.5); }
+html:not(.dark) .bg-surface-container-highest\/60 { background-color:rgba(221,224,228,0.7); }
+html:not(.dark) .bg-surface-container\/40     { background-color:rgba(240,243,250,0.6); }
+html:not(.dark) .bg-surface-container\/50     { background-color:rgba(240,243,250,0.7); }
+html:not(.dark) .bg-surface-variant\/40       { background-color:rgba(224,227,235,0.6); }
+html:not(.dark) .bg-primary\/10               { background-color:rgba(41,98,255,0.08); }
+html:not(.dark) .bg-primary\/20               { background-color:rgba(41,98,255,0.15); }
+html:not(.dark) .bg-primary-container\/30     { background-color:rgba(41,98,255,0.18); }
+html:not(.dark) .bg-error\/10                 { background-color:rgba(239,83,80,0.08); }
+html:not(.dark) .bg-error\/20                 { background-color:rgba(239,83,80,0.15); }
+html:not(.dark) .border-error\/20             { border-color:rgba(239,83,80,0.25); }
+html:not(.dark) .text-error\/70               { color:rgba(239,83,80,0.85); }
+html:not(.dark) .text-error\/80               { color:rgba(239,83,80,0.9); }
+html:not(.dark) .bg-secondary\/20             { background-color:rgba(30,136,229,0.15); }
+html:not(.dark) .text-on-surface-variant\/50  { color:rgba(93,100,112,0.7); }
+html:not(.dark) .text-on-surface-variant\/70  { color:rgba(93,100,112,0.85); }
+html:not(.dark) .text-on-surface-variant\/80  { color:rgba(93,100,112,0.95); }
+html:not(.dark) .placeholder\:text-on-surface-variant\/40::placeholder { color:rgba(93,100,112,0.6); }
+html:not(.dark) .hover\:bg-surface-container-highest:hover    { background-color:#dde0e4; }
+html:not(.dark) .hover\:bg-surface-variant\/40:hover          { background-color:rgba(224,227,235,0.7); }
+html:not(.dark) .hover\:bg-surface-container-highest\/30:hover { background-color:rgba(221,224,228,0.6); }
+html:not(.dark) .hover\:bg-surface-container-highest\/40:hover { background-color:rgba(221,224,228,0.6); }
+html:not(.dark) .focus\:border-primary:focus  { border-color:#2962ff; }
+html:not(.dark) .focus\:ring-primary:focus    { --tw-ring-color:#2962ff; }
+
+/* Brand gradient text reads better with the light brand colors */
+html:not(.dark) .brand-gradient {
+  background: linear-gradient(90deg, #2962ff 0%, #1e88e5 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
 .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
 .tabular-nums { font-variant-numeric: tabular-nums; }
 .glass-panel { background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
@@ -133,7 +222,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 .panel-resize-handle:hover::after, .panel-resize-handle.active::after { background: var(--primary); opacity:0.5; }
 </style>
 </head>
-<body class="overflow-hidden h-screen flex flex-col bg-surface-container-lowest">
+<body class="overflow-hidden h-screen flex flex-col bg-surface-container-lowest pb-6">
 
 <!-- ==================== LOGIN OVERLAY ==================== -->
 <div class="fixed inset-0 z-[100] flex items-center justify-center bg-surface-container-lowest mesh-gradient" id="login-overlay">
@@ -144,7 +233,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
   <div class="w-[400px] p-8 rounded-xl glass-panel border border-outline-variant/20 shadow-2xl relative z-10">
     <div class="top-glow"></div>
     <div class="text-center mb-8">
-      <h1 class="text-3xl font-black tracking-tighter brand-gradient uppercase">YOINTELL</h1>
+      <h1 class="text-3xl font-black tracking-tighter brand-gradient uppercase">MONEYSTX</h1>
       <p class="text-on-surface-variant text-xs mt-2 uppercase tracking-widest font-bold">NSE Intelligence Terminal</p>
     </div>
     <!-- Login / Register Toggle -->
@@ -172,6 +261,15 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
         <label class="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold px-1">Display Name</label>
         <input id="auth-display-name" class="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg py-3 px-4 text-on-surface placeholder:text-on-surface-variant/40 focus:ring-1 focus:ring-primary" placeholder="Your name (optional)" type="text"/>
       </div>
+      <!-- Terms acceptance (only shown in Register mode) -->
+      <label class="hidden text-[10px] text-on-surface-variant flex items-start gap-2 cursor-pointer leading-snug" id="auth-tos-row">
+        <input type="checkbox" id="auth-tos-check" class="mt-0.5 accent-primary cursor-pointer"/>
+        <span>I have read and agree to the
+          <a onclick="event.preventDefault(); openLegalModal('terms')" class="text-primary cursor-pointer hover:underline">Terms</a>,
+          <a onclick="event.preventDefault(); openLegalModal('privacy')" class="text-primary cursor-pointer hover:underline">Privacy Policy</a>, and
+          <a onclick="event.preventDefault(); openLegalModal('disclaimer')" class="text-primary cursor-pointer hover:underline">Disclaimer</a>.
+          I understand MONEYSTX is for educational use only and is not SEBI-registered investment advice.</span>
+      </label>
       <button class="w-full bg-primary-container text-on-primary font-bold py-3.5 rounded-lg hover:brightness-110 active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(0,229,160,0.2)] flex items-center justify-center gap-2" type="submit" id="auth-submit-btn">
         <span class="material-symbols-outlined text-xl">login</span>
         <span id="auth-submit-text">SIGN IN TO TERMINAL</span>
@@ -184,7 +282,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 <!-- ==================== TOP NAVIGATION BAR ==================== -->
 <header class="flex justify-between items-center w-full px-6 h-14 border-b border-outline-variant/20 bg-surface-container-lowest relative z-50">
   <div class="flex items-center gap-8">
-    <span class="text-xl font-black tracking-tighter brand-gradient uppercase">YOINTELL</span>
+    <span class="text-xl font-black tracking-tighter brand-gradient uppercase">MONEYSTX</span>
     <nav class="flex items-center gap-6 tabular-nums text-sm tracking-tight h-full" id="main-nav">
       <a class="nav-tab text-primary border-b-2 border-primary font-bold h-14 flex items-center cursor-pointer" data-tab="screener" onclick="switchTab('screener')">Screener</a>
       <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="config" onclick="switchTab('config')">Configuration</a>
@@ -219,10 +317,29 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
     <button id="theme-toggle" onclick="toggleTheme()" class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-variant/40 transition-colors" title="Toggle theme">
       <span class="material-symbols-outlined text-on-surface-variant" id="theme-icon">light_mode</span>
     </button>
-    <!-- User -->
-    <div class="flex items-center gap-2 cursor-pointer" onclick="logout()" title="Logout">
-      <span class="material-symbols-outlined text-on-surface-variant">account_circle</span>
-      <span id="user-display" class="text-xs font-bold text-on-surface-variant"></span>
+    <!-- User account dropdown -->
+    <div class="relative" id="user-menu-wrap">
+      <button id="user-menu-btn" onclick="toggleUserMenu(event)" class="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-surface-variant/40 transition-colors" title="Account menu">
+        <span class="material-symbols-outlined text-on-surface-variant">account_circle</span>
+        <span id="user-display" class="text-xs font-bold text-on-surface-variant"></span>
+        <span class="material-symbols-outlined text-on-surface-variant text-base" id="user-menu-caret">arrow_drop_down</span>
+      </button>
+      <div id="user-menu-dropdown" class="hidden absolute right-0 top-full mt-1 w-52 bg-surface-container border border-outline-variant/20 rounded-lg shadow-2xl z-[100] overflow-hidden">
+        <div class="px-3 pt-2 pb-1 text-[9px] uppercase tracking-wider text-on-surface-variant">Signed in as</div>
+        <div class="px-3 pb-2 border-b border-outline-variant/10">
+          <div class="text-sm font-bold text-on-surface" id="user-menu-name">—</div>
+          <div class="text-[10px] text-on-surface-variant" id="user-menu-username">—</div>
+        </div>
+        <button onclick="openProfileModal()" class="w-full text-left px-3 py-2 text-xs hover:bg-surface-container-highest flex items-center gap-2">
+          <span class="material-symbols-outlined text-base">person</span>Profile
+        </button>
+        <button onclick="openChangePasswordModal()" class="w-full text-left px-3 py-2 text-xs hover:bg-surface-container-highest flex items-center gap-2">
+          <span class="material-symbols-outlined text-base">lock_reset</span>Change Password
+        </button>
+        <button onclick="logout()" class="w-full text-left px-3 py-2 text-xs hover:bg-surface-container-highest flex items-center gap-2 text-error border-t border-outline-variant/10">
+          <span class="material-symbols-outlined text-base">logout</span>Logout
+        </button>
+      </div>
     </div>
   </div>
 </header>
@@ -336,15 +453,24 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
   <div class="flex-1 flex overflow-hidden">
     <!-- LEFT: DATA TABLES -->
     <div id="tables-panel" class="flex-1 overflow-y-auto border-r border-outline-variant/10" style="width:100%">
-      <div class="p-6 space-y-8">
+      <div class="p-6">
+        <!-- STAGE TAB BAR (replaces vertical scroll between Stage 1 + 2) -->
+        <div class="flex items-center mb-5 border-b border-outline-variant/20" id="stage-tabs">
+          <button onclick="switchStage(1)" id="stage-tab-1" class="px-5 py-3 text-xs font-black uppercase tracking-[0.15em] text-primary border-b-2 border-primary flex items-center gap-2 transition-colors">
+            <span class="w-2 h-2 rounded-full bg-primary-container"></span>
+            Stage 1: Signal Validation
+            <span id="s1-tab-count" class="text-[10px] font-mono px-1.5 py-0.5 bg-primary-container/30 rounded ml-1">0</span>
+          </button>
+          <button onclick="switchStage(2)" id="stage-tab-2" class="px-5 py-3 text-xs font-black uppercase tracking-[0.15em] text-on-surface-variant hover:text-on-surface border-b-2 border-transparent flex items-center gap-2 transition-colors">
+            <span class="w-2 h-2 rounded-full bg-secondary"></span>
+            Stage 2: Execution Quality
+            <span id="s2-tab-count" class="text-[10px] font-mono px-1.5 py-0.5 bg-secondary/20 rounded ml-1">0</span>
+          </button>
+          <span id="s1-count" class="hidden">0</span>
+          <span id="s2-count" class="hidden">0</span>
+        </div>
         <!-- STAGE 1 -->
-        <section>
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-xs font-black uppercase tracking-[0.2em] text-on-surface flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-primary-container"></span> STAGE 1: SIGNAL VALIDATION
-            </h3>
-            <span id="s1-count" class="text-[10px] text-on-surface-variant font-mono">0 results</span>
-          </div>
+        <section id="stage-1-section">
           <div class="overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-low shadow-xl shadow-black/20">
             <table class="w-full text-left tabular-nums">
               <thead>
@@ -371,13 +497,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
           </div>
         </section>
         <!-- STAGE 2 -->
-        <section>
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-xs font-black uppercase tracking-[0.2em] text-on-surface flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-secondary"></span> STAGE 2: EXECUTION QUALITY
-            </h3>
-            <span id="s2-count" class="text-[10px] text-on-surface-variant font-mono">0 results</span>
-          </div>
+        <section id="stage-2-section" class="hidden">
           <div class="overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-low shadow-xl shadow-black/20">
             <table class="w-full text-left tabular-nums">
               <thead>
@@ -1330,7 +1450,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
           <span class="material-symbols-outlined text-lg" style="font-variation-settings:'FILL' 1;">smart_toy</span>
         </div>
         <div>
-          <h4 class="text-xs font-black uppercase tracking-wider">Yointell Assistant</h4>
+          <h4 class="text-xs font-black uppercase tracking-wider">Moneystx Assistant</h4>
           <div class="flex items-center gap-1">
             <span class="w-1.5 h-1.5 rounded-full bg-on-primary animate-pulse"></span>
             <span class="text-[9px] font-bold opacity-80 uppercase">AI Engine Active</span>
@@ -1357,7 +1477,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
           <span class="material-symbols-outlined text-[14px]">psychology</span>
         </div>
         <div class="bg-surface-container p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl border border-outline-variant/10 text-on-surface-variant leading-relaxed">
-          Welcome to YOINTELL. Ask me to screen stocks, explain indicators, or run strategies. Try: "Show me stocks with RSI > 70"
+          Welcome to MONEYSTX. Ask me to screen stocks, explain indicators, or run strategies. Try: "Show me stocks with RSI > 70"
         </div>
       </div>
     </div>
@@ -1417,6 +1537,12 @@ function showAuthTab(mode) {
     ? 'flex-1 py-2 text-xs font-bold bg-primary-container text-on-primary rounded-md'
     : 'flex-1 py-2 text-xs font-bold text-on-surface-variant hover:text-on-surface rounded-md';
   document.getElementById('auth-display-name-row').classList.toggle('hidden', mode === 'login');
+  // Terms-acceptance row only when registering
+  const tos = document.getElementById('auth-tos-row');
+  if (tos) {
+    if (mode === 'register') tos.classList.remove('hidden');
+    else tos.classList.add('hidden');
+  }
   document.getElementById('auth-submit-text').textContent = mode === 'login' ? 'SIGN IN TO TERMINAL' : 'CREATE ACCOUNT';
   document.getElementById('auth-error').classList.add('hidden');
 }
@@ -1429,6 +1555,15 @@ async function handleAuth(e) {
   errEl.classList.add('hidden');
 
   const endpoint = authMode === 'login' ? '/auth/login' : '/auth/register';
+  // Enforce Terms acceptance on registration
+  if (authMode === 'register') {
+    const tos = document.getElementById('auth-tos-check');
+    if (tos && !tos.checked) {
+      errEl.textContent = 'You must accept the Terms, Privacy Policy, and Disclaimer to register';
+      errEl.classList.remove('hidden');
+      return;
+    }
+  }
   const body = { username, password };
   if (authMode === 'register') body.display_name = document.getElementById('auth-display-name').value.trim();
 
@@ -1455,8 +1590,14 @@ async function checkAuth() {
     const res = await fetch(API + '/auth/me', { headers: { 'Authorization': 'Bearer ' + authToken } });
     if (!res.ok) throw new Error('Token expired');
     const user = await res.json();
+    _currentUserData = user;  // cache for menu
     document.getElementById('login-overlay').style.display = 'none';
     document.getElementById('user-display').textContent = user.display_name || user.username || '';
+    // Populate dropdown header
+    const nm = document.getElementById('user-menu-name');
+    const un = document.getElementById('user-menu-username');
+    if (nm) nm.textContent = user.display_name || user.username || '—';
+    if (un) un.textContent = '@' + (user.username || '');
     initApp();
   } catch {
     localStorage.removeItem('yointell_token');
@@ -1469,11 +1610,165 @@ function logout() {
   localStorage.removeItem('yointell_token');
   authToken = null;
   fetch(API + '/auth/logout', { method: 'POST' }).catch(() => {});
+  closeUserMenu();
   document.getElementById('login-overlay').style.display = 'flex';
 }
 
+// ============ USER MENU + PROFILE ============
+let _currentUserData = null;  // cached /auth/me response
+
+function toggleUserMenu(e) {
+  if (e) e.stopPropagation();
+  const dd = document.getElementById('user-menu-dropdown');
+  if (!dd) return;
+  dd.classList.toggle('hidden');
+}
+function closeUserMenu() {
+  const dd = document.getElementById('user-menu-dropdown');
+  if (dd) dd.classList.add('hidden');
+}
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  const wrap = document.getElementById('user-menu-wrap');
+  if (wrap && !wrap.contains(e.target)) closeUserMenu();
+});
+// Esc to close any open auth modal
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const p = document.getElementById('profile-modal');
+    const c = document.getElementById('change-pwd-modal');
+    if (p && p.style.display === 'flex') closeProfileModal();
+    if (c && c.style.display === 'flex') closeChangePasswordModal();
+  }
+});
+
+async function _refreshCurrentUser() {
+  if (!authToken) return null;
+  try {
+    const r = await fetch(API + '/auth/me', { headers: { 'Authorization': 'Bearer ' + authToken } });
+    if (!r.ok) return null;
+    _currentUserData = await r.json();
+    // Populate dropdown header
+    const nm = document.getElementById('user-menu-name');
+    const un = document.getElementById('user-menu-username');
+    if (nm) nm.textContent = _currentUserData.display_name || _currentUserData.username || '—';
+    if (un) un.textContent = '@' + (_currentUserData.username || '');
+    return _currentUserData;
+  } catch { return null; }
+}
+
+async function openProfileModal() {
+  closeUserMenu();
+  const m = document.getElementById('profile-modal');
+  if (!m) return;
+  m.style.display = 'flex';
+  document.getElementById('profile-msg').textContent = '';
+  document.getElementById('profile-msg').className = 'text-xs h-4';
+  // Refresh from server
+  const u = await _refreshCurrentUser();
+  if (u) {
+    document.getElementById('profile-username').textContent = '@' + u.username;
+    document.getElementById('profile-display-name').value = u.display_name || '';
+    const created = u.created ? new Date(u.created).toLocaleString('en-IN', {dateStyle:'medium', timeStyle:'short'}) : '—';
+    document.getElementById('profile-created').textContent = created;
+    const pc = u.password_changed ? new Date(u.password_changed).toLocaleString('en-IN', {dateStyle:'medium', timeStyle:'short'}) : 'Never (using initial password)';
+    document.getElementById('profile-pwd-changed').textContent = pc;
+  }
+}
+function closeProfileModal() {
+  const m = document.getElementById('profile-modal');
+  if (m) m.style.display = 'none';
+}
+
+async function submitProfileUpdate() {
+  const newName = document.getElementById('profile-display-name').value.trim();
+  const msgEl = document.getElementById('profile-msg');
+  if (!newName) { msgEl.textContent = 'Display name cannot be empty'; msgEl.className = 'text-xs h-4 text-error'; return; }
+  try {
+    const r = await fetch(API + '/auth/update-profile', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + authToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ display_name: newName })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || 'Update failed');
+    msgEl.textContent = 'Display name updated';
+    msgEl.className = 'text-xs h-4 text-primary';
+    // Refresh nav display + dropdown
+    document.getElementById('user-display').textContent = newName;
+    await _refreshCurrentUser();
+    setTimeout(closeProfileModal, 800);
+  } catch (e) {
+    msgEl.textContent = e.message;
+    msgEl.className = 'text-xs h-4 text-error';
+  }
+}
+
+function openChangePasswordModal() {
+  closeUserMenu();
+  const m = document.getElementById('change-pwd-modal');
+  if (!m) return;
+  m.style.display = 'flex';
+  document.getElementById('cpwd-current').value = '';
+  document.getElementById('cpwd-new').value = '';
+  document.getElementById('cpwd-confirm').value = '';
+  document.getElementById('cpwd-msg').textContent = '';
+  document.getElementById('cpwd-msg').className = 'text-xs h-4';
+  setTimeout(() => document.getElementById('cpwd-current').focus(), 50);
+}
+function closeChangePasswordModal() {
+  const m = document.getElementById('change-pwd-modal');
+  if (m) m.style.display = 'none';
+}
+
+async function submitChangePassword() {
+  const cur = document.getElementById('cpwd-current').value;
+  const nw = document.getElementById('cpwd-new').value;
+  const cf = document.getElementById('cpwd-confirm').value;
+  const msgEl = document.getElementById('cpwd-msg');
+  msgEl.className = 'text-xs h-4';
+  if (!cur || !nw) { msgEl.textContent = 'All fields required'; msgEl.className = 'text-xs h-4 text-error'; return; }
+  if (nw.length < 4) { msgEl.textContent = 'New password must be at least 4 characters'; msgEl.className = 'text-xs h-4 text-error'; return; }
+  if (nw !== cf) { msgEl.textContent = 'New passwords do not match'; msgEl.className = 'text-xs h-4 text-error'; return; }
+  if (nw === cur) { msgEl.textContent = 'New password must differ from current'; msgEl.className = 'text-xs h-4 text-error'; return; }
+  try {
+    const r = await fetch(API + '/auth/change-password', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + authToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current_password: cur, new_password: nw })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || 'Change failed');
+    msgEl.textContent = 'Password changed successfully';
+    msgEl.className = 'text-xs h-4 text-primary';
+    setTimeout(() => { closeChangePasswordModal(); }, 1000);
+  } catch (e) {
+    msgEl.textContent = e.message;
+    msgEl.className = 'text-xs h-4 text-error';
+  }
+}
+
+// ============ STAGE 1/2 TAB SWITCHING (within Screener) ============
+function switchStage(n) {
+  const s1 = document.getElementById('stage-1-section');
+  const s2 = document.getElementById('stage-2-section');
+  const t1 = document.getElementById('stage-tab-1');
+  const t2 = document.getElementById('stage-tab-2');
+  if (!s1 || !s2 || !t1 || !t2) return;
+  const ON_PRIMARY = 'px-5 py-3 text-xs font-black uppercase tracking-[0.15em] text-primary border-b-2 border-primary flex items-center gap-2 transition-colors';
+  const OFF_PRIMARY = 'px-5 py-3 text-xs font-black uppercase tracking-[0.15em] text-on-surface-variant hover:text-on-surface border-b-2 border-transparent flex items-center gap-2 transition-colors';
+  const ON_SECONDARY = 'px-5 py-3 text-xs font-black uppercase tracking-[0.15em] text-secondary border-b-2 border-secondary flex items-center gap-2 transition-colors';
+  if (n === 2) {
+    s1.classList.add('hidden'); s2.classList.remove('hidden');
+    t1.className = OFF_PRIMARY; t2.className = ON_SECONDARY;
+  } else {
+    s2.classList.add('hidden'); s1.classList.remove('hidden');
+    t1.className = ON_PRIMARY; t2.className = OFF_PRIMARY;
+  }
+}
+
 // ============ TAB SWITCHING ============
-function switchTab(tab) {
+function switchTab(tab, opts) {
   // Stop any practice auto-play when leaving the Practice tab
   if (currentTab === 'practice' && tab !== 'practice') {
     try { stopAutoPlay(); } catch(e) {}
@@ -1500,7 +1795,49 @@ function switchTab(tab) {
   }
   if (tab === 'events' && eventsData.length === 0) loadEvents();
   if (tab === 'portfolio') loadPortfolio();
+  // Hash-based back-button support: push to history unless this navigation
+  // came FROM history (popstate). Skips no-op pushes if URL already matches.
+  if (!opts || !opts.fromHistory) {
+    const newHash = '#' + tab;
+    if (window.location.hash !== newHash) {
+      try { history.pushState({tab}, '', newHash); } catch(e) {}
+    }
+  }
+  // Update document title to reflect current tab (clearer browser-back UX)
+  try {
+    const titles = {screener:'Screener',config:'Configuration',indicators:'Indicators',watchlist:'Watchlist',breakouts:'Breakouts',backtest:'Backtester',events:'Events',practice:'Practice',portfolio:'Portfolio'};
+    if (titles[tab]) document.title = `MONEYSTX · ${titles[tab]}`;
+  } catch(e) {}
 }
+
+// Browser back/forward → restore tab from URL hash
+window.addEventListener('popstate', (e) => {
+  const fromState = (e.state && e.state.tab);
+  const fromHash = window.location.hash.replace('#','');
+  const tab = fromState || fromHash || 'screener';
+  const validTabs = Array.from(document.querySelectorAll('.nav-tab[data-tab]')).map(el => el.dataset.tab);
+  if (validTabs.includes(tab) && tab !== currentTab && document.getElementById('tab-' + tab)) {
+    switchTab(tab, {fromHistory: true});
+  }
+});
+
+// On first page load, restore tab from hash (e.g. landing on /#practice)
+(function initTabFromHash(){
+  const hash = window.location.hash.replace('#','');
+  if (!hash) return;
+  // Defer until DOM + tab handlers are defined
+  const apply = () => {
+    const validTabs = Array.from(document.querySelectorAll('.nav-tab[data-tab]')).map(el => el.dataset.tab);
+    if (validTabs.includes(hash) && hash !== 'screener' && document.getElementById('tab-' + hash)) {
+      switchTab(hash, {fromHistory: true});
+    }
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', apply);
+  } else {
+    setTimeout(apply, 50);
+  }
+})();
 
 // ============ PORTFOLIO TRACKER (Phase 2-3) ============
 async function loadPortfolio() {
@@ -1734,6 +2071,10 @@ async function _fetchMFS(symbols) {
 function renderResults(data) {
   const s1=document.getElementById('s1-body');
   document.getElementById('s1-count').textContent=data.stage1_results.length+' results (of '+data.total_screened+' screened)';
+  // Update Stage tab badges + show Stage 1 by default after a fresh screen
+  const s1tc = document.getElementById('s1-tab-count'); if (s1tc) s1tc.textContent = data.stage1_results.length;
+  const s2tc = document.getElementById('s2-tab-count'); if (s2tc) s2tc.textContent = data.stage2_results.length;
+  if (typeof switchStage === 'function') switchStage(1);
   s1.innerHTML=data.stage1_results.map((r,i)=>{
     const pe=r.fundamentals?.pe_ratio?.value||r.pe||'--';
     const roe=r.fundamentals?.roe?.value||r.roe||'--';
@@ -1840,6 +2181,10 @@ function resetScreenerTab() {
   if (s2) s2.innerHTML = '<tr><td colspan="11" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 2 results appear after screening</td></tr>';
   const s1c = document.getElementById('s1-count'); if (s1c) s1c.textContent = '0 results';
   const s2c = document.getElementById('s2-count'); if (s2c) s2c.textContent = '0 results';
+  // Reset stage tab badges + show Stage 1
+  const s1tc = document.getElementById('s1-tab-count'); if (s1tc) s1tc.textContent = '0';
+  const s2tc = document.getElementById('s2-tab-count'); if (s2tc) s2tc.textContent = '0';
+  if (typeof switchStage === 'function') switchStage(1);
   // Abort any in-flight screen
   if (typeof screenAbort === 'object' && screenAbort && screenAbort.abort) { try { screenAbort.abort(); } catch(e){} screenAbort = null; }
 }
@@ -7238,5 +7583,180 @@ function _ipRender(d) {
     </div>`;
 }
 </script>
+
+<!-- ==================== LEGAL FOOTER (always visible, 24px tall) ==================== -->
+<footer id="legal-footer" class="fixed bottom-0 left-0 right-0 z-30 h-6 bg-surface-container-lowest border-t border-outline-variant/10 px-4 flex items-center justify-center gap-3 text-[9px] text-on-surface-variant/80 select-none">
+  <span class="font-bold">© 2026 MONEYSTX</span>
+  <span class="opacity-40">·</span>
+  <a onclick="openLegalModal('disclaimer')" class="hover:text-primary cursor-pointer transition-colors">Disclaimer</a>
+  <a onclick="openLegalModal('terms')" class="hover:text-primary cursor-pointer transition-colors">Terms</a>
+  <a onclick="openLegalModal('privacy')" class="hover:text-primary cursor-pointer transition-colors">Privacy</a>
+  <a onclick="openLegalModal('about')" class="hover:text-primary cursor-pointer transition-colors">About</a>
+  <span class="opacity-40">·</span>
+  <span class="text-error/80">Educational use only · Not SEBI-registered investment advice · Past performance ≠ future results</span>
+</footer>
+
+<!-- ==================== LEGAL MODAL (single, content-swappable) ==================== -->
+<div id="legal-modal" class="fixed inset-0 z-[120] items-center justify-center bg-black/70 backdrop-blur-sm p-6" style="display:none">
+  <div class="w-[680px] max-w-full max-h-[80vh] bg-surface-container border border-outline-variant/20 rounded-xl shadow-2xl flex flex-col">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-outline-variant/10">
+      <h3 id="legal-modal-title" class="text-sm font-black uppercase tracking-wider">Disclaimer</h3>
+      <span class="material-symbols-outlined cursor-pointer hover:text-error" onclick="closeLegalModal()">close</span>
+    </div>
+    <div id="legal-modal-body" class="p-5 overflow-y-auto text-xs leading-relaxed text-on-surface-variant space-y-3"></div>
+    <div class="px-5 py-3 border-t border-outline-variant/10 flex justify-end">
+      <button onclick="closeLegalModal()" class="px-4 py-2 text-xs font-bold rounded-md bg-primary-container text-on-primary uppercase tracking-wider">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============ LEGAL MODAL CONTENT ============
+const LEGAL_CONTENT = {
+  disclaimer: {
+    title: 'Disclaimer',
+    body: `
+      <p><b>MONEYSTX is a stock-screening and educational tool for the Indian (NSE) markets.</b> Information shown is sourced from publicly available data — NSE Bhavcopy archives, screener.in fundamentals, NSE corporate-action calendar, and similar public APIs — and is provided "as is" without warranties of any kind.</p>
+      <p><b class="text-error">MONEYSTX is NOT a SEBI-registered investment advisor, research analyst, or stockbroker.</b> All content on this platform — screener results, indicator signals, scoring, breakout patterns, multi-factor scores, the practice game, AI assistant outputs — is provided for <b>educational and informational purposes only</b>. None of it constitutes investment advice, a recommendation to buy or sell any security, or a solicitation of any kind.</p>
+      <p><b>Trading and investing in stocks involves risk of loss.</b> You may lose your principal. Past performance does not guarantee future results. Indicator backtests, pattern accuracy stats, and the practice game's profit/loss numbers are illustrative only and do not represent actual trading outcomes you would achieve.</p>
+      <p><b>The practice game uses simulated capital only — no real money is ever handled.</b> Order entries, fills, and slippage are modelled approximations of real markets and may differ materially from real exchange behaviour.</p>
+      <p>Always conduct your own due diligence and consult a SEBI-registered investment advisor before making any investment decision. By using MONEYSTX you acknowledge these risks and agree to use the platform at your own risk.</p>
+    `,
+  },
+  terms: {
+    title: 'Terms of Service',
+    body: `
+      <p><b>1. Acceptance.</b> By accessing or using MONEYSTX you agree to these Terms. If you do not agree, do not use the service.</p>
+      <p><b>2. Permitted use.</b> MONEYSTX is provided free of charge for personal, non-commercial use. You may not (a) scrape, mirror, or republish data shown on the platform; (b) resell access; (c) use automated tools to query the API beyond reasonable use; (d) attempt to bypass authentication or rate limits.</p>
+      <p><b>3. Account.</b> You are responsible for keeping your password secure. You must not share your account. We may terminate accounts that violate these Terms or applicable law without notice.</p>
+      <p><b>4. No advice.</b> Nothing on MONEYSTX is investment, legal, tax, or financial advice. See the Disclaimer.</p>
+      <p><b>5. Service availability.</b> The service is provided "as is" with no uptime guarantee. We may take it down for maintenance, upgrades, or any other reason.</p>
+      <p><b>6. Third-party data.</b> We display data from public sources (NSE, screener.in, etc.). Accuracy depends on those sources; we do not warrant correctness or timeliness.</p>
+      <p><b>7. Limitation of liability.</b> To the maximum extent permitted by law, MONEYSTX, its operators, and contributors are not liable for any direct, indirect, incidental, consequential, or punitive damages arising from your use of the service — including but not limited to trading losses, missed gains, or data inaccuracies.</p>
+      <p><b>8. Changes.</b> We may update these Terms; continued use after changes means acceptance.</p>
+      <p><b>9. Governing law.</b> These Terms are governed by the laws of India. Disputes will be resolved in the courts of the operator's jurisdiction.</p>
+    `,
+  },
+  privacy: {
+    title: 'Privacy Policy',
+    body: `
+      <p><b>What we collect.</b> When you register we store your username, a bcrypt-hashed password (we never see or store the plaintext), and an optional display name. When you use the practice game we store your scores and session history in your browser's localStorage — that data never leaves your device.</p>
+      <p><b>What we don't collect.</b> No payment information (the service is free). No social-media profiles. No third-party advertising trackers. No analytics that identify you personally.</p>
+      <p><b>Cookies & local storage.</b> We use your browser's localStorage to keep you logged in (auth token), remember theme preference, and persist practice-game data. We do not set tracking cookies.</p>
+      <p><b>How we use your data.</b> Username and password hash are used to authenticate you. Display name is shown to you in the UI. We do not share, sell, or monetize personal data.</p>
+      <p><b>Server logs.</b> The web server keeps standard access logs (IP, timestamp, URL) for up to 30 days for security and abuse prevention. These logs are not used for advertising or sold.</p>
+      <p><b>Your rights.</b> You can request deletion of your account and associated data at any time by contacting the operator. Practice-game data is on your device — clear it any time via your browser settings or the in-app reset button.</p>
+      <p><b>Children.</b> MONEYSTX is not intended for users under 18.</p>
+      <p><b>Changes.</b> We may update this policy; continued use means acceptance.</p>
+    `,
+  },
+  about: {
+    title: 'About MONEYSTX',
+    body: `
+      <p>MONEYSTX is an independent, educational stock-screening terminal for the Indian (NSE) markets. It combines a 2-stage screener (44 filters across technical, fundamental, breakout, and risk dimensions), 25 indicators with accuracy scores, real-time charts powered by lightweight-charts, candlestick + chart-pattern scanners, a corporate-events calendar, a multi-factor score (Momentum + Quality + Value + Growth), and a paper-trading practice game with realistic risk-management mechanics — all in a single page.</p>
+      <p><b>Data sources:</b> NSE public Bhavcopy archives, screener.in fundamentals, NSE corporate-action calendar, public NSE JSON endpoints (institutional data, indices). All data refreshes automatically via a daily cron job at 7:00 AM IST.</p>
+      <p><b>Mission:</b> Give Indian retail traders a clean, ad-free, opinionated swing-trading workspace where they can learn — through indicators, patterns, and a realistic practice game — without paying for a subscription or being upsold financial products.</p>
+      <p><b>Built with:</b> FastAPI · Python · pandas · Tailwind CSS · lightweight-charts · bcrypt · JWT.</p>
+      <p>Feedback or questions? The platform is actively developed and feedback shapes the roadmap.</p>
+    `,
+  },
+};
+
+function openLegalModal(key) {
+  const m = document.getElementById('legal-modal');
+  const c = LEGAL_CONTENT[key];
+  if (!m || !c) return;
+  document.getElementById('legal-modal-title').textContent = c.title;
+  document.getElementById('legal-modal-body').innerHTML = c.body;
+  m.style.display = 'flex';
+}
+function closeLegalModal() {
+  const m = document.getElementById('legal-modal');
+  if (m) m.style.display = 'none';
+}
+// Esc to close legal modal
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const m = document.getElementById('legal-modal');
+    if (m && m.style.display === 'flex') closeLegalModal();
+  }
+});
+// Click outside content closes
+document.addEventListener('click', (e) => {
+  const m = document.getElementById('legal-modal');
+  if (m && m.style.display === 'flex' && e.target === m) closeLegalModal();
+});
+</script>
+
+<!-- ==================== PROFILE MODAL ==================== -->
+<div id="profile-modal" class="fixed inset-0 z-[110] items-center justify-center bg-black/60 backdrop-blur-sm" style="display:none">
+  <div class="w-[420px] bg-surface-container border border-outline-variant/20 rounded-xl shadow-2xl">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-outline-variant/10">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary">person</span>
+        <h3 class="text-sm font-black uppercase tracking-wider">Profile</h3>
+      </div>
+      <span class="material-symbols-outlined cursor-pointer hover:text-error" onclick="closeProfileModal()">close</span>
+    </div>
+    <div class="p-5 space-y-4">
+      <div>
+        <label class="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold">Username</label>
+        <div id="profile-username" class="text-sm font-mono mt-1 text-on-surface">—</div>
+      </div>
+      <div>
+        <label class="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold">Display name</label>
+        <input id="profile-display-name" type="text" maxlength="60" class="w-full mt-1 px-3 py-2 text-sm bg-surface-container-high border border-outline-variant/20 rounded-md focus:outline-none focus:border-primary" placeholder="Your name as it appears in the app">
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold">Member since</label>
+          <div id="profile-created" class="text-xs mt-1 text-on-surface-variant">—</div>
+        </div>
+        <div>
+          <label class="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold">Password last changed</label>
+          <div id="profile-pwd-changed" class="text-xs mt-1 text-on-surface-variant">—</div>
+        </div>
+      </div>
+      <div id="profile-msg" class="text-xs h-4"></div>
+      <div class="flex gap-2 pt-2">
+        <button onclick="closeProfileModal()" class="flex-1 px-4 py-2 text-xs font-bold rounded-md bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant uppercase tracking-wider">Close</button>
+        <button onclick="submitProfileUpdate()" class="flex-1 px-4 py-2 text-xs font-bold rounded-md bg-primary-container text-on-primary hover:opacity-90 uppercase tracking-wider">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== CHANGE PASSWORD MODAL ==================== -->
+<div id="change-pwd-modal" class="fixed inset-0 z-[110] items-center justify-center bg-black/60 backdrop-blur-sm" style="display:none">
+  <div class="w-[420px] bg-surface-container border border-outline-variant/20 rounded-xl shadow-2xl">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-outline-variant/10">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary">lock_reset</span>
+        <h3 class="text-sm font-black uppercase tracking-wider">Change Password</h3>
+      </div>
+      <span class="material-symbols-outlined cursor-pointer hover:text-error" onclick="closeChangePasswordModal()">close</span>
+    </div>
+    <div class="p-5 space-y-3">
+      <div>
+        <label class="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold">Current password</label>
+        <input id="cpwd-current" type="password" autocomplete="current-password" class="w-full mt-1 px-3 py-2 text-sm bg-surface-container-high border border-outline-variant/20 rounded-md focus:outline-none focus:border-primary">
+      </div>
+      <div>
+        <label class="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold">New password (min 4 chars)</label>
+        <input id="cpwd-new" type="password" autocomplete="new-password" class="w-full mt-1 px-3 py-2 text-sm bg-surface-container-high border border-outline-variant/20 rounded-md focus:outline-none focus:border-primary">
+      </div>
+      <div>
+        <label class="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold">Confirm new password</label>
+        <input id="cpwd-confirm" type="password" autocomplete="new-password" class="w-full mt-1 px-3 py-2 text-sm bg-surface-container-high border border-outline-variant/20 rounded-md focus:outline-none focus:border-primary" onkeydown="if(event.key==='Enter')submitChangePassword()">
+      </div>
+      <div id="cpwd-msg" class="text-xs h-4"></div>
+      <div class="flex gap-2 pt-1">
+        <button onclick="closeChangePasswordModal()" class="flex-1 px-4 py-2 text-xs font-bold rounded-md bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant uppercase tracking-wider">Cancel</button>
+        <button onclick="submitChangePassword()" class="flex-1 px-4 py-2 text-xs font-bold rounded-md bg-primary-container text-on-primary hover:opacity-90 uppercase tracking-wider">Change</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

@@ -116,5 +116,42 @@ def get_user(username: str) -> dict | None:
     if username in users:
         u = users[username]
         return {"username": u["username"], "display_name": u["display_name"],
-                "created": u.get("created")}
+                "created": u.get("created"),
+                "password_changed": u.get("password_changed")}
     return None
+
+
+def change_password(username: str, current_password: str, new_password: str) -> bool:
+    """Change a user's password. Verifies current password first.
+    Raises ValueError on any failure (wrong current, too short, same as current)."""
+    username = username.strip().lower()
+    users = _load_users()
+    if username not in users:
+        raise ValueError("User not found")
+    user = users[username]
+    if not bcrypt.checkpw(current_password.encode(), user["password_hash"].encode()):
+        raise ValueError("Current password is incorrect")
+    if not new_password or len(new_password) < 4:
+        raise ValueError("New password must be at least 4 characters")
+    if current_password == new_password:
+        raise ValueError("New password must be different from current")
+    user["password_hash"] = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+    user["password_changed"] = datetime.now().isoformat()
+    _save_users(users)
+    return True
+
+
+def update_display_name(username: str, display_name: str) -> dict:
+    """Update a user's display name. Returns updated user dict (no password)."""
+    username = username.strip().lower()
+    display_name = (display_name or "").strip()
+    if not display_name:
+        raise ValueError("Display name cannot be empty")
+    if len(display_name) > 60:
+        raise ValueError("Display name too long (max 60 characters)")
+    users = _load_users()
+    if username not in users:
+        raise ValueError("User not found")
+    users[username]["display_name"] = display_name
+    _save_users(users)
+    return {"username": username, "display_name": display_name}
