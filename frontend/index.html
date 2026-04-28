@@ -7511,7 +7511,7 @@ function _ipRenderAnalystBody(a, price, state) {
   if (state === 'loading' || (a === undefined)) {
     return '<div class="text-[10px] text-on-surface-variant py-4 text-center">' +
       '<span class="inline-block w-3 h-3 border-2 border-primary/40 border-t-primary rounded-full animate-spin align-middle mr-2"></span>' +
-      'Fetching from 6 sources… <span class="opacity-60">(takes 3-8 s on first load)</span></div>';
+      'Fetching from 7 sources… <span class="opacity-60">(takes 3-8 s on first load)</span></div>';
   }
   if (!a || (a.sources_used || []).length === 0) {
     return '<div class="text-[10px] text-[#ff4757] font-bold uppercase py-4 text-center">Rating not found</div>';
@@ -7562,9 +7562,9 @@ function _ipRenderAnalystBody(a, price, state) {
       </span>
     </div>
     ${(() => {
-      // Count only the 4 analyst-rating sources (ET, Tickertape, Trendlyne, yfinance)
-      const ratingSources = ['yfinance','et_markets','tickertape','trendlyne'].filter(n => (a.sources_used||[]).includes(n));
-      return `<div class="mt-2 pt-2 border-t border-outline-variant/10 text-[9px] uppercase font-bold text-on-surface-variant mb-1">Sources · ${ratingSources.length}/4</div>`;
+      // Count analyst-rating sources
+      const ratingSources = ['yfinance','et_markets','tickertape','trendlyne','tradingview'].filter(n => (a.sources_used||[]).includes(n));
+      return `<div class="mt-2 pt-2 border-t border-outline-variant/10 text-[9px] uppercase font-bold text-on-surface-variant mb-1">Sources · ${ratingSources.length}/5</div>`;
     })()}
     ${(() => {
       if (!et) return '';
@@ -7582,12 +7582,12 @@ function _ipRenderAnalystBody(a, price, state) {
         bits.push(parts.join(' '));
       }
       if (et.target_price) bits.push(`₹${et.target_price}${et.target_low&&et.target_high?` (${et.target_low}-${et.target_high})`:''}`);
-      return `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">ET Markets${_dateChip(et.as_of)}</span><span class="font-mono text-on-surface">${bits.join(' · ')}</span></div>`;
+      return `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">ET${_dateChip(et.as_of)}</span><span class="font-mono text-on-surface">${bits.join(' · ')}</span></div>`;
     })()}
     ${(() => {
       const tt = a.tickertape; if (!tt) return '';
       const info = `${tt.analysts||0} analysts${tt.perc_buy!=null?` · ${tt.perc_buy}% buy`:''}`;
-      return `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">Tickertape${_dateChip(tt.as_of)}</span><span class="font-mono text-on-surface">${info}</span></div>`;
+      return `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">TP${_dateChip(tt.as_of)}</span><span class="font-mono text-on-surface">${info}</span></div>`;
     })()}
     ${(() => {
       const tl = a.trendlyne; if (!tl) return '';
@@ -7612,13 +7612,20 @@ function _ipRenderAnalystBody(a, price, state) {
         const upCol = tl.avg_upside_pct > 0 ? 'text-[#00e5a0]' : tl.avg_upside_pct < 0 ? 'text-[#ff4757]' : '';
         bits.push(`<span class="${upCol}">${tl.avg_upside_pct>=0?'+':''}${tl.avg_upside_pct}%</span>`);
       }
-      return `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">Trendlyne${rangeChip}</span><span class="font-mono text-on-surface">${bits.join(' · ')}</span></div>`;
+      return `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">TN${rangeChip}</span><span class="font-mono text-on-surface">${bits.join(' · ')}</span></div>`;
+    })()}
+    ${(() => {
+      const tw = a.tradingview; if (!tw) return '';
+      const twCol = tw.label==='STRONG BUY'?'text-[#00e5a0]':tw.label==='BUY'?'text-primary':tw.label==='NEUTRAL'?'text-yellow-400':tw.label==='SELL'?'text-orange-400':'text-[#ff4757]';
+      const ma = tw.ma_score != null ? ` · MA ${tw.ma_score>=0?'+':''}${tw.ma_score.toFixed(2)}` : '';
+      const osc = tw.osc_score != null ? ` · OSC ${tw.osc_score>=0?'+':''}${tw.osc_score.toFixed(2)}` : '';
+      return `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">TW</span><span class="font-mono text-on-surface"><span class="${twCol}">${tw.label}</span> <span class="text-on-surface-variant">(${tw.score>=0?'+':''}${tw.score.toFixed(2)}${ma}${osc})</span></span></div>`;
     })()}
     ${yf
-      ? `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">yfinance${_dateChip(yf.as_of)}</span><span class="font-mono text-on-surface">${yf.key||'—'} · ${yf.analysts||0} analysts · ₹${yf.target_low||'?'}-${yf.target_high||'?'}</span></div>`
+      ? `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">YF${_dateChip(yf.as_of)}</span><span class="font-mono text-on-surface">${yf.key||'—'} · ${yf.analysts||0} analysts · ₹${yf.target_low||'?'}-${yf.target_high||'?'}</span></div>`
       : ''}
     ${(hist || rss) ? `<div class="mt-2 pt-2 border-t border-outline-variant/10 text-[9px] uppercase font-bold text-on-surface-variant mb-1">Activity (last ${a.window_days}d)</div>` : ''}
-    ${srcRow('yfinance rating changes', hist ? `${hist.changes} change${hist.changes!==1?'s':''}` : null)}
+    ${srcRow('YF rating changes', hist ? `${hist.changes} change${hist.changes!==1?'s':''}` : null)}
     ${srcRow('News upgrades/downgrades', rss ? `↑${rss.upgrades} ↓${rss.downgrades}` : null)}
     ${(!hist && !rss && (a.sources_used||[]).length>0) ? `<div class="text-[9px] text-on-surface-variant/60 mt-1 italic">No rating changes in last ${a.window_days||'—'}d</div>`:''}`;
 }
