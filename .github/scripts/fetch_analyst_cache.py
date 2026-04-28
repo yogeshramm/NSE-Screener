@@ -156,11 +156,11 @@ def main():
         symbols = [s.strip().upper() for s in env_syms.split(",") if s.strip()]
         print(f"Processing {len(symbols)} specified symbols.")
     else:
-        # Try to read from local history (available if repo has data_store)
-        hist = ROOT / "data_store" / "history"
-        if hist.exists():
-            symbols = [p.stem for p in hist.glob("*.pkl")]
-            print(f"Found {len(symbols)} symbols in history store.")
+        # Try nifty500_live.txt (committed to repo, always present on GHA runner)
+        nifty500_file = ROOT / "data" / "nifty500_live.txt"
+        if nifty500_file.exists():
+            symbols = [l.strip() for l in nifty500_file.read_text().splitlines() if l.strip()]
+            print(f"Loaded {len(symbols)} symbols from nifty500_live.txt.")
         else:
             symbols = list(dict.fromkeys(NIFTY_500_FALLBACK))  # dedup
             print(f"Using {len(symbols)} fallback symbols.")
