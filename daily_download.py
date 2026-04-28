@@ -40,6 +40,11 @@ def main():
                        help="Specific symbols for --full mode (comma-separated)")
     parser.add_argument("--status", action="store_true",
                        help="Check download status")
+    parser.add_argument("--no-precompute", action="store_true",
+                       help="Skip the post-download indicator-cache warm-up")
+    parser.add_argument("--precompute-scope", default="nifty500",
+                       choices=["nifty200", "nifty500", "all"],
+                       help="Universe for indicator precompute (default: nifty500)")
     args = parser.parse_args()
 
     if args.status:
@@ -88,6 +93,14 @@ def main():
             backfill_symbols=backfill,
             skip_fundamentals=args.prices_only,
         )
+
+    if not args.no_precompute:
+        try:
+            from engine.precompute import warm_cache
+            warm_cache(scope=args.precompute_scope, verbose=True)
+        except Exception as e:
+            print(f"\n  [WARN] Indicator precompute failed: {e}")
+            print(f"  (Scans will still work — first scan rebuilds cache lazily.)")
 
     print(f"\n  Your screener is now ready for instant searches!")
     print(f"  Start the API: python run_server.py")

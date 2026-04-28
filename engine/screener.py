@@ -8,6 +8,7 @@ from engine.default_config import get_default_config, CONFIG_TO_INDICATOR
 from engine.fundamental_checker import check_fundamentals
 from engine.late_entry import check_stage1_late_entry, check_stage2_late_entry
 from engine.scorer import compute_score
+from engine.indicator_cache import load_cached, save_cached
 from indicators.registry import run_all_indicators
 
 
@@ -86,15 +87,24 @@ def screen_stock_stage1(symbol: str, daily_df: pd.DataFrame, stock_data: dict,
     # Build indicator inputs from config
     enabled, params = _build_indicator_inputs(config)
 
-    # Run technical indicators
+    # Run technical indicators (with disk cache — skip recompute when the
+    # latest bar + config + sector all match a previous run).
     sector = stock_data.get("sector")
-    indicator_results = run_all_indicators(
-        daily_df,
-        enabled_indicators=enabled,
-        params=params,
-        sector=sector,
-        df_4h=df_4h,
-    )
+    last_bar_date = str(daily_df.index[-1].date())
+    indicator_results = None
+    # Only consult cache when df_4h is None (4H input would invalidate).
+    if df_4h is None:
+        indicator_results = load_cached(symbol, config, sector, last_bar_date)
+    if indicator_results is None:
+        indicator_results = run_all_indicators(
+            daily_df,
+            enabled_indicators=enabled,
+            params=params,
+            sector=sector,
+            df_4h=df_4h,
+        )
+        if df_4h is None:
+            save_cached(symbol, config, sector, last_bar_date, indicator_results)
 
     # Run fundamental checks
     fundamental_results = check_fundamentals(stock_data, config)

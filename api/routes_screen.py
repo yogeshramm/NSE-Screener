@@ -130,8 +130,16 @@ def run_screen(request: ScreenRequest):
         else:  # "all"
             candidates = sorted(fund_symbols & all_symbols) + sorted(all_symbols - fund_symbols)
 
-        # Pre-filter: skip penny stocks and illiquid
+        # Pre-filter + fetch in one pass: load each history pickle ONCE,
+        # check price/volume, then build the bundle from the already-loaded
+        # df + only the fundamentals pickle. Previously this loop loaded
+        # history once for the gate, and get_stock_bundle() loaded it AGAIN
+        # via load_stock_full() — doubling disk reads on every scan.
+        import pickle
+        from setup_data import FUNDAMENTALS_DIR
+
         symbols = []
+        prefetched: dict[str, dict] = {}
         skipped = 0
         for sym in candidates:
             hist_df = load_history(sym)
@@ -148,17 +156,41 @@ def run_screen(request: ScreenRequest):
                 continue
             symbols.append(sym)
 
+            stock_data = {
+                "symbol": sym,
+                "daily_history": hist_df,
+                "daily_rows": len(hist_df),
+                "latest_close": round(float(last_close), 2),
+                "latest_date": str(hist_df.index[-1].date()),
+                "average_volume": int(avg_vol),
+            }
+            fund_path = FUNDAMENTALS_DIR / f"{sym}.pkl"
+            if fund_path.exists():
+                try:
+                    with open(fund_path, "rb") as f:
+                        stock_data.update(pickle.load(f))
+                except Exception:
+                    pass
+            prefetched[sym] = {
+                "symbol": sym,
+                "daily_df": hist_df,
+                "stock_data": stock_data,
+                "df_4h": None,
+                "source": "nse+screener.in",
+            }
+
         if not symbols:
             raise HTTPException(400, f"No stocks passed pre-filter (price > ₹{request.min_price}, volume > {request.min_volume:,}). Try a broader scope.")
     else:
         symbols = [s.strip().upper() for s in request.symbols]
+        prefetched = {}
 
-    # Fetch data for all symbols
+    # Fetch data for all symbols (use prefetched bundles when available)
     stocks = []
     errors = []
     for symbol in symbols:
         try:
-            bundle = get_stock_bundle(symbol)
+            bundle = prefetched.get(symbol) or get_stock_bundle(symbol)
             stocks.append(bundle)
         except Exception as e:
             errors.append({"symbol": symbol, "error": str(e)})
