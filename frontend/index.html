@@ -2297,7 +2297,22 @@ function changeChartInterval(interval, el) {
     b.className = 'chart-iv-btn px-2 py-0.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary';
   });
   if(el) el.className = 'chart-iv-btn px-2 py-0.5 text-[9px] font-bold rounded bg-surface-variant text-primary';
-  if(currentChartSymbol) loadChart(currentChartSymbol, currentChartDays, interval);
+  // Auto-stretch date range so coarser candles still produce a usable chart
+  // (e.g. 6M range × monthly candles = 6 candles, useless). Min targets:
+  // ~30 weekly candles for W, ~24 monthly candles for M.
+  let days = currentChartDays;
+  if (interval === '1W' && days < 365) days = 365;
+  else if (interval === '1M' && days < 730) days = 730;
+  if (days !== currentChartDays) {
+    currentChartDays = days;
+    // Highlight the matching range button (or none if it's a custom value)
+    document.querySelectorAll('.chart-tf-btn').forEach(b=>{
+      const matches = b.getAttribute('onclick')?.includes('('+days+',');
+      b.className = 'chart-tf-btn px-2 py-0.5 text-[9px] font-bold rounded ' +
+        (matches ? 'bg-surface-variant text-primary' : 'text-on-surface-variant hover:text-primary');
+    });
+  }
+  if(currentChartSymbol) loadChart(currentChartSymbol, days, interval);
 }
 
 function changeChartTimeframe(days, el) {
