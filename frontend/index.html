@@ -4590,7 +4590,15 @@ async function checkDataStatus() {
     const dataDate=data.data_as_of||data.history_latest_date||'';
     if(dataDate&&dataDate!=='N/A'){const dd=document.getElementById('data-date');dd.textContent='Data: '+dataDate;dd.classList.remove('hidden');}
     const bars=data.bars_per_stock||0;
-    if(ready&&!data.needs_history){updateRing(100);document.getElementById('ring-text').textContent='\u2713';document.getElementById('data-detail').textContent=count+' stocks | '+bars+'d';if(downloadPolling){clearInterval(downloadPolling);downloadPolling=null;}}
+    // Cron freshness — red border + tooltip when last morning sync is stale or failed
+    const ring=document.getElementById('data-ring')||document.querySelector('[data-ring]');
+    const wrap=document.getElementById('data-status')?.closest('button,a,div')||null;
+    const stale=!!data.cron_stale;
+    const tip=stale
+      ? `Stale: last sync ${data.cron_hours_since==null?'never':data.cron_hours_since+'h ago'}${data.cron_last_error?'\n'+data.cron_last_error.split('\n')[0]:''}`
+      : `Synced ${data.cron_hours_since}h ago${data.cron_duration_s?' ('+data.cron_duration_s+'s)':''}`;
+    if(wrap){wrap.title=tip;wrap.classList.toggle('ring-2',stale);wrap.classList.toggle('ring-error',stale);wrap.classList.toggle('animate-pulse',stale);}
+    if(ready&&!data.needs_history){updateRing(100);document.getElementById('ring-text').textContent=stale?'!':'\u2713';document.getElementById('data-detail').textContent=count+' stocks | '+bars+'d';if(downloadPolling){clearInterval(downloadPolling);downloadPolling=null;}}
     else if(data.needs_history&&!inProgress){updateRing(30);document.getElementById('ring-text').textContent=bars+'d';document.getElementById('data-detail').textContent='Need 200+ days';}
     else if(inProgress){updateRing(Math.min((count/totalExpected)*100,95));document.getElementById('data-detail').textContent='Syncing...';}
     else if(count===0){updateRing(0);document.getElementById('data-detail').textContent='Click to sync';}

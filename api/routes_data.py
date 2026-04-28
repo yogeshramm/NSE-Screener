@@ -4,6 +4,10 @@ POST /data/download   — Trigger batch download for specific symbols
 GET  /data/dates      — List available download dates
 """
 
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
@@ -13,6 +17,38 @@ from data.batch_downloader import (
     get_downloaded_symbols, get_available_dates, run_batch_download
 )
 from data.nse_symbols import NIFTY_500_FALLBACK, get_nifty500_live
+
+
+_CRON_STATUS_FILE = Path(__file__).parent.parent / "data_store" / "cron_status.json"
+# >48h with no successful run = stale. Cron is daily (~24h cadence); one missed
+# run leaves room for a one-day NSE holiday before alarming.
+_CRON_STALE_HOURS = 48.0
+
+
+def _read_cron_status() -> dict:
+    """Return cron freshness summary. Never raises — UI reads this on every page load."""
+    if not _CRON_STATUS_FILE.exists():
+        return {"cron_seen": False, "cron_stale": True, "cron_hours_since": None,
+                "cron_last_ok": None, "cron_last_error": None}
+    try:
+        data = json.loads(_CRON_STATUS_FILE.read_text())
+        completed = data.get("completed_at")
+        completed_dt = datetime.fromisoformat(completed) if completed else None
+        hours = ((datetime.now(timezone.utc) - completed_dt).total_seconds() / 3600.0
+                 if completed_dt else None)
+        ok = bool(data.get("ok"))
+        return {
+            "cron_seen": True,
+            "cron_stale": (hours is None) or (hours > _CRON_STALE_HOURS) or (not ok),
+            "cron_hours_since": round(hours, 1) if hours is not None else None,
+            "cron_last_ok": ok,
+            "cron_last_completed_at": completed,
+            "cron_last_error": (data.get("error") or "")[:300] if not ok else None,
+            "cron_duration_s": data.get("duration_s"),
+        }
+    except Exception as e:
+        return {"cron_seen": False, "cron_stale": True, "cron_hours_since": None,
+                "cron_last_ok": None, "cron_last_error": f"unreadable: {e}"}
 
 router = APIRouter()
 
@@ -73,6 +109,7 @@ def data_status():
         "data_as_of": data_as_of,
         "history_latest_date": latest_price_date,
         "history_symbols": history_count,
+        **_read_cron_status(),
     }
 
 
