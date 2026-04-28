@@ -89,6 +89,13 @@ def main():
             skip_fundamentals=args.prices_only,
         )
 
+    # Warm indicator cache so next scan is instant
+    if not args.prices_only:
+        print("  Warming indicator cache...")
+        from engine.precompute import warm_cache
+        stats = warm_cache(verbose=True)
+        print(f"  Cache ready: {stats['computed']} computed, {stats['cached']} reused")
+
     print(f"\n  Your screener is now ready for instant searches!")
     print(f"  Start the API: python run_server.py")
     print(f"  Then search unlimited times with zero delays.\n")

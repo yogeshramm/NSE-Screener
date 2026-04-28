@@ -305,12 +305,12 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
         </svg>
         <span id="ring-text" class="absolute inset-0 flex items-center justify-center text-[8px] font-bold">0%</span>
       </div>
-      <div class="flex flex-col">
+      <div class="flex flex-col whitespace-nowrap">
         <span id="data-status" class="text-[9px] uppercase font-bold leading-none text-on-surface-variant">Loading...</span>
-        <span id="data-detail" class="text-[10px] font-mono leading-none text-primary" id="dl-btn-text">SYNC</span>
+        <span id="data-detail" class="text-[10px] font-mono leading-none text-primary mt-0.5" id="dl-btn-text">SYNC</span>
       </div>
     </div>
-    <span id="data-date" class="text-[9px] text-on-surface-variant hidden"></span>
+    <span id="data-date" class="hidden"></span>
     <button class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-variant/40 transition-colors" onclick="triggerCatchup()">
       <span class="material-symbols-outlined text-primary">sync</span>
     </button>
@@ -418,7 +418,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
         <input id="symbols-input" class="w-full pl-10 bg-surface-container-high border border-outline-variant/20 rounded-lg text-sm h-10 focus:ring-1 focus:ring-primary placeholder:text-on-surface-variant/40" placeholder="Search symbols (RELIANCE, HDFCBANK...)" type="text" onkeydown="if(event.key==='Enter'){hideSearchDropdown();runScreen();}" oninput="onSearchInput(this.value)" autocomplete="off"/>
         <div id="search-dropdown" class="hidden absolute left-0 top-11 w-full max-h-60 overflow-y-auto bg-surface-container border border-outline-variant/20 rounded-xl shadow-2xl z-50 p-1"></div>
       </div>
-      <select id="scope-select" class="bg-surface-container-high border border-outline-variant/20 rounded-lg text-[10px] font-bold h-10 px-3 text-on-surface uppercase">
+      <select id="scope-select" class="bg-surface-container-high border border-outline-variant/20 rounded-lg text-[10px] font-bold h-10 px-3 text-on-surface uppercase" title="Smaller scope = faster scan. Nifty 500 is pre-warmed daily.">
         <option value="nifty200">Nifty 200</option>
         <option value="nifty500" selected>Nifty 500</option>
         <option value="all">All NSE</option>
@@ -430,7 +430,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
         </button>
         <div id="preset-dropdown" class="hidden absolute left-0 top-11 w-52 max-h-60 overflow-y-auto bg-surface-container border border-outline-variant/20 rounded-xl shadow-2xl z-50 p-1.5"></div>
       </div>
-      <span id="active-preset-badge" class="hidden text-[10px] bg-primary/20 text-primary px-2 py-1 rounded-full font-bold cursor-pointer" onclick="clearActivePreset()"></span>
+      <span id="active-preset-badge" class="hidden text-[10px] bg-primary/20 text-primary px-2 py-1 rounded-full font-bold cursor-pointer" onclick="clearActivePreset()" style="display:none !important"></span>
       <button onclick="quickSavePreset()" class="text-[10px] text-on-surface-variant hover:text-primary font-bold uppercase" title="Save current filters as preset">
         <span class="material-symbols-outlined text-sm">save</span>
       </button>
@@ -2297,7 +2297,22 @@ function changeChartInterval(interval, el) {
     b.className = 'chart-iv-btn px-2 py-0.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary';
   });
   if(el) el.className = 'chart-iv-btn px-2 py-0.5 text-[9px] font-bold rounded bg-surface-variant text-primary';
-  if(currentChartSymbol) loadChart(currentChartSymbol, currentChartDays, interval);
+  // Auto-stretch date range so coarser candles still produce a usable chart
+  // (e.g. 6M range × monthly candles = 6 candles, useless). Min targets:
+  // ~30 weekly candles for W, ~24 monthly candles for M.
+  let days = currentChartDays;
+  if (interval === '1W' && days < 365) days = 365;
+  else if (interval === '1M' && days < 730) days = 730;
+  if (days !== currentChartDays) {
+    currentChartDays = days;
+    // Highlight the matching range button (or none if it's a custom value)
+    document.querySelectorAll('.chart-tf-btn').forEach(b=>{
+      const matches = b.getAttribute('onclick')?.includes('('+days+',');
+      b.className = 'chart-tf-btn px-2 py-0.5 text-[9px] font-bold rounded ' +
+        (matches ? 'bg-surface-variant text-primary' : 'text-on-surface-variant hover:text-primary');
+    });
+  }
+  if(currentChartSymbol) loadChart(currentChartSymbol, days, interval);
 }
 
 function changeChartTimeframe(days, el) {
@@ -4571,15 +4586,22 @@ async function checkDataStatus() {
     const count=data.today_downloaded||0;
     const ready=data.ready_for_screening;
     const inProgress=data.download_in_progress;
-    document.getElementById('data-status').textContent=count+' stocks';
     const dataDate=data.data_as_of||data.history_latest_date||'';
-    if(dataDate&&dataDate!=='N/A'){const dd=document.getElementById('data-date');dd.textContent='Data: '+dataDate;dd.classList.remove('hidden');}
+    document.getElementById('data-status').textContent=(data.cron_stale?'STALE':'READY');
     const bars=data.bars_per_stock||0;
-    if(ready&&!data.needs_history){updateRing(100);document.getElementById('ring-text').textContent='\u2713';document.getElementById('data-detail').textContent=count+' stocks | '+bars+'d';if(downloadPolling){clearInterval(downloadPolling);downloadPolling=null;}}
-    else if(data.needs_history&&!inProgress){updateRing(30);document.getElementById('ring-text').textContent=bars+'d';document.getElementById('data-detail').textContent='Need 200+ days';}
-    else if(inProgress){updateRing(Math.min((count/totalExpected)*100,95));document.getElementById('data-detail').textContent='Syncing...';}
-    else if(count===0){updateRing(0);document.getElementById('data-detail').textContent='Click to sync';}
-    else{updateRing(Math.min((count/totalExpected)*100,99));document.getElementById('data-detail').textContent=count+'/~'+totalExpected;}
+    // Cron freshness — red border + tooltip when last morning sync is stale or failed
+    const ring=document.getElementById('data-ring')||document.querySelector('[data-ring]');
+    const wrap=document.getElementById('data-status')?.closest('button,a,div')||null;
+    const stale=!!data.cron_stale;
+    const tip=stale
+      ? `Stale: last sync ${data.cron_hours_since==null?'never':data.cron_hours_since+'h ago'}${data.cron_last_error?'\n'+data.cron_last_error.split('\n')[0]:''}`
+      : `Synced ${data.cron_hours_since}h ago${data.cron_duration_s?' ('+data.cron_duration_s+'s)':''}`;
+    if(wrap){wrap.title=tip;wrap.classList.toggle('ring-2',stale);wrap.classList.toggle('ring-error',stale);wrap.classList.toggle('animate-pulse',stale);}
+    if(ready&&!data.needs_history){updateRing(100);document.getElementById('ring-text').textContent=stale?'!':'\u2713';document.getElementById('data-detail').textContent=count+' \u00b7 '+bars+'d';if(downloadPolling){clearInterval(downloadPolling);downloadPolling=null;}}
+    else if(data.needs_history&&!inProgress){updateRing(30);document.getElementById('ring-text').textContent=bars+'d';document.getElementById('data-detail').textContent='Need 200d';}
+    else if(inProgress){updateRing(Math.min((count/totalExpected)*100,95));document.getElementById('data-detail').textContent='Syncing\u2026';}
+    else if(count===0){updateRing(0);document.getElementById('data-detail').textContent='Click sync';}
+    else{updateRing(Math.min((count/totalExpected)*100,99));document.getElementById('data-detail').textContent=count+'/'+totalExpected;}
     return data;
   } catch(e){document.getElementById('data-status').textContent='Offline';document.getElementById('data-detail').textContent='Start server';updateRing(0);return null;}
 }
