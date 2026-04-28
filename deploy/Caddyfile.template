@@ -12,11 +12,11 @@
         header_up X-Forwarded-Proto {scheme}
 
         # Long timeouts — full Nifty 500 screens with all 44 filters can take
-        # 90-120s on a 1-vCPU droplet. 60s was hitting 504 timeouts during
-        # heavy scans. Bumped to 180s + 5min idle.
+        # 120-200s on a 1-vCPU droplet (cold start). Bumped to 300s to cover
+        # worst-case variance. Caddy kills at 504 if still over limit.
         transport http {
-            read_timeout 180s
-            write_timeout 180s
+            read_timeout 300s
+            write_timeout 300s
             dial_timeout 30s
         }
     }

@@ -20,41 +20,12 @@ Usage:
 """
 
 import argparse
-import json
-import time
-import traceback
-from datetime import datetime, timezone
-from pathlib import Path
-
 from data.batch_downloader import (
     run_batch_download, run_daily_update,
     get_downloaded_symbols, get_available_dates
 )
 from data.nse_history import get_history_stats
 from data.nse_symbols import NIFTY_500_FALLBACK
-
-
-CRON_STATUS_FILE = Path(__file__).parent / "data_store" / "cron_status.json"
-
-
-def _write_cron_status(started_at: float, ok: bool, error: str | None,
-                       precompute_summary: dict | None = None):
-    """Atomically record the outcome of this run for /data/status to surface."""
-    try:
-        CRON_STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
-            "started_at": datetime.fromtimestamp(started_at, timezone.utc).isoformat(),
-            "completed_at": datetime.now(timezone.utc).isoformat(),
-            "duration_s": round(time.time() - started_at, 1),
-            "ok": ok,
-            "error": error,
-            "precompute": precompute_summary,
-        }
-        tmp = CRON_STATUS_FILE.with_suffix(".tmp")
-        tmp.write_text(json.dumps(payload, indent=2))
-        tmp.replace(CRON_STATUS_FILE)
-    except Exception as e:
-        print(f"  [WARN] Could not write cron_status.json: {e}")
 
 
 def main():
@@ -69,11 +40,6 @@ def main():
                        help="Specific symbols for --full mode (comma-separated)")
     parser.add_argument("--status", action="store_true",
                        help="Check download status")
-    parser.add_argument("--no-precompute", action="store_true",
-                       help="Skip the post-download indicator-cache warm-up")
-    parser.add_argument("--precompute-scope", default="nifty500",
-                       choices=["nifty200", "nifty500", "all"],
-                       help="Universe for indicator precompute (default: nifty500)")
     args = parser.parse_args()
 
     if args.status:
@@ -104,42 +70,31 @@ def main():
             print(f"  Run: python daily_download.py")
         return
 
-    started_at = time.time()
-    error = None
-    precompute_summary = None
-    try:
-        if args.full:
-            symbols = None
-            if args.symbols:
-                symbols = [s.strip().upper() for s in args.symbols.split(",")]
-            else:
-                symbols = list(NIFTY_500_FALLBACK)
-            run_batch_download(symbols=symbols)
+    if args.full:
+        # Legacy full yfinance download
+        symbols = None
+        if args.symbols:
+            symbols = [s.strip().upper() for s in args.symbols.split(",")]
         else:
-            backfill = None
-            if args.backfill:
-                backfill = [s.strip().upper() for s in args.backfill.split(",")]
-            run_daily_update(
-                backfill_symbols=backfill,
-                skip_fundamentals=args.prices_only,
-            )
+            symbols = list(NIFTY_500_FALLBACK)
+        run_batch_download(symbols=symbols)
+    else:
+        # Smart NSE-first daily update
+        backfill = None
+        if args.backfill:
+            backfill = [s.strip().upper() for s in args.backfill.split(",")]
 
-        if not args.no_precompute:
-            try:
-                from engine.precompute import warm_cache
-                precompute_summary = warm_cache(scope=args.precompute_scope, verbose=True)
-            except Exception as e:
-                print(f"\n  [WARN] Indicator precompute failed: {e}")
-                precompute_summary = {"error": str(e)}
+        run_daily_update(
+            backfill_symbols=backfill,
+            skip_fundamentals=args.prices_only,
+        )
 
-        _write_cron_status(started_at, ok=True, error=None,
-                           precompute_summary=precompute_summary)
-    except Exception:
-        error = traceback.format_exc()
-        print(f"\n  [ERROR] Daily download failed:\n{error}")
-        _write_cron_status(started_at, ok=False, error=error,
-                           precompute_summary=precompute_summary)
-        raise
+    # Warm indicator cache so next scan is instant
+    if not args.prices_only:
+        print("  Warming indicator cache...")
+        from engine.precompute import warm_cache
+        stats = warm_cache(verbose=True)
+        print(f"  Cache ready: {stats['computed']} computed, {stats['cached']} reused")
 
     print(f"\n  Your screener is now ready for instant searches!")
     print(f"  Start the API: python run_server.py")
