@@ -280,6 +280,81 @@ def _yf_rating_history(symbol: str, days: int) -> Optional[Dict[str, Any]]:
     except Exception: return None
 
 
+# ---------- TradingView Technical Summary ----------
+_TV_CACHE_FILE = os.path.join(CACHE_DIR, "_tv_batch.json")
+_TV_TTL = 4 * 3600   # 4h — refreshes intraday but not per-request
+_TV_COLS = ["Recommend.All", "Recommend.MA", "Recommend.Other"]
+_TV_EXCHANGE = "india"  # TradingView NSE scanner
+
+def _tv_label(score: float) -> str:
+    if score >= 0.5:  return "STRONG BUY"
+    if score >= 0.1:  return "BUY"
+    if score > -0.1:  return "NEUTRAL"
+    if score > -0.5:  return "SELL"
+    return "STRONG SELL"
+
+def _tv_batch_refresh(symbols: List[str]) -> Dict[str, Any]:
+    """POST to TradingView scanner for all symbols at once. Returns {SYM: {...}}."""
+    tickers = [f"NSE:{s}" for s in symbols]
+    try:
+        resp = requests.post(
+            f"https://scanner.tradingview.com/{_TV_EXCHANGE}/scan",
+            json={"symbols": {"tickers": tickers, "query": {"types": []}}, "columns": _TV_COLS},
+            headers={**_HDR, "Origin": "https://www.tradingview.com", "Referer": "https://www.tradingview.com/"},
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            return {}
+        out = {}
+        for row in resp.json().get("data") or []:
+            sym = row["s"].replace("NSE:", "")
+            d = row.get("d") or []
+            if len(d) < 3 or d[0] is None:
+                continue
+            score = round(d[0], 4)
+            out[sym] = {
+                "score": score,
+                "label": _tv_label(score),
+                "ma_score": round(d[1], 4) if d[1] is not None else None,
+                "osc_score": round(d[2], 4) if d[2] is not None else None,
+            }
+        return out
+    except Exception:
+        return {}
+
+def _tv_load_cache() -> Dict[str, Any]:
+    if os.path.exists(_TV_CACHE_FILE) and time.time() - os.path.getmtime(_TV_CACHE_FILE) < _TV_TTL:
+        try: return json.load(open(_TV_CACHE_FILE))
+        except Exception: pass
+    return {}
+
+def _tradingview_technical(symbol: str) -> Optional[Dict[str, Any]]:
+    """Return TradingView technical summary for a symbol. Uses a shared batch cache."""
+    cache = _tv_load_cache()
+    if symbol in cache:
+        return cache[symbol]
+    # Cache miss — fetch just this one symbol
+    result = _tv_batch_refresh([symbol])
+    if result:
+        # Merge into cache
+        cache.update(result)
+        try: json.dump(cache, open(_TV_CACHE_FILE, "w"))
+        except Exception: pass
+    return result.get(symbol)
+
+def tv_batch_prefetch(symbols: List[str]) -> None:
+    """Pre-warm TV cache for a list of symbols (call from cron/precompute)."""
+    cache = _tv_load_cache()
+    missing = [s for s in symbols if s not in cache]
+    if not missing:
+        return
+    result = _tv_batch_refresh(missing)
+    if result:
+        cache.update(result)
+        try: json.dump(cache, open(_TV_CACHE_FILE, "w"))
+        except Exception: pass
+
+
 # ---------- Aggregator ----------
 def _composite(mc, et, yf_, rss) -> Dict[str, Any]:
     """Combine sources into one consensus number 1-5 (1=strong buy, 5=strong sell — same as yfinance scale)."""
@@ -334,6 +409,7 @@ async def get_analyst_signal_async(symbol: str, tf: str = "1y") -> Dict[str, Any
     yf_ = _yf_rating(symbol)    # yfinance, often rate-limited
     rss = _rss_activity(symbol, days=days)
     yf_hist = _yf_rating_history(symbol, days=days)
+    tv = _tradingview_technical(symbol)  # batch-cached, near-instant
     crawl = await _crawl_sources(symbol, lookback_days=days)
     mc = crawl.get("moneycontrol")
     tt = crawl.get("tickertape")
@@ -356,23 +432,28 @@ async def get_analyst_signal_async(symbol: str, tf: str = "1y") -> Dict[str, Any
         "et_markets": et,
         "tickertape": tt,
         "trendlyne": tl,
+        "tradingview": tv,
         "yfinance": yf_,
         "yfinance_history": yf_hist,
         "news_activity": rss,
-        "composite": _composite_ext(mc, et, tt, tl, yf_, rss, current_price=cur_price),
-        "sources_used": [n for n, v in [("moneycontrol", mc), ("et_markets", et), ("tickertape", tt), ("trendlyne", tl), ("yfinance", yf_), ("yf_history", yf_hist), ("news", rss)] if v],
+        "composite": _composite_ext(mc, et, tt, tl, tv, yf_, rss, current_price=cur_price),
+        "sources_used": [n for n, v in [("moneycontrol", mc), ("et_markets", et), ("tickertape", tt), ("trendlyne", tl), ("tradingview", tv), ("yfinance", yf_), ("yf_history", yf_hist), ("news", rss)] if v],
     }
     try: json.dump(result, open(cache_f, "w"))
     except Exception: pass
     return result
 
 
-def _composite_ext(mc, et, tt, tl, yf_, rss, current_price=None) -> Dict[str, Any]:
+def _composite_ext(mc, et, tt, tl, tv, yf_, rss, current_price=None) -> Dict[str, Any]:
     """Extended composite. Uses explicit ratings where present, derives rating
     from target upside when only target prices are available."""
     parts = []; targets = []
     if yf_ and yf_.get("rating_mean") is not None: parts.append(float(yf_["rating_mean"]))
     if yf_ and yf_.get("target_mean") is not None: targets.append(yf_["target_mean"])
+    # TradingView technical score: convert from [-1,1] → [1,5] scale
+    if tv and tv.get("score") is not None:
+        tv_mapped = 3.0 - tv["score"] * 2.0   # 1.0=Strong Buy … 5.0=Strong Sell
+        parts.append(tv_mapped)
     for src in (mc, et, tt, tl):
         if not src: continue
         sb, b, h, s, ss = src.get("strong_buy", 0), src.get("buy", 0), src.get("hold", 0), src.get("sell", 0), src.get("strong_sell", 0)
