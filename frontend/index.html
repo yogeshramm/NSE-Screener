@@ -418,10 +418,10 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
         <input id="symbols-input" class="w-full pl-10 bg-surface-container-high border border-outline-variant/20 rounded-lg text-sm h-10 focus:ring-1 focus:ring-primary placeholder:text-on-surface-variant/40" placeholder="Search symbols (RELIANCE, HDFCBANK...)" type="text" onkeydown="if(event.key==='Enter'){hideSearchDropdown();runScreen();}" oninput="onSearchInput(this.value)" autocomplete="off"/>
         <div id="search-dropdown" class="hidden absolute left-0 top-11 w-full max-h-60 overflow-y-auto bg-surface-container border border-outline-variant/20 rounded-xl shadow-2xl z-50 p-1"></div>
       </div>
-      <select id="scope-select" class="bg-surface-container-high border border-outline-variant/20 rounded-lg text-[10px] font-bold h-10 px-3 text-on-surface uppercase">
-        <option value="nifty200">Nifty 200</option>
-        <option value="nifty500" selected>Nifty 500</option>
-        <option value="all">All NSE</option>
+      <select id="scope-select" class="bg-surface-container-high border border-outline-variant/20 rounded-lg text-[10px] font-bold h-10 px-3 text-on-surface uppercase" title="Smaller scopes scan faster. Nifty 500 is pre-warmed daily.">
+        <option value="nifty200">Nifty 200 · fastest</option>
+        <option value="nifty500" selected>Nifty 500 · ~4s</option>
+        <option value="all">All NSE ~2800 · ~25s</option>
       </select>
       <div class="relative">
         <button onclick="document.getElementById('preset-dropdown').classList.toggle('hidden')" class="bg-surface-container-high border border-outline-variant/20 rounded-lg text-[10px] font-bold h-10 px-3 text-on-surface flex items-center gap-2 min-w-[120px]">
