@@ -15,6 +15,7 @@ Usage (programmatic, called from daily_download):
 """
 
 import time
+from pathlib import Path
 from typing import Iterable
 
 from engine.default_config import get_default_config
@@ -67,12 +68,35 @@ def warm_cache(scope: str = "nifty500", symbols: Iterable[str] | None = None,
     import pickle as _pk
     from setup_data import HISTORY_DIR, FUNDAMENTALS_DIR
 
-    config = get_default_config()
-    enabled, params = _build_inputs(config)
+    # Warm the default config + every preset in config/presets/. Without this,
+    # picking a preset on the UI triggers a full cold scan (22s+ on Nifty 500)
+    # because the cache key includes the config hash. The cache holds up to 5
+    # entries per symbol, which fits 1 default + up to 4 presets.
+    import json
+    base = get_default_config()
+    enabled, params = _build_inputs(base)  # kept for backward compat (unused below)
+    configs: list[tuple[str, dict]] = [("default", base)]
+    presets_dir = Path(__file__).parent.parent / "config" / "presets"
+    if presets_dir.exists():
+        for pf in sorted(presets_dir.glob("*.json")):
+            try:
+                preset_overrides = json.loads(pf.read_text())
+                merged = {**base}
+                for k, v in preset_overrides.items():
+                    if k in merged and isinstance(merged[k], dict) and isinstance(v, dict):
+                        merged[k] = {**merged[k], **v}
+                    else:
+                        merged[k] = v
+                configs.append((pf.stem, merged))
+            except Exception as e:
+                if verbose:
+                    print(f"  [WARN] preset {pf.stem}: {e}")
 
     if symbols is None:
         symbols = _resolve_symbols(scope)
     symbols = list(symbols)
+    if verbose:
+        print(f"  Warming for {len(configs)} configs: {[n for n,_ in configs]}")
 
     t0 = time.time()
     computed = cached_hit = errors = skipped = 0
@@ -102,15 +126,17 @@ def warm_cache(scope: str = "nifty500", symbols: Iterable[str] | None = None,
                     pass
             last_bar = str(df.index[-1].date())
 
-            if load_cached(sym, config, sector, last_bar) is not None:
-                cached_hit += 1
-            else:
-                results = run_all_indicators(
-                    df, enabled_indicators=enabled, params=params,
-                    sector=sector, df_4h=None,
-                )
-                save_cached(sym, config, sector, last_bar, results)
-                computed += 1
+            for cfg_name, cfg in configs:
+                en, pa = _build_inputs(cfg)
+                if load_cached(sym, cfg, sector, last_bar) is not None:
+                    cached_hit += 1
+                else:
+                    results = run_all_indicators(
+                        df, enabled_indicators=en, params=pa,
+                        sector=sector, df_4h=None,
+                    )
+                    save_cached(sym, cfg, sector, last_bar, results)
+                    computed += 1
         except Exception as e:
             errors += 1
             if verbose:
