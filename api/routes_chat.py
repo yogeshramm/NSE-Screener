@@ -14,7 +14,7 @@ from engine.chat_parser import process_message
 router = APIRouter()
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = "llama-3.1-8b-instant"
+GROQ_MODEL = "llama-3.3-70b-versatile"
 
 SYSTEM_PROMPT = """You are YOINTELL Assistant — an AI for an Indian NSE swing-trading screener (moneystx.com).
 
