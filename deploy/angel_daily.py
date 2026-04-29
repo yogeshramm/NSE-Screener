@@ -11,6 +11,10 @@ from __future__ import annotations
 import sys
 import time
 from datetime import datetime
+from pathlib import Path
+
+# Allow `python deploy/angel_daily.py` to import from the project root
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
 def main() -> int:
