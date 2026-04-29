@@ -151,6 +151,7 @@ def main():
     stats = {"OK": 0, "already-deep": 0, "no-token": 0, "no-data": 0, "errors": 0, "rows_added": 0}
     for i, sym in enumerate(syms, 1):
         r = backfill_one(sym, args.years, args.force, args.dry_run)
+        time.sleep(0.25)  # 0.25s between symbols → ~4/s overall, well under 3/s API limit per-call
         if r["status"] == "OK":
             stats["OK"] += 1
             stats["rows_added"] += r["rows_added"]

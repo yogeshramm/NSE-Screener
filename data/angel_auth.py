@@ -28,23 +28,25 @@ _REQUIRED = ("ANGEL_API_KEY", "ANGEL_CLIENT_CODE", "ANGEL_MPIN", "ANGEL_TOTP_SEC
 
 
 def _load_env() -> dict:
-    """Load creds from os.environ, falling back to .env file at repo root."""
+    """Load creds from os.environ, falling back to .env or /etc/yointell.env."""
     env = {k: os.environ.get(k) for k in _REQUIRED}
     if all(env.values()):
         return env
-    env_file = _PROJECT_ROOT / ".env"
-    if env_file.exists():
-        for line in env_file.read_text().splitlines():
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            k, v = line.split("=", 1)
-            k = k.strip()
-            if k in _REQUIRED and not env.get(k):
-                env[k] = v.strip()
+    for env_file in [_PROJECT_ROOT / ".env", Path("/etc/yointell.env")]:
+        if env_file.exists():
+            for line in env_file.read_text().splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                k = k.strip()
+                if k in _REQUIRED and not env.get(k):
+                    env[k] = v.strip()
+        if all(env.values()):
+            break
     missing = [k for k, v in env.items() if not v]
     if missing:
-        raise RuntimeError(f"Missing Angel creds: {missing}. Set in env or .env at {env_file}")
+        raise RuntimeError(f"Missing Angel creds: {missing}. Set in env or .env at {_PROJECT_ROOT / '.env'}")
     return env
 
 
