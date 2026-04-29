@@ -2469,6 +2469,19 @@ let subPanelCharts = {}; // { key: chart instance }
 function renderChart(data) {
   chartData = data;
   chartOverlays = {};
+  // Adapt overlay titles for intraday (backend reuses daily slots for EMA 9/21/50)
+  const _ivLabels = data.intraday
+    ? {ema50:'EMA 9', ema200:'EMA 21', sma20:'EMA 50'}
+    : {ema50:'EMA 50', ema200:'EMA 200', sma20:'SMA 20'};
+  Object.entries(_ivLabels).forEach(([k,t]) => {
+    OVERLAY_CONFIG[k].title = t;
+    const inp = document.querySelector(`[data-chart-ind="${k}"]`);
+    if (inp) {
+      const lbl = inp.closest('label');
+      const tn = lbl && [...lbl.childNodes].find(n => n.nodeType===3 && n.textContent.trim());
+      if (tn) tn.textContent = t;
+    }
+  });
 
   // Destroy existing charts before recreating
   if(currentChart) { try{currentChart.remove()}catch(e){} currentChart=null; }
