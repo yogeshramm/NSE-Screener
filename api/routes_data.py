@@ -157,17 +157,33 @@ def data_status():
     history_count = hist.get("total_symbols", 0)
     total_stocks = max(len(symbols), history_count)
 
-    # Check actual bar count — need minimum 200 bars for EMA 200
+    # Check actual bar count — need minimum 200 bars for EMA 200.
+    # Skip NSE test instruments (NSETEST symbols) and sample a real major stock.
+    # Falls back to first non-test symbol if none of the preferred stocks exist.
     bars_sufficient = False
+    sample = None
+    sample_sym = None
     if history_count > 0:
         from data.nse_history import load_history
-        sample_sym = hist.get("symbols", [])[0] if hist.get("symbols") else None
+        all_syms = hist.get("symbols", [])
+        # Prefer well-known liquid stocks known to have full history
+        preferred = ["RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK"]
+        for s in preferred:
+            if s in all_syms:
+                sample_sym = s
+                break
+        if not sample_sym:
+            # Skip NSE test instruments + ETF-like junk
+            for s in all_syms:
+                if "NSETEST" not in s and "INAV" not in s:
+                    sample_sym = s
+                    break
         if sample_sym:
             sample = load_history(sample_sym)
             bars_sufficient = sample is not None and len(sample) >= 200
 
     ready = total_stocks > 50 and bars_sufficient
-    bar_count = len(sample) if sample_sym and load_history(sample_sym) is not None else 0
+    bar_count = len(sample) if sample is not None else 0
 
     import time as _time
     cache_status = _check_cache_warm()
