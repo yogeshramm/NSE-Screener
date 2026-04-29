@@ -12,12 +12,13 @@ from fastapi.responses import FileResponse
 
 
 def _background_prewarm():
-    """Run after startup to warm screener indicator cache.
-    Waits 45s so uvicorn finishes binding, then runs prewarm_presets.py."""
+    """Run after startup to warm indicator cache via warm_scope.py.
+    Uses direct warm_cache() — no HTTP calls, never blocks uvicorn workers.
+    Waits 45s so uvicorn finishes binding before starting."""
     time.sleep(45)
-    script = Path(__file__).parent.parent / "deploy" / "prewarm_presets.py"
+    script = Path(__file__).parent.parent / "deploy" / "warm_scope.py"
     try:
-        subprocess.run([sys.executable, str(script)], timeout=600, check=False)
+        subprocess.run([sys.executable, str(script), "nifty500"], timeout=600, check=False)
     except Exception:
         pass
 
