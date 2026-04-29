@@ -1,0 +1,68 @@
+name: Deploy to production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: SSH deploy + health check + auto-rollback
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host:     ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          key:      ${{ secrets.PROD_SSH_KEY }}
+          port:     ${{ secrets.PROD_SSH_PORT || 22 }}
+          command_timeout: 8m
+          script: |
+            set -e
+            cd /home/yointell/NSE-Screener
+
+            BEFORE=$(git rev-parse HEAD)
+            echo "→ before: $BEFORE"
+
+            git fetch origin main
+            git reset --hard origin/main
+            AFTER=$(git rev-parse HEAD)
+            echo "→ after:  $AFTER"
+
+            if [ "$BEFORE" = "$AFTER" ]; then
+              echo "✓ already up-to-date — nothing to deploy"
+              exit 0
+            fi
+
+            # Install new deps only if requirements.txt changed
+            if git diff --name-only "$BEFORE" "$AFTER" | grep -q '^requirements.txt$'; then
+              echo "→ requirements.txt changed — installing"
+              source venv/bin/activate 2>/dev/null || true
+              pip install -q -r requirements.txt
+            fi
+
+            sudo systemctl restart yointell
+            echo "→ service restarted"
+
+            # Health check — 5 attempts, 2s apart
+            for i in 1 2 3 4 5; do
+              sleep 2
+              if curl -fsS http://localhost:8000/data/status >/dev/null 2>&1; then
+                echo "✓ health check passed (attempt $i)"
+                exit 0
+              fi
+              echo "  attempt $i failed, retrying…"
+            done
+
+            # Rollback on failure
+            echo "✗ health check failed — rolling back to $BEFORE"
+            git reset --hard "$BEFORE"
+            sudo systemctl restart yointell
+            sleep 3
+            curl -fsS http://localhost:8000/data/status >/dev/null && echo "✓ rollback healthy"
+            exit 1
