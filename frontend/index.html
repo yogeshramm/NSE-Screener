@@ -284,15 +284,15 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
   <div class="flex items-center gap-8">
     <span class="text-xl font-black tracking-tighter brand-gradient uppercase">MONEYSTX</span>
     <nav class="flex items-center gap-6 tabular-nums text-sm tracking-tight h-full" id="main-nav">
-      <a class="nav-tab text-primary border-b-2 border-primary font-bold h-14 flex items-center cursor-pointer" data-tab="screener" onclick="switchTab('screener')">Screener</a>
-      <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="config" onclick="switchTab('config')">Configuration</a>
-      <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="indicators" onclick="switchTab('indicators')">Indicators</a>
-      <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="watchlist" onclick="switchTab('watchlist')">Watchlist</a>
-      <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="breakouts" onclick="switchTab('breakouts')">Breakouts</a>
-      <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="backtest" onclick="switchTab('backtest')">Backtester</a>
-      <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="events" onclick="switchTab('events')">Events</a>
-      <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="practice" onclick="switchTab('practice')">Practice</a>
-      <a class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="portfolio" onclick="switchTab('portfolio')">Portfolio</a>
+      <a href="#screener" class="nav-tab text-primary border-b-2 border-primary font-bold h-14 flex items-center cursor-pointer" data-tab="screener" onclick="event.preventDefault();switchTab('screener')">Screener</a>
+      <a href="#config" class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="config" onclick="event.preventDefault();switchTab('config')">Configuration</a>
+      <a href="#indicators" class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="indicators" onclick="event.preventDefault();switchTab('indicators')">Indicators</a>
+      <a href="#watchlist" class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="watchlist" onclick="event.preventDefault();switchTab('watchlist')">Watchlist</a>
+      <a href="#breakouts" class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="breakouts" onclick="event.preventDefault();switchTab('breakouts')">Breakouts</a>
+      <a href="#backtest" class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="backtest" onclick="event.preventDefault();switchTab('backtest')">Backtester</a>
+      <a href="#events" class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="events" onclick="event.preventDefault();switchTab('events')">Events</a>
+      <a href="#practice" class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="practice" onclick="event.preventDefault();switchTab('practice')">Practice</a>
+      <a href="#portfolio" class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="portfolio" onclick="event.preventDefault();switchTab('portfolio')">Portfolio</a>
     </nav>
   </div>
   <div class="flex items-center gap-4">
@@ -1535,11 +1535,23 @@ const HIGHLIGHTED = ['supertrend','vwap_bands','vortex'];
 // Middle-click / Cmd+click / right-click → Open in New Tab use the href to open
 // a new browser tab at https://moneystx.com/#stock=SYM, which on load auto-
 // switches to the Screener tab and opens the chart for that stock.
+function _openStockInline(symbol) {
+  // Switch to screener tab if needed, then open chart
+  const screenerTab = document.getElementById('tab-screener');
+  if (screenerTab && screenerTab.classList.contains('hidden')) {
+    switchTab('screener');
+    setTimeout(() => openChart(symbol), 120);
+  } else {
+    openChart(symbol);
+  }
+}
 function _stockLink(symbol, label) {
   const lbl = (label !== undefined) ? label : symbol;
-  // Encode symbol so things like M&M survive the URL hash
+  // href="#stock=SYM" → right-click "Open in new tab" opens new tab and hash handler auto-opens chart
+  // onclick → left-click opens chart inline without navigating
   const enc = encodeURIComponent(symbol);
-  return `<a href="#stock=${enc}" onclick="event.preventDefault();" class="hover:text-primary transition-colors">${lbl}</a>`;
+  const sym = symbol.replace(/'/g, "\\'");
+  return `<a href="#stock=${enc}" onclick="event.preventDefault();event.stopPropagation();_openStockInline('${sym}');" class="hover:text-primary transition-colors font-bold">${lbl}</a>`;
 }
 
 // ============ AUTH ============
