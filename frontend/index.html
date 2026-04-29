@@ -1476,17 +1476,9 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
       </div>
       <span class="material-symbols-outlined cursor-pointer hover:rotate-90 transition-transform" onclick="toggleChat()">close</span>
     </header>
-    <div class="flex items-center justify-between px-4 py-1.5 bg-surface-container-low border-b border-outline-variant/10">
-      <span class="text-[8px] uppercase font-bold text-on-surface-variant tracking-wider" id="chat-mode-label">Simple Mode</span>
-      <label class="flex items-center gap-1.5 cursor-pointer">
-        <span class="text-[8px] text-on-surface-variant">Simple</span>
-        <div class="relative">
-          <input type="checkbox" id="chat-mode-toggle" class="sr-only" onchange="toggleChatMode(this.checked)">
-          <div class="w-7 h-4 bg-surface-container-highest rounded-full"></div>
-          <div class="absolute left-0.5 top-0.5 w-3 h-3 bg-on-surface-variant rounded-full transition-transform" id="chat-mode-dot"></div>
-        </div>
-        <span class="text-[8px] text-on-surface-variant">AI</span>
-      </label>
+    <div class="flex items-center px-4 py-1.5 bg-surface-container-low border-b border-outline-variant/10 gap-1.5">
+      <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse inline-block"></span>
+      <span class="text-[8px] uppercase font-bold text-primary tracking-wider">Groq AI · Web Search On</span>
     </div>
     <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-4 text-sm scroll-smooth" style="max-height:380px">
       <div class="flex gap-2">
@@ -4815,33 +4807,9 @@ function showFaBadge(done,total) {
 function hideFaBadge() { document.getElementById('fa-sync-badge')?.remove(); }
 
 // ============ CHAT ============
-let chatMode = 'simple'; // 'simple' or 'ollama'
-
 function toggleChat() {
   const w=document.getElementById('chat-window');
   w.style.display=w.style.display==='none'?'flex':'none';
-  // Check Ollama status when opening
-  if(w.style.display==='flex') checkOllamaStatus();
-}
-
-async function checkOllamaStatus() {
-  try {
-    const r=await fetch(API+'/chat/status');
-    const d=await r.json();
-    const label=document.getElementById('chat-mode-label');
-    if(d.ready) { label.textContent=chatMode==='ollama'?'AI Mode (Ollama)':'Simple Mode'; }
-    else { label.textContent='Simple Mode (Ollama unavailable)'; if(chatMode==='ollama'){chatMode='simple';document.getElementById('chat-mode-toggle').checked=false;document.getElementById('chat-mode-dot').style.transform='';} }
-  } catch(e){}
-}
-
-function toggleChatMode(checked) {
-  chatMode=checked?'ollama':'simple';
-  const dot=document.getElementById('chat-mode-dot');
-  const label=document.getElementById('chat-mode-label');
-  dot.style.transform=checked?'translateX(12px)':'';
-  dot.style.background=checked?'var(--primary)':'';
-  label.textContent=checked?'AI Mode (Ollama)':'Simple Mode';
-  if(checked) checkOllamaStatus();
 }
 
 async function sendChat() {
@@ -4854,7 +4822,7 @@ async function sendChat() {
   container.scrollTop=container.scrollHeight;
 
   try {
-    const res=await fetch(API+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,config:getFilterConfig(),mode:chatMode})});
+    const res=await fetch(API+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,config:getFilterConfig(),mode:'auto'})});
     const data=await res.json();
     let reply=data.reply||'I couldn\'t understand that.';
     container.innerHTML+=`<div class="flex gap-2"><div class="w-6 h-6 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center border border-outline-variant/20"><span class="material-symbols-outlined text-[14px]">psychology</span></div><div class="bg-surface-container p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl border border-outline-variant/10 text-on-surface-variant leading-relaxed max-w-[80%]">${reply}</div></div>`;
