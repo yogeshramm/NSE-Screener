@@ -91,6 +91,9 @@ _fa_sync = {"running": False, "done": 0, "total": 0, "complete": False}
 # Track if a download is in progress
 _download_in_progress = False
 _download_stats = None
+_download_lock = threading.Lock()  # serialise catchup trigger checks
+_last_catchup_attempt = 0.0       # epoch — used to back off failed catchups
+_CATCHUP_COOLDOWN = 300            # 5 min — don't retry catchup if it just ran
 
 
 @router.get("/data/status")
@@ -229,8 +232,10 @@ def trigger_download(request: DownloadRequest):
     """
     global _download_in_progress, _download_stats
 
-    if _download_in_progress:
-        raise HTTPException(409, "A download is already in progress")
+    with _download_lock:
+        if _download_in_progress:
+            raise HTTPException(409, "A download is already in progress")
+        _download_in_progress = True   # claim flag inside the lock
 
     if request.symbols:
         symbols = [s.strip().upper() for s in request.symbols]
@@ -241,7 +246,6 @@ def trigger_download(request: DownloadRequest):
 
     def _bg_download():
         global _download_in_progress, _download_stats
-        _download_in_progress = True
         try:
             _download_stats = run_batch_download(symbols=symbols)
         except Exception as e:
@@ -272,12 +276,13 @@ def trigger_history_setup(request: HistoryRequest):
     """
     global _download_in_progress, _download_stats
 
-    if _download_in_progress:
-        raise HTTPException(409, "A download is already in progress")
+    with _download_lock:
+        if _download_in_progress:
+            raise HTTPException(409, "A download is already in progress")
+        _download_in_progress = True   # claim flag inside the lock
 
     def _bg_setup():
         global _download_in_progress, _download_stats
-        _download_in_progress = True
         try:
             from setup_data import download_historical_prices, download_all_fundamentals
             from data.nse_symbols import NIFTY_500_FALLBACK
@@ -314,10 +319,18 @@ def trigger_catchup():
     Smart catch-up: detects gap between latest data and today,
     downloads only the missing days from NSE. No terminal needed.
     """
-    global _download_in_progress, _download_stats
+    global _download_in_progress, _download_stats, _last_catchup_attempt
+    import time as _time
 
-    if _download_in_progress:
-        raise HTTPException(409, "A download is already in progress")
+    # Atomic in-progress check + cooldown to prevent race-condition stampede
+    with _download_lock:
+        if _download_in_progress:
+            return {"status": "in_progress", "message": "A download is already in progress"}
+        if _time.time() - _last_catchup_attempt < _CATCHUP_COOLDOWN:
+            wait_s = int(_CATCHUP_COOLDOWN - (_time.time() - _last_catchup_attempt))
+            return {"status": "cooldown", "message": f"Recently ran. Try again in {wait_s}s."}
+        _last_catchup_attempt = _time.time()
+        _download_in_progress = True   # claim the flag here, before background thread starts
 
     # Calculate how many days to catch up
     from data.nse_history import get_history_stats
@@ -362,7 +375,7 @@ def trigger_catchup():
 
     def _bg_catchup():
         global _download_in_progress, _download_stats
-        _download_in_progress = True
+        # _download_in_progress already True (set in trigger_catchup with the lock)
         try:
             from setup_data import download_historical_prices, download_all_fundamentals
             from data.nse_symbols import NIFTY_500_FALLBACK
