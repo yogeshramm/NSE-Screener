@@ -16,15 +16,13 @@ _HDR = {
     "Accept": "application/rss+xml, application/xml, text/xml, */*",
 }
 
-# Official RSS (market / business feeds — per-stock filtering via keyword)
+# Official RSS — live feeds only (Moneycontrol RSS is stale/broken as of 2025)
 _FEEDS = [
-    ("Moneycontrol", "https://www.moneycontrol.com/rss/business.xml"),
-    ("Moneycontrol Markets", "https://www.moneycontrol.com/rss/marketreports.xml"),
-    ("Moneycontrol Results", "https://www.moneycontrol.com/rss/results.xml"),
-    ("Mint Markets", "https://www.livemint.com/rss/markets"),
-    ("Mint Companies", "https://www.livemint.com/rss/companies"),
-    ("ET Markets", "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms"),
-    ("ET Stocks", "https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms"),
+    ("ET Markets",  "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms"),
+    ("ET Stocks",   "https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms"),
+    ("ET Companies","https://economictimes.indiatimes.com/industry/rssfeeds/13352306.cms"),
+    ("Mint Markets","https://www.livemint.com/rss/markets"),
+    ("Mint Companies","https://www.livemint.com/rss/companies"),
 ]
 
 _POS = re.compile(r"\b(beat|beats|surge|surges|surged|gain|gains|rally|rallies|rises?|rose|jump|jumps|jumped|upgrade|outperform|record|profit|strong|growth|bullish|buy|positive|win|wins|tops?|exceeds?)\b", re.I)

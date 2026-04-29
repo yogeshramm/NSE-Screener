@@ -3,10 +3,31 @@ NSE Screener — FastAPI Application
 Main entry point for the backend API server.
 """
 
+import threading, subprocess, sys, time
+from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+
+
+def _background_prewarm():
+    """Run after startup to warm screener indicator cache.
+    Waits 45s so uvicorn finishes binding, then runs prewarm_presets.py."""
+    time.sleep(45)
+    script = Path(__file__).parent.parent / "deploy" / "prewarm_presets.py"
+    try:
+        subprocess.run([sys.executable, str(script)], timeout=600, check=False)
+    except Exception:
+        pass
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Launch prewarm in background — won't block startup
+    t = threading.Thread(target=_background_prewarm, daemon=True)
+    t.start()
+    yield
 
 from api.routes_screen import router as screen_router
 from api.routes_stock import router as stock_router
@@ -39,6 +60,7 @@ app = FastAPI(
     description="Professional NSE stock screener with 25 technical indicators, "
                 "2-stage screening, and 100-point scoring system.",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # CORS — allow Google Stitch frontend and local dev
