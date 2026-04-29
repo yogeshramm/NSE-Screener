@@ -6,6 +6,9 @@ __pycache__/
 .cache/
 .venv/
 venv/
+.env
+.env.*
+!.env.example
 data_store/*
 # Allow analyst JSON cache (populated by GitHub Actions, pulled by server)
 !data_store/analyst/

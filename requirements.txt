@@ -10,3 +10,6 @@ httpx
 crawl4ai>=0.8.6
 curl_cffi>=0.7
 cloudscraper>=1.2.71
+smartapi-python>=1.5.5
+pyotp>=2.9.0
+logzero>=1.7.0
