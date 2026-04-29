@@ -460,23 +460,22 @@ def trigger_warm(scope: str = "nifty500"):
     def _run():
         global _warm_in_progress, _warm_stats
         try:
-            from engine.precompute import warm_cache
-            # Scope-limited symbol list
-            syms = None
-            if scope in ("nifty50", "nifty200", "nifty500"):
+            # Run in a subprocess so warm_cache() doesn't hold the GIL and
+            # block uvicorn from serving other requests while computing.
+            script = Path(__file__).parent.parent / "deploy" / "warm_scope.py"
+            import subprocess, sys
+            result = subprocess.run(
+                [sys.executable, str(script), scope],
+                capture_output=True, text=True, timeout=600
+            )
+            if result.returncode == 0:
+                import json as _json
                 try:
-                    from data.nse_symbols import get_nifty500_live, NIFTY_500_FALLBACK
-                    all500 = get_nifty500_live() or list(NIFTY_500_FALLBACK)
-                    if scope == "nifty50":
-                        syms = all500[:50]
-                    elif scope == "nifty200":
-                        syms = all500[:200]
-                    else:
-                        syms = all500
+                    _warm_stats = _json.loads(result.stdout.strip().split('\n')[-1])
                 except Exception:
-                    syms = None   # fallback: all
-            stats = warm_cache(symbols=syms, verbose=False)
-            _warm_stats = stats
+                    _warm_stats = {"done": True}
+            else:
+                _warm_stats = {"error": result.stderr[-500:] if result.stderr else "unknown"}
         except Exception as e:
             _warm_stats = {"error": str(e)}
         finally:
