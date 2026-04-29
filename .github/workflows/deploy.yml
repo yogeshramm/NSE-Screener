@@ -26,6 +26,14 @@ jobs:
             set -e
             cd /home/yointell/NSE-Screener
 
+            # Preserve runtime state across reset --hard
+            # (users.json + watchlist.json + portfolio.json are written by the live app
+            # at runtime; .auth_secret is the JWT signing key created on first boot)
+            mkdir -p /tmp/yointell_runtime
+            for f in users.json watchlist.json portfolio.json .auth_secret; do
+              [ -f "config/$f" ] && cp "config/$f" "/tmp/yointell_runtime/$f"
+            done
+
             BEFORE=$(git rev-parse HEAD)
             echo "→ before: $BEFORE"
 
@@ -33,6 +41,12 @@ jobs:
             git reset --hard origin/main
             AFTER=$(git rev-parse HEAD)
             echo "→ after:  $AFTER"
+
+            # Restore runtime state (after reset, before service restart)
+            for f in users.json watchlist.json portfolio.json .auth_secret; do
+              [ -f "/tmp/yointell_runtime/$f" ] && cp "/tmp/yointell_runtime/$f" "config/$f"
+            done
+            rm -rf /tmp/yointell_runtime
 
             if [ "$BEFORE" = "$AFTER" ]; then
               echo "✓ already up-to-date — nothing to deploy"

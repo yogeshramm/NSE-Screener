@@ -4,8 +4,21 @@ __pycache__/
 *.pages
 .DS_Store
 .cache/
+.venv/
+venv/
 data_store/*
 # Allow analyst JSON cache (populated by GitHub Actions, pulled by server)
 !data_store/analyst/
 !data_store/analyst/*.json
 .history_*.tar.gz
+
+# Runtime state — written by the live app, must NOT be tracked
+# (deploy workflow preserves these across git reset --hard)
+config/users.json
+config/watchlist.json
+config/portfolio.json
+config/.auth_secret
+
+# Local research / scratch — kept out of repo
+research/
+frontend/index_*_pre-*.html
