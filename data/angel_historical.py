@@ -37,6 +37,14 @@ INTERVALS = (
     "FIFTEEN_MINUTE", "THIRTY_MINUTE", "ONE_HOUR", "ONE_DAY",
 )
 
+# Per-request day caps (Angel forum, 2025-26). Used by get_candles_paginated.
+_INTERVAL_CAP_DAYS = {
+    "ONE_MINUTE": 30, "THREE_MINUTE": 60,
+    "FIVE_MINUTE": 100, "TEN_MINUTE": 100,
+    "FIFTEEN_MINUTE": 200, "THIRTY_MINUTE": 200,
+    "ONE_HOUR": 400, "ONE_DAY": 2000,
+}
+
 
 def _fmt_dt(dt: Union[str, datetime, pd.Timestamp]) -> str:
     """Coerce to 'YYYY-MM-DD HH:MM' format Angel expects."""
@@ -101,6 +109,53 @@ def get_candles(
     df = df.set_index("ts").sort_index()
     df["Volume"] = df["Volume"].astype("int64")
     return df
+
+
+def get_candles_paginated(
+    symbol: str,
+    interval: str = "ONE_DAY",
+    from_date: Union[str, datetime, pd.Timestamp] = None,
+    to_date: Union[str, datetime, pd.Timestamp] = None,
+    exchange: str = "NSE",
+    sleep_between: float = 0.4,
+) -> pd.DataFrame:
+    """Fetch a long date range by splitting into per-interval-cap chunks.
+
+    For 10 years of daily candles: cap is 2000 days, so ~2 calls per stock.
+    For intraday 1-min over 12 months: cap is 30 days, so ~12 calls.
+
+    `sleep_between` honours Angel's 3/sec rate limit (0.4s = 2.5/sec, safe).
+    Returns the same shape as get_candles(): tz-aware IST DatetimeIndex,
+    Open/High/Low/Close/Volume columns, deduped + sorted.
+    """
+    if interval not in _INTERVAL_CAP_DAYS:
+        raise ValueError(f"interval must be one of {INTERVALS}")
+    cap = _INTERVAL_CAP_DAYS[interval]
+
+    today_ist = pd.Timestamp.now(tz="Asia/Kolkata")
+    end = pd.Timestamp(to_date or today_ist)
+    start = pd.Timestamp(from_date or (today_ist - pd.Timedelta(days=365)))
+    if end.tz is None:
+        end = end.tz_localize("Asia/Kolkata")
+    if start.tz is None:
+        start = start.tz_localize("Asia/Kolkata")
+
+    chunks = []
+    cursor = end
+    while cursor > start:
+        chunk_start = max(start, cursor - pd.Timedelta(days=cap))
+        df = get_candles(symbol, interval, chunk_start, cursor, exchange)
+        if not df.empty:
+            chunks.append(df)
+        if chunk_start <= start:
+            break
+        cursor = chunk_start - pd.Timedelta(days=1)
+        time.sleep(sleep_between)
+
+    if not chunks:
+        return pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
+    out = pd.concat(chunks).sort_index()
+    return out[~out.index.duplicated(keep="last")]
 
 
 def get_candles_with_retry(
