@@ -401,9 +401,14 @@ async def get_analyst_signal_async(symbol: str, tf: str = "1y") -> Dict[str, Any
     tf = tf if tf in _TF_DAYS else "1y"
     days = _TF_DAYS[tf]
     cache_f = os.path.join(CACHE_DIR, f"{symbol}__{tf}.json")
-    if os.path.exists(cache_f) and time.time() - os.path.getmtime(cache_f) < TTL:
-        try: return json.load(open(cache_f))
-        except Exception: pass
+    # Read existing cache (may contain GHA-fetched Trendlyne data even if other sources are stale)
+    existing_cache: Dict[str, Any] = {}
+    if os.path.exists(cache_f):
+        try: existing_cache = json.load(open(cache_f))
+        except Exception: existing_cache = {}
+    cache_full = existing_cache.get("composite") is not None  # Only complete caches have a composite
+    if cache_full and time.time() - os.path.getmtime(cache_f) < TTL:
+        return existing_cache
     # Fast sources (sync) + crawl4ai parallel
     et = _et_consensus(symbol)  # curl_cffi, ~300ms
     yf_ = _yf_rating(symbol)    # yfinance, often rate-limited
@@ -414,6 +419,9 @@ async def get_analyst_signal_async(symbol: str, tf: str = "1y") -> Dict[str, Any
     mc = crawl.get("moneycontrol")
     tt = crawl.get("tickertape")
     tl = crawl.get("trendlyne")
+    # Trendlyne is blocked from server IPs — fall back to GHA-fetched cache if live fetch failed
+    if not tl and existing_cache.get("trendlyne"):
+        tl = existing_cache["trendlyne"]
     # Current price from local history (for target-based rating derivation)
     cur_price = None
     try:
