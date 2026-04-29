@@ -2,6 +2,7 @@
 GET /chart/{symbol} — Returns OHLCV + indicator data as JSON for charting.
 """
 
+import time
 from fastapi import APIRouter, HTTPException
 from api.data_helper import get_stock_bundle
 
@@ -9,12 +10,18 @@ router = APIRouter()
 
 _ANGEL_MAP = {"5m": "FIVE_MINUTE", "15m": "FIFTEEN_MINUTE", "1h": "ONE_HOUR"}
 _ANGEL_DAYS = {"5m": 100, "15m": 200, "1h": 400}
+_intraday_cache: dict = {}  # key → (ts, payload); 10-min TTL
 
 
 def _intraday_chart(symbol: str, interval: str):
     import math, numpy as np
     import pandas as pd
     from data.angel_historical import get_candles_paginated
+
+    cache_key = f"{symbol}:{interval}"
+    cached = _intraday_cache.get(cache_key)
+    if cached and time.time() - cached[0] < 600:
+        return cached[1]
 
     angel_interval = _ANGEL_MAP[interval]
     from_date = pd.Timestamp.now(tz="Asia/Kolkata") - pd.Timedelta(days=_ANGEL_DAYS[interval])
@@ -96,13 +103,13 @@ def _intraday_chart(symbol: str, interval: str):
     macd_hist_data  = [{"time": int(i.timestamp()), "value": round(v, 4), "color": "#00e5a0" if v >= 0 else "#ff4757"}
                        for i, v in macd_hist.items() if not math.isnan(v)]
 
-    return {
+    result = {
         "symbol": symbol, "interval": interval,
         "candles": candles, "volumes": volumes,
         "overlays": {
-            "ema50": ema9_data,    # reuse ema50 slot for EMA9 intraday
-            "ema200": ema21_data,  # reuse ema200 slot for EMA21 intraday
-            "sma20": ema50_data,   # reuse sma20 slot for EMA50 intraday
+            "ema50": ema9_data,
+            "ema200": ema21_data,
+            "sma20": ema50_data,
             "supertrend": st_data,
             "bb_upper": bb_upper_data, "bb_mid": bb_mid_data, "bb_lower": bb_lower_data,
             "vwap": vwap_data,
@@ -115,6 +122,8 @@ def _intraday_chart(symbol: str, interval: str):
         "bars": len(candles),
         "intraday": True,
     }
+    _intraday_cache[cache_key] = (time.time(), result)
+    return result
 
 
 @router.get("/chart/{symbol}")
