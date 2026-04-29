@@ -2051,31 +2051,29 @@ async function _doScan(scope, config) {
 
 async function runScreenAll() {
   const config=getFilterConfig(), scope=document.getElementById('scope-select').value;
-  // Check if indicator cache is warm for this scope
-  let cacheWarm = true;
-  try {
-    const st = await fetch(API+'/data/status',{signal:AbortSignal.timeout(4000)}).then(r=>r.json());
-    cacheWarm = !!st.cache_warm;
-    if(!st.ready_for_screening){_doScan(scope,config);return;}  // let server handle it
-  } catch(e){ /* offline or timeout — just try scan */ }
+  let st = null;
+  try { st = await fetch(API+'/data/status',{signal:AbortSignal.timeout(4000)}).then(r=>r.json()); } catch(e){}
 
-  if(cacheWarm){
-    _hideWarmBanner();
-    _doScan(scope,config);
-    return;
-  }
+  // Not ready — scan anyway (server handles gracefully)
+  if(st && !st.ready_for_screening){ _doScan(scope,config); return; }
 
-  // Cache is cold — warm first, then auto-scan
+  // Cache warm OR warm just finished in last 10 min — scan immediately
+  const warmRecentlyDone = st && st.warm_completed_ago_s != null && st.warm_completed_ago_s < 600;
+  if(!st || st.cache_warm || warmRecentlyDone){ _hideWarmBanner(); _doScan(scope,config); return; }
+
+  // Cache is cold — show banner, trigger warm (server deduplicates if already running)
   if(_warmPollingTimer){clearInterval(_warmPollingTimer);_warmPollingTimer=null;}
   const est={nifty50:'~10s',nifty200:'~30s',nifty500:'~90s',all:'~3 min'}[scope]||'~2 min';
-  _showWarmBanner(`<span class="material-symbols-outlined text-xs" style="animation:spin 1s linear infinite">sync</span>&nbsp;Warming scan cache for <b>${scope}</b> (${est}) — will auto-scan when ready&hellip;
-    <button onclick="if(_warmPollingTimer){clearInterval(_warmPollingTimer);_warmPollingTimer=null;}_hideWarmBanner();_doScan('${scope}',getFilterConfig())" class="ml-auto text-[9px] underline">Skip wait &amp; scan now</button>`,'warming');
+  const resuming = st && st.warm_in_progress;
+  _showWarmBanner(`<span class="material-symbols-outlined text-xs" style="animation:spin 1s linear infinite">sync</span>&nbsp;${resuming?'Resuming':'Warming'} scan cache for <b>${scope}</b> (${est}) — will auto-scan when ready&hellip;
+    <button onclick="if(_warmPollingTimer){clearInterval(_warmPollingTimer);_warmPollingTimer=null;}_hideWarmBanner();_doScan('${scope}',getFilterConfig())" class="ml-auto text-[9px] underline">Skip &amp; scan now</button>`,'warming');
   try { await fetch(API+`/data/warm?scope=${scope}`,{method:'POST'}); } catch(e){}
 
   _warmPollingTimer = setInterval(async()=>{
     try {
-      const st=await fetch(API+'/data/status').then(r=>r.json());
-      if(st.cache_warm||!st.warm_in_progress){
+      const s=await fetch(API+'/data/status').then(r=>r.json());
+      const recentDone = s.warm_completed_ago_s != null && s.warm_completed_ago_s < 600;
+      if(s.cache_warm || recentDone || !s.warm_in_progress){
         clearInterval(_warmPollingTimer);_warmPollingTimer=null;
         _showWarmBanner('<span class="material-symbols-outlined text-xs">check_circle</span>&nbsp;Cache ready — scanning now&hellip;','done');
         setTimeout(_hideWarmBanner,3000);

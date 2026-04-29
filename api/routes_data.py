@@ -99,12 +99,13 @@ _CATCHUP_COOLDOWN = 300            # 5 min — don't retry catchup if it just ra
 _warm_in_progress = False
 _warm_lock = threading.Lock()
 _warm_stats: dict = {}
+_warm_completed_at: float = 0.0   # epoch time of last successful warm
 
 
 def _check_cache_warm() -> dict:
-    """Sample indicator cache files to see if they match current last_bar_date.
-    Returns {'cache_warm': bool, 'cache_warm_pct': int} — fast: O(50 samples)."""
-    import pickle, random
+    """Count indicator cache files dated today vs expected scope size.
+    Uses absolute counts (not sampling) so stale files from other configs
+    don't dilute the percentage. Nifty 500 = 500 expected files minimum."""
     from engine.indicator_cache import CACHE_DIR
     from data.nse_history import get_history_stats
     hist = get_history_stats()
@@ -114,13 +115,12 @@ def _check_cache_warm() -> dict:
     files = list(CACHE_DIR.glob("*.pkl"))
     if not files:
         return {"cache_warm": False, "cache_warm_pct": 0}
-    sample = random.sample(files, min(50, len(files)))
-    warm = sum(
-        1 for f in sample
-        if _safe_cache_date(f)[:10] == latest
-    )
-    pct = round(warm / len(sample) * 100)
-    return {"cache_warm": pct >= 80, "cache_warm_pct": pct}
+    # Count files that match today's date (any config, any stock)
+    warm_count = sum(1 for f in files if _safe_cache_date(f)[:10] == latest)
+    # Expect at least 400 warm files (80% of nifty500) for a usable cache
+    expected = 400
+    pct = min(100, round(warm_count / expected * 100))
+    return {"cache_warm": warm_count >= expected, "cache_warm_pct": pct}
 
 
 def _safe_cache_date(path) -> str:
@@ -169,7 +169,9 @@ def data_status():
     ready = total_stocks > 50 and bars_sufficient
     bar_count = len(sample) if sample_sym and load_history(sample_sym) is not None else 0
 
+    import time as _time
     cache_status = _check_cache_warm()
+    warm_ago = round(_time.time() - _warm_completed_at) if _warm_completed_at else None
     return {
         "today_downloaded": total_stocks,
         "ready_for_screening": ready,
@@ -177,6 +179,7 @@ def data_status():
         "bars_per_stock": bar_count,
         "download_in_progress": _download_in_progress,
         "warm_in_progress": _warm_in_progress,
+        "warm_completed_ago_s": warm_ago,
         "last_download": _download_stats,
         "available_dates": real_dates[:5],
         "today_date": date.today().isoformat(),
@@ -458,7 +461,7 @@ def trigger_warm(scope: str = "nifty500"):
         _warm_stats = {}
 
     def _run():
-        global _warm_in_progress, _warm_stats
+        global _warm_in_progress, _warm_stats, _warm_completed_at
         try:
             # Run in a subprocess so warm_cache() doesn't hold the GIL and
             # block uvicorn from serving other requests while computing.
@@ -468,12 +471,14 @@ def trigger_warm(scope: str = "nifty500"):
                 [sys.executable, str(script), scope],
                 capture_output=True, text=True, timeout=600
             )
+            import time as _time
             if result.returncode == 0:
                 import json as _json
                 try:
                     _warm_stats = _json.loads(result.stdout.strip().split('\n')[-1])
                 except Exception:
                     _warm_stats = {"done": True}
+                _warm_completed_at = _time.time()
             else:
                 _warm_stats = {"error": result.stderr[-500:] if result.stderr else "unknown"}
         except Exception as e:
