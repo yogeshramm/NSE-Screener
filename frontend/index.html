@@ -470,6 +470,9 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
           </button>
           <span id="s1-count" class="hidden">0</span>
           <span id="s2-count" class="hidden">0</span>
+          <span id="live-badge" class="hidden items-center gap-1 text-[10px] font-bold text-primary ml-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse inline-block"></span>LIVE
+          </span>
         </div>
         <!-- STAGE 1 -->
         <section id="stage-1-section">
@@ -2069,6 +2072,7 @@ async function _doScan(scope, config) {
 }
 
 async function runScreenAll(attempt = 0) {
+  stopLivePrices();
   // Guard: bail if a scan is already in flight (stop-btn visible = scan running)
   if (!document.getElementById('stop-btn').classList.contains('hidden')) return;
 
@@ -2231,7 +2235,7 @@ function renderResults(data) {
     return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" onclick="openInsightsPro('${r.symbol}')">
       <td class="px-3 py-2.5 font-bold ${r.passed?'text-primary':'text-on-surface-variant'}">${r.rank||i+1}</td>
       <td class="px-3 py-2.5"><div class="font-bold text-on-surface">${_stockLink(r.symbol)}</div><div class="text-[9px] text-on-surface-variant">${r.sector||''}</div></td>
-      <td class="px-3 py-2.5 text-right text-on-surface">\u20b9${r.price||'--'}</td>
+      <td class="px-3 py-2.5 text-right text-on-surface ltp-cell" data-sym="${r.symbol}">\u20b9${r.price||'--'}</td>
       <td class="px-3 py-2.5 text-right text-on-surface-variant">${pe}</td>
       <td class="px-3 py-2.5 text-right text-on-surface-variant">${rsi}</td>
       <td class="px-3 py-2.5 text-right text-on-surface-variant">${roe}</td>
@@ -2249,7 +2253,7 @@ function renderResults(data) {
     <tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" onclick="openInsightsPro('${r.symbol}')">
       <td class="px-3 py-2.5 font-bold text-secondary">${r.rank||i+1}</td>
       <td class="px-3 py-2.5 font-bold text-on-surface">${_stockLink(r.symbol)}</td>
-      <td class="px-3 py-2.5 text-right text-on-surface">\u20b9${r.price||'--'}</td>
+      <td class="px-3 py-2.5 text-right text-on-surface ltp-cell" data-sym="${r.symbol}">\u20b9${r.price||'--'}</td>
       <td class="px-3 py-2.5 text-right text-error font-mono">${r.stop_loss?'\u20b9'+r.stop_loss:'--'}</td>
       <td class="px-3 py-2.5 text-right text-primary font-mono">${r.target?'\u20b9'+r.target:'--'}</td>
       <td class="px-3 py-2.5 text-center font-bold text-on-surface">1:${r.risk_reward||'--'}</td>
@@ -2261,8 +2265,11 @@ function renderResults(data) {
     </tr>
   `).join('');
 
-  // Async fetch MFS + MTF & populate cells
+  // Start live price polling for visible symbols
   const syms = [...new Set([...data.stage1_results.map(r=>r.symbol), ...data.stage2_results.map(r=>r.symbol)])];
+  startLivePrices(syms);
+
+  // Async fetch MFS + MTF & populate cells
   _fetchMFS(syms).then(scores => {
     document.querySelectorAll('.mfs-cell').forEach(td => {
       const sc = scores[td.dataset.sym];
@@ -2302,6 +2309,37 @@ function _mtfBadge(m) {
   // tri-arrow glyph per TF
   const a = s => s>=2?'▲':s>=1?'△':s<=-2?'▼':s<=-1?'▽':'·';
   return `<span class="px-2 py-0.5 ${col} rounded-full text-[10px] font-black tabular-nums">${a(m.d1.score)}${a(m.w1.score)}${a(m.m1.score)} ${t>=0?'+':''}${t}</span>`;
+}
+
+// ============ LIVE PRICES ============
+let _liveTimer = null;
+function stopLivePrices() {
+  if (_liveTimer) { clearInterval(_liveTimer); _liveTimer = null; }
+  const badge = document.getElementById('live-badge');
+  if (badge) badge.classList.add('hidden'), badge.classList.remove('flex');
+}
+function startLivePrices(syms) {
+  stopLivePrices();
+  if (!syms || !syms.length) return;
+  const symStr = syms.join(',');
+  async function tick() {
+    try {
+      const r = await fetch(API + '/market/ltp?symbols=' + encodeURIComponent(symStr));
+      const d = await r.json();
+      const badge = document.getElementById('live-badge');
+      if (!d.market_open) { stopLivePrices(); return; }
+      if (badge) badge.classList.remove('hidden'), badge.classList.add('flex');
+      Object.entries(d.prices || {}).forEach(([sym, p]) => {
+        document.querySelectorAll(`.ltp-cell[data-sym="${sym}"]`).forEach(td => {
+          const chg = p.change_pct;
+          const col = chg > 0 ? 'text-[#00e5a0]' : chg < 0 ? 'text-[#ff4757]' : 'text-on-surface';
+          td.innerHTML = `<span class="${col} font-mono">₹${p.ltp}</span><span class="text-[9px] ml-1 ${col}">${chg>=0?'+':''}${chg}%</span>`;
+        });
+      });
+    } catch(e) {}
+  }
+  tick();
+  _liveTimer = setInterval(tick, 5000);
 }
 
 // ============ CHART ============
