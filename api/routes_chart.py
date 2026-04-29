@@ -7,13 +7,124 @@ from api.data_helper import get_stock_bundle
 
 router = APIRouter()
 
+_ANGEL_MAP = {"5m": "FIVE_MINUTE", "15m": "FIFTEEN_MINUTE", "1h": "ONE_HOUR"}
+_ANGEL_DAYS = {"5m": 100, "15m": 200, "1h": 400}
+
+
+def _intraday_chart(symbol: str, interval: str):
+    import math, numpy as np
+    import pandas as pd
+    from data.angel_historical import get_candles_paginated
+
+    angel_interval = _ANGEL_MAP[interval]
+    from_date = pd.Timestamp.now(tz="Asia/Kolkata") - pd.Timedelta(days=_ANGEL_DAYS[interval])
+    df = get_candles_paginated(symbol, angel_interval, from_date=from_date)
+    if df.empty:
+        raise HTTPException(404, f"No intraday data for {symbol}")
+
+    # Normalize to tz-naive
+    if getattr(df.index, "tz", None) is not None:
+        df.index = df.index.tz_localize(None)
+    df = df[~df.index.duplicated(keep="last")].sort_index()
+    df["Volume"] = df["Volume"].astype("float64")
+
+    candles = [{"time": int(idx.timestamp()), "open": round(r["Open"], 2),
+                "high": round(r["High"], 2), "low": round(r["Low"], 2),
+                "close": round(r["Close"], 2)} for idx, r in df.iterrows()]
+    volumes = [{"time": int(idx.timestamp()), "value": int(r["Volume"]),
+                "color": "#00d4aa" if r["Close"] >= r["Open"] else "#ff4757"}
+               for idx, r in df.iterrows()]
+
+    # Session VWAP (resets each calendar day)
+    typical = (df["High"] + df["Low"] + df["Close"]) / 3
+    df["_date"] = df.index.normalize()
+    df["_tpv"] = typical * df["Volume"]
+    df["_cum_tpv"] = df.groupby("_date")["_tpv"].cumsum()
+    df["_cum_vol"] = df.groupby("_date")["Volume"].cumsum()
+    vwap = df["_cum_tpv"] / df["_cum_vol"]
+    vwap_data = [{"time": int(idx.timestamp()), "value": round(v, 2)}
+                 for idx, v in vwap.items() if not math.isnan(v)]
+
+    # EMA 9 / 21 / 50
+    ema9 = df["Close"].ewm(span=9, adjust=False).mean()
+    ema21 = df["Close"].ewm(span=21, adjust=False).mean()
+    ema50 = df["Close"].ewm(span=50, adjust=False).mean()
+    ema9_data  = [{"time": int(i.timestamp()), "value": round(v, 2)} for i, v in ema9.items()  if not math.isnan(v)]
+    ema21_data = [{"time": int(i.timestamp()), "value": round(v, 2)} for i, v in ema21.items() if not math.isnan(v)]
+    ema50_data = [{"time": int(i.timestamp()), "value": round(v, 2)} for i, v in ema50.items() if not math.isnan(v)]
+
+    # Bollinger Bands (20, 2)
+    bb_mid = df["Close"].rolling(20).mean()
+    bb_std = df["Close"].rolling(20).std()
+    bb_upper = bb_mid + 2 * bb_std; bb_lower = bb_mid - 2 * bb_std
+    bb_upper_data = [{"time": int(i.timestamp()), "value": round(v, 2)} for i, v in bb_upper.items() if not math.isnan(v)]
+    bb_mid_data  = [{"time": int(i.timestamp()), "value": round(v, 2)} for i, v in bb_mid.items()   if not math.isnan(v)]
+    bb_lower_data = [{"time": int(i.timestamp()), "value": round(v, 2)} for i, v in bb_lower.items() if not math.isnan(v)]
+
+    # Supertrend (7, 3)
+    hl2 = (df["High"] + df["Low"]) / 2
+    tr = pd.concat([df["High"] - df["Low"],
+                    (df["High"] - df["Close"].shift()).abs(),
+                    (df["Low"] - df["Close"].shift()).abs()], axis=1).max(axis=1)
+    atr = tr.ewm(alpha=1/7, min_periods=7).mean()
+    basic_upper = hl2 + 3.0 * atr; basic_lower = hl2 - 3.0 * atr
+    final_upper = basic_upper.copy(); final_lower = basic_lower.copy()
+    st = pd.Series(index=df.index, dtype=float)
+    direction = pd.Series(1, index=df.index)
+    for i in range(7, len(df)):
+        final_lower.iloc[i] = basic_lower.iloc[i] if (basic_lower.iloc[i] > final_lower.iloc[i-1] or df["Close"].iloc[i-1] < final_lower.iloc[i-1]) else final_lower.iloc[i-1]
+        final_upper.iloc[i] = basic_upper.iloc[i] if (basic_upper.iloc[i] < final_upper.iloc[i-1] or df["Close"].iloc[i-1] > final_upper.iloc[i-1]) else final_upper.iloc[i-1]
+        if i == 7: direction.iloc[i] = 1 if df["Close"].iloc[i] > final_upper.iloc[i] else -1
+        elif direction.iloc[i-1] == 1: direction.iloc[i] = -1 if df["Close"].iloc[i] < final_lower.iloc[i] else 1
+        else: direction.iloc[i] = 1 if df["Close"].iloc[i] > final_upper.iloc[i] else -1
+        st.iloc[i] = final_lower.iloc[i] if direction.iloc[i] == 1 else final_upper.iloc[i]
+    st_data = [{"time": int(st.index[i].timestamp()), "value": round(st.iloc[i], 2), "direction": int(direction.iloc[i])}
+               for i in range(len(st)) if not pd.isna(st.iloc[i])]
+
+    # RSI (14)
+    delta = df["Close"].diff()
+    gain = delta.where(delta > 0, 0.0); loss = (-delta).where(delta < 0, 0.0)
+    rsi = 100 - (100 / (1 + gain.ewm(alpha=1/14, min_periods=14).mean() / loss.ewm(alpha=1/14, min_periods=14).mean()))
+    rsi_data = [{"time": int(i.timestamp()), "value": round(v, 2)} for i, v in rsi.items() if not math.isnan(v)]
+
+    # MACD (12, 26, 9)
+    macd_line = df["Close"].ewm(span=12, adjust=False).mean() - df["Close"].ewm(span=26, adjust=False).mean()
+    macd_signal = macd_line.ewm(span=9, adjust=False).mean()
+    macd_hist = macd_line - macd_signal
+    macd_data       = [{"time": int(i.timestamp()), "value": round(v, 4)} for i, v in macd_line.items()   if not math.isnan(v)]
+    macd_signal_data = [{"time": int(i.timestamp()), "value": round(v, 4)} for i, v in macd_signal.items() if not math.isnan(v)]
+    macd_hist_data  = [{"time": int(i.timestamp()), "value": round(v, 4), "color": "#00e5a0" if v >= 0 else "#ff4757"}
+                       for i, v in macd_hist.items() if not math.isnan(v)]
+
+    return {
+        "symbol": symbol, "interval": interval,
+        "candles": candles, "volumes": volumes,
+        "overlays": {
+            "ema50": ema9_data,    # reuse ema50 slot for EMA9 intraday
+            "ema200": ema21_data,  # reuse ema200 slot for EMA21 intraday
+            "sma20": ema50_data,   # reuse sma20 slot for EMA50 intraday
+            "supertrend": st_data,
+            "bb_upper": bb_upper_data, "bb_mid": bb_mid_data, "bb_lower": bb_lower_data,
+            "vwap": vwap_data,
+        },
+        "panels": {
+            "rsi": rsi_data, "macd": macd_data,
+            "macd_signal": macd_signal_data, "macd_hist": macd_hist_data,
+        },
+        "price": round(df["Close"].iloc[-1], 2),
+        "bars": len(candles),
+        "intraday": True,
+    }
+
 
 @router.get("/chart/{symbol}")
 def get_chart_data(symbol: str, days: int = 200, interval: str = "1D"):
     """Returns OHLCV candlestick data + computed indicator overlays for charting.
-    interval: '1D' (daily), '1W' (weekly), '1M' (monthly)
+    interval: '1D' (daily), '1W' (weekly), '1M' (monthly), '5m'/'15m'/'1h' (intraday via Angel)
     """
     symbol = symbol.strip().upper()
+    if interval in _ANGEL_MAP:
+        return _intraday_chart(symbol, interval)
     try:
         bundle = get_stock_bundle(symbol)
     except Exception as e:
