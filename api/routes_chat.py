@@ -1,87 +1,94 @@
 """
-POST /chat — Process a natural language chat message and return response + actions.
-Supports two modes: 'simple' (rule-based parser) and 'ollama' (local LLM).
+POST /chat — Natural language chat agent powered by Groq (Llama 3.1 8B).
+Falls back to rule-based parser if Groq key is missing.
 """
 
+import os
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Optional
 import httpx
-import json
 
 from engine.chat_parser import process_message
 
 router = APIRouter()
 
-OLLAMA_URL = "http://localhost:11434/api/chat"
-OLLAMA_MODEL = "llama3.2"
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL = "llama-3.1-8b-instant"
 
-SYSTEM_PROMPT = """You are YOINTELL Assistant, an AI for an Indian stock screening platform (NSE/BSE).
-You help users understand technical indicators, screening strategies, and stock analysis.
+SYSTEM_PROMPT = """You are YOINTELL Assistant — an AI for an Indian NSE swing-trading screener (moneystx.com).
 
-Available indicators: RSI, MACD, EMA, Supertrend, Bollinger Bands, VWAP, Ichimoku, ADX, OBV, CMF, ATR, ROC, Vortex, Stochastic RSI, Williams %R, Awesome Oscillator, Fisher Transform, Klinger, Chande Momentum, Force Index.
+You help users with:
+- Technical analysis (RSI, MACD, EMA, Supertrend, Bollinger Bands, VWAP, Ichimoku, ADX, OBV, ATR, Vortex, Stochastic RSI, Williams %R, Awesome Oscillator, CMF, ROC)
+- Fundamental analysis (ROE, ROCE, Debt/Equity, EPS, Free Cash Flow, PE Ratio, Institutional Holdings)
+- Indian market context (NSE, BSE, Nifty, Sensex, F&O, Bhavcopy, circuit limits, T+1 settlement)
+- Swing trading strategies, breakout setups, entry/exit logic, risk management
+- Explaining screener results and filter settings
 
-Available fundamentals: ROE, ROCE, Debt/Equity, EPS, Free Cash Flow, PE Ratio, Institutional Holdings, Analyst Ratings.
-
-Keep responses concise (2-4 sentences). Focus on Indian market context. Use simple language.
-If asked to screen stocks or change filters, explain what settings would help but note that the user should use the screener filters directly."""
+Rules:
+- Keep responses concise: 2-4 sentences max unless a detailed explanation is clearly needed
+- Always use Indian market context (₹, NSE, Nifty, etc.)
+- If asked to run a screen, say the user should use the Run button with the appropriate filters
+- Never give direct buy/sell recommendations — frame as analysis only
+- Be direct and practical, not verbose"""
 
 
 class ChatRequest(BaseModel):
     message: str
     config: Optional[dict] = None
-    mode: Optional[str] = "simple"  # "simple" or "ollama"
+    mode: Optional[str] = "auto"
+
+
+def _groq_key() -> str | None:
+    key = os.environ.get("GROQ_API_KEY")
+    if key:
+        return key
+    env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+    try:
+        for line in open(env_path):
+            if line.startswith("GROQ_API_KEY="):
+                return line.split("=", 1)[1].strip()
+    except Exception:
+        pass
+    return None
 
 
 @router.post("/chat")
 def chat(request: ChatRequest):
-    """Process a chat message. Mode: 'simple' = rule-based, 'ollama' = local LLM."""
-
-    if request.mode == "ollama":
-        return _ollama_chat(request.message)
-
-    # Default: rule-based parser
-    result = process_message(request.message, current_config=request.config)
-    return result
+    key = _groq_key()
+    # Auto mode: use Groq if key available, else rule-based
+    if key and request.mode != "simple":
+        return _groq_chat(request.message, key)
+    return process_message(request.message, current_config=request.config)
 
 
 @router.get("/chat/status")
 def chat_status():
-    """Check if Ollama is available."""
-    try:
-        r = httpx.get("http://localhost:11434/api/tags", timeout=2.0)
-        if r.status_code == 200:
-            models = [m["name"] for m in r.json().get("models", [])]
-            has_model = any(OLLAMA_MODEL in m for m in models)
-            return {"ollama": True, "models": models, "ready": has_model}
-    except Exception:
-        pass
-    return {"ollama": False, "models": [], "ready": False}
+    key = _groq_key()
+    return {"groq": bool(key), "model": GROQ_MODEL if key else None, "ready": bool(key)}
 
 
-def _ollama_chat(message: str) -> dict:
-    """Send message to Ollama and return response."""
+def _groq_chat(message: str, key: str) -> dict:
     try:
         r = httpx.post(
-            OLLAMA_URL,
+            GROQ_URL,
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
             json={
-                "model": OLLAMA_MODEL,
+                "model": GROQ_MODEL,
                 "messages": [
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": message},
                 ],
-                "stream": False,
+                "max_tokens": 300,
+                "temperature": 0.4,
             },
-            timeout=120.0,
+            timeout=15.0,
         )
         if r.status_code == 200:
-            data = r.json()
-            reply = data.get("message", {}).get("content", "No response from AI.")
-            return {"reply": reply, "actions": []}
-        return {"reply": f"Ollama error: {r.status_code}", "actions": []}
-    except httpx.ConnectError:
-        return {"reply": "Ollama is not running. Start it or switch to Simple mode.", "actions": []}
+            reply = r.json()["choices"][0]["message"]["content"].strip()
+            return {"reply": reply, "actions": [], "model": GROQ_MODEL}
+        return {"reply": f"Groq error {r.status_code}: {r.text[:200]}", "actions": []}
     except httpx.ReadTimeout:
-        return {"reply": "AI is thinking... try again in a moment.", "actions": []}
+        return {"reply": "AI is taking too long — try again.", "actions": []}
     except Exception as e:
         return {"reply": f"Error: {str(e)}", "actions": []}
