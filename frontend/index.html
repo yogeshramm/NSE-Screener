@@ -196,6 +196,8 @@ html:not(.dark) .brand-gradient {
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 10px; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
 .ghost-border { outline: 1px solid var(--outline-variant-alpha); }
 input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,255,192,0.1); }
 .tab-content { display: none; }
@@ -280,10 +282,10 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 </div>
 
 <!-- ==================== TOP NAVIGATION BAR ==================== -->
-<header class="flex justify-between items-center w-full px-6 h-14 border-b border-outline-variant/20 bg-surface-container-lowest relative z-50">
-  <div class="flex items-center gap-8">
-    <span class="text-xl font-black tracking-tighter brand-gradient uppercase">MONEYSTX</span>
-    <nav class="flex items-center gap-6 tabular-nums text-sm tracking-tight h-full" id="main-nav">
+<header class="flex justify-between items-center w-full px-3 sm:px-6 h-14 border-b border-outline-variant/20 bg-surface-container-lowest relative z-50">
+  <div class="flex items-center gap-3 sm:gap-8 min-w-0 flex-1 overflow-hidden">
+    <span class="text-xl font-black tracking-tighter brand-gradient uppercase shrink-0">MONEYSTX</span>
+    <nav class="flex items-center gap-4 sm:gap-6 tabular-nums text-sm tracking-tight h-full overflow-x-auto scrollbar-hide" id="main-nav">
       <a href="#screener" class="nav-tab text-primary border-b-2 border-primary font-bold h-14 flex items-center cursor-pointer" data-tab="screener" onclick="event.preventDefault();switchTab('screener')">Screener</a>
       <a href="#config" class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="config" onclick="event.preventDefault();switchTab('config')">Configuration</a>
       <a href="#indicators" class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="indicators" onclick="event.preventDefault();switchTab('indicators')">Indicators</a>
@@ -411,8 +413,8 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
     <div id="filter-panel" class="flex flex-wrap gap-1.5 overflow-hidden transition-all duration-300" style="max-height:0px"></div>
   </div>
   <!-- ACTION BAR -->
-  <div class="px-6 py-3 flex items-center justify-between gap-4 bg-surface-container-lowest border-b border-outline-variant/10">
-    <div class="flex items-center flex-1 max-w-3xl gap-3">
+  <div class="px-3 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3 bg-surface-container-lowest border-b border-outline-variant/10">
+    <div class="flex items-center flex-1 min-w-[200px] max-w-3xl gap-3">
       <div class="flex-1 relative">
         <span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-sm text-on-surface-variant">search</span>
         <input id="symbols-input" class="w-full pl-10 bg-surface-container-high border border-outline-variant/20 rounded-lg text-sm h-10 focus:ring-1 focus:ring-primary placeholder:text-on-surface-variant/40" placeholder="Search symbols (RELIANCE, HDFCBANK...)" type="text" onkeydown="if(event.key==='Enter'){hideSearchDropdown();runScreen();}" oninput="onSearchInput(this.value)" autocomplete="off"/>
@@ -455,7 +457,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
   <div class="flex-1 flex overflow-hidden">
     <!-- LEFT: DATA TABLES -->
     <div id="tables-panel" class="flex-1 overflow-y-auto border-r border-outline-variant/10" style="width:100%">
-      <div class="p-6">
+      <div class="p-2 sm:p-6">
         <!-- STAGE TAB BAR (replaces vertical scroll between Stage 1 + 2) -->
         <div class="flex items-center mb-5 border-b border-outline-variant/20" id="stage-tabs">
           <button onclick="switchStage(1)" id="stage-tab-1" class="px-5 py-3 text-xs font-black uppercase tracking-[0.15em] text-primary border-b-2 border-primary flex items-center gap-2 transition-colors">
@@ -477,7 +479,8 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
         <!-- STAGE 1 -->
         <section id="stage-1-section">
           <div class="overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-low shadow-xl shadow-black/20">
-            <table class="w-full text-left tabular-nums">
+            <div class="overflow-x-auto scrollbar-hide">
+            <table class="w-full text-left tabular-nums min-w-[700px]">
               <thead>
                 <tr class="bg-surface-container border-b border-outline-variant/20">
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">#</th>
@@ -499,12 +502,14 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
                 <tr><td colspan="11" class="px-3 py-8 text-center text-on-surface-variant/50">Run a screen to see results</td></tr>
               </tbody>
             </table>
+            </div>
           </div>
         </section>
         <!-- STAGE 2 -->
         <section id="stage-2-section" class="hidden">
           <div class="overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-low shadow-xl shadow-black/20">
-            <table class="w-full text-left tabular-nums">
+            <div class="overflow-x-auto scrollbar-hide">
+            <table class="w-full text-left tabular-nums min-w-[700px]">
               <thead>
                 <tr class="bg-surface-container border-b border-outline-variant/20">
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">#</th>
@@ -526,6 +531,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
                 <tr><td colspan="11" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 2 results appear after screening</td></tr>
               </tbody>
             </table>
+            </div>
           </div>
         </section>
       </div>
