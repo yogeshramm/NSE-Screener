@@ -2064,15 +2064,22 @@ async function _doScan(scope, config) {
   finally { clearTimeout(_autoAbortTimer); screenAbort=null; document.getElementById('loading').firstElementChild.style.width='0%'; document.getElementById('scan-all-btn').disabled=false; document.getElementById('stop-btn').classList.add('hidden'); document.getElementById('run-btn').disabled=false; }
 }
 
-async function runScreenAll() {
+async function runScreenAll(attempt = 0) {
+  // Guard: bail if a scan is already in flight (stop-btn visible = scan running)
+  if (!document.getElementById('stop-btn').classList.contains('hidden')) return;
+
   const config=getFilterConfig(), scope=document.getElementById('scope-select').value;
   let st = null;
-  try { st = await fetch(API+'/data/status',{signal:AbortSignal.timeout(8000)}).then(r=>r.json()); } catch(e){}
+  try { st = await fetch(API+'/data/status',{signal:AbortSignal.timeout(5000)}).then(r=>r.json()); } catch(e){}
 
-  // Server unreachable / still starting — show message and retry in 3s
+  // Server unreachable / still starting — retry up to 3 times then give up
   if(!st){
-    _showWarmBanner(`<span class="material-symbols-outlined text-xs" style="animation:spin 1s linear infinite">sync</span>&nbsp;Server is starting up — retrying in a moment…`,'warming');
-    setTimeout(runScreenAll, 3000);
+    if(attempt >= 3){
+      _showScanError('Server is not responding. Please refresh the page and try again.');
+      return;
+    }
+    _showWarmBanner(`<span class="material-symbols-outlined text-xs" style="animation:spin 1s linear infinite">sync</span>&nbsp;Server is starting up — retrying… (${attempt+1}/3)`,'warming');
+    setTimeout(() => runScreenAll(attempt + 1), 3000);
     return;
   }
 
