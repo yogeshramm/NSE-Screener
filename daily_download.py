@@ -20,12 +20,36 @@ Usage:
 """
 
 import argparse
+import json
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+
 from data.batch_downloader import (
     run_batch_download, run_daily_update,
     get_downloaded_symbols, get_available_dates
 )
 from data.nse_history import get_history_stats
 from data.nse_symbols import NIFTY_500_FALLBACK
+
+
+_CRON_STATUS_FILE = Path(__file__).resolve().parent / "data_store" / "cron_status.json"
+
+
+def _write_cron_status(started_at: str, ok: bool, error: str | None, duration_s: float | None) -> None:
+    """Persist cron heartbeat — read by /data/status to drive STALE badge.
+    Without this, the UI shows STALE forever even when the cron runs daily."""
+    try:
+        _CRON_STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _CRON_STATUS_FILE.write_text(json.dumps({
+            "started_at": started_at,
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+            "duration_s": round(duration_s, 1) if duration_s else None,
+            "ok": bool(ok),
+            "error": (error or "")[:500] if error else None,
+        }, indent=2))
+    except Exception:
+        pass  # never let heartbeat write break the actual download
 
 
 def main():
@@ -102,4 +126,21 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # Wrap main() so the cron-driven invocation writes a heartbeat to
+    # cron_status.json. Manual invocations (e.g. --status) skip the
+    # heartbeat by short-circuiting in main() before it returns.
+    started = datetime.now(timezone.utc).isoformat()
+    t0 = time.time()
+    err: str | None = None
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception as e:
+        err = f"{type(e).__name__}: {e}"
+        raise
+    finally:
+        # Skip heartbeat for --status (read-only inspection — main returns early)
+        import sys as _sys
+        if "--status" not in _sys.argv:
+            _write_cron_status(started, ok=err is None, error=err, duration_s=time.time() - t0)
