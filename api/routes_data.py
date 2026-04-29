@@ -132,9 +132,20 @@ def _safe_cache_date(path) -> str:
         return ""
 
 
+_status_cache: dict = {"resp": None, "ts": 0.0}
+_STATUS_TTL = 20.0  # 20s cache. /data/status iterates 2800+ pkl files; under
+# load (e.g. backfill running), a fresh compute takes 10-25s and Cloudflare
+# 503s before it returns. With a 20s in-process cache, only one request per
+# window pays the cost, every other response is served in <1ms.
+
+
 @router.get("/data/status")
 def data_status():
     """Check today's data download status with date info."""
+    import time as _t
+    if _status_cache["resp"] is not None and _t.time() - _status_cache["ts"] < _STATUS_TTL:
+        return _status_cache["resp"]
+
     from data.nse_history import get_history_stats
     from datetime import date
 
@@ -188,7 +199,7 @@ def data_status():
     import time as _time
     cache_status = _check_cache_warm()
     warm_ago = round(_time.time() - _warm_completed_at) if _warm_completed_at else None
-    return {
+    resp = {
         "today_downloaded": total_stocks,
         "ready_for_screening": ready,
         "needs_history": not bars_sufficient and total_stocks > 0,
@@ -206,6 +217,9 @@ def data_status():
         **_read_cron_status(),
         **_read_integrity_summary(),
     }
+    _status_cache["resp"] = resp
+    _status_cache["ts"] = _t.time()
+    return resp
 
 
 @router.get("/data/integrity")
