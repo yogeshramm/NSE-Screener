@@ -113,7 +113,13 @@ def backfill_one(sym: str, years: int, force: bool, dry_run: bool) -> dict:
 def resolve_symbols(args) -> list[str]:
     if args.symbols:
         return [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
-    # Default: Nifty 500. Reuse the screener's resolution path.
+    if getattr(args, "all", False):
+        df = get_master_df()
+        syms = sorted(set(s.replace("-EQ", "") for s in df[df["exch_seg"] == "NSE"]["symbol"] if s.endswith("-EQ")))
+        if args.limit:
+            syms = syms[: args.limit]
+        return syms
+    # Default: Nifty 500
     try:
         from data.nse_symbols import get_nifty500_live, NIFTY_500_FALLBACK
         try:
@@ -121,7 +127,6 @@ def resolve_symbols(args) -> list[str]:
         except Exception:
             syms = list(NIFTY_500_FALLBACK)
     except Exception:
-        # Fallback: every symbol in the master that has -EQ
         df = get_master_df()
         syms = sorted(set(s.replace("-EQ", "") for s in df[df["exch_seg"] == "NSE"]["symbol"] if s.endswith("-EQ")))
     if args.limit:
@@ -133,6 +138,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--years", type=int, default=10)
     ap.add_argument("--symbols", type=str, default=None, help="comma-separated (overrides Nifty 500)")
+    ap.add_argument("--all", action="store_true", help="all NSE-EQ symbols from master (~2500), not just Nifty 500")
     ap.add_argument("--limit", type=int, default=None, help="first N symbols only (for testing)")
     ap.add_argument("--force", action="store_true", help="re-fetch even if existing pkl is already deep")
     ap.add_argument("--dry-run", action="store_true", help="no writes")
