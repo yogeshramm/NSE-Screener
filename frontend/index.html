@@ -2021,6 +2021,7 @@ function _showWarmBanner(html, type) {
   if (!el) return;
   const cls = type === 'warming' ? 'bg-yellow-400/10 text-yellow-400'
             : type === 'done'    ? 'bg-primary/10 text-primary'
+            : type === 'error'   ? 'bg-red-500/10 text-red-400'
                                  : 'bg-surface-container text-on-surface-variant';
   el.className = `flex items-center gap-2 px-4 py-2 text-[10px] font-bold border-b border-outline-variant/20 ${cls}`;
   el.innerHTML = html;
@@ -2028,38 +2029,59 @@ function _showWarmBanner(html, type) {
 }
 function _hideWarmBanner() { const el=document.getElementById('warm-banner'); if(el) el.style.display='none'; }
 
+function _showScanError(msg) {
+  _showWarmBanner(`<span class="material-symbols-outlined text-xs">error</span>&nbsp;${msg}
+    <button onclick="_hideWarmBanner()" class="ml-auto text-[9px] underline">Dismiss</button>`,'error');
+}
+
 async function _doScan(scope, config) {
   document.getElementById('loading').firstElementChild.style.width='80%';
   document.getElementById('scan-all-btn').disabled=true;
   document.getElementById('stop-btn').classList.remove('hidden');
   screenAbort = new AbortController();
+  // Auto-timeout after 90s — prevents hanging forever on cold server
+  const _autoAbortTimer = setTimeout(() => { try { screenAbort?.abort('timeout'); } catch(e){} }, 90000);
   try {
     const res = await fetch(API+'/screen',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({scan_all:true,config,scope,min_price:50,min_volume:100000}),signal:screenAbort.signal});
     const ct = res.headers.get('content-type')||'';
     if(!ct.includes('application/json')){
-      const text=await res.text();
-      if(res.status===504||/timeout/i.test(text)) throw new Error('Server timeout — try a smaller scope or wait for cache to warm.');
+      const text=await res.text();      if(res.status===504||/timeout/i.test(text)) throw new Error('Server timeout — try a smaller scope or wait for cache to warm.');
       throw new Error(`Server returned ${res.status} ${res.statusText} — ${text.slice(0,120)}`);
     }
     const data=await res.json();
     if(!res.ok) throw new Error(data.detail||'Screen failed');
     renderResults(data);
-  } catch(e){ if(e.name!=='AbortError') alert('Scan failed: '+e.message); }
-  finally { screenAbort=null; document.getElementById('loading').firstElementChild.style.width='0%'; document.getElementById('scan-all-btn').disabled=false; document.getElementById('stop-btn').classList.add('hidden'); }
+  } catch(e){
+    if(e.name==='AbortError'){
+      if(screenAbort?.reason==='timeout'||String(e).includes('timeout'))
+        _showScanError('Scan timed out — server is starting up. Wait 30s then try again.');
+      // else: user clicked Stop — silent
+    } else {
+      _showScanError('Scan failed: '+e.message);
+    }
+  }
+  finally { clearTimeout(_autoAbortTimer); screenAbort=null; document.getElementById('loading').firstElementChild.style.width='0%'; document.getElementById('scan-all-btn').disabled=false; document.getElementById('stop-btn').classList.add('hidden'); document.getElementById('run-btn').disabled=false; }
 }
 
 async function runScreenAll() {
   const config=getFilterConfig(), scope=document.getElementById('scope-select').value;
   let st = null;
-  try { st = await fetch(API+'/data/status',{signal:AbortSignal.timeout(4000)}).then(r=>r.json()); } catch(e){}
+  try { st = await fetch(API+'/data/status',{signal:AbortSignal.timeout(8000)}).then(r=>r.json()); } catch(e){}
+
+  // Server unreachable / still starting — show message and retry in 3s
+  if(!st){
+    _showWarmBanner(`<span class="material-symbols-outlined text-xs" style="animation:spin 1s linear infinite">sync</span>&nbsp;Server is starting up — retrying in a moment…`,'warming');
+    setTimeout(runScreenAll, 3000);
+    return;
+  }
 
   // Not ready — scan anyway (server handles gracefully)
-  if(st && !st.ready_for_screening){ _doScan(scope,config); return; }
+  if(!st.ready_for_screening){ _doScan(scope,config); return; }
 
   // Cache warm OR warm just finished in last 10 min — scan immediately
-  const warmRecentlyDone = st && st.warm_completed_ago_s != null && st.warm_completed_ago_s < 600;
-  if(!st || st.cache_warm || warmRecentlyDone){ _hideWarmBanner(); _doScan(scope,config); return; }
+  const warmRecentlyDone = st.warm_completed_ago_s != null && st.warm_completed_ago_s < 600;
+  if(st.cache_warm || warmRecentlyDone){ _hideWarmBanner(); _doScan(scope,config); return; }
 
   // Cache is cold — show banner, trigger warm (server deduplicates if already running)
   if(_warmPollingTimer){clearInterval(_warmPollingTimer);_warmPollingTimer=null;}
