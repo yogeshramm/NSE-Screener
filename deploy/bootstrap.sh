@@ -156,9 +156,18 @@ ufw allow 80/tcp
 ufw allow 443/tcp
 ufw --force enable
 
-# Cron — daily 7am IST = 1:30am UTC
+# Cron schedule (all times UTC, IST = UTC+5:30):
+#   1:30 AM UTC = 7:00 AM IST  — daily download (fresh Bhavcopy)
+#   2:15 AM UTC = 7:45 AM IST  — morning prewarm (post-download, before users arrive)
+#  11:00 AM UTC = 4:30 PM IST  — evening prewarm (post-market-close, for evening sessions)
 sudo -u "${APP_USER}" bash <<EOCRON
-crontab -l 2>/dev/null | grep -v "daily_download.py" | { cat; echo "30 1 * * * cd ${APP_DIR} && .venv/bin/python daily_download.py >> data_store/cron.log 2>&1"; } | crontab -
+crontab -l 2>/dev/null \
+  | grep -v "daily_download.py\|prewarm_presets.py" \
+  | { cat; \
+      echo "30 1 * * 1-5 cd ${APP_DIR} && .venv/bin/python daily_download.py >> data_store/cron.log 2>&1"; \
+      echo "15 2 * * 1-5 cd ${APP_DIR} && .venv/bin/python deploy/prewarm_presets.py >> data_store/prewarm.log 2>&1"; \
+      echo "0 11 * * 1-5 cd ${APP_DIR} && .venv/bin/python deploy/prewarm_presets.py >> data_store/prewarm_evening.log 2>&1"; \
+    } | crontab -
 EOCRON
 
 # fail2ban — defaults protect SSH

@@ -449,6 +449,8 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
   </div>
   <!-- Loading bar -->
   <div id="loading" class="h-0.5 bg-surface-container-lowest"><div class="h-full bg-primary-container transition-all" style="width:0%"></div></div>
+  <!-- Cache warm banner (shown when cache is cold and warming is triggered) -->
+  <div id="warm-banner" style="display:none" class="flex items-center gap-2 px-4 py-2 text-[10px] font-bold border-b border-outline-variant/20"></div>
   <!-- RESULTS LAYOUT -->
   <div class="flex-1 flex overflow-hidden">
     <!-- LEFT: DATA TABLES -->
@@ -2011,30 +2013,76 @@ function getFilterConfig() { const c={}; for(const[k,v] of Object.entries(fullCo
 // ============ SCREENING ============
 function stopScreening() { if(screenAbort){screenAbort.abort();screenAbort=null;} document.getElementById('loading').firstElementChild.style.width='0%'; document.getElementById('scan-all-btn').disabled=false; document.getElementById('run-btn').disabled=false; document.getElementById('stop-btn').classList.add('hidden'); }
 
-async function runScreenAll() {
-  const config = getFilterConfig(), scope = document.getElementById('scope-select').value;
+// ---- Cache warm-then-scan helpers ----
+let _warmPollingTimer = null;
+
+function _showWarmBanner(html, type) {
+  const el = document.getElementById('warm-banner');
+  if (!el) return;
+  const cls = type === 'warming' ? 'bg-yellow-400/10 text-yellow-400'
+            : type === 'done'    ? 'bg-primary/10 text-primary'
+                                 : 'bg-surface-container text-on-surface-variant';
+  el.className = `flex items-center gap-2 px-4 py-2 text-[10px] font-bold border-b border-outline-variant/20 ${cls}`;
+  el.innerHTML = html;
+  el.style.display = 'flex';
+}
+function _hideWarmBanner() { const el=document.getElementById('warm-banner'); if(el) el.style.display='none'; }
+
+async function _doScan(scope, config) {
   document.getElementById('loading').firstElementChild.style.width='80%';
   document.getElementById('scan-all-btn').disabled=true;
   document.getElementById('stop-btn').classList.remove('hidden');
   screenAbort = new AbortController();
   try {
-    const res = await fetch(API+'/screen',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scan_all:true,config,scope,min_price:50,min_volume:100000}),signal:screenAbort.signal});
-    // Detect non-JSON responses (504 timeouts, gateway errors) BEFORE
-    // calling .json() — Safari throws a cryptic "string did not match
-    // expected pattern" error on JSON.parse('') which confuses users.
-    const ct = res.headers.get('content-type') || '';
-    if (!ct.includes('application/json')) {
-      const text = await res.text();
-      if (res.status === 504 || /timeout/i.test(text)) {
-        throw new Error('Server timeout — scan took longer than allowed. Try a smaller scope (Nifty 50/100) or fewer filters.');
-      }
+    const res = await fetch(API+'/screen',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({scan_all:true,config,scope,min_price:50,min_volume:100000}),signal:screenAbort.signal});
+    const ct = res.headers.get('content-type')||'';
+    if(!ct.includes('application/json')){
+      const text=await res.text();
+      if(res.status===504||/timeout/i.test(text)) throw new Error('Server timeout — try a smaller scope or wait for cache to warm.');
       throw new Error(`Server returned ${res.status} ${res.statusText} — ${text.slice(0,120)}`);
     }
-    const data = await res.json();
+    const data=await res.json();
     if(!res.ok) throw new Error(data.detail||'Screen failed');
     renderResults(data);
-  } catch(e) { if(e.name!=='AbortError') alert('Scan failed: '+e.message); }
+  } catch(e){ if(e.name!=='AbortError') alert('Scan failed: '+e.message); }
   finally { screenAbort=null; document.getElementById('loading').firstElementChild.style.width='0%'; document.getElementById('scan-all-btn').disabled=false; document.getElementById('stop-btn').classList.add('hidden'); }
+}
+
+async function runScreenAll() {
+  const config=getFilterConfig(), scope=document.getElementById('scope-select').value;
+  // Check if indicator cache is warm for this scope
+  let cacheWarm = true;
+  try {
+    const st = await fetch(API+'/data/status',{signal:AbortSignal.timeout(4000)}).then(r=>r.json());
+    cacheWarm = !!st.cache_warm;
+    if(!st.ready_for_screening){_doScan(scope,config);return;}  // let server handle it
+  } catch(e){ /* offline or timeout — just try scan */ }
+
+  if(cacheWarm){
+    _hideWarmBanner();
+    _doScan(scope,config);
+    return;
+  }
+
+  // Cache is cold — warm first, then auto-scan
+  if(_warmPollingTimer){clearInterval(_warmPollingTimer);_warmPollingTimer=null;}
+  const est={nifty50:'~10s',nifty200:'~30s',nifty500:'~90s',all:'~3 min'}[scope]||'~2 min';
+  _showWarmBanner(`<span class="material-symbols-outlined text-xs" style="animation:spin 1s linear infinite">sync</span>&nbsp;Warming scan cache for <b>${scope}</b> (${est}) — will auto-scan when ready&hellip;
+    <button onclick="if(_warmPollingTimer){clearInterval(_warmPollingTimer);_warmPollingTimer=null;}_hideWarmBanner();_doScan('${scope}',getFilterConfig())" class="ml-auto text-[9px] underline">Skip wait &amp; scan now</button>`,'warming');
+  try { await fetch(API+`/data/warm?scope=${scope}`,{method:'POST'}); } catch(e){}
+
+  _warmPollingTimer = setInterval(async()=>{
+    try {
+      const st=await fetch(API+'/data/status').then(r=>r.json());
+      if(st.cache_warm||!st.warm_in_progress){
+        clearInterval(_warmPollingTimer);_warmPollingTimer=null;
+        _showWarmBanner('<span class="material-symbols-outlined text-xs">check_circle</span>&nbsp;Cache ready — scanning now&hellip;','done');
+        setTimeout(_hideWarmBanner,3000);
+        _doScan(scope,getFilterConfig());
+      }
+    } catch(e){}
+  },3000);
 }
 
 // ============ OHLC OVERLAY ============
@@ -4599,7 +4647,7 @@ async function checkDataStatus() {
     const ready=data.ready_for_screening;
     const inProgress=data.download_in_progress;
     const dataDate=data.data_as_of||data.history_latest_date||'';
-    document.getElementById('data-status').textContent=(data.cron_stale?'STALE':'READY');
+    document.getElementById('data-status').textContent=data.warm_in_progress?'WARMING':data.cron_stale?'STALE':'READY';
     const bars=data.bars_per_stock||0;
     // Cron freshness — red border + tooltip when last morning sync is stale or failed
     const ring=document.getElementById('data-ring')||document.querySelector('[data-ring]');

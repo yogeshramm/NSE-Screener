@@ -95,6 +95,42 @@ _download_lock = threading.Lock()  # serialise catchup trigger checks
 _last_catchup_attempt = 0.0       # epoch — used to back off failed catchups
 _CATCHUP_COOLDOWN = 300            # 5 min — don't retry catchup if it just ran
 
+# Track on-demand cache warm state
+_warm_in_progress = False
+_warm_lock = threading.Lock()
+_warm_stats: dict = {}
+
+
+def _check_cache_warm() -> dict:
+    """Sample indicator cache files to see if they match current last_bar_date.
+    Returns {'cache_warm': bool, 'cache_warm_pct': int} — fast: O(50 samples)."""
+    import pickle, random
+    from engine.indicator_cache import CACHE_DIR
+    from data.nse_history import get_history_stats
+    hist = get_history_stats()
+    latest = str(hist.get("latest_date", "") or "")[:10]
+    if not latest:
+        return {"cache_warm": False, "cache_warm_pct": 0}
+    files = list(CACHE_DIR.glob("*.pkl"))
+    if not files:
+        return {"cache_warm": False, "cache_warm_pct": 0}
+    sample = random.sample(files, min(50, len(files)))
+    warm = sum(
+        1 for f in sample
+        if _safe_cache_date(f)[:10] == latest
+    )
+    pct = round(warm / len(sample) * 100)
+    return {"cache_warm": pct >= 80, "cache_warm_pct": pct}
+
+
+def _safe_cache_date(path) -> str:
+    import pickle
+    try:
+        entry = pickle.load(open(path, "rb"))
+        return str(entry.get("last_bar_date", ""))
+    except Exception:
+        return ""
+
 
 @router.get("/data/status")
 def data_status():
@@ -133,18 +169,21 @@ def data_status():
     ready = total_stocks > 50 and bars_sufficient
     bar_count = len(sample) if sample_sym and load_history(sample_sym) is not None else 0
 
+    cache_status = _check_cache_warm()
     return {
         "today_downloaded": total_stocks,
         "ready_for_screening": ready,
         "needs_history": not bars_sufficient and total_stocks > 0,
         "bars_per_stock": bar_count,
         "download_in_progress": _download_in_progress,
+        "warm_in_progress": _warm_in_progress,
         "last_download": _download_stats,
         "available_dates": real_dates[:5],
         "today_date": date.today().isoformat(),
         "data_as_of": data_as_of,
         "history_latest_date": latest_price_date,
         "history_symbols": history_count,
+        **cache_status,
         **_read_cron_status(),
         **_read_integrity_summary(),
     }
@@ -405,6 +444,48 @@ def trigger_catchup():
         "last_data": latest,
         "message": f"Catching up {gap_days} days of missing data. Check /data/status.",
     }
+
+
+@router.post("/data/warm")
+def trigger_warm(scope: str = "nifty500"):
+    """Trigger on-demand indicator cache warm for a given scope.
+    Runs warm_cache() in background; poll /data/status for cache_warm flag."""
+    global _warm_in_progress, _warm_stats
+    with _warm_lock:
+        if _warm_in_progress:
+            return {"status": "already_running", "message": "Warm already in progress."}
+        _warm_in_progress = True
+        _warm_stats = {}
+
+    def _run():
+        global _warm_in_progress, _warm_stats
+        try:
+            from engine.precompute import warm_cache
+            # Scope-limited symbol list
+            syms = None
+            if scope in ("nifty50", "nifty200", "nifty500"):
+                try:
+                    from data.nse_symbols import get_nifty500_live, NIFTY_500_FALLBACK
+                    all500 = get_nifty500_live() or list(NIFTY_500_FALLBACK)
+                    if scope == "nifty50":
+                        syms = all500[:50]
+                    elif scope == "nifty200":
+                        syms = all500[:200]
+                    else:
+                        syms = all500
+                except Exception:
+                    syms = None   # fallback: all
+            stats = warm_cache(symbols=syms, verbose=False)
+            _warm_stats = stats
+        except Exception as e:
+            _warm_stats = {"error": str(e)}
+        finally:
+            _warm_in_progress = False
+
+    threading.Thread(target=_run, daemon=True).start()
+    est = {"nifty50": "~10s", "nifty200": "~30s", "nifty500": "~90s"}.get(scope, "~3 min")
+    return {"status": "started", "scope": scope, "estimated": est,
+            "message": f"Warming {scope} cache ({est}). Poll /data/status → cache_warm."}
 
 
 @router.get("/data/dates")
