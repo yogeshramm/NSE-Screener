@@ -2,7 +2,11 @@
 POST /screen — Run full screening with filter config JSON.
 """
 
+import json
+import math
+
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import Optional
 
@@ -11,6 +15,23 @@ from engine.screener import run_full_screen
 from api.data_helper import get_stock_bundle
 
 router = APIRouter()
+
+
+def _json_safe(o):
+    """Fallback for json.dumps default= — handles numpy/pandas leftovers.
+    FastAPI's jsonable_encoder is a recursive walk that's pathologically slow
+    on 2-3 MB nested results (~120s observed). Returning a Response with
+    stdlib json.dumps cuts that to ~50ms."""
+    if hasattr(o, "item"):  # numpy scalar
+        try:
+            return o.item()
+        except Exception:
+            pass
+    if hasattr(o, "isoformat"):  # datetime / Timestamp
+        return o.isoformat()
+    if isinstance(o, float) and (math.isnan(o) or math.isinf(o)):
+        return None
+    return str(o)
 
 
 class ScreenRequest(BaseModel):
@@ -173,7 +194,7 @@ def run_screen(request: ScreenRequest):
     stage1 = [_clean_result(r) for r in result["stage1_results"]]
     stage2 = [_clean_result(r) for r in result["stage2_results"]]
 
-    return {
+    payload = {
         "total_screened": result["total_screened"],
         "stage1_passed": result["stage1_passed"],
         "stage2_passed": result["stage2_passed"],
@@ -181,3 +202,7 @@ def run_screen(request: ScreenRequest):
         "stage2_results": stage2,
         "fetch_errors": errors,
     }
+    # Bypass FastAPI's jsonable_encoder (pathologically slow on this payload —
+    # 120s+ on 2-3 MB nested dicts). Pre-serialize with stdlib json.dumps.
+    body = json.dumps(payload, default=_json_safe, allow_nan=False).encode()
+    return Response(content=body, media_type="application/json")
