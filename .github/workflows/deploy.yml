@@ -25,10 +25,9 @@ jobs:
           script: |
             set -e
             cd /home/yointell/NSE-Screener
+            VENV_PIP=/home/yointell/NSE-Screener/.venv/bin/pip
 
             # Preserve runtime state across reset --hard
-            # (users.json + watchlist.json + portfolio.json are written by the live app
-            # at runtime; .auth_secret is the JWT signing key created on first boot)
             mkdir -p /tmp/yointell_runtime
             for f in users.json watchlist.json portfolio.json .auth_secret; do
               [ -f "config/$f" ] && cp "config/$f" "/tmp/yointell_runtime/$f"
@@ -37,27 +36,42 @@ jobs:
             BEFORE=$(git rev-parse HEAD)
             echo "→ before: $BEFORE"
 
+            # Rollback handler — runs on ANY failure after this point
+            rollback() {
+              echo "✗ deploy failed — rolling back to $BEFORE"
+              git reset --hard "$BEFORE" || true
+              for f in users.json watchlist.json portfolio.json .auth_secret; do
+                [ -f "/tmp/yointell_runtime/$f" ] && cp "/tmp/yointell_runtime/$f" "config/$f"
+              done
+              sudo systemctl restart yointell || true
+              sleep 3
+              curl -fsS http://localhost:8000/data/status >/dev/null && echo "✓ rollback healthy"
+              rm -rf /tmp/yointell_runtime
+              exit 1
+            }
+            trap rollback ERR
+
             git fetch origin main
             git reset --hard origin/main
             AFTER=$(git rev-parse HEAD)
             echo "→ after:  $AFTER"
 
-            # Restore runtime state (after reset, before service restart)
+            # Restore runtime state immediately after reset
             for f in users.json watchlist.json portfolio.json .auth_secret; do
               [ -f "/tmp/yointell_runtime/$f" ] && cp "/tmp/yointell_runtime/$f" "config/$f"
             done
-            rm -rf /tmp/yointell_runtime
 
             if [ "$BEFORE" = "$AFTER" ]; then
               echo "✓ already up-to-date — nothing to deploy"
+              trap - ERR
+              rm -rf /tmp/yointell_runtime
               exit 0
             fi
 
-            # Install new deps only if requirements.txt changed
+            # Install new deps only if requirements.txt changed (use venv pip)
             if git diff --name-only "$BEFORE" "$AFTER" | grep -q '^requirements.txt$'; then
-              echo "→ requirements.txt changed — installing"
-              source venv/bin/activate 2>/dev/null || true
-              pip install -q -r requirements.txt
+              echo "→ requirements.txt changed — installing into .venv"
+              "$VENV_PIP" install -q -r requirements.txt
             fi
 
             sudo systemctl restart yointell
@@ -68,15 +82,10 @@ jobs:
               sleep 2
               if curl -fsS http://localhost:8000/data/status >/dev/null 2>&1; then
                 echo "✓ health check passed (attempt $i)"
+                trap - ERR
+                rm -rf /tmp/yointell_runtime
                 exit 0
               fi
               echo "  attempt $i failed, retrying…"
             done
-
-            # Rollback on failure
-            echo "✗ health check failed — rolling back to $BEFORE"
-            git reset --hard "$BEFORE"
-            sudo systemctl restart yointell
-            sleep 3
-            curl -fsS http://localhost:8000/data/status >/dev/null && echo "✓ rollback healthy"
-            exit 1
+            false  # triggers rollback trap
