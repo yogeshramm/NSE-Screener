@@ -70,7 +70,7 @@
   "roc": {
     "enabled": true,
     "roc_period": 20,
-    "roc_minimum": 3
+    "roc_minimum": 1
   },
   "fisher_transform": {
     "enabled": true,
@@ -96,7 +96,7 @@
   "vortex": {
     "enabled": true,
     "vortex_period": 14,
-    "vi_threshold": 0.10
+    "vi_threshold": 0.07
   },
   "roe": {
     "enabled": true,
