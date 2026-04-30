@@ -30,14 +30,23 @@ _INDICATOR_KEYS = {
 
 
 def _config_hash(config: dict) -> str:
-    """Stable MD5 of only the indicator-relevant config keys."""
+    """Stable MD5 of only the indicator-relevant config keys.
+
+    Normalises whole-number floats (e.g. 2.0 → 2) so the hash is identical
+    whether the value originated from Python get_default_config() (which uses
+    float literals like 2.0) or from the browser, which round-trips JSON
+    numbers without a fractional part back as integers.
+    """
     subset = {}
     for k in _INDICATOR_KEYS:
         if k in config:
             v = config[k]
-            # Strip any UI metadata keys (start with _)
             if isinstance(v, dict):
-                v = {ik: iv for ik, iv in v.items() if not ik.startswith("_")}
+                v = {
+                    ik: (int(iv) if isinstance(iv, float) and iv.is_integer() else iv)
+                    for ik, iv in v.items()
+                    if not ik.startswith("_")
+                }
             subset[k] = v
     return hashlib.md5(
         json.dumps(subset, sort_keys=True, default=str).encode()
