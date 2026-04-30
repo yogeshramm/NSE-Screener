@@ -2065,7 +2065,7 @@ async function _doScan(scope, config) {
         _showScanError('Scan timed out — server is starting up. Wait 30s then try again.');
       // else: user clicked Stop — silent
     } else {
-      _showScanError('Scan failed: '+e.message);
+      _showScanError('Scan failed: '+(e.message||e.detail||String(e)||'server error — try again'));
     }
   }
   finally { clearTimeout(_autoAbortTimer); screenAbort=null; document.getElementById('loading').firstElementChild.style.width='0%'; document.getElementById('scan-all-btn').disabled=false; document.getElementById('stop-btn').classList.add('hidden'); document.getElementById('run-btn').disabled=false; }
