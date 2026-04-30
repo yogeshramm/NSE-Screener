@@ -343,13 +343,24 @@ def _tt_fetch_sync(slug: str) -> Optional[Dict[str, Any]]:
         out: Dict[str, Any] = {"source_url": url}
         tot = fc.get("totalReco")
         pct_buy = fc.get("percBuyReco")
+        pct_sell = fc.get("percSellReco") or fc.get("percNegReco") or 0
         if isinstance(tot, (int, float)) and tot > 0:
             out["analysts"] = int(tot)
             if isinstance(pct_buy, (int, float)):
                 buy = int(round(tot * pct_buy / 100))
+                sell = int(round(tot * pct_sell / 100)) if pct_sell else 0
                 out["buy"] = buy
-                out["hold"] = tot - buy
+                out["sell"] = sell
+                out["hold"] = int(tot) - buy - sell
                 out["perc_buy"] = round(pct_buy, 1)
+                if pct_sell:
+                    out["perc_sell"] = round(pct_sell, 1)
+        # Target price — try common field names
+        for field in ("target", "avgTarget", "medianTarget", "targetPrice", "meanTarget"):
+            v = fc.get(field)
+            if isinstance(v, (int, float)) and v > 0:
+                out["target_price"] = round(v, 2)
+                break
         if out.get("analysts") or out.get("target_price"):
             from datetime import date
             out["as_of"] = date.today().isoformat()

@@ -126,8 +126,107 @@ def _fetch_trendlyne(symbol: str) -> dict | None:
         return None
 
 
-def _write_cache(symbol: str, tl_data: dict | None) -> bool:
-    """Merge Trendlyne data into the existing analyst cache file (or create minimal one)."""
+# ---------- Tickertape via sitemap + curl_cffi ----------
+_TT_SITEMAP: dict = {}
+_TT_SITEMAP_FILE = CACHE_DIR / "tt_sitemap.json"
+_TT_SITEMAP_LOADED = False
+_TT_HDR = {
+    "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+    "Accept-Language": "en-IN,en;q=0.9",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "DNT": "1",
+    "Upgrade-Insecure-Requests": "1",
+}
+
+
+def _tt_load_sitemap() -> None:
+    global _TT_SITEMAP_LOADED
+    if _TT_SITEMAP_LOADED:
+        return
+    _TT_SITEMAP_LOADED = True
+    if _TT_SITEMAP_FILE.exists():
+        age = time.time() - _TT_SITEMAP_FILE.stat().st_mtime
+        if age < 30 * 86400:
+            try:
+                _TT_SITEMAP.update(json.loads(_TT_SITEMAP_FILE.read_text()))
+                return
+            except Exception:
+                pass
+    try:
+        from curl_cffi import requests as cf
+        r = cf.get("https://www.tickertape.in/sitemaps/stocks/sitemap.xml",
+                   impersonate="chrome131", timeout=20, headers=_TT_HDR)
+        if r.status_code != 200:
+            return
+        import re
+        for slug in re.findall(r"<loc>https://www\.tickertape\.in/stocks/([^<]+)</loc>", r.text):
+            parts = slug.rsplit("-", 1)
+            if len(parts) == 2:
+                _TT_SITEMAP[parts[1].upper()] = slug
+        _TT_SITEMAP_FILE.write_text(json.dumps(_TT_SITEMAP))
+    except Exception:
+        pass
+
+
+def _tt_slug(symbol: str) -> str | None:
+    _tt_load_sitemap()
+    return _TT_SITEMAP.get(symbol)
+
+
+def _fetch_tickertape(symbol: str) -> dict | None:
+    """Fetch Tickertape analyst consensus via curl_cffi + __NEXT_DATA__ parse."""
+    try:
+        import re as _re
+        from curl_cffi import requests as cf
+        slug = _tt_slug(symbol)
+        if not slug:
+            return None
+        url = f"https://www.tickertape.in/stocks/{slug}"
+        r = cf.get(url, impersonate="chrome131", timeout=20, headers=_TT_HDR)
+        if r.status_code != 200 or len(r.text) < 50000:
+            return None
+        mj = _re.search(r'<script id="__NEXT_DATA__"[^>]*>({.*?})</script>', r.text, _re.S)
+        if not mj:
+            return None
+        data = json.loads(mj.group(1))
+        pp = data.get("props", {}).get("pageProps", {})
+        ss = pp.get("securitySummary", {})
+        fc = ss.get("forecast") or {}
+        out: dict = {"source_url": url}
+        tot = fc.get("totalReco")
+        pct_buy = fc.get("percBuyReco")
+        pct_sell = fc.get("percSellReco") or fc.get("percNegReco") or 0
+        if isinstance(tot, (int, float)) and tot > 0:
+            out["analysts"] = int(tot)
+            if isinstance(pct_buy, (int, float)):
+                buy = int(round(tot * pct_buy / 100))
+                sell = int(round(tot * pct_sell / 100)) if pct_sell else 0
+                out["buy"] = buy
+                out["sell"] = sell
+                out["hold"] = int(tot) - buy - sell
+                out["perc_buy"] = round(pct_buy, 1)
+                if pct_sell:
+                    out["perc_sell"] = round(pct_sell, 1)
+        # Target price — try common field names
+        for field in ("target", "avgTarget", "medianTarget", "targetPrice", "meanTarget"):
+            v = fc.get(field)
+            if isinstance(v, (int, float)) and v > 0:
+                out["target_price"] = round(v, 2)
+                break
+        if not out.get("analysts"):
+            return None
+        from datetime import date
+        out["as_of"] = date.today().isoformat()
+        return out
+    except Exception as e:
+        print(f"  TT error {symbol}: {e}")
+        return None
+
+
+def _write_cache(symbol: str, tl_data: dict | None, tt_data: dict | None) -> bool:
+    """Merge Trendlyne + Tickertape data into the existing analyst cache file."""
     cache_path = CACHE_DIR / f"{symbol}__1y.json"
     existing = {}
     if cache_path.exists():
@@ -136,13 +235,16 @@ def _write_cache(symbol: str, tl_data: dict | None) -> bool:
         except Exception:
             existing = {}
 
+    # Keep existing data if new fetch returned nothing
     if tl_data is None and existing.get("trendlyne") is not None:
-        # Already have TL data from a previous run — keep it
-        return False
+        tl_data = existing["trendlyne"]
+    if tt_data is None and existing.get("tickertape") is not None:
+        tt_data = existing["tickertape"]
 
     existing["symbol"] = symbol
     existing["timeframe"] = "1y"
     existing["trendlyne"] = tl_data
+    existing["tickertape"] = tt_data
     existing["_gh_updated"] = datetime.now(timezone.utc).isoformat()
 
     cache_path.write_text(json.dumps(existing))
@@ -156,16 +258,20 @@ def main():
         symbols = [s.strip().upper() for s in env_syms.split(",") if s.strip()]
         print(f"Processing {len(symbols)} specified symbols.")
     else:
-        # Try nifty500_live.txt (committed to repo, always present on GHA runner)
         nifty500_file = ROOT / "data" / "nifty500_live.txt"
         if nifty500_file.exists():
             symbols = [l.strip() for l in nifty500_file.read_text().splitlines() if l.strip()]
             print(f"Loaded {len(symbols)} symbols from nifty500_live.txt.")
         else:
-            symbols = list(dict.fromkeys(NIFTY_500_FALLBACK))  # dedup
+            symbols = list(dict.fromkeys(NIFTY_500_FALLBACK))
             print(f"Using {len(symbols)} fallback symbols.")
 
-    ok = fail = skip = 0
+    # Pre-load sitemap once for all Tickertape lookups
+    print("Loading Tickertape sitemap...")
+    _tt_load_sitemap()
+    print(f"  Sitemap: {len(_TT_SITEMAP)} slugs loaded.")
+
+    tl_ok = tl_fail = tt_ok = tt_fail = skip = 0
     for i, sym in enumerate(symbols, 1):
         cache_path = CACHE_DIR / f"{sym}__1y.json"
         if not _is_stale(cache_path):
@@ -173,16 +279,25 @@ def main():
             continue
         print(f"  [{i}/{len(symbols)}] {sym}... ", end="", flush=True)
         tl = _fetch_trendlyne(sym)
-        changed = _write_cache(sym, tl)
+        tt = _fetch_tickertape(sym)
+        _write_cache(sym, tl, tt)
+        parts = []
         if tl:
-            print(f"✓ TL analysts={tl.get('analysts')} target={tl.get('target_price')}")
-            ok += 1
+            parts.append(f"TL✓ a={tl.get('analysts')} tgt={tl.get('target_price')}")
+            tl_ok += 1
         else:
-            print("– TL no data")
-            fail += 1
-        time.sleep(1.2)  # polite rate limit
+            parts.append("TL–")
+            tl_fail += 1
+        if tt:
+            parts.append(f"TT✓ a={tt.get('analysts')} buy={tt.get('perc_buy')}%")
+            tt_ok += 1
+        else:
+            parts.append("TT–")
+            tt_fail += 1
+        print(" | ".join(parts))
+        time.sleep(1.5)  # polite rate limit (two requests per stock)
 
-    print(f"\nDone: {ok} fetched, {fail} failed, {skip} skipped (fresh cache).")
+    print(f"\nDone: TL {tl_ok}ok/{tl_fail}fail | TT {tt_ok}ok/{tt_fail}fail | {skip} skipped.")
 
 
 if __name__ == "__main__":

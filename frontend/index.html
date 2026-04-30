@@ -1461,8 +1461,8 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 </div>
 
 <!-- ==================== FLOATING CHAT AGENT ==================== -->
-<div class="fixed bottom-6 right-6 z-50 flex flex-col items-end">
-  <div id="chat-window" class="w-[380px] max-w-[calc(100vw-3rem)] h-[520px] glass-panel rounded-2xl border border-outline-variant/30 shadow-2xl flex-col overflow-hidden mb-4" style="display:none">
+<div class="fixed bottom-6 right-6 z-50 flex flex-col items-end" style="bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem))">
+  <div id="chat-window" class="w-[380px] max-w-[calc(100vw-3rem)] h-[520px] max-h-[calc(100dvh-9rem)] glass-panel rounded-2xl border border-outline-variant/30 shadow-2xl flex-col overflow-hidden mb-4" style="display:none">
     <header class="p-4 bg-primary-container text-on-primary flex items-center justify-between">
       <div class="flex items-center gap-3">
         <div class="w-8 h-8 rounded-full bg-on-primary/10 flex items-center justify-center">
@@ -1482,7 +1482,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
       <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse inline-block"></span>
       <span class="text-[8px] uppercase font-bold text-primary tracking-wider">Groq AI · Web Search On</span>
     </div>
-    <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-4 text-sm scroll-smooth" style="max-height:380px">
+    <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-4 text-sm scroll-smooth" style="max-height:min(380px,calc(100dvh - 18rem))">
       <div class="flex gap-2">
         <div class="w-6 h-6 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center border border-outline-variant/20">
           <span class="material-symbols-outlined text-[14px]">psychology</span>
