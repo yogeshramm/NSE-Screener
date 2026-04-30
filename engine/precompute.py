@@ -51,17 +51,21 @@ def _get_configs() -> list[dict]:
         for pf in presets_dir.glob("*.json"):
             try:
                 p = load_preset(pf.stem)
-                if p and p.get("config"):
-                    c = get_default_config()
-                    for k, v in p["config"].items():
-                        if k in c and isinstance(c[k], dict) and isinstance(v, dict):
-                            c[k].update(v)
-                        else:
-                            c[k] = v
-                    h = _config_hash(c)
-                    if h not in seen_hashes:
-                        configs.append(c)
-                        seen_hashes.add(h)
+                if not p:
+                    continue
+                # load_preset returns config dict directly; some callers wrap
+                # it as {"config": {...}} — handle both forms.
+                cfg = p.get("config") or p
+                c = get_default_config()
+                for k, v in cfg.items():
+                    if k in c and isinstance(c[k], dict) and isinstance(v, dict):
+                        c[k].update(v)
+                    else:
+                        c[k] = v
+                h = _config_hash(c)
+                if h not in seen_hashes:
+                    configs.append(c)
+                    seen_hashes.add(h)
             except Exception:
                 pass
     return configs
