@@ -232,7 +232,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
     <div class="absolute -top-1/4 -right-1/4 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[120px]"></div>
     <div class="absolute -bottom-1/4 -left-1/4 w-[600px] h-[600px] bg-secondary-container/10 rounded-full blur-[100px]"></div>
   </div>
-  <div class="w-[400px] p-8 rounded-xl glass-panel border border-outline-variant/20 shadow-2xl relative z-10">
+  <div class="w-[400px] max-w-[calc(100vw-2rem)] p-8 rounded-xl glass-panel border border-outline-variant/20 shadow-2xl relative z-10">
     <div class="top-glow"></div>
     <div class="text-center mb-8">
       <h1 class="text-3xl font-black tracking-tighter brand-gradient uppercase">MONEYSTX</h1>
@@ -362,11 +362,11 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
     </div>
     <div id="mp-body" class="hidden px-4 pb-4">
       <div class="flex gap-4 flex-wrap">
-        <div class="flex-1 min-w-[400px]">
+        <div class="flex-1 min-w-0">
           <div class="text-[9px] font-bold text-on-surface-variant uppercase mb-2">Sector Rotation (ranked by 1M return)</div>
           <div id="mp-heatmap" class="space-y-1 max-h-[280px] overflow-y-auto"></div>
         </div>
-        <div class="w-[320px]">
+        <div class="w-full sm:w-[320px]">
           <div class="text-[9px] font-bold text-on-surface-variant uppercase mb-2">Top 20 by Relative Strength (RS ≥ 80)</div>
           <div id="mp-rs" class="space-y-1 max-h-[280px] overflow-y-auto text-xs"></div>
         </div>
@@ -750,7 +750,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 
     <!-- Pattern scan results modal -->
     <div id="pat-scan-modal" class="fixed inset-0 z-[85] flex items-center justify-center bg-black/60" style="display:none">
-      <div class="w-[640px] max-h-[80vh] glass-panel rounded-2xl border border-outline-variant/20 overflow-hidden flex flex-col">
+      <div class="w-[640px] max-w-[calc(100vw-2rem)] max-h-[80vh] glass-panel rounded-2xl border border-outline-variant/20 overflow-hidden flex flex-col">
         <div class="p-4 border-b border-outline-variant/20 flex items-center justify-between">
           <div>
             <h3 id="pat-scan-title" class="text-sm font-black uppercase text-on-surface tracking-widest">Scan Results</h3>
@@ -772,9 +772,9 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
         <h1 class="text-3xl font-black text-on-surface tracking-tighter uppercase mb-1">Watchlist</h1>
         <p class="text-sm text-on-surface-variant">Monitoring <span id="wl-count">0</span> assets with active breakout detection.</p>
       </div>
-      <div class="flex items-center gap-3">
-        <div class="relative">
-          <input id="wl-add-input" class="bg-surface-container-highest border-none rounded-xl text-sm px-4 py-2.5 w-64 focus:ring-1 focus:ring-primary/50 placeholder:text-on-surface-variant/40" placeholder="Add symbol (e.g. RELIANCE, TCS)" type="text" onkeydown="if(event.key==='Enter')addToWatchlist()"/>
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="relative flex-1 min-w-[180px]">
+          <input id="wl-add-input" class="bg-surface-container-highest border-none rounded-xl text-sm px-4 py-2.5 w-full focus:ring-1 focus:ring-primary/50 placeholder:text-on-surface-variant/40" placeholder="Add symbol (e.g. RELIANCE, TCS)" type="text" onkeydown="if(event.key==='Enter')addToWatchlist()"/>
           <button onclick="addToWatchlist()" class="absolute right-2 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary">
             <span class="material-symbols-outlined">add</span>
           </button>
@@ -1183,8 +1183,8 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
     <!-- Totals row -->
     <div id="pf-totals" class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6"></div>
     <!-- Positions table -->
-    <div class="rounded-xl border border-outline-variant/20 bg-surface-container-low overflow-hidden">
-      <table class="w-full text-left tabular-nums">
+    <div class="rounded-xl border border-outline-variant/20 bg-surface-container-low overflow-x-auto">
+      <table class="w-full min-w-[700px] text-left tabular-nums">
         <thead class="bg-surface-container border-b border-outline-variant/20">
           <tr>
             <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">Symbol</th>
@@ -1209,7 +1209,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 
 <!-- Portfolio Add Modal -->
 <div id="pf-add-modal" class="fixed inset-0 z-[85] flex items-center justify-center bg-black/60" style="display:none">
-  <div class="w-[380px] glass-panel rounded-2xl border border-outline-variant/20 bg-surface-container-low overflow-hidden">
+  <div class="w-[380px] max-w-[calc(100vw-2rem)] glass-panel rounded-2xl border border-outline-variant/20 bg-surface-container-low overflow-hidden">
     <div class="p-5 border-b border-outline-variant/20 flex items-center justify-between">
       <h3 class="text-sm font-black uppercase tracking-widest">Add Position</h3>
       <button onclick="pfHideAdd()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
@@ -1232,7 +1232,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 
 <!-- ==================== PRACTICE BUY MODAL ==================== -->
 <div id="prac-buy-modal" class="fixed inset-0 z-[85] flex items-center justify-center bg-black/60" style="display:none">
-  <div class="w-[440px] glass-panel rounded-2xl border border-outline-variant/20 overflow-hidden">
+  <div class="w-[440px] max-w-[calc(100vw-2rem)] glass-panel rounded-2xl border border-outline-variant/20 overflow-hidden">
     <div class="p-5 border-b border-outline-variant/20 flex items-center justify-between">
       <div>
         <h3 class="text-sm font-black uppercase text-on-surface tracking-widest">Place BUY Order</h3>
@@ -1297,7 +1297,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 
 <!-- ==================== PRACTICE PROFILE MODAL ==================== -->
 <div id="prac-profile-modal" class="fixed inset-0 z-[85] flex items-center justify-center bg-black/60" style="display:none">
-  <div class="w-[400px] glass-panel rounded-2xl border border-outline-variant/20 overflow-hidden">
+  <div class="w-[400px] max-w-[calc(100vw-2rem)] glass-panel rounded-2xl border border-outline-variant/20 overflow-hidden">
     <div class="p-5 border-b border-outline-variant/20 flex items-center justify-between">
       <h3 class="text-sm font-black uppercase text-on-surface tracking-widest">Trader Profile</h3>
       <span class="material-symbols-outlined cursor-pointer hover:text-error" onclick="closeProfileModal()">close</span>
@@ -1330,7 +1330,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 
 <!-- ==================== PRACTICE PRE-ENTRY CHECKLIST (TREND TEMPLATE) ==================== -->
 <div id="prac-mv-modal" class="fixed inset-0 z-[86] flex items-center justify-center bg-black/70" style="display:none">
-  <div class="w-[520px] max-h-[85vh] glass-panel rounded-2xl border border-outline-variant/20 flex flex-col overflow-hidden">
+  <div class="w-[520px] max-w-[calc(100vw-2rem)] max-h-[85vh] glass-panel rounded-2xl border border-outline-variant/20 flex flex-col overflow-hidden">
     <div class="p-4 border-b border-outline-variant/20">
       <h3 class="text-sm font-black uppercase text-on-surface tracking-widest">Trend Template · Pre-Entry Checklist</h3>
       <span id="prac-mv-subtitle" class="text-[10px] text-on-surface-variant"></span>
@@ -1352,7 +1352,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 
 <!-- ==================== PRACTICE SUMMARY MODAL ==================== -->
 <div id="prac-summary-modal" class="fixed inset-0 z-[80] flex items-center justify-center bg-black/60" style="display:none">
-  <div class="w-[520px] max-h-[80vh] glass-panel rounded-2xl border border-outline-variant/20 overflow-hidden flex flex-col">
+  <div class="w-[520px] max-w-[calc(100vw-2rem)] max-h-[80vh] glass-panel rounded-2xl border border-outline-variant/20 overflow-hidden flex flex-col">
     <div class="p-5 border-b border-outline-variant/20 flex items-center justify-between">
       <div>
         <h3 class="text-sm font-black uppercase text-on-surface tracking-widest">Round Summary</h3>
@@ -1400,7 +1400,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 </div>
 
 <!-- ==================== AI INSIGHTS SIDE PANEL ==================== -->
-<div id="side-panel" class="fixed top-14 right-0 w-[380px] h-[calc(100vh-56px)] bg-surface-container border-l border-outline-variant/20 z-40 transform translate-x-full transition-transform duration-300 overflow-y-auto" style="translate:100%">
+<div id="side-panel" class="fixed top-14 right-0 w-full sm:w-[380px] h-[calc(100vh-56px)] bg-surface-container border-l border-outline-variant/20 z-40 transform translate-x-full transition-transform duration-300 overflow-y-auto" style="translate:100%">
   <div class="p-4 border-b border-outline-variant/20 flex justify-between items-center">
     <h3 id="panel-title" class="text-xs font-black uppercase tracking-widest">AI Insights</h3>
     <span class="material-symbols-outlined cursor-pointer hover:text-error" onclick="closePanel()">close</span>
@@ -1410,7 +1410,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 
 <!-- ==================== ALERT MODAL ==================== -->
 <div id="wl-alert-modal" class="fixed inset-0 z-[80] flex items-center justify-center bg-black/60" style="display:none">
-  <div class="w-[400px] glass-panel rounded-xl p-6 border border-outline-variant/20">
+  <div class="w-[400px] max-w-[calc(100vw-2rem)] glass-panel rounded-xl p-6 border border-outline-variant/20">
     <div class="flex justify-between items-center mb-4">
       <h3 id="wl-alert-modal-title" class="text-sm font-black uppercase text-on-surface">Add Alert</h3>
       <span class="material-symbols-outlined cursor-pointer hover:text-error" onclick="closeAlertModal()">close</span>
@@ -1460,7 +1460,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 
 <!-- ==================== FLOATING CHAT AGENT ==================== -->
 <div class="fixed bottom-6 right-6 z-50 flex flex-col items-end">
-  <div id="chat-window" class="w-[380px] h-[520px] glass-panel rounded-2xl border border-outline-variant/30 shadow-2xl flex-col overflow-hidden mb-4" style="display:none">
+  <div id="chat-window" class="w-[380px] max-w-[calc(100vw-3rem)] h-[520px] glass-panel rounded-2xl border border-outline-variant/30 shadow-2xl flex-col overflow-hidden mb-4" style="display:none">
     <header class="p-4 bg-primary-container text-on-primary flex items-center justify-between">
       <div class="flex items-center gap-3">
         <div class="w-8 h-8 rounded-full bg-on-primary/10 flex items-center justify-center">
@@ -8021,7 +8021,7 @@ document.addEventListener('click', (e) => {
 
 <!-- ==================== PROFILE MODAL ==================== -->
 <div id="profile-modal" class="fixed inset-0 z-[110] items-center justify-center bg-black/60 backdrop-blur-sm" style="display:none">
-  <div class="w-[420px] bg-surface-container border border-outline-variant/20 rounded-xl shadow-2xl">
+  <div class="w-[420px] max-w-[calc(100vw-2rem)] bg-surface-container border border-outline-variant/20 rounded-xl shadow-2xl">
     <div class="flex items-center justify-between px-5 py-3 border-b border-outline-variant/10">
       <div class="flex items-center gap-2">
         <span class="material-symbols-outlined text-primary">person</span>
@@ -8059,7 +8059,7 @@ document.addEventListener('click', (e) => {
 
 <!-- ==================== CHANGE PASSWORD MODAL ==================== -->
 <div id="change-pwd-modal" class="fixed inset-0 z-[110] items-center justify-center bg-black/60 backdrop-blur-sm" style="display:none">
-  <div class="w-[420px] bg-surface-container border border-outline-variant/20 rounded-xl shadow-2xl">
+  <div class="w-[420px] max-w-[calc(100vw-2rem)] bg-surface-container border border-outline-variant/20 rounded-xl shadow-2xl">
     <div class="flex items-center justify-between px-5 py-3 border-b border-outline-variant/10">
       <div class="flex items-center gap-2">
         <span class="material-symbols-outlined text-primary">lock_reset</span>
