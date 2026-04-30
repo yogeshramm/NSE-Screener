@@ -85,7 +85,8 @@ def run():
         if r.status_code != 200:
             errors.append(f"SCREEN_FAIL: HTTP {r.status_code}")
         else:
-            stage1 = len(r.json().get("stage1", []))
+            d = r.json()
+            stage1 = d.get("stage1_passed") or len(d.get("stage1_results", []))
             if stage1 == 0:
                 errors.append(f"SCREEN_ZERO ({elapsed}s)")
             elif elapsed > 20:
