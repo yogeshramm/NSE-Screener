@@ -4809,6 +4809,8 @@ function showFaBadge(done,total) {
 function hideFaBadge() { document.getElementById('fa-sync-badge')?.remove(); }
 
 // ============ CHAT ============
+let _chatHistory = [];  // [{role:'user'|'assistant', content:'...'}]
+
 function toggleChat() {
   const w=document.getElementById('chat-window');
   w.style.display=w.style.display==='none'?'flex':'none';
@@ -4824,9 +4826,13 @@ async function sendChat() {
   container.scrollTop=container.scrollHeight;
 
   try {
-    const res=await fetch(API+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,config:getFilterConfig(),mode:'auto'})});
+    const history=_chatHistory.slice(-10);  // last 5 exchanges as context
+    const res=await fetch(API+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,history,config:getFilterConfig(),mode:'auto'})});
     const data=await res.json();
     let reply=data.reply||'I couldn\'t understand that.';
+    _chatHistory.push({role:'user',content:msg});
+    _chatHistory.push({role:'assistant',content:reply});
+    if(_chatHistory.length>20) _chatHistory=_chatHistory.slice(-20);  // keep last 10 exchanges
     container.innerHTML+=`<div class="flex gap-2"><div class="w-6 h-6 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center border border-outline-variant/20"><span class="material-symbols-outlined text-[14px]">psychology</span></div><div class="bg-surface-container p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl border border-outline-variant/10 text-on-surface-variant leading-relaxed max-w-[80%]">${reply}</div></div>`;
 
     // Execute actions from chat

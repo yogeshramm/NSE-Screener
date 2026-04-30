@@ -80,6 +80,7 @@ DATA:
 
 class ChatRequest(BaseModel):
     message: str
+    history: Optional[list] = None   # [{role, content}, ...] prior turns
     config: Optional[dict] = None
     mode: Optional[str] = "auto"
 
@@ -101,9 +102,8 @@ def _groq_key() -> str | None:
 @router.post("/chat")
 def chat(request: ChatRequest):
     key = _groq_key()
-    # Auto mode: use Groq if key available, else rule-based
     if key and request.mode != "simple":
-        return _groq_chat(request.message, key)
+        return _groq_chat(request.message, key, history=request.history or [])
     return process_message(request.message, current_config=request.config)
 
 
@@ -113,16 +113,24 @@ def chat_status():
     return {"groq": bool(key), "model": GROQ_MODEL if key else None, "ready": bool(key)}
 
 
-def _groq_request(model: str, system: str, message: str, key: str) -> httpx.Response:
+def _build_messages(system: str, history: list, message: str) -> list:
+    msgs = [{"role": "system", "content": system}]
+    for turn in history:
+        role = turn.get("role", "")
+        content = turn.get("content", "")
+        if role in ("user", "assistant") and content:
+            msgs.append({"role": role, "content": content})
+    msgs.append({"role": "user", "content": message})
+    return msgs
+
+
+def _groq_request(model: str, messages: list, key: str) -> httpx.Response:
     return httpx.post(
         GROQ_URL,
         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
         json={
             "model": model,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": message},
-            ],
+            "messages": messages,
             "max_tokens": 300,
             "temperature": 0.4,
         },
@@ -130,16 +138,17 @@ def _groq_request(model: str, system: str, message: str, key: str) -> httpx.Resp
     )
 
 
-def _groq_chat(message: str, key: str) -> dict:
+def _groq_chat(message: str, key: str, history: list = None) -> dict:
     try:
-        r = _groq_request(GROQ_MODEL, SYSTEM_PROMPT, message, key)
+        msgs = _build_messages(SYSTEM_PROMPT, history or [], message)
+        r = _groq_request(GROQ_MODEL, msgs, key)
         if r.status_code == 200:
             reply = r.json()["choices"][0]["message"]["content"].strip()
             return {"reply": reply, "actions": [], "model": GROQ_MODEL}
-        # On 413/429/5xx — retry with lighter fallback model
+        # On 413/429/5xx — retry with trimmed prompt + no history
         if r.status_code in (413, 429, 500, 503):
-            short_prompt = SYSTEM_PROMPT[:1500]  # trim to ~375 tokens
-            r2 = _groq_request(GROQ_FALLBACK, short_prompt, message, key)
+            short_msgs = _build_messages(SYSTEM_PROMPT[:1500], [], message)
+            r2 = _groq_request(GROQ_FALLBACK, short_msgs, key)
             if r2.status_code == 200:
                 reply = r2.json()["choices"][0]["message"]["content"].strip()
                 return {"reply": reply, "actions": [], "model": GROQ_FALLBACK}
