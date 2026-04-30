@@ -132,32 +132,24 @@ def _safe_cache_date(path) -> str:
         return ""
 
 
-_status_cache: dict = {"resp": None, "ts": 0.0}
-_STATUS_TTL = 20.0  # 20s cache. /data/status iterates 2800+ pkl files; under
-# load (e.g. backfill running), a fresh compute takes 10-25s and Cloudflare
-# 503s before it returns. With a 20s in-process cache, only one request per
-# window pays the cost, every other response is served in <1ms.
+_status_cache: dict = {"resp": None, "ts": 0.0, "refreshing": False}
+_STATUS_FRESH_S = 20.0   # cached <20s old → no refresh kicked off
+_STATUS_STALE_S = 120.0  # cached >120s old → block once to populate
+_status_lock = threading.Lock()
 
 
-@router.get("/data/status")
-def data_status():
-    """Check today's data download status with date info."""
-    import time as _t
-    if _status_cache["resp"] is not None and _t.time() - _status_cache["ts"] < _STATUS_TTL:
-        return _status_cache["resp"]
-
+def _compute_status() -> dict:
+    """Heavy compute path — 10-25s on a hot droplet (iterates 2800+ pkl files)."""
     from data.nse_history import get_history_stats
-    from datetime import date
+    from datetime import date as _date
+    import time as _time
 
     symbols = get_downloaded_symbols()
     hist = get_history_stats()
     dates = get_available_dates()
-
-    # Filter out non-date folder names
     real_dates = [d for d in dates if d[:4].isdigit()]
     latest_price_date = hist.get("latest_date", "N/A")
 
-    # data_as_of = most recent actual date we have data for
     if latest_price_date and latest_price_date != "N/A":
         data_as_of = latest_price_date
     elif real_dates:
@@ -168,23 +160,18 @@ def data_status():
     history_count = hist.get("total_symbols", 0)
     total_stocks = max(len(symbols), history_count)
 
-    # Check actual bar count — need minimum 200 bars for EMA 200.
-    # Skip NSE test instruments (NSETEST symbols) and sample a real major stock.
-    # Falls back to first non-test symbol if none of the preferred stocks exist.
     bars_sufficient = False
     sample = None
     sample_sym = None
     if history_count > 0:
         from data.nse_history import load_history
         all_syms = hist.get("symbols", [])
-        # Prefer well-known liquid stocks known to have full history
         preferred = ["RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK"]
         for s in preferred:
             if s in all_syms:
                 sample_sym = s
                 break
         if not sample_sym:
-            # Skip NSE test instruments + ETF-like junk
             for s in all_syms:
                 if "NSETEST" not in s and "INAV" not in s:
                     sample_sym = s
@@ -196,10 +183,9 @@ def data_status():
     ready = total_stocks > 50 and bars_sufficient
     bar_count = len(sample) if sample is not None else 0
 
-    import time as _time
     cache_status = _check_cache_warm()
     warm_ago = round(_time.time() - _warm_completed_at) if _warm_completed_at else None
-    resp = {
+    return {
         "today_downloaded": total_stocks,
         "ready_for_screening": ready,
         "needs_history": not bars_sufficient and total_stocks > 0,
@@ -209,7 +195,7 @@ def data_status():
         "warm_completed_ago_s": warm_ago,
         "last_download": _download_stats,
         "available_dates": real_dates[:5],
-        "today_date": date.today().isoformat(),
+        "today_date": _date.today().isoformat(),
         "data_as_of": data_as_of,
         "history_latest_date": latest_price_date,
         "history_symbols": history_count,
@@ -217,9 +203,67 @@ def data_status():
         **_read_cron_status(),
         **_read_integrity_summary(),
     }
-    _status_cache["resp"] = resp
-    _status_cache["ts"] = _t.time()
-    return resp
+
+
+def _refresh_status_async():
+    """Run _compute_status() in a worker thread; only one runs at a time."""
+    if _status_cache.get("refreshing"):
+        return
+    def _worker():
+        try:
+            _status_cache["refreshing"] = True
+            resp = _compute_status()
+            _status_cache["resp"] = resp
+            _status_cache["ts"] = time.time()
+        except Exception:
+            pass
+        finally:
+            _status_cache["refreshing"] = False
+    import time
+    threading.Thread(target=_worker, daemon=True).start()
+
+
+def warm_status_cache_on_startup():
+    """Called from app lifespan — populate cache before first request."""
+    try:
+        _status_cache["resp"] = _compute_status()
+        _status_cache["ts"] = __import__("time").time()
+    except Exception:
+        pass
+
+
+@router.get("/data/status")
+def data_status():
+    """Stale-while-revalidate: ALWAYS returns instantly from cache.
+    If cache <20s old → no refresh.
+    If 20s-120s old → return cache + kick off background refresh.
+    If >120s old or never computed → compute synchronously (cold start).
+    The endpoint scans 2800+ pkl files (~10-25s under load); blocking on it
+    causes Cloudflare 502s. Frontend polls every 3s — never block."""
+    import time as _t
+    now = _t.time()
+    age = now - _status_cache["ts"] if _status_cache["resp"] is not None else 9999
+
+    if _status_cache["resp"] is not None and age < _STATUS_FRESH_S:
+        return _status_cache["resp"]
+
+    if _status_cache["resp"] is not None and age < _STATUS_STALE_S:
+        # stale-while-revalidate: serve old value, refresh in background
+        _refresh_status_async()
+        return _status_cache["resp"]
+
+    # cold start or very stale: must block. Use lock so only one request
+    # does the heavy work; others will hit the warm cache.
+    with _status_lock:
+        # double-check inside lock — another caller may have populated
+        if _status_cache["resp"] is not None and _t.time() - _status_cache["ts"] < _STATUS_FRESH_S:
+            return _status_cache["resp"]
+        resp = _compute_status()
+        _status_cache["resp"] = resp
+        _status_cache["ts"] = _t.time()
+        return resp
+
+
 
 
 @router.get("/data/integrity")

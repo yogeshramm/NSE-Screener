@@ -23,11 +23,24 @@ def _background_prewarm():
         pass
 
 
+def _warm_status_cache():
+    """Compute /data/status response once on startup so the first user
+    request doesn't pay 10-25s of pkl-iteration cost (causes Cloudflare 502)."""
+    try:
+        from api.routes_data import warm_status_cache_on_startup
+        warm_status_cache_on_startup()
+    except Exception:
+        pass
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Launch prewarm in background — won't block startup
     t = threading.Thread(target=_background_prewarm, daemon=True)
     t.start()
+    # Pre-populate /data/status cache so first request returns instantly.
+    # Runs in a thread so startup itself stays fast (<1s).
+    threading.Thread(target=_warm_status_cache, daemon=True).start()
     yield
 
 from api.routes_screen import router as screen_router
