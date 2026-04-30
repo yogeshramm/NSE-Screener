@@ -96,19 +96,30 @@ def warm_cache(symbols: list[str] | None = None, verbose: bool = False) -> dict:
 
         last_bar_date = str(daily_df.index[-1].date())
 
+        # Compute indicators ONCE per stock; save for all config hashes that
+        # don't already have a cache entry. run_all_indicators output is the
+        # same regardless of which config is active (the config controls
+        # thresholds, not indicator computation).
+        missing_configs = []
         for config in configs:
             cached = load_cached(symbol, config, sector, last_bar_date)
             if cached is not None:
                 hits += 1
-                continue
-            try:
-                results = run_all_indicators(daily_df, sector=sector)
+            else:
+                missing_configs.append(config)
+
+        if not missing_configs:
+            continue
+
+        try:
+            results = run_all_indicators(daily_df, sector=sector)
+            for config in missing_configs:
                 save_cached(symbol, config, sector, last_bar_date, results)
-                misses += 1
-            except Exception as e:
-                if verbose:
-                    print(f"  [WARN] {symbol}: {e}")
-                skipped += 1
+            misses += 1
+        except Exception as e:
+            if verbose:
+                print(f"  [WARN] {symbol}: {e}")
+            skipped += 1
 
     if verbose:
         print(f"  Precompute done: {misses} computed, {hits} already cached, {skipped} skipped")
