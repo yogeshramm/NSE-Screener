@@ -2,12 +2,15 @@
 Indicator Result Cache
 Caches run_all_indicators() output keyed by (config_hash, sector, last_bar_date).
 Cache auto-invalidates when new daily data arrives (last_bar_date changes).
+
+Files: data_store/indicator_cache/{SYMBOL}_{config_hash}.pkl
+One file per (symbol, config) pair so multiple preset configs coexist without
+overwriting each other.
 """
 
 import hashlib
 import json
 import pickle
-import tempfile
 from pathlib import Path
 
 CACHE_DIR = Path(__file__).parent.parent / "data_store" / "indicator_cache"
@@ -41,16 +44,22 @@ def _config_hash(config: dict) -> str:
     ).hexdigest()[:8]
 
 
+def _cache_path(symbol: str, config_hash: str) -> Path:
+    """Return the cache file path for a (symbol, config_hash) pair.
+    Using {symbol}_{hash}.pkl lets multiple configs coexist per symbol."""
+    return CACHE_DIR / f"{symbol}_{config_hash}.pkl"
+
+
 def load_cached(symbol: str, config: dict, sector: str | None, last_bar_date: str) -> list | None:
     """Return cached indicator_results if valid, else None."""
-    path = CACHE_DIR / f"{symbol}.pkl"
+    h = _config_hash(config)
+    path = _cache_path(symbol, h)
     if not path.exists():
         return None
     try:
         with open(path, "rb") as f:
             entry = pickle.load(f)
-        if (entry.get("config_hash") == _config_hash(config)
-                and entry.get("sector") == sector
+        if (entry.get("sector") == sector
                 and entry.get("last_bar_date") == last_bar_date):
             return entry["results"]
     except Exception:
@@ -61,9 +70,9 @@ def load_cached(symbol: str, config: dict, sector: str | None, last_bar_date: st
 def save_cached(symbol: str, config: dict, sector: str | None,
                 last_bar_date: str, results: list) -> None:
     """Atomically write indicator_results to cache."""
-    path = CACHE_DIR / f"{symbol}.pkl"
+    h = _config_hash(config)
+    path = _cache_path(symbol, h)
     entry = {
-        "config_hash": _config_hash(config),
         "sector": sector,
         "last_bar_date": last_bar_date,
         "results": results,
@@ -75,3 +84,24 @@ def save_cached(symbol: str, config: dict, sector: str | None,
         tmp.replace(path)
     except Exception:
         pass
+
+
+def purge_stale_date_files(symbols: list[str], current_hashes: set[str],
+                           current_date: str) -> int:
+    """Delete cache files for unknown hashes or outdated dates.
+    Call from warm_cache() before warming so stale entries don't persist."""
+    deleted = 0
+    for path in CACHE_DIR.glob("*.pkl"):
+        # Filename: SYMBOL_HASH.pkl  (underscore separates)
+        stem = path.stem
+        parts = stem.rsplit("_", 1)
+        if len(parts) != 2:
+            # Old-format file (SYMBOL.pkl) — remove
+            path.unlink(missing_ok=True)
+            deleted += 1
+            continue
+        sym, h = parts
+        if h not in current_hashes:
+            path.unlink(missing_ok=True)
+            deleted += 1
+    return deleted
