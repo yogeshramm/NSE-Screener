@@ -74,12 +74,8 @@ def run():
         # Load original_formula preset config
         config = {}
         try:
-            pr = _get("/presets/list").json()
-            for p in (pr if isinstance(pr, list) else []):
-                if p.get("name") == "original_formula":
-                    cr = _get("/presets/load/original_formula").json()
-                    config = cr.get("config", {})
-                    break
+            cr = _get("/presets/original_formula").json()
+            config = cr.get("config", {})
         except Exception: pass
 
         t0 = time.time()
