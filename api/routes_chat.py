@@ -14,7 +14,8 @@ from engine.chat_parser import process_message
 router = APIRouter()
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = "groq/compound-mini"  # web search + tool use built-in; auto-searches for stock news
+GROQ_MODEL = "compound-beta-mini"   # Groq compound model with web search built-in
+GROQ_FALLBACK = "llama-3.1-8b-instant"  # fast fallback if compound model fails
 
 SYSTEM_PROMPT = """You are YOINTELL Assistant — the built-in AI for moneystx.com, a private NSE swing-trading screener for a small group of users.
 
@@ -112,26 +113,37 @@ def chat_status():
     return {"groq": bool(key), "model": GROQ_MODEL if key else None, "ready": bool(key)}
 
 
+def _groq_request(model: str, system: str, message: str, key: str) -> httpx.Response:
+    return httpx.post(
+        GROQ_URL,
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        json={
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": message},
+            ],
+            "max_tokens": 300,
+            "temperature": 0.4,
+        },
+        timeout=15.0,
+    )
+
+
 def _groq_chat(message: str, key: str) -> dict:
     try:
-        r = httpx.post(
-            GROQ_URL,
-            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-            json={
-                "model": GROQ_MODEL,
-                "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": message},
-                ],
-                "max_tokens": 300,
-                "temperature": 0.4,
-            },
-            timeout=15.0,
-        )
+        r = _groq_request(GROQ_MODEL, SYSTEM_PROMPT, message, key)
         if r.status_code == 200:
             reply = r.json()["choices"][0]["message"]["content"].strip()
             return {"reply": reply, "actions": [], "model": GROQ_MODEL}
-        return {"reply": f"Groq error {r.status_code}: {r.text[:200]}", "actions": []}
+        # On 413/429/5xx — retry with lighter fallback model
+        if r.status_code in (413, 429, 500, 503):
+            short_prompt = SYSTEM_PROMPT[:1500]  # trim to ~375 tokens
+            r2 = _groq_request(GROQ_FALLBACK, short_prompt, message, key)
+            if r2.status_code == 200:
+                reply = r2.json()["choices"][0]["message"]["content"].strip()
+                return {"reply": reply, "actions": [], "model": GROQ_FALLBACK}
+        return {"reply": "AI is temporarily unavailable. Please try again shortly.", "actions": []}
     except httpx.ReadTimeout:
         return {"reply": "AI is taking too long — try again.", "actions": []}
     except Exception as e:

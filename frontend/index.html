@@ -285,7 +285,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 <header class="flex justify-between items-center w-full px-3 sm:px-6 h-14 border-b border-outline-variant/20 bg-surface-container-lowest relative z-50">
   <div class="flex items-center gap-3 sm:gap-8 min-w-0 flex-1 overflow-hidden">
     <span class="text-xl font-black tracking-tighter brand-gradient uppercase shrink-0">MONEYSTX</span>
-    <nav class="flex items-center gap-4 sm:gap-6 tabular-nums text-sm tracking-tight h-full overflow-x-auto scrollbar-hide" id="main-nav">
+    <nav class="flex items-center gap-4 sm:gap-6 tabular-nums text-sm tracking-tight h-full overflow-x-auto scrollbar-hide min-w-0" id="main-nav">
       <a href="#screener" class="nav-tab text-primary border-b-2 border-primary font-bold h-14 flex items-center cursor-pointer" data-tab="screener" onclick="event.preventDefault();switchTab('screener')">Screener</a>
       <a href="#config" class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="config" onclick="event.preventDefault();switchTab('config')">Configuration</a>
       <a href="#indicators" class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="indicators" onclick="event.preventDefault();switchTab('indicators')">Indicators</a>
@@ -297,23 +297,23 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
       <a href="#portfolio" class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="portfolio" onclick="event.preventDefault();switchTab('portfolio')">Portfolio</a>
     </nav>
   </div>
-  <div class="flex items-center gap-4">
+  <div class="flex items-center gap-2 sm:gap-4 shrink-0">
     <!-- Data Sync Ring -->
-    <div class="flex items-center gap-3 px-3 py-1.5 bg-surface-container-low rounded-full border border-outline-variant/10 cursor-pointer" onclick="triggerCatchup()" id="dl-btn">
-      <div class="relative w-6 h-6">
+    <div class="flex items-center gap-3 px-2 sm:px-3 py-1.5 bg-surface-container-low rounded-full border border-outline-variant/10 cursor-pointer" onclick="triggerCatchup()" id="dl-btn">
+      <div class="relative w-6 h-6 shrink-0">
         <svg class="w-full h-full transform -rotate-90">
           <circle class="text-surface-container-highest" cx="12" cy="12" fill="transparent" r="10" stroke="currentColor" stroke-width="2"></circle>
           <circle id="ring-fg" class="text-primary-container" cx="12" cy="12" fill="transparent" r="10" stroke="currentColor" stroke-dasharray="62.8" stroke-dashoffset="62.8" stroke-width="2"></circle>
         </svg>
         <span id="ring-text" class="absolute inset-0 flex items-center justify-center text-[8px] font-bold">0%</span>
       </div>
-      <div class="flex flex-col whitespace-nowrap">
+      <div class="hidden sm:flex flex-col whitespace-nowrap">
         <span id="data-status" class="text-[9px] uppercase font-bold leading-none text-on-surface-variant">Loading...</span>
         <span id="data-detail" class="text-[10px] font-mono leading-none text-primary mt-0.5" id="dl-btn-text">SYNC</span>
       </div>
     </div>
     <span id="data-date" class="hidden"></span>
-    <button class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-variant/40 transition-colors" onclick="triggerCatchup()">
+    <button class="hidden sm:flex w-9 h-9 items-center justify-center rounded-lg hover:bg-surface-variant/40 transition-colors" onclick="triggerCatchup()">
       <span class="material-symbols-outlined text-primary">sync</span>
     </button>
     <button id="theme-toggle" onclick="toggleTheme()" class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-variant/40 transition-colors" title="Toggle theme">
@@ -323,8 +323,8 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
     <div class="relative" id="user-menu-wrap">
       <button id="user-menu-btn" onclick="toggleUserMenu(event)" class="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-surface-variant/40 transition-colors" title="Account menu">
         <span class="material-symbols-outlined text-on-surface-variant">account_circle</span>
-        <span id="user-display" class="text-xs font-bold text-on-surface-variant"></span>
-        <span class="material-symbols-outlined text-on-surface-variant text-base" id="user-menu-caret">arrow_drop_down</span>
+        <span id="user-display" class="hidden sm:inline text-xs font-bold text-on-surface-variant"></span>
+        <span class="material-symbols-outlined text-on-surface-variant text-base hidden sm:inline" id="user-menu-caret">arrow_drop_down</span>
       </button>
       <div id="user-menu-dropdown" class="hidden absolute right-0 top-full mt-1 w-52 bg-surface-container border border-outline-variant/20 rounded-lg shadow-2xl z-[100] overflow-hidden">
         <div class="px-3 pt-2 pb-1 text-[9px] uppercase tracking-wider text-on-surface-variant">Signed in as</div>
@@ -397,16 +397,16 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
   </div>
   <!-- FILTER PANEL -->
   <div class="p-4 bg-surface-container-low border-b border-outline-variant/10">
-    <div class="flex items-center justify-between mb-3">
-      <div class="flex gap-4 items-center">
-        <span class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">TECHNICAL</span>
-        <span class="text-[10px] font-black uppercase tracking-[0.2em] text-secondary">FUNDAMENTAL</span>
-        <span class="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant">BREAKOUT & RISK</span>
-        <span id="filter-count" class="text-[10px] text-on-surface-variant font-mono ml-4">0/0</span>
-        <button onclick="toggleAllFilters(true)" class="text-[9px] text-primary hover:underline font-bold ml-3">ALL ON</button>
+    <div class="flex items-center justify-between mb-3 gap-2">
+      <div class="flex gap-2 sm:gap-4 items-center flex-wrap">
+        <span class="hidden sm:inline text-[10px] font-black uppercase tracking-[0.2em] text-primary">TECHNICAL</span>
+        <span class="hidden sm:inline text-[10px] font-black uppercase tracking-[0.2em] text-secondary">FUNDAMENTAL</span>
+        <span class="hidden sm:inline text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant">BREAKOUT & RISK</span>
+        <span id="filter-count" class="text-[10px] text-on-surface-variant font-mono">0/0</span>
+        <button onclick="toggleAllFilters(true)" class="text-[9px] text-primary hover:underline font-bold">ALL ON</button>
         <button onclick="toggleAllFilters(false)" class="text-[9px] text-on-surface-variant hover:underline font-bold">ALL OFF</button>
       </div>
-      <button class="flex items-center gap-2 text-[10px] font-bold text-on-surface-variant uppercase" onclick="toggleFilterPanel()">
+      <button class="flex items-center gap-2 text-[10px] font-bold text-on-surface-variant uppercase shrink-0" onclick="toggleFilterPanel()">
         Filters <span class="material-symbols-outlined text-xs" id="filter-expand-icon">expand_more</span>
       </button>
     </div>
@@ -818,7 +818,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
         <h1 class="text-3xl font-black text-on-surface tracking-tighter uppercase mb-1">Corporate <span class="text-primary">Events</span></h1>
         <p class="text-sm text-on-surface-variant">Upcoming earnings, dividends, splits, bonuses from NSE.</p>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex flex-wrap items-center gap-2">
         <label class="text-[10px] text-on-surface-variant uppercase font-bold">Window:</label>
         <select id="ev-days" onchange="loadEvents()" class="bg-surface-container-highest border-none rounded text-xs py-2 px-3">
           <option value="7">Next 7 days</option>
@@ -826,7 +826,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
           <option value="30">Next 30 days</option>
           <option value="60">Next 60 days</option>
         </select>
-        <input id="ev-search" type="text" placeholder="Filter by symbol..." oninput="renderEvents()" class="bg-surface-container-highest border-none rounded text-xs py-2 px-3 w-48"/>
+        <input id="ev-search" type="text" placeholder="Filter by symbol..." oninput="renderEvents()" class="bg-surface-container-highest border-none rounded text-xs py-2 px-3 flex-1 min-w-[120px]"/>
       </div>
     </header>
     <div id="ev-summary" class="mb-4 text-[11px] text-on-surface-variant"></div>
@@ -969,8 +969,8 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 <section class="tab-content flex-col w-full" id="tab-practice">
   <div class="flex flex-col h-full">
     <!-- TOP BAR -->
-    <div class="px-4 py-3 bg-surface-container-low border-b border-outline-variant/10 flex items-center justify-between">
-      <div class="flex items-center gap-4">
+    <div class="px-4 py-3 bg-surface-container-low border-b border-outline-variant/10 flex flex-wrap items-center justify-between gap-y-2">
+      <div class="flex flex-wrap items-center gap-2 sm:gap-4">
         <span class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">PRACTICE MODE</span>
         <div id="prac-profile-chip" class="flex items-center gap-1.5 px-2.5 py-1 bg-surface-container-highest rounded-lg cursor-pointer hover:bg-surface-variant/40 transition-colors" onclick="openProfileModal()" title="Change profile">
           <span class="material-symbols-outlined text-xs text-primary">account_circle</span>
