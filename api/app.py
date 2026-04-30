@@ -33,14 +33,48 @@ def _warm_status_cache():
         pass
 
 
+def _warm_os_file_cache():
+    """Read every history + fundamentals pkl into OS page cache.
+    On a cold-start (post-deploy or post-reboot), the FIRST /screen request
+    has to physically read 500+ pkl files from disk — ~30s, right at
+    Cloudflare's 30s edge timeout → users see 502. Pre-loading the bytes
+    here (no pickle parsing, just os.read) populates the kernel page cache;
+    subsequent reads are sub-millisecond.
+
+    Runs in a daemon thread on startup. ~3s for 500 Nifty + 500 fundamentals
+    on a 2GB droplet, vs ~30s if first user pays the cost."""
+    import time
+    time.sleep(2)  # let uvicorn finish binding
+    try:
+        from data.nse_symbols import get_nifty500_live, NIFTY_500_FALLBACK
+        try:
+            syms = list(get_nifty500_live())
+        except Exception:
+            syms = list(NIFTY_500_FALLBACK)
+        from setup_data import HISTORY_DIR, FUNDAMENTALS_DIR
+        for d in (HISTORY_DIR, FUNDAMENTALS_DIR):
+            for sym in syms:
+                p = d / f"{sym}.pkl"
+                if p.exists():
+                    try:
+                        with open(p, "rb") as f:
+                            f.read()  # load into OS page cache; no parsing
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Launch prewarm in background — won't block startup
     t = threading.Thread(target=_background_prewarm, daemon=True)
     t.start()
     # Pre-populate /data/status cache so first request returns instantly.
-    # Runs in a thread so startup itself stays fast (<1s).
     threading.Thread(target=_warm_status_cache, daemon=True).start()
+    # Pre-load history + fundamental pkls into OS page cache so the first
+    # /screen scan after restart doesn't hit 30s cold-disk read penalty.
+    threading.Thread(target=_warm_os_file_cache, daemon=True).start()
     yield
 
 from api.routes_screen import router as screen_router
