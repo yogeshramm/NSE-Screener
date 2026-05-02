@@ -59,14 +59,10 @@ jobs:
 
       - name: Build signed release APK
         env:
+          KEYSTORE_PATH:  ${{ github.workspace }}/android-twa/keystore/moneystx-release.jks
           STORE_PASSWORD: ${{ secrets.MONEYSTX_STORE_PASSWORD }}
           KEY_PASSWORD:   ${{ secrets.MONEYSTX_KEY_PASSWORD }}
-        run: |
-          gradle assembleRelease --no-daemon \
-            -Pandroid.injected.signing.store.file="$(pwd)/android-twa/keystore/moneystx-release.jks" \
-            -Pandroid.injected.signing.store.password="$STORE_PASSWORD" \
-            -Pandroid.injected.signing.key.alias=moneystx \
-            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+        run: gradle assembleRelease --no-daemon
         working-directory: android-twa
 
       - name: Upload signed release APK

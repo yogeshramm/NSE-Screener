@@ -19,13 +19,32 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 
+    // ── Signing config reads from environment variables set by CI ─────────────
+    // For local debug builds: Android will use its own debug keystore automatically.
+    // For CI release builds: env vars KEYSTORE_PATH / STORE_PASSWORD / KEY_PASSWORD are set.
+    signingConfigs {
+        release {
+            def ksPath = System.env.KEYSTORE_PATH ?: project.findProperty('keystorePath')
+            if (ksPath) {
+                storeFile     file(ksPath)
+                storePassword System.env.STORE_PASSWORD ?: ''
+                keyAlias      'moneystx'
+                keyPassword   System.env.KEY_PASSWORD ?: ''
+            }
+        }
+    }
+
     buildTypes {
         debug {
             debuggable true
+            // Uses Android's built-in debug keystore automatically
         }
         release {
             minifyEnabled false
-            signingConfig signingConfigs.debug   // debug sig for now — works for sideloading
+            // Use our release signing config when KEYSTORE_PATH is set (CI);
+            // fall back to debug signing for local builds (safe for sideloading)
+            def ksPath = System.env.KEYSTORE_PATH ?: project.findProperty('keystorePath')
+            signingConfig ksPath ? signingConfigs.release : signingConfigs.debug
         }
     }
 }
