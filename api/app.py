@@ -196,14 +196,55 @@ def serve_frontend_v2():
 # Browsers always probe for /favicon.ico, /apple-touch-icon.png etc. Inline-SVG
 # favicon in the HTML covers modern browsers; these 204 stubs silence the
 # legacy probes (which were spamming the access log with 404s).
-from fastapi.responses import Response
+from fastapi.responses import Response, JSONResponse
 
 @app.get("/favicon.ico", include_in_schema=False)
 @app.get("/favicon.png", include_in_schema=False)
-@app.get("/apple-touch-icon.png", include_in_schema=False)
-@app.get("/apple-touch-icon-precomposed.png", include_in_schema=False)
 def _favicon_stub():
     return Response(status_code=204)
+
+# ── PWA support ────────────────────────────────────────────────────────────────
+
+@app.get("/manifest.json", include_in_schema=False)
+def pwa_manifest():
+    """Web App Manifest — enables 'Add to Home Screen' on Android & iOS."""
+    return JSONResponse({
+        "name": "MONEYSTX",
+        "short_name": "MX",
+        "description": "NSE institutional intelligence terminal — 25 indicators, 2-stage screener, real-time charts.",
+        "start_url": "/",
+        "display": "standalone",
+        "orientation": "any",
+        "background_color": "#050505",
+        "theme_color": "#FF8C00",
+        "icons": [
+            {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+            {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+        ],
+        "categories": ["finance"],
+        "lang": "en-IN",
+        "dir": "ltr",
+    }, headers={"Cache-Control": "public, max-age=86400"})
+
+@app.get("/icon-192.png", include_in_schema=False)
+def pwa_icon_192():
+    return FileResponse(FRONTEND_DIR / "icon-192.png",
+                        media_type="image/png",
+                        headers={"Cache-Control": "public, max-age=604800"})
+
+@app.get("/icon-512.png", include_in_schema=False)
+def pwa_icon_512():
+    return FileResponse(FRONTEND_DIR / "icon-512.png",
+                        media_type="image/png",
+                        headers={"Cache-Control": "public, max-age=604800"})
+
+@app.get("/apple-touch-icon.png", include_in_schema=False)
+@app.get("/apple-touch-icon-precomposed.png", include_in_schema=False)
+def apple_touch_icon():
+    """iOS uses apple-touch-icon for Add to Home Screen."""
+    return FileResponse(FRONTEND_DIR / "icon-192.png",
+                        media_type="image/png",
+                        headers={"Cache-Control": "public, max-age=604800"})
 
 
 @app.get("/health", tags=["Health"])
