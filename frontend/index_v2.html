@@ -774,15 +774,15 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
     <div id="tables-panel" class="flex-1 overflow-y-auto border-r border-outline-variant/10" style="width:100%">
       <div class="p-2 sm:p-6">
         <!-- STAGE TAB BAR (replaces vertical scroll between Stage 1 + 2) -->
-        <div class="flex items-center mb-5 border-b border-outline-variant/20" id="stage-tabs">
-          <button onclick="switchStage(1)" id="stage-tab-1" class="px-3 sm:px-5 py-3 text-xs font-black uppercase tracking-[0.15em] text-primary border-b-2 border-primary flex items-center gap-2 transition-colors">
-            <span class="w-2 h-2 rounded-full bg-primary-container"></span>
+        <div class="flex items-center mb-5 border-b border-outline-variant/20 overflow-x-auto scrollbar-hide" id="stage-tabs">
+          <button onclick="switchStage(1)" id="stage-tab-1" class="flex-shrink-0 px-3 sm:px-5 py-3 text-xs font-black uppercase tracking-[0.15em] text-primary border-b-2 border-primary flex items-center gap-2 transition-colors whitespace-nowrap">
+            <span class="w-2 h-2 rounded-full bg-primary-container flex-shrink-0"></span>
             <span class="stage-tab-long">Stage 1: Signal Validation</span>
             <span class="stage-tab-short">S1</span>
             <span id="s1-tab-count" class="text-[10px] font-mono px-1.5 py-0.5 bg-primary-container/30 rounded ml-1">0</span>
           </button>
-          <button onclick="switchStage(2)" id="stage-tab-2" class="px-3 sm:px-5 py-3 text-xs font-black uppercase tracking-[0.15em] text-on-surface-variant hover:text-on-surface border-b-2 border-transparent flex items-center gap-2 transition-colors">
-            <span class="w-2 h-2 rounded-full bg-secondary"></span>
+          <button onclick="switchStage(2)" id="stage-tab-2" class="flex-shrink-0 px-3 sm:px-5 py-3 text-xs font-black uppercase tracking-[0.15em] text-on-surface-variant hover:text-on-surface border-b-2 border-transparent flex items-center gap-2 transition-colors whitespace-nowrap">
+            <span class="w-2 h-2 rounded-full bg-secondary flex-shrink-0"></span>
             <span class="stage-tab-long">Stage 2: Execution Quality</span>
             <span class="stage-tab-short">S2</span>
             <span id="s2-tab-count" class="text-[10px] font-mono px-1.5 py-0.5 bg-secondary/20 rounded ml-1">0</span>
