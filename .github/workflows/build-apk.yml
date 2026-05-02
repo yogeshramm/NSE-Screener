@@ -53,6 +53,7 @@ jobs:
         env:
           KEYSTORE_B64: ${{ secrets.MONEYSTX_KEYSTORE_B64 }}
         run: |
+          mkdir -p android-twa/keystore
           echo "$KEYSTORE_B64" | base64 --decode > android-twa/keystore/moneystx-release.jks
           ls -lh android-twa/keystore/
 
