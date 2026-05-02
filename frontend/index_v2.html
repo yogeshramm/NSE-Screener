@@ -459,6 +459,10 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
         <button onclick="openChangePasswordModal()" class="w-full text-left px-3 py-2 text-xs hover:bg-surface-container-highest flex items-center gap-2">
           <span class="material-symbols-outlined text-base">lock_reset</span>Change Password
         </button>
+        <button id="admin-panel-btn" onclick="openAdminPanel()" class="hidden w-full text-left px-3 py-2 text-xs hover:bg-surface-container-highest flex items-center gap-2 border-t border-outline-variant/10" style="color:#f59e0b">
+          <span class="material-symbols-outlined text-base">admin_panel_settings</span>Admin Panel
+          <span id="admin-pending-badge" class="hidden ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-full" style="background:#ef4444;color:#fff"></span>
+        </button>
         <button onclick="logout()" class="w-full text-left px-3 py-2 text-xs hover:bg-surface-container-highest flex items-center gap-2 text-error border-t border-outline-variant/10">
           <span class="material-symbols-outlined text-base">logout</span>Logout
         </button>
@@ -1864,10 +1868,20 @@ async function handleAuth(e) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Authentication failed');
+
+    // Registration returns no token — account is pending admin approval
+    if (authMode === 'register' && !data.token) {
+      errEl.className = 'text-xs mt-2 text-[#22c55e]';
+      errEl.textContent = '✓ Registered! Your account is pending admin approval before you can log in.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+
     authToken = data.token;
     localStorage.setItem('yointell_token', authToken);
     document.getElementById('login-overlay').style.display = 'none';
     document.getElementById('user-display').textContent = data.user?.display_name || data.user?.username || username;
+    _applyAdminUI(data.role);
     initApp();
   } catch (err) {
     errEl.textContent = err.message;
@@ -1889,6 +1903,7 @@ async function checkAuth() {
     const un = document.getElementById('user-menu-username');
     if (nm) nm.textContent = user.display_name || user.username || '—';
     if (un) un.textContent = '@' + (user.username || '');
+    _applyAdminUI(user.role);
     initApp();
   } catch {
     localStorage.removeItem('yointell_token');
@@ -1897,11 +1912,32 @@ async function checkAuth() {
   }
 }
 
+function _applyAdminUI(role) {
+  const btn = document.getElementById('admin-panel-btn');
+  if (!btn) return;
+  if (role === 'admin') {
+    btn.classList.remove('hidden');
+    // Load pending count for badge
+    fetch(API + '/auth/admin/users', { headers: { Authorization: 'Bearer ' + authToken } })
+      .then(r => r.ok ? r.json() : [])
+      .then(users => {
+        const pending = (users || []).filter(u => u.status === 'pending').length;
+        const badge = document.getElementById('admin-pending-badge');
+        if (badge && pending > 0) { badge.textContent = pending; badge.classList.remove('hidden'); }
+      }).catch(() => {});
+  } else {
+    btn.classList.add('hidden');
+  }
+}
+
 function logout() {
   localStorage.removeItem('yointell_token');
   authToken = null;
   fetch(API + '/auth/logout', { method: 'POST' }).catch(() => {});
   closeUserMenu();
+  // Hide admin panel button on logout
+  const btn = document.getElementById('admin-panel-btn');
+  if (btn) btn.classList.add('hidden');
   document.getElementById('login-overlay').style.display = 'flex';
 }
 
@@ -8069,6 +8105,17 @@ function _moveRowSelection(delta) {
   }
 }
 
+// Sync keyboard-nav state when a row is opened via click or Cmd+K
+function _selectRowBySym(symbol) {
+  const rows = _getVisibleResultRows();
+  const idx = rows.findIndex(r => r.dataset.sym === symbol);
+  if (idx === -1) return;
+  if (_selectedRowEl) _selectedRowEl.classList.remove('ring-1', 'ring-primary/40', 'bg-primary/5');
+  _selectedRowIndex = idx;
+  _selectedRowEl = rows[idx];
+  if (_selectedRowEl) _selectedRowEl.classList.add('ring-1', 'ring-primary/40', 'bg-primary/5');
+}
+
 // ============ FEATURE 4: CMD+K GLOBAL SEARCH ============
 let _cmdKSelectedIndex = -1;
 
@@ -8428,6 +8475,7 @@ function _analystPrefetch(symbol) {
   fetch(API + '/analyst/' + symbol + '?tf=1y').catch(() => {});
 }
 async function openInsightsPro(symbol) {
+  _selectRowBySym(symbol);  // keep j/k nav in sync with click/search opens
   _analystPrefetch(symbol);
   _ipMount();
   const panel = document.getElementById('ip-panel');
@@ -8761,6 +8809,92 @@ function _ipRender(d) {
       </div>
     </div>`;
 }
+
+// ============ ADMIN PANEL ============
+async function openAdminPanel() {
+  closeUserMenu();
+  const m = document.getElementById('admin-modal');
+  if (m) m.style.display = 'flex';
+  await _adminRefreshUsers();
+}
+function closeAdminPanel() {
+  const m = document.getElementById('admin-modal');
+  if (m) m.style.display = 'none';
+}
+async function _adminRefreshUsers() {
+  const pendingList = document.getElementById('admin-pending-list');
+  const usersList = document.getElementById('admin-users-list');
+  const pendingSection = document.getElementById('admin-pending-section');
+  const countEl = document.getElementById('admin-user-count');
+  const pendingCountEl = document.getElementById('admin-pending-count');
+  if (usersList) usersList.innerHTML = '<div class="text-center py-6 text-on-surface-variant text-xs">Loading…</div>';
+  try {
+    const res = await fetch(API + '/auth/admin/users', { headers: { Authorization: 'Bearer ' + authToken } });
+    if (!res.ok) throw new Error('Failed');
+    const users = await res.json();
+    const pending = users.filter(u => u.status === 'pending');
+    const active = users.filter(u => u.status !== 'pending');
+    if (countEl) countEl.textContent = `${users.length} total`;
+    // Pending section
+    if (pending.length > 0) {
+      pendingSection.classList.remove('hidden');
+      if (pendingCountEl) pendingCountEl.textContent = `(${pending.length})`;
+      pendingList.innerHTML = pending.map(u => `
+        <div class="flex items-center justify-between px-5 py-3 hover:bg-surface-container-highest/40">
+          <div>
+            <div class="text-xs font-bold text-on-surface">${u.display_name} <span class="font-mono text-on-surface-variant text-[10px]">@${u.username}</span></div>
+            <div class="text-[9px] text-on-surface-variant">${u.created ? new Date(u.created).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'}) : '—'}</div>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="adminApprove('${u.username}')" class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider active:scale-95 transition-transform" style="background:#22c55e;color:#000">Approve</button>
+            <button onclick="adminDelete('${u.username}')" class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider text-error active:scale-95 transition-transform" style="background:rgba(239,68,68,0.12)">Delete</button>
+          </div>
+        </div>`).join('');
+    } else {
+      pendingSection.classList.add('hidden');
+    }
+    // Active users
+    if (active.length === 0) {
+      usersList.innerHTML = '<div class="text-center py-6 text-on-surface-variant text-xs">No active users yet.</div>';
+    } else {
+      usersList.innerHTML = active.map(u => `
+        <div class="flex items-center justify-between px-5 py-3 hover:bg-surface-container-highest/40">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-on-surface">${u.display_name}</span>
+              <span class="font-mono text-on-surface-variant text-[10px]">@${u.username}</span>
+              ${u.role === 'admin' ? '<span class="text-[8px] font-black px-1.5 py-0.5 rounded" style="background:#f59e0b20;color:#f59e0b">ADMIN</span>' : ''}
+            </div>
+            <div class="text-[9px] text-on-surface-variant">${u.created ? new Date(u.created).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'}) : '—'}</div>
+          </div>
+          ${u.role !== 'admin' ? `<button onclick="adminDelete('${u.username}')" class="px-3 py-1 rounded-lg text-[10px] font-black uppercase text-error active:scale-95 transition-transform" style="background:rgba(239,68,68,0.12)">Remove</button>` : '<span class="text-[9px] text-on-surface-variant/40">Protected</span>'}
+        </div>`).join('');
+    }
+    // Update pending badge in menu
+    const badge = document.getElementById('admin-pending-badge');
+    if (badge) {
+      if (pending.length > 0) { badge.textContent = pending.length; badge.classList.remove('hidden'); }
+      else badge.classList.add('hidden');
+    }
+  } catch(e) {
+    if (usersList) usersList.innerHTML = '<div class="text-center py-6 text-error text-xs">Failed to load users</div>';
+  }
+}
+async function adminApprove(username) {
+  try {
+    const res = await fetch(API + '/auth/admin/approve/' + username, { method: 'POST', headers: { Authorization: 'Bearer ' + authToken } });
+    if (!res.ok) { const d = await res.json(); throw new Error(d.detail || 'Failed'); }
+    await _adminRefreshUsers();
+  } catch(e) { alert('Error: ' + e.message); }
+}
+async function adminDelete(username) {
+  if (!confirm(`Remove user @${username}? This cannot be undone.`)) return;
+  try {
+    const res = await fetch(API + '/auth/admin/user/' + username, { method: 'DELETE', headers: { Authorization: 'Bearer ' + authToken } });
+    if (!res.ok) { const d = await res.json(); throw new Error(d.detail || 'Failed'); }
+    await _adminRefreshUsers();
+  } catch(e) { alert('Error: ' + e.message); }
+}
 </script>
 </script>
 
@@ -9056,6 +9190,41 @@ document.addEventListener('click', (e) => {
     </div>
   </div>
   <div id="compare-grid" class="grid gap-px overflow-x-auto" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));max-height:200px;overflow-y:auto"></div>
+</div>
+
+<!-- ==================== ADMIN PANEL MODAL ==================== -->
+<div id="admin-modal" class="fixed inset-0 z-[120] items-center justify-center bg-black/70 backdrop-blur-sm" style="display:none">
+  <div class="bg-surface-container rounded-2xl shadow-2xl overflow-hidden flex flex-col" style="width:min(680px,95vw);max-height:80vh;border:1px solid rgba(255,255,255,0.08)">
+    <!-- Header -->
+    <div class="flex items-center justify-between px-5 py-3.5 border-b border-outline-variant/10">
+      <div class="flex items-center gap-2.5">
+        <span class="material-symbols-outlined text-lg" style="color:#f59e0b">admin_panel_settings</span>
+        <span class="text-sm font-black uppercase tracking-widest text-on-surface">Admin Panel</span>
+        <span id="admin-user-count" class="text-[9px] text-on-surface-variant font-mono ml-1"></span>
+      </div>
+      <button onclick="closeAdminPanel()" class="text-on-surface-variant hover:text-on-surface transition-colors">
+        <span class="material-symbols-outlined text-xl">close</span>
+      </button>
+    </div>
+    <!-- Pending section -->
+    <div id="admin-pending-section" class="hidden border-b border-outline-variant/10">
+      <div class="px-5 py-2 flex items-center gap-2" style="background:rgba(239,68,68,0.08)">
+        <span class="w-2 h-2 rounded-full bg-error animate-pulse inline-block"></span>
+        <span class="text-[10px] font-black text-error uppercase tracking-widest">Pending Approval</span>
+        <span id="admin-pending-count" class="text-[9px] text-error font-mono"></span>
+      </div>
+      <div id="admin-pending-list" class="divide-y divide-outline-variant/10"></div>
+    </div>
+    <!-- All users section -->
+    <div class="flex-1 overflow-y-auto">
+      <div class="px-5 py-2 border-b border-outline-variant/10">
+        <span class="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Active Users</span>
+      </div>
+      <div id="admin-users-list" class="divide-y divide-outline-variant/10">
+        <div class="text-center py-6 text-on-surface-variant text-xs">Loading…</div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ==================== SIDEBAR HEADER PATCH ==================== -->

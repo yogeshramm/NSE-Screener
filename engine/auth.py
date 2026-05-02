@@ -45,7 +45,7 @@ def _save_users(users: dict):
 
 
 def register(username: str, password: str, display_name: str = "") -> dict:
-    """Register a new user. Returns user dict (no password)."""
+    """Register a new user. Status is 'pending' until an admin approves."""
     username = username.strip().lower()
     if not username or not password:
         raise ValueError("Username and password required")
@@ -62,9 +62,11 @@ def register(username: str, password: str, display_name: str = "") -> dict:
         "display_name": display_name or username,
         "password_hash": hashed,
         "created": datetime.now().isoformat(),
+        "role": "user",
+        "status": "pending",
     }
     _save_users(users)
-    return {"username": username, "display_name": users[username]["display_name"]}
+    return {"username": username, "display_name": users[username]["display_name"], "status": "pending"}
 
 
 def login(username: str, password: str) -> dict:
@@ -79,10 +81,17 @@ def login(username: str, password: str) -> dict:
     if not bcrypt.checkpw(password.encode(), user["password_hash"].encode()):
         raise ValueError("Invalid username or password")
 
-    # Generate JWT
+    # Pending users cannot log in (admins always bypass this check)
+    role = user.get("role", "user")
+    status = user.get("status", "approved")  # legacy users without status default approved
+    if role != "admin" and status != "approved":
+        raise ValueError("Your account is pending admin approval. Please wait.")
+
+    # Generate JWT — embed role so admin endpoints don't need a DB hit per request
     payload = {
         "sub": username,
         "name": user["display_name"],
+        "role": role,
         "iat": datetime.utcnow(),
         "exp": datetime.utcnow() + timedelta(hours=TOKEN_EXPIRY_HOURS),
     }
@@ -92,6 +101,7 @@ def login(username: str, password: str) -> dict:
         "token": token,
         "username": username,
         "display_name": user["display_name"],
+        "role": role,
         "expires_in": TOKEN_EXPIRY_HOURS * 3600,
     }
 
@@ -103,6 +113,7 @@ def verify_token(token: str) -> dict:
         return {
             "username": payload["sub"],
             "display_name": payload.get("name", payload["sub"]),
+            "role": payload.get("role", "user"),
         }
     except jwt.ExpiredSignatureError:
         raise ValueError("Token expired — please login again")
@@ -115,10 +126,73 @@ def get_user(username: str) -> dict | None:
     users = _load_users()
     if username in users:
         u = users[username]
-        return {"username": u["username"], "display_name": u["display_name"],
-                "created": u.get("created"),
-                "password_changed": u.get("password_changed")}
+        return {
+            "username": u["username"],
+            "display_name": u["display_name"],
+            "created": u.get("created"),
+            "password_changed": u.get("password_changed"),
+            "role": u.get("role", "user"),
+            "status": u.get("status", "approved"),  # legacy users default approved
+        }
     return None
+
+
+def ensure_admin(username: str):
+    """Idempotently promote a user to admin with approved status.
+    Called from app lifespan. No-op if the user doesn't exist yet."""
+    users = _load_users()
+    if username not in users:
+        return
+    changed = False
+    if users[username].get("role") != "admin":
+        users[username]["role"] = "admin"
+        changed = True
+    if users[username].get("status") != "approved":
+        users[username]["status"] = "approved"
+        changed = True
+    if changed:
+        _save_users(users)
+
+
+def list_users() -> list:
+    """Return all users (no password hashes), sorted pending-first then by created."""
+    users = _load_users()
+    result = []
+    for u in users.values():
+        result.append({
+            "username": u["username"],
+            "display_name": u.get("display_name", u["username"]),
+            "role": u.get("role", "user"),
+            "status": u.get("status", "approved"),
+            "created": u.get("created"),
+        })
+    # Pending first, then sorted by created date
+    result.sort(key=lambda x: (x["status"] != "pending", x["created"] or ""))
+    return result
+
+
+def approve_user(username: str) -> dict:
+    """Set a pending user's status to 'approved'."""
+    users = _load_users()
+    if username not in users:
+        raise ValueError(f"User '{username}' not found")
+    users[username]["status"] = "approved"
+    _save_users(users)
+    return {"username": username, "status": "approved"}
+
+
+def delete_user(username: str, requesting_admin: str) -> bool:
+    """Delete a non-admin user. Cannot delete self or another admin."""
+    if username == requesting_admin:
+        raise ValueError("Cannot delete your own account")
+    users = _load_users()
+    if username not in users:
+        raise ValueError(f"User '{username}' not found")
+    if users[username].get("role") == "admin":
+        raise ValueError("Cannot delete another admin account")
+    del users[username]
+    _save_users(users)
+    return True
 
 
 def change_password(username: str, current_password: str, new_password: str) -> bool:

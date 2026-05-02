@@ -14,6 +14,7 @@ from typing import Optional
 from engine.auth import (
     register, login, verify_token, get_user,
     change_password, update_display_name,
+    list_users, approve_user, delete_user,
 )
 
 router = APIRouter()
@@ -40,7 +41,7 @@ class UpdateProfileRequest(BaseModel):
 
 
 def _require_auth(authorization: Optional[str]) -> dict:
-    """Validate auth header, return JWT payload (username, display_name)."""
+    """Validate auth header, return JWT payload (username, display_name, role)."""
     if not authorization:
         raise HTTPException(401, "No authorization header")
     token = authorization
@@ -52,13 +53,20 @@ def _require_auth(authorization: Optional[str]) -> dict:
         raise HTTPException(401, str(e))
 
 
+def _require_admin(authorization: Optional[str]) -> dict:
+    """Validate auth header and assert role == 'admin'."""
+    payload = _require_auth(authorization)
+    if payload.get("role") != "admin":
+        raise HTTPException(403, "Admin access required")
+    return payload
+
+
 @router.post("/auth/register")
 def register_user(request: RegisterRequest):
-    """Create a new user account."""
+    """Create a new user account. Status is 'pending' until admin approves."""
     try:
         user = register(request.username, request.password, request.display_name)
-        token_data = login(request.username, request.password)
-        return {**token_data, "status": "registered"}
+        return {**user, "message": "Registration successful. An admin will review your request."}
     except ValueError as e:
         raise HTTPException(400, str(e))
 
@@ -108,3 +116,33 @@ def update_user_profile(request: UpdateProfileRequest, authorization: Optional[s
 def logout_user():
     """Logout is client-side (discard token). This endpoint is a no-op confirmation."""
     return {"status": "logged_out", "message": "Token discarded. Clear it from localStorage."}
+
+
+# ── Admin endpoints ───────────────────────────────────────────────────────────
+
+@router.get("/auth/admin/users")
+def admin_list_users(authorization: Optional[str] = Header(None)):
+    """List all users with status and role. Admin only."""
+    _require_admin(authorization)
+    return list_users()
+
+
+@router.post("/auth/admin/approve/{username}")
+def admin_approve_user(username: str, authorization: Optional[str] = Header(None)):
+    """Approve a pending user so they can log in. Admin only."""
+    _require_admin(authorization)
+    try:
+        return approve_user(username)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.delete("/auth/admin/user/{username}")
+def admin_delete_user(username: str, authorization: Optional[str] = Header(None)):
+    """Delete a non-admin user. Admin only. Cannot delete self or another admin."""
+    payload = _require_admin(authorization)
+    try:
+        delete_user(username, requesting_admin=payload["username"])
+        return {"status": "deleted", "username": username}
+    except ValueError as e:
+        raise HTTPException(400, str(e))

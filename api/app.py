@@ -67,6 +67,9 @@ def _warm_os_file_cache():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Ensure the site owner has admin privileges on every startup
+    from engine.auth import ensure_admin
+    ensure_admin("yogesh")
     # Launch prewarm in background — won't block startup
     t = threading.Thread(target=_background_prewarm, daemon=True)
     t.start()
@@ -156,11 +159,25 @@ FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 
 @app.get("/", tags=["Frontend"])
 def serve_frontend():
-    """Serve the screener frontend.
-    Cache-Control: no-cache (+ ETag) forces the browser to revalidate on every
-    load, so a fresh index.html is picked up immediately after a push
-    (previously users saw stale/misaligned versions for days until the
-    browser naturally expired its cache)."""
+    """Serve the v2 redesigned frontend."""
+    return FileResponse(
+        FRONTEND_DIR / "index_v2.html",
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
+
+
+@app.get("/v2", tags=["Frontend"])
+def serve_frontend_v2():
+    """v2 alias — same file as /."""
+    return FileResponse(
+        FRONTEND_DIR / "index_v2.html",
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
+
+
+@app.get("/classic", tags=["Frontend"])
+def serve_frontend_classic():
+    """Serve the original frontend as a fallback."""
     return FileResponse(
         FRONTEND_DIR / "index.html",
         headers={"Cache-Control": "no-cache, must-revalidate"},
