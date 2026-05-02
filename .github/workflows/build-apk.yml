@@ -36,12 +36,11 @@ jobs:
         run: gradle wrapper --gradle-version 8.7 --distribution-type bin
         working-directory: android-twa
 
-      # Build debug APK — no signing secrets needed
+      # Build debug APK — no signing secrets needed, good for quick testing
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
         working-directory: android-twa
 
-      # Upload debug APK (downloadable from Actions tab for 90 days)
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -49,15 +48,30 @@ jobs:
           path: android-twa/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 90
 
-      # Build release APK (signed with debug key — installable via sideload)
-      - name: Build release APK
-        run: gradle assembleRelease --no-daemon
+      # ── Signed release APK (production keystore from GitHub Secrets) ─────────
+      - name: Decode production keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.MONEYSTX_KEYSTORE_B64 }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 --decode > android-twa/keystore/moneystx-release.jks
+          ls -lh android-twa/keystore/
+
+      - name: Build signed release APK
+        env:
+          STORE_PASSWORD: ${{ secrets.MONEYSTX_STORE_PASSWORD }}
+          KEY_PASSWORD:   ${{ secrets.MONEYSTX_KEY_PASSWORD }}
+        run: |
+          gradle assembleRelease --no-daemon \
+            -Pandroid.injected.signing.store.file="$(pwd)/android-twa/keystore/moneystx-release.jks" \
+            -Pandroid.injected.signing.store.password="$STORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias=moneystx \
+            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
         working-directory: android-twa
 
-      - name: Upload release APK
+      - name: Upload signed release APK
         uses: actions/upload-artifact@v4
         with:
-          name: MONEYSTX-android-release
+          name: MONEYSTX-android-release-signed
           path: android-twa/app/build/outputs/apk/release/app-release*.apk
           retention-days: 90
 
@@ -65,22 +79,3 @@ jobs:
         run: |
           echo "=== APKs built ==="
           find android-twa/app/build/outputs/apk -name "*.apk" -exec ls -lh {} \;
-
-      # ── Print SHA-256 fingerprint for assetlinks.json ──────────────────────
-      # Copy this fingerprint into api/app.py → _ASSET_LINKS_FINGERPRINTS
-      # to enable full-screen TWA (no URL bar) on Android.
-      - name: Print signing certificate SHA-256 (for assetlinks.json)
-        run: |
-          APK=android-twa/app/build/outputs/apk/debug/app-debug.apk
-          echo ""
-          echo "══════════════════════════════════════════════════════════"
-          echo " MONEYSTX APK signing fingerprint"
-          echo " Paste into api/app.py → _ASSET_LINKS_FINGERPRINTS"
-          echo "══════════════════════════════════════════════════════════"
-          keytool -printcert -jarfile "$APK" 2>/dev/null | grep -i "SHA256:" || \
-          keytool -printcert -jarfile "$APK" 2>/dev/null || \
-          echo "(keytool not available — check apksigner below)"
-          echo ""
-          # Alternative using apksigner from Android build tools
-          $ANDROID_HOME/build-tools/*/apksigner verify --print-certs "$APK" 2>/dev/null || true
-          echo "══════════════════════════════════════════════════════════"

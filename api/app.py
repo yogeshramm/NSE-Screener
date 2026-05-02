@@ -214,9 +214,9 @@ def _favicon_stub():
 # NOTE: Even WITHOUT a matching fingerprint the app works — it just shows a
 #       URL bar.  Add the fingerprint later to get full-screen experience.
 _ASSET_LINKS_FINGERPRINTS: list[str] = [
-    # Placeholder — replace with actual SHA-256 after first APK build.
-    # Format: "AA:BB:CC:DD:EE:..."  (colon-separated uppercase hex)
-    "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00"
+    # Production keystore — generated 2026-05-03, valid until 2053.
+    # Keystore: android-twa/keystore/moneystx-release.jks (stored as GitHub Secret MONEYSTX_KEYSTORE_B64)
+    "3D:21:30:26:EB:34:C5:C2:F8:32:C7:F3:DB:8C:E6:4F:F8:C3:89:3D:46:99:C7:48:24:9D:5F:C8:66:9F:70:1D"
 ]
 
 @app.get("/.well-known/assetlinks.json", include_in_schema=False)

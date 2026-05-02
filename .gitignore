@@ -25,3 +25,7 @@ config/.auth_secret
 # Local research / scratch — kept out of repo
 research/
 frontend/index_*_pre-*.html
+
+# Android signing keystore (stored as GitHub Secret, never commit)
+android-twa/keystore/*.jks
+android-twa/keystore/*.keystore
