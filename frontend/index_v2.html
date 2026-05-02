@@ -2950,6 +2950,26 @@ function renderChart(data) {
 
   // Inject resize handles between panels
   setTimeout(()=>injectResizeHandles(), 150);
+
+  // Single wheel handler on the chart column — forwards horizontal scroll to the
+  // main chart when the cursor is over any indicator panel (RSI, MACD, sub-panels).
+  const _chartPanel = document.getElementById('chart-panel');
+  if (_chartPanel && !_chartPanel._indWheelHandler) {
+    _chartPanel._indWheelHandler = (e) => {
+      if (e.target.closest('#chart-container')) return;
+      if (!currentChart) return;
+      e.preventDefault();
+      const ts = currentChart.timeScale();
+      const r = ts.getVisibleLogicalRange();
+      if (!r) return;
+      const dx = e.shiftKey ? e.deltaY : e.deltaX;
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey) {
+        const shift = dx * 0.4;
+        ts.setVisibleLogicalRange({ from: r.from + shift, to: r.to + shift });
+      }
+    };
+    _chartPanel.addEventListener('wheel', _chartPanel._indWheelHandler, { passive: false });
+  }
 }
 
 // Sync a sub-panel's logical range to the main chart (pixel-perfect)
@@ -3080,16 +3100,23 @@ function injectResizeHandles(){
   document.querySelectorAll('.panel-resize-handle').forEach(h=>h.remove());
   const container=document.querySelector('#chart-panel .flex-1');
   if(!container) return;
-  const panels=Array.from(container.children).filter(el=>el.style.display!=='none'&&el.id&&!el.classList.contains('panel-resize-handle'));
+  // Exclude the sub-panels wrapper — it is not a chart, only its children are
+  const panels=Array.from(container.children).filter(el=>el.style.display!=='none'&&el.id&&el.id!=='sub-panels'&&!el.classList.contains('panel-resize-handle'));
   for(let i=0;i<panels.length-1;i++){
     const h=document.createElement('div'); h.className='panel-resize-handle';
     h.dataset.above=panels[i].id; h.dataset.below=panels[i+1].id;
     panels[i].after(h); h.addEventListener('mousedown',startPanelResize);
   }
-  // Also handle sub-panels container children
+  // Sub-panels: first inject a handle between the last main panel and the first sub-panel
+  // so every sub-panel is resizable, then handles between each sub-panel
   const sp=document.getElementById('sub-panels');
   if(sp){
     const subs=Array.from(sp.children).filter(el=>!el.classList.contains('panel-resize-handle'));
+    if(subs.length>0&&panels.length>0){
+      const h=document.createElement('div'); h.className='panel-resize-handle';
+      h.dataset.above=panels[panels.length-1].id; h.dataset.below=subs[0].id;
+      sp.insertBefore(h,subs[0]); h.addEventListener('mousedown',startPanelResize);
+    }
     for(let i=0;i<subs.length-1;i++){
       const h=document.createElement('div'); h.className='panel-resize-handle';
       h.dataset.above=subs[i].id; h.dataset.below=subs[i+1].id;
