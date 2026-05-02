@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Obsidian background — matches the app's dark theme -->
+    <color name="splashBackground">#050505</color>
+    <!-- MONEYSTX brand orange -->
+    <color name="primaryOrange">#FF8C00</color>
+</resources>

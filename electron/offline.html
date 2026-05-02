@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MONEYSTX</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0e1a;
+    color: #6effc0;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    gap: 16px;
+    -webkit-app-region: drag;
+  }
+  .logo { font-size: 22px; font-weight: 800; letter-spacing: 0.15em; }
+  .msg  { font-size: 13px; color: #4a7c6f; }
+  button {
+    margin-top: 8px;
+    background: #6effc0;
+    color: #0a0e1a;
+    border: none;
+    padding: 10px 28px;
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 6px;
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+  }
+  button:hover { background: #8fffcf; }
+</style>
+</head>
+<body>
+  <div class="logo">MONEYSTX</div>
+  <div class="msg">Server unreachable — check your connection</div>
+  <button onclick="location.href='https://moneystx.com'">Retry</button>
+</body>
+</html>

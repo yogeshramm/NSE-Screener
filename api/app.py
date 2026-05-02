@@ -203,6 +203,39 @@ from fastapi.responses import Response, JSONResponse
 def _favicon_stub():
     return Response(status_code=204)
 
+
+# ── Android TWA — Digital Asset Links ─────────────────────────────────────────
+# Required for Chrome to verify the TWA and hide the URL bar.
+# The sha256_cert_fingerprints list must match the APK signing certificate.
+# After the first GitHub Actions build, run:
+#   keytool -printcert -jarfile app-debug.apk
+# and paste the SHA-256 here, then redeploy.
+#
+# NOTE: Even WITHOUT a matching fingerprint the app works — it just shows a
+#       URL bar.  Add the fingerprint later to get full-screen experience.
+_ASSET_LINKS_FINGERPRINTS: list[str] = [
+    # Placeholder — replace with actual SHA-256 after first APK build.
+    # Format: "AA:BB:CC:DD:EE:..."  (colon-separated uppercase hex)
+    "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00"
+]
+
+@app.get("/.well-known/assetlinks.json", include_in_schema=False)
+def asset_links():
+    """Digital Asset Links — lets Chrome verify the TWA and remove the URL bar."""
+    return JSONResponse(
+        [
+            {
+                "relation": ["delegate_permission/common.handle_all_urls"],
+                "target": {
+                    "namespace": "android_app",
+                    "package_name": "com.moneystx.app",
+                    "sha256_cert_fingerprints": _ASSET_LINKS_FINGERPRINTS,
+                },
+            }
+        ],
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
 # ── PWA support ────────────────────────────────────────────────────────────────
 
 @app.get("/manifest.json", include_in_schema=False)

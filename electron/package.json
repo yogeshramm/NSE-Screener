@@ -1,0 +1,51 @@
+{
+  "name": "moneystx",
+  "version": "1.0.0",
+  "description": "MONEYSTX — NSE Institutional Intelligence Terminal",
+  "main": "main.js",
+  "scripts": {
+    "start":         "electron .",
+    "build:mac":     "electron-builder --mac --universal",
+    "build:mac-arm": "electron-builder --mac --arm64",
+    "build:mac-x64": "electron-builder --mac --x64",
+    "build:win":     "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron":         "^30.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "build": {
+    "appId":       "com.moneystx.app",
+    "productName": "MONEYSTX",
+    "copyright":   "© 2026 MONEYSTX",
+    "directories": { "output": "dist" },
+    "files": [
+      "main.js",
+      "preload.js",
+      "offline.html",
+      "assets/**"
+    ],
+    "mac": {
+      "category":        "public.app-category.finance",
+      "icon":            "assets/icon.icns",
+      "darkModeSupport": true,
+      "hardenedRuntime": false,
+      "target": [
+        { "target": "dmg", "arch": ["arm64", "x64"] },
+        { "target": "zip", "arch": ["arm64", "x64"] }
+      ]
+    },
+    "dmg": {
+      "title":   "MONEYSTX",
+      "window":  { "width": 540, "height": 380 },
+      "contents": [
+        { "x": 140, "y": 200, "type": "file"                          },
+        { "x": 400, "y": 200, "type": "link", "path": "/Applications" }
+      ]
+    },
+    "win": {
+      "icon":   "assets/icon.ico",
+      "target": [{ "target": "nsis", "arch": ["x64"] }]
+    }
+  }
+}
