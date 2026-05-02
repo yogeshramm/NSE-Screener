@@ -167,6 +167,15 @@ def serve_frontend():
     )
 
 
+@app.get("/v2", tags=["Frontend"])
+def serve_frontend_v2():
+    """Serve the v2 redesigned frontend for preview/testing."""
+    return FileResponse(
+        FRONTEND_DIR / "index_v2.html",
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
+
+
 # Browsers always probe for /favicon.ico, /apple-touch-icon.png etc. Inline-SVG
 # favicon in the HTML covers modern browsers; these 204 stubs silence the
 # legacy probes (which were spamming the access log with 404s).
