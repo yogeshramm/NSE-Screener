@@ -236,6 +236,21 @@ def asset_links():
         headers={"Cache-Control": "public, max-age=3600"},
     )
 
+# ── Android in-app update endpoint ─────────────────────────────────────────────
+# Bump ANDROID_VERSION_CODE here AND in android-app/app/build.gradle together.
+# The GitHub Actions workflow auto-publishes a Release; the APK picks up the URL.
+_ANDROID_VERSION_CODE = 2
+_ANDROID_VERSION_NAME = "2.0"
+
+@app.get("/app/version", include_in_schema=False)
+def android_app_version():
+    """Checked by the Android app on every launch to detect native updates."""
+    return JSONResponse({
+        "version_code": _ANDROID_VERSION_CODE,
+        "version_name": _ANDROID_VERSION_NAME,
+        "download_url": f"https://github.com/yogeshramm/NSE-Screener/releases/tag/android-v{_ANDROID_VERSION_NAME}",
+    }, headers={"Cache-Control": "no-store"})
+
 # ── PWA support ────────────────────────────────────────────────────────────────
 
 @app.get("/manifest.json", include_in_schema=False)

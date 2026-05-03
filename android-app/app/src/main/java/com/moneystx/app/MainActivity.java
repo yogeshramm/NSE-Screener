@@ -3,6 +3,7 @@ package com.moneystx.app;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.SuppressLint;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
@@ -18,6 +19,11 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -70,11 +76,67 @@ public class MainActivity extends AppCompatActivity {
         } else {
             if (isOnline()) {
                 webView.loadUrl(APP_URL);
+                checkForUpdate();          // silent background update check
             } else {
                 hideSplash();
                 showOffline();
             }
         }
+    }
+
+    // ── In-app update check ───────────────────────────────────────────────────
+    // Runs on a background thread; shows a dialog on the main thread only when
+    // the server reports a higher version_code than the installed build.
+    // NOTE: Web-content changes (frontend, APIs) are always live — no update
+    // needed for those. This check only fires when native Android code is bumped.
+
+    private void checkForUpdate() {
+        new Thread(() -> {
+            try {
+                HttpURLConnection conn = (HttpURLConnection)
+                    new URL(APP_URL + "/app/version").openConnection();
+                conn.setConnectTimeout(6000);
+                conn.setReadTimeout(6000);
+                conn.setRequestProperty("User-Agent", "MONEYSTX-Android/" + BuildConfig.VERSION_NAME);
+
+                if (conn.getResponseCode() != 200) return;
+
+                StringBuilder sb = new StringBuilder();
+                try (BufferedReader r = new BufferedReader(
+                        new InputStreamReader(conn.getInputStream()))) {
+                    String line;
+                    while ((line = r.readLine()) != null) sb.append(line);
+                }
+
+                String json = sb.toString();
+                // Lightweight parse — no Gson dependency needed
+                int latestCode = Integer.parseInt(
+                    json.replaceAll(".*\"version_code\"\\s*:\\s*(\\d+).*", "$1"));
+                String downloadUrl = json.replaceAll(
+                    ".*\"download_url\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+
+                if (latestCode > BuildConfig.VERSION_CODE) {
+                    final String dlUrl = downloadUrl;
+                    runOnUiThread(() -> showUpdateDialog(dlUrl));
+                }
+            } catch (Exception ignored) {
+                // Network unavailable or server down — silently skip
+            }
+        }).start();
+    }
+
+    private void showUpdateDialog(String downloadUrl) {
+        new AlertDialog.Builder(this)
+            .setTitle("Update Available")
+            .setMessage("A new version of MONEYSTX is available with improvements "
+                + "and fixes. Tap Update to download it.")
+            .setPositiveButton("Update", (d, w) -> {
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl)));
+                } catch (Exception ignored) {}
+            })
+            .setNegativeButton("Later", null)
+            .show();
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -90,7 +152,7 @@ public class MainActivity extends AppCompatActivity {
         s.setSupportZoom(false);
         s.setAllowFileAccess(false);
         s.setGeolocationEnabled(false);
-        s.setUserAgentString(s.getUserAgentString() + " MONEYSTX-Android/2.0");
+        s.setUserAgentString(s.getUserAgentString() + " MONEYSTX-Android/" + BuildConfig.VERSION_NAME);
 
         // ── Progress bar + splash ─────────────────────────────────────────
         webView.setWebChromeClient(new WebChromeClient() {
