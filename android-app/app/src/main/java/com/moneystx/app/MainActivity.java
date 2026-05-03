@@ -143,8 +143,23 @@ public class MainActivity extends AppCompatActivity {
     private void setupWebView() {
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);
-        // setDOMStorageEnabled removed from API-34 public stubs (always-on in modern WebView)
-        // setDatabaseEnabled removed — Web SQL Database is W3C-deprecated
+
+        // DOM storage (localStorage) — critical for JWT auth token persistence.
+        // setDOMStorageEnabled() was removed from the API-34 compile stubs (listed as
+        // "always-on"), but on many devices running older WebView it still defaults to
+        // false. Use reflection so this compiles against API-34 while still enabling it
+        // at runtime everywhere it matters.
+        try {
+            WebSettings.class
+                .getMethod("setDOMStorageEnabled", boolean.class)
+                .invoke(s, true);
+        } catch (Exception ignored) { /* API-34+ devices: already always-on */ }
+
+        // Cookies — required for session fallback and same-site cookie auth.
+        CookieManager cm = CookieManager.getInstance();
+        cm.setAcceptCookie(true);
+        cm.setAcceptThirdPartyCookies(webView, true);
+
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);

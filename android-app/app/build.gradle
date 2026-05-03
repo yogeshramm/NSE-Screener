@@ -10,8 +10,8 @@ android {
         applicationId "com.moneystx.app"
         minSdk 21
         targetSdk 34
-        versionCode 2          // v2 — replaces TWA build (v1) on same device
-        versionName "2.0"
+        versionCode 3          // v3 — fixes localStorage/cookie auth in WebView
+        versionName "2.1"
     }
 
     buildFeatures {

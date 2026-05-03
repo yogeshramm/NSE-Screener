@@ -239,8 +239,8 @@ def asset_links():
 # ── Android in-app update endpoint ─────────────────────────────────────────────
 # Bump ANDROID_VERSION_CODE here AND in android-app/app/build.gradle together.
 # The GitHub Actions workflow auto-publishes a Release; the APK picks up the URL.
-_ANDROID_VERSION_CODE = 2
-_ANDROID_VERSION_NAME = "2.0"
+_ANDROID_VERSION_CODE = 3          # bump with versionCode in android-app/app/build.gradle
+_ANDROID_VERSION_NAME = "2.1"
 
 @app.get("/app/version", include_in_schema=False)
 def android_app_version():
