@@ -77,6 +77,18 @@ jobs:
           VERSION=$(grep 'versionName' android-app/app/build.gradle | grep -o '"[^"]*"' | tr -d '"')
           TAG="android-v${VERSION}"
 
+          # Write release notes to a file (avoids YAML special-char issues)
+          cat > /tmp/release_notes.md << NOTES
+          MONEYSTX Android v${VERSION}
+
+          Install: Download the APK and open it on your Android device.
+          Enable "Install unknown apps" for your browser if prompted.
+
+          The app is a full embedded WebView — no browser chrome visible.
+          Features: splash screen, pull-to-refresh, offline error screen,
+          back-button navigation, and automatic web-content updates.
+          NOTES
+
           # Remove existing release + tag for this version (idempotent re-publish)
           gh release delete "$TAG" --yes 2>/dev/null || true
           git push origin ":refs/tags/$TAG" 2>/dev/null || true
@@ -84,13 +96,8 @@ jobs:
           # Create fresh release with the signed APK attached
           gh release create "$TAG" \
             --title "MONEYSTX Android v${VERSION}" \
-            --notes "## MONEYSTX Android v${VERSION}
-
-**Install:** Download and open the APK on your Android device.
-Enable *Install unknown apps* for your browser/file manager if prompted.
-
-**What's new:** See recent commits for details." \
+            --notes-file /tmp/release_notes.md \
             --repo yogeshramm/NSE-Screener \
             "android-app/app/build/outputs/apk/release/app-release.apk#MONEYSTX-v${VERSION}.apk"
 
-          echo "✅ Release published: https://github.com/yogeshramm/NSE-Screener/releases/tag/$TAG"
+          echo "Release published: https://github.com/yogeshramm/NSE-Screener/releases/tag/$TAG"
