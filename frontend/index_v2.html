@@ -1916,7 +1916,7 @@ let authToken = _getToken();
 // If a session token exists, immediately hide the login overlay before the async
 // checkAuth() fetch completes — prevents the "flash-of-login-wall → auto-dismiss"
 // visual glitch. checkAuth() restores it via _showLoginWall() if the token is stale.
-if (authToken) { const _lo = document.getElementById('login-overlay'); if (_lo) _lo.style.display = 'none'; }
+if (authToken) { const _lo = document.getElementById('login-overlay'); if (_lo) _lo.style.display = 'none'; document.body.classList.add('app-active'); }
 let authMode = 'login';
 let filterExpanded = false;
 let activePresetName = null;
@@ -2024,8 +2024,14 @@ async function handleAuth(e) {
 
     authToken = data.token;
     _setToken(authToken);
+    _currentUserData = data.user || null;
     _hideLoginWall();
     document.getElementById('user-display').textContent = data.user?.display_name || data.user?.username || username;
+    // Populate mobile account sheet
+    const mnm = document.getElementById('mob-acct-name');
+    const mun = document.getElementById('mob-acct-username');
+    if (mnm) mnm.textContent = data.user?.display_name || data.user?.username || '—';
+    if (mun) mun.textContent = '@' + (data.user?.username || '');
     _applyAdminUI(data.role);
     initApp();
   } catch (err) {
@@ -2053,11 +2059,16 @@ async function checkAuth() {
     _currentUserData = user;  // cache for menu
     _hideLoginWall();
     document.getElementById('user-display').textContent = user.display_name || user.username || '';
-    // Populate dropdown header
+    // Populate desktop dropdown header
     const nm = document.getElementById('user-menu-name');
     const un = document.getElementById('user-menu-username');
     if (nm) nm.textContent = user.display_name || user.username || '—';
     if (un) un.textContent = '@' + (user.username || '');
+    // Populate mobile account sheet header
+    const mnm = document.getElementById('mob-acct-name');
+    const mun = document.getElementById('mob-acct-username');
+    if (mnm) mnm.textContent = user.display_name || user.username || '—';
+    if (mun) mun.textContent = '@' + (user.username || '');
     _applyAdminUI(user.role);
     initApp();
   } catch {
@@ -2090,10 +2101,27 @@ function logout() {
   authToken = null;
   fetch(API + '/auth/logout', { method: 'POST' }).catch(() => {});
   closeUserMenu();
+  closeMobileAccount();
   // Hide admin panel button on logout
   const btn = document.getElementById('admin-panel-btn');
   if (btn) btn.classList.add('hidden');
   _showLoginWall();
+}
+
+// ── Mobile account sheet (bottom nav Account button) ─────────────────────────
+function openMobileAccount() {
+  const nm = document.getElementById('mob-acct-name');
+  const un = document.getElementById('mob-acct-username');
+  if (_currentUserData) {
+    if (nm) nm.textContent = _currentUserData.display_name || _currentUserData.username || '—';
+    if (un) un.textContent = '@' + (_currentUserData.username || '');
+  }
+  const overlay = document.getElementById('mobile-account-overlay');
+  if (overlay) overlay.classList.remove('hidden');
+}
+function closeMobileAccount() {
+  const overlay = document.getElementById('mobile-account-overlay');
+  if (overlay) overlay.classList.add('hidden');
 }
 
 // ============ USER MENU + PROFILE ============
@@ -9464,6 +9492,34 @@ document.addEventListener('click', (e) => {
     <span class="material-symbols-outlined bnav-icon">account_balance_wallet</span>
     <span class="bnav-label">More</span>
   </a>
+  <a href="#" onclick="event.preventDefault();openMobileAccount()" class="bnav-tab" id="bnav-account">
+    <span class="material-symbols-outlined bnav-icon">account_circle</span>
+    <span class="bnav-label">Account</span>
+  </a>
 </nav>
+
+<!-- ==================== MOBILE ACCOUNT SHEET ==================== -->
+<div id="mobile-account-overlay" class="hidden fixed inset-0 z-[400]" onclick="closeMobileAccount()">
+  <div class="absolute bottom-[68px] left-3 right-3 rounded-2xl overflow-hidden"
+       style="background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);box-shadow:0 -8px 32px rgba(0,0,0,0.6)"
+       onclick="event.stopPropagation()">
+    <div class="px-4 py-3 border-b" style="border-color:rgba(255,255,255,0.07)">
+      <div class="text-sm font-bold text-on-surface" id="mob-acct-name">—</div>
+      <div class="text-[11px] text-on-surface-variant" id="mob-acct-username">—</div>
+    </div>
+    <button onclick="closeMobileAccount();openProfileModal()" class="w-full text-left px-4 py-3 text-sm flex items-center gap-3 hover:bg-white/5 transition-colors">
+      <span class="material-symbols-outlined text-lg text-on-surface-variant">person</span>
+      <span>Profile</span>
+    </button>
+    <button onclick="closeMobileAccount();openChangePasswordModal()" class="w-full text-left px-4 py-3 text-sm flex items-center gap-3 hover:bg-white/5 transition-colors border-t" style="border-color:rgba(255,255,255,0.07)">
+      <span class="material-symbols-outlined text-lg text-on-surface-variant">lock_reset</span>
+      <span>Change Password</span>
+    </button>
+    <button onclick="logout()" class="w-full text-left px-4 py-3 text-sm flex items-center gap-3 hover:bg-white/5 transition-colors border-t" style="border-color:rgba(255,255,255,0.07);color:#f87171">
+      <span class="material-symbols-outlined text-lg">logout</span>
+      <span>Logout</span>
+    </button>
+  </div>
+</div>
 
 </body>
