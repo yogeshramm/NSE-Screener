@@ -444,6 +444,9 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
   /* 12. Chat FAB: right safe-area for notched phones + full-width window */
   .chat-fab-wrap { right: max(1rem, env(safe-area-inset-right, 1rem)) !important; }
   #chat-window   { width: calc(100vw - 2rem) !important; }
+
+  /* 13. Insights panel: sit above the 60px bottom nav, not behind it */
+  #ip-panel { bottom: 60px !important; z-index: 250 !important; }
 }
 </style>
 </head>
