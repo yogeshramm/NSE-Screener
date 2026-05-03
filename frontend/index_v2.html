@@ -384,6 +384,19 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
   }
   #chart-header-controls::-webkit-scrollbar { display: none; }
 
+  /* 4b. Indicators dropdown: fix to viewport so it's always visible on mobile.
+         The absolute right-0 parent can be off-screen; fixed avoids that. */
+  #chart-ind-dropdown {
+    position: fixed !important;
+    top: 48px !important;       /* just below chart header */
+    left: 8px !important;
+    right: 8px !important;
+    width: auto !important;
+    max-height: 65vh !important;
+    z-index: 350 !important;    /* above chart panel (300) */
+    border-radius: 14px !important;
+  }
+
   /* 5. Stage tabs: use short labels on mobile */
   .stage-tab-long  { display: none; }
   .stage-tab-short { display: inline; }
