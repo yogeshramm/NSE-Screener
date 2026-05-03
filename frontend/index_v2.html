@@ -8012,6 +8012,14 @@ function initApp() {
   switchTab('home');
 }
 
+// Declare state vars that live below checkAuth() to avoid TDZ in WebView
+// (LOAD_NO_CACHE in app always fetches fresh JS, exposing the TDZ)
+let _selectedRowIndex = -1, _selectedRowEl = null;
+let _cmdKSelectedIndex = -1;
+let _ctxSym = null;
+let _compareStocks = [];
+let avwapMode = false, avwapAnchors = [], avwapSeries = [];
+
 checkAuth();
 
 // ============ FEATURE 1: HOME DASHBOARD ============
@@ -8202,8 +8210,7 @@ function exportCSV() {
 }
 
 // ============ FEATURE 3: KEYBOARD SHORTCUTS ============
-let _selectedRowIndex = -1;
-let _selectedRowEl = null;
+
 
 function initKeyboardShortcuts() {
   document.addEventListener('keydown', (e) => {
@@ -8301,7 +8308,6 @@ function _selectRowBySym(symbol) {
 }
 
 // ============ FEATURE 4: CMD+K GLOBAL SEARCH ============
-let _cmdKSelectedIndex = -1;
 
 function openCmdK() {
   const overlay = document.getElementById('cmdK-overlay');
@@ -8364,7 +8370,6 @@ function onCmdKKey(e) {
 }
 
 // ============ FEATURE 5: RIGHT-CLICK CONTEXT MENU ============
-let _ctxSym = null;
 
 function showCtxMenu(e, sym) {
   _ctxSym = sym;
@@ -8420,7 +8425,6 @@ function drawSparkline(closes, color) {
 }
 
 // ============ FEATURE 7: PEER COMPARISON TRAY ============
-let _compareStocks = [];
 
 function addToCompare(sym) {
   if (!sym || _compareStocks.includes(sym)) return;
@@ -8546,7 +8550,6 @@ function updateRiskGateStatus(cfg) {
 // (renderChip replacement applied separately in the JS block below)
 
 // ============ ANCHORED VWAP (Phase 2-2) ============
-let avwapMode = false; let avwapAnchors = []; let avwapSeries = [];
 function toggleAnchoredVWAP() {
   const btn = document.getElementById('sc-avwap-btn');
   if (!window._scCandleSeries || !chartData) { btn.textContent='— no chart —'; setTimeout(()=>btn.textContent='aVWAP',1200); return; }
