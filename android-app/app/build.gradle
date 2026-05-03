@@ -14,6 +14,10 @@ android {
         versionName "2.0"
     }
 
+    buildFeatures {
+        buildConfig true   // AGP 8+ disables BuildConfig by default; re-enable for VERSION_CODE/NAME
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
