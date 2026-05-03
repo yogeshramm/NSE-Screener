@@ -89,15 +89,19 @@ jobs:
           back-button navigation, and automatic web-content updates.
           NOTES
 
+          # Rename APK so the download filename includes the version
+          cp android-app/app/build/outputs/apk/release/app-release.apk \
+             /tmp/MONEYSTX-v${VERSION}.apk
+
           # Remove existing release + tag for this version (idempotent re-publish)
           gh release delete "$TAG" --yes 2>/dev/null || true
           git push origin ":refs/tags/$TAG" 2>/dev/null || true
 
-          # Create fresh release with the signed APK attached
+          # Create fresh release with the versioned APK filename
           gh release create "$TAG" \
             --title "MONEYSTX Android v${VERSION}" \
             --notes-file /tmp/release_notes.md \
             --repo yogeshramm/NSE-Screener \
-            "android-app/app/build/outputs/apk/release/app-release.apk#MONEYSTX-v${VERSION}.apk"
+            "/tmp/MONEYSTX-v${VERSION}.apk"
 
           echo "Release published: https://github.com/yogeshramm/NSE-Screener/releases/tag/$TAG"
