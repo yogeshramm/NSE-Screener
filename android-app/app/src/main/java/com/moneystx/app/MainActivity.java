@@ -145,15 +145,15 @@ public class MainActivity extends AppCompatActivity {
         s.setJavaScriptEnabled(true);
 
         // DOM storage — required for localStorage (JWT auth token persistence).
-        // setDOMStorageEnabled() was removed from the API-34 *compile* stubs but exists
-        // in the concrete WebView runtime class on every API level. We use reflection on
-        // s.getClass() (the concrete class) — NOT WebSettings.class (the abstract stub)
-        // which is the bug that made v2.1 fail. The try-catch is a no-op on API-34+
-        // devices where DOM storage is always-on anyway.
+        // setDOMStorageEnabled() was removed from the API-34 *compile* stubs.
+        // Use getDeclaredMethod (finds private/package-private too) + setAccessible
+        // to guarantee we reach it on every API level. On API-34+ it's always-on
+        // so the catch is a harmless no-op there.
         try {
-            s.getClass()
-             .getMethod("setDOMStorageEnabled", boolean.class)
-             .invoke(s, true);
+            java.lang.reflect.Method m =
+                s.getClass().getDeclaredMethod("setDOMStorageEnabled", boolean.class);
+            m.setAccessible(true);
+            m.invoke(s, true);
         } catch (Exception ignored) { /* API-34 always-on; safe to skip */ }
 
         // Cookies — required for session fallback and same-site cookie auth.
@@ -161,7 +161,9 @@ public class MainActivity extends AppCompatActivity {
         cm.setAcceptCookie(true);
         cm.setAcceptThirdPartyCookies(webView, true);
 
-        s.setCacheMode(WebSettings.LOAD_DEFAULT);
+        // Force fresh page load every time — prevents stale cached JS from
+        // running (old page without _showLoginWall broke login in v2.1/v2.2).
+        s.setCacheMode(WebSettings.LOAD_NO_CACHE);
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
         s.setBuiltInZoomControls(false);

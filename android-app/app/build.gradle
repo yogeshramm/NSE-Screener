@@ -10,8 +10,8 @@ android {
         applicationId "com.moneystx.app"
         minSdk 21
         targetSdk 34
-        versionCode 4          // v4 — setDOMStorageEnabled direct call, auth gate on bottom-nav
-        versionName "2.2"
+        versionCode 5          // v5 — getDeclaredMethod+setAccessible, LOAD_NO_CACHE for fresh JS
+        versionName "2.3"
     }
 
     buildFeatures {
