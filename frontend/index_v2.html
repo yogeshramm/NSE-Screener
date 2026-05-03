@@ -1913,6 +1913,10 @@ function _clearToken() {
     document.cookie = 'yointell_token=;path=/;max-age=0;SameSite=Lax';
 }
 let authToken = _getToken();
+// If a session token exists, immediately hide the login overlay before the async
+// checkAuth() fetch completes — prevents the "flash-of-login-wall → auto-dismiss"
+// visual glitch. checkAuth() restores it via _showLoginWall() if the token is stale.
+if (authToken) { const _lo = document.getElementById('login-overlay'); if (_lo) _lo.style.display = 'none'; }
 let authMode = 'login';
 let filterExpanded = false;
 let activePresetName = null;
