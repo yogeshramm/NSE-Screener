@@ -348,8 +348,8 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
         grabs every upward swipe → "can't scroll up" on all pages.
         Fix: let the body/document scroll naturally on mobile; sticky header
         stays pinned; fixed overlays/nav are unaffected. */
-  body { overflow-y: auto !important; height: auto !important; min-height: 100dvh; }
-  #main-wrapper { overflow: visible !important; height: auto !important; }
+  body { overflow-y: auto !important; overflow-x: hidden !important; height: auto !important; min-height: 100dvh; }
+  #main-wrapper { overflow-x: hidden !important; overflow-y: visible !important; height: auto !important; }
   header { position: sticky !important; top: 0 !important; z-index: 40 !important; }
   .tab-content.active { overflow: visible !important; }
 
