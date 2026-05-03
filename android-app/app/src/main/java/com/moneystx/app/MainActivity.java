@@ -140,14 +140,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @SuppressLint("SetJavaScriptEnabled")
-    @SuppressWarnings("deprecation")   // setDOMStorageEnabled visible on compileSdk 33
     private void setupWebView() {
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);
 
         // DOM storage — required for localStorage (JWT auth token persistence).
-        // compileSdk 33 keeps the method in the stubs; API-34 devices treat it as no-op
-        // (always-on) but calling it is still safe and harmless there.
+        // setDOMStorageEnabled() exists in all API levels including 34; calling it
+        // explicitly is safe and ensures older WebView versions enable it too.
         s.setDOMStorageEnabled(true);
 
         // Cookies — required for session fallback and same-site cookie auth.
