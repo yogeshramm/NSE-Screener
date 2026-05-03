@@ -330,10 +330,10 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
 
 /* ── BOTTOM NAV (mobile only) ── */
 #bottom-nav { display: none; }
-.bnav-tab { color: var(--on-surface-variant); transition: color 0.15s; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0; min-width: 52px; text-decoration: none; }
+.bnav-tab { color: var(--on-surface-variant); transition: color 0.15s; flex-direction: column; align-items: center; gap: 1px; padding: 4px 0; min-width: 40px; text-decoration: none; }
 .bnav-tab.bnav-active { color: var(--primary); }
-.bnav-tab .bnav-icon { font-size: 22px; line-height: 1; }
-.bnav-tab .bnav-label { font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+.bnav-tab .bnav-icon { font-size: 21px; line-height: 1; }
+.bnav-tab .bnav-label { font-size: 8px; font-weight: 700; letter-spacing: 0; text-transform: uppercase; white-space: nowrap; }
 /* Stage tab short labels — hidden on desktop */
 .stage-tab-short { display: none; }
 /* Chart back button — hidden on desktop */
@@ -9494,11 +9494,11 @@ document.addEventListener('click', (e) => {
   </a>
   <a href="#breakouts" onclick="event.preventDefault();switchTab('breakouts')" class="bnav-tab" data-tab="breakouts">
     <span class="material-symbols-outlined bnav-icon">trending_up</span>
-    <span class="bnav-label">Breakouts</span>
+    <span class="bnav-label">Breaks</span>
   </a>
   <a href="#practice" onclick="event.preventDefault();switchTab('practice')" class="bnav-tab" data-tab="practice">
     <span class="material-symbols-outlined bnav-icon">sports_esports</span>
-    <span class="bnav-label">Practice</span>
+    <span class="bnav-label">Play</span>
   </a>
   <a href="#portfolio" onclick="event.preventDefault();switchTab('portfolio')" class="bnav-tab" data-tab="portfolio">
     <span class="material-symbols-outlined bnav-icon">account_balance_wallet</span>
@@ -9506,7 +9506,7 @@ document.addEventListener('click', (e) => {
   </a>
   <a href="#" onclick="event.preventDefault();openMobileAccount()" class="bnav-tab" id="bnav-account">
     <span class="material-symbols-outlined bnav-icon">account_circle</span>
-    <span class="bnav-label">Account</span>
+    <span class="bnav-label">Me</span>
   </a>
 </nav>
 
