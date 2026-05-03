@@ -2972,7 +2972,7 @@ function applyThemeToCharts() {
   if(currentVolChart) currentVolChart.applyOptions(opts);
   for(const k in subPanelCharts) if(subPanelCharts[k]) subPanelCharts[k].applyOptions(opts);
 }
-(function initTheme(){ const t=localStorage.getItem('yointell_theme'); if(t==='light'){document.documentElement.classList.remove('dark');const i=document.getElementById('theme-icon');if(i)i.textContent='dark_mode';} })();
+(function initTheme(){ try { const t=localStorage.getItem('yointell_theme'); if(t==='light'){document.documentElement.classList.remove('dark');const i=document.getElementById('theme-icon');if(i)i.textContent='dark_mode';} } catch(e){} })();
 const OVERLAY_CONFIG = {
   ema50:      { color:'#f59e0b', width:1.5, title:'EMA 50',    key:'ema50' },
   ema200:     { color:'#3b82f6', width:1.5, title:'EMA 200',   key:'ema200' },
