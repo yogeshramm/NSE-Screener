@@ -1918,6 +1918,7 @@ let filterExpanded = false;
 let activePresetName = null;
 let watchlistData = [];
 let alertModalSymbol = null;
+let _lastScreenData = null;   // moved here from line ~8165 to avoid TDZ crash on scan
 let currentChart = null, currentRsiChart = null, currentVolChart = null, currentMacdChart = null, currentChartSymbol = null;
 let chartOverlays = {}; // { key: series reference }
 let chartData = null; // stored chart API response for re-adding overlays
@@ -8162,7 +8163,6 @@ async function loadHome() {
 }
 
 // ============ FEATURE 2: CSV EXPORT ============
-let _lastScreenData = null;
 
 function exportCSV() {
   if (!_lastScreenData) return;
