@@ -341,6 +341,21 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
 
 /* ── MOBILE LAYOUT ─────────────────────────────────────────────────────── */
 @media (max-width: 639px) {
+  /* 0. Document-level scroll — the Android SwipeRefreshLayout checks
+        webView.canScrollVertically(-1) to decide whether to intercept an
+        upward swipe as pull-to-refresh. With body:overflow-hidden the
+        document never scrolls so that check is always false → SwipeRefreshLayout
+        grabs every upward swipe → "can't scroll up" on all pages.
+        Fix: let the body/document scroll naturally on mobile; sticky header
+        stays pinned; fixed overlays/nav are unaffected. */
+  body { overflow-y: auto !important; height: auto !important; min-height: 100dvh; }
+  #main-wrapper { overflow: visible !important; height: auto !important; }
+  header { position: sticky !important; top: 0 !important; z-index: 40 !important; }
+  .tab-content.active { overflow: visible !important; }
+  /* Inner scroll panels: let them flow to full height on mobile */
+  #tables-panel { overflow: visible !important; height: auto !important; flex: none !important; }
+  #sc-tt-rows   { overflow: visible !important; height: auto !important; flex: none !important; }
+
   /* 1. Hide sidebar, reclaim full width */
   #sidebar { display: none !important; }
   #main-wrapper { margin-left: 0 !important; padding-bottom: 64px; }
