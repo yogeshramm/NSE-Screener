@@ -145,9 +145,16 @@ public class MainActivity extends AppCompatActivity {
         s.setJavaScriptEnabled(true);
 
         // DOM storage — required for localStorage (JWT auth token persistence).
-        // setDOMStorageEnabled() exists in all API levels including 34; calling it
-        // explicitly is safe and ensures older WebView versions enable it too.
-        s.setDOMStorageEnabled(true);
+        // setDOMStorageEnabled() was removed from the API-34 *compile* stubs but exists
+        // in the concrete WebView runtime class on every API level. We use reflection on
+        // s.getClass() (the concrete class) — NOT WebSettings.class (the abstract stub)
+        // which is the bug that made v2.1 fail. The try-catch is a no-op on API-34+
+        // devices where DOM storage is always-on anyway.
+        try {
+            s.getClass()
+             .getMethod("setDOMStorageEnabled", boolean.class)
+             .invoke(s, true);
+        } catch (Exception ignored) { /* API-34 always-on; safe to skip */ }
 
         // Cookies — required for session fallback and same-site cookie auth.
         CookieManager cm = CookieManager.getInstance();
