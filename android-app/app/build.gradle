@@ -10,8 +10,8 @@ android {
         applicationId "com.moneystx.app"
         minSdk 21
         targetSdk 34
-        versionCode 5          // v5 — getDeclaredMethod+setAccessible, LOAD_NO_CACHE for fresh JS
-        versionName "2.3"
+        versionCode 6          // v6 — cookie fallback for auth token (DOM storage unreliable in WebView)
+        versionName "2.4"
     }
 
     buildFeatures {

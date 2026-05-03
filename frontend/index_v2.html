@@ -1895,7 +1895,24 @@ const API = '';
 // ============ STATE ============
 let fullConfig = {};
 let currentTab = 'screener';
-let authToken = localStorage.getItem('yointell_token');
+// ── Auth token helpers — localStorage + cookie dual-storage ───────────────
+// Android WebView may have DOM storage (localStorage) disabled regardless of
+// setDOMStorageEnabled calls. Cookies always work (CookieManager is on).
+// Writing to both ensures the token survives across app restarts on all devices.
+function _setToken(tok) {
+    try { localStorage.setItem('yointell_token', tok); } catch(e) {}
+    document.cookie = 'yointell_token=' + encodeURIComponent(tok) + ';path=/;max-age=604800;SameSite=Lax';
+}
+function _getToken() {
+    try { const t = localStorage.getItem('yointell_token'); if (t) return t; } catch(e) {}
+    const m = document.cookie.match(/(?:^|;)\s*yointell_token=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : null;
+}
+function _clearToken() {
+    try { localStorage.removeItem('yointell_token'); } catch(e) {}
+    document.cookie = 'yointell_token=;path=/;max-age=0;SameSite=Lax';
+}
+let authToken = _getToken();
 let authMode = 'login';
 let filterExpanded = false;
 let activePresetName = null;
@@ -2001,7 +2018,7 @@ async function handleAuth(e) {
     }
 
     authToken = data.token;
-    localStorage.setItem('yointell_token', authToken);
+    _setToken(authToken);
     _hideLoginWall();
     document.getElementById('user-display').textContent = data.user?.display_name || data.user?.username || username;
     _applyAdminUI(data.role);
@@ -2039,7 +2056,7 @@ async function checkAuth() {
     _applyAdminUI(user.role);
     initApp();
   } catch {
-    localStorage.removeItem('yointell_token');
+    _clearToken();
     authToken = null;
     _showLoginWall();
   }
@@ -2064,7 +2081,7 @@ function _applyAdminUI(role) {
 }
 
 function logout() {
-  localStorage.removeItem('yointell_token');
+  _clearToken();
   authToken = null;
   fetch(API + '/auth/logout', { method: 'POST' }).catch(() => {});
   closeUserMenu();
