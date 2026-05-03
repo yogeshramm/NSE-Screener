@@ -2769,6 +2769,10 @@ function renderResults(data) {
     </tr>
   `).join('');
 
+  // Attach mobile long-press → context menu on both result tables
+  _attachMobileLongPress(document.getElementById('s1-body'));
+  _attachMobileLongPress(document.getElementById('s2-body'));
+
   // Start live price polling for visible symbols
   const syms = [...new Set([...data.stage1_results.map(r=>r.symbol), ...data.stage2_results.map(r=>r.symbol)])];
   startLivePrices(syms);
@@ -2880,20 +2884,26 @@ function openChart(symbol) {
   loadChart(symbol);
 }
 function resetScreenerTab() {
-  // Close chart + reset everything to a fresh state on every Screener tab visit
+  // Close chart on every Screener tab visit, but PRESERVE results so users
+  // can navigate back from a chart/insights view without losing their screen.
   closeChart();
   const inp = document.getElementById('symbols-input'); if (inp) inp.value = '';
   const dd = document.getElementById('search-dropdown'); if (dd) dd.classList.add('hidden');
-  const s1 = document.getElementById('s1-body');
-  if (s1) s1.innerHTML = '<tr><td colspan="11" class="px-3 py-8 text-center text-on-surface-variant/50">Run a screen to see results</td></tr>';
-  const s2 = document.getElementById('s2-body');
-  if (s2) s2.innerHTML = '<tr><td colspan="11" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 2 results appear after screening</td></tr>';
-  const s1c = document.getElementById('s1-count'); if (s1c) s1c.textContent = '0 results';
-  const s2c = document.getElementById('s2-count'); if (s2c) s2c.textContent = '0 results';
-  // Reset stage tab badges + show Stage 1
-  const s1tc = document.getElementById('s1-tab-count'); if (s1tc) s1tc.textContent = '0';
-  const s2tc = document.getElementById('s2-tab-count'); if (s2tc) s2tc.textContent = '0';
-  if (typeof switchStage === 'function') switchStage(1);
+  if (_lastScreenData) {
+    // Restore previous results (user returning from chart or insights)
+    renderResults(_lastScreenData);
+  } else {
+    // No prior screen — show empty state
+    const s1 = document.getElementById('s1-body');
+    if (s1) s1.innerHTML = '<tr><td colspan="11" class="px-3 py-8 text-center text-on-surface-variant/50">Run a screen to see results</td></tr>';
+    const s2 = document.getElementById('s2-body');
+    if (s2) s2.innerHTML = '<tr><td colspan="11" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 2 results appear after screening</td></tr>';
+    const s1c = document.getElementById('s1-count'); if (s1c) s1c.textContent = '0 results';
+    const s2c = document.getElementById('s2-count'); if (s2c) s2c.textContent = '0 results';
+    const s1tc = document.getElementById('s1-tab-count'); if (s1tc) s1tc.textContent = '0';
+    const s2tc = document.getElementById('s2-tab-count'); if (s2tc) s2tc.textContent = '0';
+    if (typeof switchStage === 'function') switchStage(1);
+  }
   // Abort any in-flight screen
   if (typeof screenAbort === 'object' && screenAbort && screenAbort.abort) { try { screenAbort.abort(); } catch(e){} screenAbort = null; }
 }
@@ -3172,29 +3182,44 @@ function renderChart(data) {
   // Show latest candle OHLC by default
   if(data.candles.length) updateOhlcOverlay(data.candles[data.candles.length-1]);
 
-  currentChart.subscribeCrosshairMove(param=>{
-    // Update OHLC overlay
-    if(param.time && chartData) {
-      const candle = chartData.candles.find(c=>c.time===param.time);
-      if(candle) updateOhlcOverlay(candle);
-    } else if(chartData?.candles?.length) {
-      updateOhlcOverlay(chartData.candles[chartData.candles.length-1]);
+  // Bidirectional crosshair sync — _xhairSyncing guard prevents infinite loops
+  // when setCrosshairPosition() fires subscribeCrosshairMove on the target chart.
+  let _xhairSyncing = false;
+  function _pushXhair(fromChart, param) {
+    if (_xhairSyncing) return;
+    _xhairSyncing = true;
+    try {
+      const targets = [];
+      if (currentChart   && currentChart   !== fromChart) targets.push(currentChart);
+      if (currentRsiChart  && currentRsiChart  !== fromChart) targets.push(currentRsiChart);
+      if (currentMacdChart && currentMacdChart !== fromChart) targets.push(currentMacdChart);
+      if (currentVolChart  && currentVolChart  !== fromChart) targets.push(currentVolChart);
+      for (const k in subPanelCharts) { if (subPanelCharts[k] !== fromChart) targets.push(subPanelCharts[k]); }
+      targets.forEach(c => {
+        try {
+          if (!param.time) { c.clearCrosshairPosition(); return; }
+          const series = (c === currentChart)
+            ? window._scCandleSeries
+            : window._chartSyncSeries[c._uniqueId || ''];
+          if (series) c.setCrosshairPosition(undefined, param.time, series);
+        } catch(e) {}
+      });
+    } finally { _xhairSyncing = false; }
+  }
+
+  currentChart.subscribeCrosshairMove(param => {
+    // Update OHLC overlay (driven by main chart only — most accurate)
+    if (param.time && chartData) {
+      const candle = chartData.candles.find(c => c.time === param.time);
+      if (candle) updateOhlcOverlay(candle);
+    } else if (chartData?.candles?.length) {
+      updateOhlcOverlay(chartData.candles[chartData.candles.length - 1]);
     }
-
-    const subCharts = [];
-    if(currentRsiChart) subCharts.push(currentRsiChart);
-    if(currentMacdChart) subCharts.push(currentMacdChart);
-    if(currentVolChart) subCharts.push(currentVolChart);
-    for(const k in subPanelCharts) subCharts.push(subPanelCharts[k]);
-
-    subCharts.forEach(c=>{
-      try {
-        if(!param.time) { c.clearCrosshairPosition(); return; }
-        const series = window._chartSyncSeries[c._uniqueId || ''];
-        if(series) c.setCrosshairPosition(undefined, param.time, series);
-      } catch(e){}
-    });
+    _pushXhair(currentChart, param);
   });
+  // RSI and MACD panels sync back to main + each other
+  if (currentRsiChart)  currentRsiChart.subscribeCrosshairMove(param  => _pushXhair(currentRsiChart,  param));
+  if (currentMacdChart) currentMacdChart.subscribeCrosshairMove(param => _pushXhair(currentMacdChart, param));
 
   // Force all sub-panels to match main chart's logical range after initial render
   setTimeout(()=>{
@@ -8417,6 +8442,43 @@ function onCmdKKey(e) {
 }
 
 // ============ FEATURE 5: RIGHT-CLICK CONTEXT MENU ============
+
+// Attach a long-press (500ms) handler to a table body so mobile users can
+// trigger the context menu by holding a row. Called once per tbody; the flag
+// _lpAttached prevents duplicate listeners on re-render (innerHTML is
+// replaced, not the tbody element itself, so the listeners survive).
+function _attachMobileLongPress(tbodyEl) {
+  if (!tbodyEl || tbodyEl._lpAttached) return;
+  tbodyEl._lpAttached = true;
+  let _lpTimer = null, _lpTouch = null, _lpFired = false;
+
+  tbodyEl.addEventListener('touchstart', e => {
+    const row = e.target.closest('tr[data-sym]');
+    if (!row) return;
+    _lpFired = false;
+    const t = e.touches[0];
+    _lpTouch = { x: t.clientX, y: t.clientY, row };
+    _lpTimer = setTimeout(() => {
+      if (!_lpTouch) return;
+      _lpFired = true;
+      showCtxMenu({ clientX: _lpTouch.x, clientY: _lpTouch.y }, _lpTouch.row.dataset.sym);
+      _lpTouch = null;
+    }, 500);
+  }, { passive: true });
+
+  tbodyEl.addEventListener('touchmove',  () => { clearTimeout(_lpTimer); _lpTouch = null; }, { passive: true });
+  tbodyEl.addEventListener('touchend',   () => { clearTimeout(_lpTimer); _lpTouch = null; }, { passive: true });
+  tbodyEl.addEventListener('touchcancel',() => { clearTimeout(_lpTimer); _lpTouch = null; }, { passive: true });
+
+  // Suppress the click that fires after a long-press so the row doesn't
+  // also open Insights Pro. Use capture so we intercept before the tr onclick.
+  tbodyEl.addEventListener('click', e => {
+    if (!_lpFired) return;
+    _lpFired = false;
+    e.stopImmediatePropagation();
+    e.preventDefault();
+  }, true);
+}
 
 function showCtxMenu(e, sym) {
   _ctxSym = sym;
