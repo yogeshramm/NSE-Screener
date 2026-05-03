@@ -423,6 +423,15 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
 
   /* 10. Top header: reduce padding */
   header.h-12 { padding-left: 0.75rem; padding-right: 0.75rem; }
+
+  /* 11. Practice toolbar: stack vertically so profile/universe/purse don't fight */
+  #prac-toolbar { flex-direction: column !important; align-items: stretch !important; gap: 0.5rem !important; }
+  #prac-toolbar > div:first-child { flex-wrap: wrap; gap: 0.375rem; }
+  #prac-toolbar > div:last-child  { flex-wrap: wrap; gap: 0.5rem; justify-content: flex-start; }
+
+  /* 12. Chat FAB: right safe-area for notched phones + full-width window */
+  .chat-fab-wrap { right: max(1rem, env(safe-area-inset-right, 1rem)) !important; }
+  #chat-window   { width: calc(100vw - 2rem) !important; }
 }
 </style>
 </head>
@@ -1317,7 +1326,7 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
 <section class="tab-content flex-col w-full" id="tab-practice">
   <div class="flex flex-col h-full">
     <!-- TOP BAR -->
-    <div class="px-4 py-3 bg-surface-container-low border-b border-outline-variant/10 flex flex-wrap items-center justify-between gap-y-2">
+    <div id="prac-toolbar" class="px-4 py-3 bg-surface-container-low border-b border-outline-variant/10 flex flex-wrap items-center justify-between gap-y-2">
       <div class="flex flex-wrap items-center gap-2 sm:gap-4">
         <span class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">PRACTICE MODE</span>
         <div id="prac-profile-chip" class="flex items-center gap-1.5 px-2.5 py-1 bg-surface-container-highest rounded-lg cursor-pointer hover:bg-surface-variant/40 transition-colors" onclick="openProfileModal()" title="Change profile">
@@ -1831,7 +1840,7 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
 </div>
 
 <!-- ==================== FLOATING CHAT AGENT ==================== -->
-<div class="fixed bottom-6 right-6 z-50 flex flex-col items-end" style="bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem))">
+<div class="chat-fab-wrap fixed bottom-6 right-6 z-50 flex flex-col items-end" style="bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem)); right: max(1.5rem, env(safe-area-inset-right, 1.5rem))">
   <div id="chat-window" class="w-[380px] max-w-[calc(100vw-3rem)] h-[520px] max-h-[calc(100dvh-9rem)] glass-panel rounded-2xl border border-outline-variant/30 shadow-2xl flex-col overflow-hidden mb-4" style="display:none">
     <header class="p-4 bg-primary-container text-on-primary flex items-center justify-between">
       <div class="flex items-center gap-3">
