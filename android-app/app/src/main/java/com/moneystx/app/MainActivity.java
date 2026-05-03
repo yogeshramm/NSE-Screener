@@ -81,8 +81,8 @@ public class MainActivity extends AppCompatActivity {
     private void setupWebView() {
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);
-        s.setDOMStorageEnabled(true);
-        s.setDatabaseEnabled(true);
+        // setDOMStorageEnabled removed from API-34 public stubs (always-on in modern WebView)
+        // setDatabaseEnabled removed — Web SQL Database is W3C-deprecated
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
