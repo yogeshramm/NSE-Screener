@@ -348,8 +348,8 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
   #config-footer { left: 0 !important; }
   #legal-footer  { left: 0 !important; }
 
-  /* 2. Show bottom nav */
-  #bottom-nav { display: flex !important; }
+  /* 2. Show bottom nav — only after login (body.app-active set by JS) */
+  body.app-active #bottom-nav { display: flex !important; }
 
   /* 3. Chart full-screen overlay on mobile */
   #chart-panel.mob-fs {
@@ -2002,7 +2002,7 @@ async function handleAuth(e) {
 
     authToken = data.token;
     localStorage.setItem('yointell_token', authToken);
-    document.getElementById('login-overlay').style.display = 'none';
+    _hideLoginWall();
     document.getElementById('user-display').textContent = data.user?.display_name || data.user?.username || username;
     _applyAdminUI(data.role);
     initApp();
@@ -2012,14 +2012,24 @@ async function handleAuth(e) {
   }
 }
 
+// ── Login wall helpers ─────────────────────────────────────────────────────
+function _showLoginWall() {
+  document.getElementById('login-overlay').style.display = 'flex';
+  document.body.classList.remove('app-active');  // hides bottom-nav on mobile
+}
+function _hideLoginWall() {
+  document.getElementById('login-overlay').style.display = 'none';
+  document.body.classList.add('app-active');     // shows bottom-nav on mobile
+}
+
 async function checkAuth() {
-  if (!authToken) { document.getElementById('login-overlay').style.display = 'flex'; return; }
+  if (!authToken) { _showLoginWall(); return; }
   try {
     const res = await fetch(API + '/auth/me', { headers: { 'Authorization': 'Bearer ' + authToken } });
     if (!res.ok) throw new Error('Token expired');
     const user = await res.json();
     _currentUserData = user;  // cache for menu
-    document.getElementById('login-overlay').style.display = 'none';
+    _hideLoginWall();
     document.getElementById('user-display').textContent = user.display_name || user.username || '';
     // Populate dropdown header
     const nm = document.getElementById('user-menu-name');
@@ -2031,7 +2041,7 @@ async function checkAuth() {
   } catch {
     localStorage.removeItem('yointell_token');
     authToken = null;
-    document.getElementById('login-overlay').style.display = 'flex';
+    _showLoginWall();
   }
 }
 
@@ -2061,7 +2071,7 @@ function logout() {
   // Hide admin panel button on logout
   const btn = document.getElementById('admin-panel-btn');
   if (btn) btn.classList.add('hidden');
-  document.getElementById('login-overlay').style.display = 'flex';
+  _showLoginWall();
 }
 
 // ============ USER MENU + PROFILE ============

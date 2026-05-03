@@ -4,14 +4,14 @@ plugins {
 
 android {
     namespace 'com.moneystx.app'
-    compileSdk 34
+    compileSdk 33
 
     defaultConfig {
         applicationId "com.moneystx.app"
         minSdk 21
-        targetSdk 34
-        versionCode 3          // v3 — fixes localStorage/cookie auth in WebView
-        versionName "2.1"
+        targetSdk 33
+        versionCode 4          // v4 — direct setDOMStorageEnabled (compileSdk 33), auth gate on bottom-nav
+        versionName "2.2"
     }
 
     buildFeatures {
