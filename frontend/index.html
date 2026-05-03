@@ -222,6 +222,51 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 .panel-resize-handle:hover, .panel-resize-handle.active { background: var(--outline-variant-alpha); }
 .panel-resize-handle::after { content:''; width:30px; height:2px; border-radius:1px; background:transparent; }
 .panel-resize-handle:hover::after, .panel-resize-handle.active::after { background: var(--primary); opacity:0.5; }
+
+/* ========== MOBILE OPTIMISATIONS (≤639px) ========== */
+@media (max-width: 639px) {
+  /* NAV: shrink tab text so more tabs fit before scrolling kicks in */
+  #main-nav { gap: 0.75rem; font-size: 0.72rem; letter-spacing: -0.01em; }
+  #main-nav a { white-space: nowrap; padding-bottom: 2px; }
+  /* Fade hint on the right edge of the nav to signal it's scrollable */
+  #main-nav-wrap { position: relative; overflow: hidden; }
+  #main-nav-wrap::after {
+    content: ''; pointer-events: none; position: absolute; right: 0; top: 0; bottom: 0;
+    width: 28px; background: linear-gradient(to right, transparent, var(--surface-container-lowest));
+  }
+
+  /* SCREENER TOOLBAR: search gets its own full-width row */
+  #screener-action-bar { row-gap: 0.375rem; }
+  #screener-action-bar .search-row { flex-wrap: wrap; gap: 0.5rem; }
+  #screener-action-bar .search-row .search-input-wrap { flex-basis: 100%; min-width: 0; }
+  /* Action buttons stretch full width below the search row */
+  #screener-action-bar .screen-btns { width: 100%; justify-content: stretch; }
+  #screener-action-bar .screen-btns > button { flex: 1; justify-content: center; }
+
+  /* CHART INDICATOR DROPDOWN: fixed overlay instead of absolute (avoids clipping) */
+  #chart-ind-dropdown {
+    position: fixed !important; top: 56px !important;
+    left: 8px !important; right: 8px !important; width: auto !important;
+    max-height: 60vh !important; z-index: 350 !important;
+    border-radius: 14px !important; overflow-y: auto !important;
+  }
+
+  /* PRACTICE TOOLBAR: stack the two flex groups vertically */
+  #prac-toolbar { flex-direction: column !important; align-items: stretch !important; gap: 0.5rem !important; padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
+  #prac-toolbar > div:first-child { flex-wrap: wrap; gap: 0.375rem; }
+  #prac-toolbar > div:last-child { flex-wrap: wrap; gap: 0.5rem; justify-content: flex-start; }
+
+  /* CHAT WINDOW: full width minus margin; right safe-area for notched devices */
+  .chat-fab-wrap { right: max(1rem, env(safe-area-inset-right, 1rem)) !important; bottom: max(1rem, env(safe-area-inset-bottom, 1rem)) !important; }
+  #chat-window { width: calc(100vw - 2rem) !important; max-height: calc(100dvh - 8rem) !important; }
+
+  /* SIDE PANEL: bigger close tap target */
+  #side-panel .close-btn { padding: 0.5rem !important; margin: -0.5rem !important; }
+
+  /* GENERAL: slightly larger minimum tap target for icon-only buttons */
+  button.h-10, a.h-10 { min-height: 40px; }
+  button:not([class*="h-"]) { min-height: 36px; }
+}
 </style>
 </head>
 <body class="overflow-hidden h-screen flex flex-col bg-surface-container-lowest pb-6">
@@ -285,6 +330,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 <header class="flex justify-between items-center w-full px-3 sm:px-6 h-14 border-b border-outline-variant/20 bg-surface-container-lowest relative z-50">
   <div class="flex items-center gap-3 sm:gap-8 min-w-0 flex-1 overflow-hidden">
     <span class="text-xl font-black tracking-tighter brand-gradient uppercase shrink-0">MONEYSTX</span>
+    <div class="min-w-0 flex-1 overflow-hidden" id="main-nav-wrap">
     <nav class="flex items-center gap-4 sm:gap-6 tabular-nums text-sm tracking-tight h-full overflow-x-auto scrollbar-hide min-w-0" id="main-nav">
       <a href="#screener" class="nav-tab text-primary border-b-2 border-primary font-bold h-14 flex items-center cursor-pointer" data-tab="screener" onclick="event.preventDefault();switchTab('screener')">Screener</a>
       <a href="#config" class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="config" onclick="event.preventDefault();switchTab('config')">Configuration</a>
@@ -296,6 +342,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
       <a href="#practice" class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="practice" onclick="event.preventDefault();switchTab('practice')">Practice</a>
       <a href="#portfolio" class="nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer" data-tab="portfolio" onclick="event.preventDefault();switchTab('portfolio')">Portfolio</a>
     </nav>
+    </div><!-- /main-nav-wrap -->
   </div>
   <div class="flex items-center gap-2 sm:gap-4 shrink-0">
     <!-- Data Sync Ring -->
@@ -413,9 +460,9 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
     <div id="filter-panel" class="flex flex-wrap gap-1.5 overflow-hidden transition-all duration-300" style="max-height:0px"></div>
   </div>
   <!-- ACTION BAR -->
-  <div class="px-3 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3 bg-surface-container-lowest border-b border-outline-variant/10">
-    <div class="flex items-center flex-1 min-w-[200px] max-w-3xl gap-3">
-      <div class="flex-1 relative">
+  <div id="screener-action-bar" class="px-3 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3 bg-surface-container-lowest border-b border-outline-variant/10">
+    <div class="search-row flex items-center flex-1 min-w-[200px] max-w-3xl gap-3">
+      <div class="search-input-wrap flex-1 relative">
         <span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-sm text-on-surface-variant">search</span>
         <input id="symbols-input" class="w-full pl-10 bg-surface-container-high border border-outline-variant/20 rounded-lg text-sm h-10 focus:ring-1 focus:ring-primary placeholder:text-on-surface-variant/40" placeholder="Search symbols (RELIANCE, HDFCBANK...)" type="text" onkeydown="if(event.key==='Enter'){hideSearchDropdown();runScreen();}" oninput="onSearchInput(this.value)" autocomplete="off"/>
         <div id="search-dropdown" class="hidden absolute left-0 top-11 w-full max-h-60 overflow-y-auto bg-surface-container border border-outline-variant/20 rounded-xl shadow-2xl z-50 p-1"></div>
@@ -437,7 +484,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
         <span class="material-symbols-outlined text-sm">save</span>
       </button>
     </div>
-    <div class="flex items-center gap-3">
+    <div class="screen-btns flex items-center gap-3">
       <button id="scan-all-btn" onclick="runScreenAll()" class="flex items-center gap-2 h-10 px-4 bg-surface-container-high border border-outline-variant/20 rounded-lg text-[11px] font-black uppercase tracking-wider hover:bg-surface-container-highest">
         <span class="material-symbols-outlined text-lg">radar</span> Screen
       </button>
@@ -971,7 +1018,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 <section class="tab-content flex-col w-full" id="tab-practice">
   <div class="flex flex-col h-full">
     <!-- TOP BAR -->
-    <div class="px-4 py-3 bg-surface-container-low border-b border-outline-variant/10 flex flex-wrap items-center justify-between gap-y-2">
+    <div id="prac-toolbar" class="px-4 py-3 bg-surface-container-low border-b border-outline-variant/10 flex flex-wrap items-center justify-between gap-y-2">
       <div class="flex flex-wrap items-center gap-2 sm:gap-4">
         <span class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">PRACTICE MODE</span>
         <div id="prac-profile-chip" class="flex items-center gap-1.5 px-2.5 py-1 bg-surface-container-highest rounded-lg cursor-pointer hover:bg-surface-variant/40 transition-colors" onclick="openProfileModal()" title="Change profile">
@@ -1405,7 +1452,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 <div id="side-panel" class="fixed top-14 right-0 w-full sm:w-[380px] h-[calc(100vh-56px)] bg-surface-container border-l border-outline-variant/20 z-40 transform translate-x-full transition-transform duration-300 overflow-y-auto" style="translate:100%">
   <div class="p-4 border-b border-outline-variant/20 flex justify-between items-center">
     <h3 id="panel-title" class="text-xs font-black uppercase tracking-widest">AI Insights</h3>
-    <span class="material-symbols-outlined cursor-pointer hover:text-error" onclick="closePanel()">close</span>
+    <span class="close-btn material-symbols-outlined cursor-pointer hover:text-error" onclick="closePanel()">close</span>
   </div>
   <div id="panel-content" class="p-4"></div>
 </div>
@@ -1461,7 +1508,7 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(110,25
 </div>
 
 <!-- ==================== FLOATING CHAT AGENT ==================== -->
-<div class="fixed bottom-6 right-6 z-50 flex flex-col items-end" style="bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem))">
+<div class="chat-fab-wrap fixed bottom-6 right-6 z-50 flex flex-col items-end" style="bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem)); right: max(1.5rem, env(safe-area-inset-right, 1.5rem))">
   <div id="chat-window" class="w-[380px] max-w-[calc(100vw-3rem)] h-[520px] max-h-[calc(100dvh-9rem)] glass-panel rounded-2xl border border-outline-variant/30 shadow-2xl flex-col overflow-hidden mb-4" style="display:none">
     <header class="p-4 bg-primary-container text-on-primary flex items-center justify-between">
       <div class="flex items-center gap-3">
