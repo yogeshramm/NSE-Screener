@@ -1944,6 +1944,7 @@ let chartData = null; // stored chart API response for re-adding overlays
 let _liveChartTimer = null; // interval id for live daily-candle updates
 let screenAbort = null;
 let downloadPolling = null;
+let _statusCache = null, _statusCacheTs = 0;  // shared 15s cache for /data/status
 let totalExpected = 150;
 let allIndicators = [];
 const RING_CIRCUMFERENCE = 62.8;
@@ -2572,7 +2573,12 @@ async function runScreenAll(attempt = 0) {
 
   const config=getFilterConfig(), scope=document.getElementById('scope-select').value;
   let st = null;
-  try { st = await fetch(API+'/data/status',{signal:AbortSignal.timeout(5000)}).then(r=>r.json()); } catch(e){}
+  try {
+    const r = await fetch(API+'/data/status',{signal:AbortSignal.timeout(5000)});
+    st = await r.json();
+    // Populate shared cache so loadHome / checkDataStatus don't re-fetch
+    _statusCache = st; _statusCacheTs = Date.now();
+  } catch(e){}
 
   // Server unreachable / still starting — retry up to 3 times then give up
   if(!st){
@@ -2602,7 +2608,8 @@ async function runScreenAll(attempt = 0) {
 
   _warmPollingTimer = setInterval(async()=>{
     try {
-      const s=await fetch(API+'/data/status').then(r=>r.json());
+      _invalidateStatusCache();
+      const s=await _fetchStatus();
       const recentDone = s.warm_completed_ago_s != null && s.warm_completed_ago_s < 600;
       if(s.cache_warm || recentDone || !s.warm_in_progress){
         clearInterval(_warmPollingTimer);_warmPollingTimer=null;
@@ -2611,7 +2618,7 @@ async function runScreenAll(attempt = 0) {
         _doScan(scope,getFilterConfig());
       }
     } catch(e){}
-  },3000);
+  },5000);
 }
 
 // ============ OHLC OVERLAY ============
@@ -5396,10 +5403,23 @@ function updateRing(percent) {
   if(percent>=100)fg.style.stroke='#00e5a0';else if(percent>0)fg.style.stroke='#6effc0';else fg.style.stroke='#313442';
 }
 
+async function _fetchStatus() {
+  // Shared 15s cache — prevents burst of duplicate /data/status requests from
+  // initData + loadHome + warm-polling all firing within the same few seconds.
+  const now = Date.now();
+  if (_statusCache && now - _statusCacheTs < 15000) return _statusCache;
+  const res = await fetch(API + '/data/status');
+  _statusCache = await res.json();
+  _statusCacheTs = now;
+  return _statusCache;
+}
+
+// Invalidate cache before any write operation so next poll sees fresh data.
+function _invalidateStatusCache() { _statusCache = null; _statusCacheTs = 0; }
+
 async function checkDataStatus() {
   try {
-    const res=await fetch(API+'/data/status');
-    const data=await res.json();
+    const data=await _fetchStatus();
     const count=data.today_downloaded||0;
     const ready=data.ready_for_screening;
     const inProgress=data.download_in_progress;
@@ -5431,19 +5451,36 @@ async function triggerCatchup() {
     const res=await fetch(API+'/data/catchup',{method:'POST'});
     const data=await res.json();
     if(data.status==='up_to_date'){document.getElementById('data-detail').textContent='Up to date';updateRing(100);return;}
-    if(!downloadPolling)downloadPolling=setInterval(checkDataStatus,3000);
-  } catch(e){try{await fetch(API+'/data/download',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({use_fallback:true})});if(!downloadPolling)downloadPolling=setInterval(checkDataStatus,3000);}catch(e2){console.error(e2);}}
+    if(!downloadPolling)downloadPolling=setInterval(()=>{_invalidateStatusCache();checkDataStatus();},5000);
+  } catch(e){try{await fetch(API+'/data/download',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({use_fallback:true})});if(!downloadPolling)downloadPolling=setInterval(()=>{_invalidateStatusCache();checkDataStatus();},5000);}catch(e2){console.error(e2);}}
 }
 
 async function initData() {
   const status=await checkDataStatus();
   if(!status)return;
-  if(status.download_in_progress)downloadPolling=setInterval(checkDataStatus,3000);
+  if(status.download_in_progress && !downloadPolling)downloadPolling=setInterval(()=>{_invalidateStatusCache();checkDataStatus();},5000);
   else if(status.needs_history)triggerCatchup();
   else if(!status.ready_for_screening&&status.today_downloaded<10)triggerCatchup();
   // Auto-sync fundamentals for Nifty 500
   setTimeout(()=>checkAndSyncFundamentals(), 3000);
 }
+
+
+// Pause background polling when the tab is hidden to reduce server load.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (downloadPolling) { clearInterval(downloadPolling); downloadPolling = null; }
+    if (faSyncPolling)   { clearInterval(faSyncPolling);   faSyncPolling   = null; }
+  } else {
+    // Tab became visible again — refresh status and re-arm if still needed
+    _invalidateStatusCache();
+    checkDataStatus().then(st => {
+      if (st && st.download_in_progress && !downloadPolling)
+        downloadPolling = setInterval(()=>{_invalidateStatusCache();checkDataStatus();},5000);
+    });
+    checkAndSyncFundamentals();
+  }
+});
 
 // ============ FUNDAMENTAL SYNC ============
 let faSyncPolling=null;
@@ -5456,7 +5493,7 @@ async function checkAndSyncFundamentals() {
       // Start sync
       await fetch(API+'/data/fa-sync',{method:'POST'});
       showFaBadge(0,d.missing_count);
-      faSyncPolling=setInterval(pollFaSync,5000);
+      if(!faSyncPolling)faSyncPolling=setInterval(pollFaSync,5000);
     } else {
       showFaBadge(d.sync_done,d.sync_total);
       if(!faSyncPolling) faSyncPolling=setInterval(pollFaSync,5000);
@@ -8165,9 +8202,9 @@ checkAuth();
 
 // ============ FEATURE 1: HOME DASHBOARD ============
 async function loadHome() {
-  // Fetch data status for stat cards
+  // Fetch data status for stat cards — uses shared 15s cache, no extra request
   try {
-    const st = await fetch(API + '/data/status').then(r => r.json()).catch(() => null);
+    const st = await _fetchStatus().catch(() => null);
     if (st) {
       // Data as of
       const dateStr = st.data_as_of || st.history_latest_date || '';
