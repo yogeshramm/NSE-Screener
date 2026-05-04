@@ -1027,6 +1027,9 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
             <button onclick="changeChartTimeframe(3650,this)" class="chart-tf-btn px-2 py-0.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">10Y</button>
           </div>
         </div>
+        <!-- Breakout signal pills — always visible when a chart is open -->
+        <div id="sc-breakout-pills" class="hidden w-full flex items-center flex-wrap gap-1.5 pt-0.5">
+        </div>
       </div>
       <div class="flex-1 flex flex-col p-2 gap-2 overflow-y-auto">
         <div id="sc-help-summary" class="hidden bg-surface-container-highest rounded-lg px-3 py-1.5 border border-outline-variant/20 flex flex-wrap items-center"></div>
@@ -2995,6 +2998,7 @@ function closeChart() {
   window._scCandleSeries=null;
   scAnalyzeCache = {};
   const hs=document.getElementById('sc-help-summary'); if(hs){hs.classList.add('hidden');hs.innerHTML='';}
+  const pp=document.getElementById('sc-breakout-pills'); if(pp){pp.classList.add('hidden');pp.innerHTML='';}
 }
 function openInsightsFromChart() { if(currentChartSymbol) openStock(currentChartSymbol); }
 
@@ -3382,6 +3386,68 @@ function renderChart(data) {
     };
     _chartPanel.addEventListener('wheel', _chartPanel._indWheelHandler, { passive: false });
   }
+
+  // Compute and render breakout signal pills
+  renderBreakoutPills(data);
+}
+
+// ── Breakout signal pills ─────────────────────────────────────────────────────
+// 4 always-visible pill badges in the chart header showing quick breakout status
+function renderBreakoutPills(data) {
+  const el = document.getElementById('sc-breakout-pills');
+  if (!el) return;
+  if (!data || !data.candles || data.candles.length < 20) { el.classList.add('hidden'); return; }
+
+  const candles = data.candles;
+  const vols    = data.volumes || [];
+  const n       = candles.length;
+  const highs   = candles.map(c => c.high);
+  const lows    = candles.map(c => c.low);
+  const closes  = candles.map(c => c.close);
+
+  // 1. Volume vs 20-day average (last bar vs prior 20 bars avg)
+  const lastVol  = vols.length ? vols[vols.length - 1].value : 0;
+  const prevVols = vols.slice(Math.max(0, vols.length - 21), vols.length - 1);
+  const avgVol   = prevVols.length ? prevVols.reduce((s, v) => s + v.value, 0) / prevVols.length : 0;
+  const volRatio = avgVol > 0 ? lastVol / avgVol : 0;
+  const volOk    = volRatio >= 1.5;
+
+  // 2. Supertrend direction (period 7, mult 3 — screener defaults)
+  const { dir } = pracComputeSupertrend(highs, lows, closes, 7, 3);
+  const stBull  = dir[n - 1] === 1;
+
+  // 3. RSI 14 > 50
+  const rsiArr  = pracComputeRSI(closes, 14);
+  const rsiVal  = rsiArr.slice().reverse().find(v => v !== null && v !== undefined);
+  const rsiBull = rsiVal != null && rsiVal > 50;
+
+  // 4. Price vs EMA 200
+  const ema200  = pracComputeEMA(closes, 200);
+  const lastEma = ema200[n - 1];
+  const ema200Bull = lastEma != null && closes[n - 1] > lastEma;
+
+  function pill(label, ok, neutral = false) {
+    const bg    = ok ? 'rgba(110,255,192,0.12)' : neutral ? 'rgba(255,255,255,0.06)' : 'rgba(255,71,87,0.12)';
+    const col   = ok ? '#6effc0' : neutral ? '#6b7280' : '#ff6b81';
+    const bdr   = ok ? 'rgba(110,255,192,0.18)' : neutral ? 'rgba(255,255,255,0.10)' : 'rgba(255,71,87,0.18)';
+    const icon  = ok ? '✓' : neutral ? '–' : '✗';
+    return `<span style="background:${bg};color:${col};border:1px solid ${bdr};border-radius:4px;padding:1px 7px;font-size:9px;font-weight:800;letter-spacing:0.04em;line-height:1.7;white-space:nowrap;font-family:inherit">${icon} ${label}</span>`;
+  }
+
+  const volLabel = volRatio > 0 ? `Vol ${volRatio.toFixed(1)}×` : 'Vol –';
+  const stLabel  = stBull ? 'ST ↑' : 'ST ↓';
+  const rsiLabel = rsiVal != null ? `RSI ${Math.round(rsiVal)}` : 'RSI –';
+  const emaLabel = n >= 200 ? (ema200Bull ? 'Above EMA 200' : 'Below EMA 200') : `EMA200 (${n}d)`;
+  const emaOk    = n >= 200 ? ema200Bull : null;
+
+  el.innerHTML =
+    `<span style="font-size:8px;font-weight:900;letter-spacing:0.06em;text-transform:uppercase;color:var(--on-surface-variant,#9ca3af);opacity:0.55;margin-right:2px">Breakout</span>` +
+    pill(volLabel,  volOk) +
+    pill(stLabel,   stBull) +
+    pill(rsiLabel,  rsiBull) +
+    (emaOk === null ? pill(emaLabel, false, true) : pill(emaLabel, ema200Bull));
+
+  el.classList.remove('hidden');
 }
 
 // Sync a sub-panel's logical range to the main chart (pixel-perfect)
