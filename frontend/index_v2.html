@@ -1985,6 +1985,35 @@ let watchlistData = [];
 let alertModalSymbol = null;
 let _lastScreenData = null;   // moved here from line ~8165 to avoid TDZ crash on scan
 let currentChart = null, currentRsiChart = null, currentVolChart = null, currentMacdChart = null, currentChartSymbol = null;
+
+// ── Crosshair sync (module-level so addSubPanel can reach it) ─────────────────
+let _xhairSyncing = false;
+function _pushXhair(fromChart, param) {
+  if (!param.time) return;        // skip "cursor left" clears
+  if (_xhairSyncing) return;
+  _xhairSyncing = true;
+  try {
+    const targets = [];
+    if (currentChart     && currentChart     !== fromChart) targets.push(currentChart);
+    if (currentRsiChart  && currentRsiChart  !== fromChart) targets.push(currentRsiChart);
+    if (currentMacdChart && currentMacdChart !== fromChart) targets.push(currentMacdChart);
+    if (currentVolChart  && currentVolChart  !== fromChart) targets.push(currentVolChart);
+    for (const k in subPanelCharts) { if (subPanelCharts[k] !== fromChart) targets.push(subPanelCharts[k]); }
+    targets.forEach(c => {
+      try {
+        let price, series;
+        if (c === currentChart) {
+          const candle = chartData?.candles?.find(x => x.time === param.time);
+          price  = candle ? candle.close : undefined;
+          series = window._scCandleSeries;
+        } else {
+          series = window._chartSyncSeries[c._uniqueId || ''];
+        }
+        if (series) c.setCrosshairPosition(price, param.time, series);
+      } catch(e) {}
+    });
+  } finally { _xhairSyncing = false; }
+}
 let chartOverlays = {}; // { key: series reference }
 let chartData = null; // stored chart API response for re-adding overlays
 let _liveChartTimer = null; // interval id for live daily-candle updates
@@ -3293,43 +3322,7 @@ function renderChart(data) {
   // Show latest candle OHLC by default
   if(data.candles.length) updateOhlcOverlay(data.candles[data.candles.length-1]);
 
-  // Bidirectional crosshair sync across main chart ↔ RSI ↔ MACD.
-  // Rules:
-  //  • Only sync when param.time is valid — don't push "cursor left" clears to
-  //    other panels (they manage their own clear / last-position).
-  //  • _xhairSyncing guard prevents setCrosshairPosition() from triggering an
-  //    infinite loop back into subscribeCrosshairMove.
-  //  • When syncing TO the main candlestick chart, supply the candle close price
-  //    so the horizontal crosshair line snaps correctly.
-  let _xhairSyncing = false;
-  function _pushXhair(fromChart, param) {
-    if (!param.time) return;          // skip "cursor left" events — let each panel manage its own clear
-    if (_xhairSyncing) return;
-    _xhairSyncing = true;
-    try {
-      const targets = [];
-      if (currentChart   && currentChart   !== fromChart) targets.push(currentChart);
-      if (currentRsiChart  && currentRsiChart  !== fromChart) targets.push(currentRsiChart);
-      if (currentMacdChart && currentMacdChart !== fromChart) targets.push(currentMacdChart);
-      if (currentVolChart  && currentVolChart  !== fromChart) targets.push(currentVolChart);
-      for (const k in subPanelCharts) { if (subPanelCharts[k] !== fromChart) targets.push(subPanelCharts[k]); }
-      targets.forEach(c => {
-        try {
-          let price, series;
-          if (c === currentChart) {
-            // Use close price for proper crosshair placement on candlestick chart
-            const candle = chartData?.candles?.find(x => x.time === param.time);
-            price  = candle ? candle.close : undefined;
-            series = window._scCandleSeries;
-          } else {
-            series = window._chartSyncSeries[c._uniqueId || ''];
-          }
-          if (series) c.setCrosshairPosition(price, param.time, series);
-        } catch(e) {}
-      });
-    } finally { _xhairSyncing = false; }
-  }
-
+  // Wire crosshair sync — _pushXhair is module-level so addSubPanel can also reach it
   currentChart.subscribeCrosshairMove(param => {
     // Update OHLC overlay (driven by main chart only — most accurate)
     if (param.time && chartData) {
@@ -3374,15 +3367,18 @@ function renderChart(data) {
     _chartPanel._indWheelHandler = (e) => {
       if (e.target.closest('#chart-container')) return;
       if (!currentChart) return;
+      // Only intercept horizontal scroll (trackpad swipe or Shift+wheel).
+      // Pure vertical scroll must reach the overflow-y-auto panel so the user
+      // can scroll down to see all indicator sub-panels.
+      const isHorizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey;
+      if (!isHorizontal) return;
       e.preventDefault();
       const ts = currentChart.timeScale();
       const r = ts.getVisibleLogicalRange();
       if (!r) return;
       const dx = e.shiftKey ? e.deltaY : e.deltaX;
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey) {
-        const shift = dx * 0.4;
-        ts.setVisibleLogicalRange({ from: r.from + shift, to: r.to + shift });
-      }
+      const shift = dx * 0.4;
+      ts.setVisibleLogicalRange({ from: r.from + shift, to: r.to + shift });
     };
     _chartPanel.addEventListener('wheel', _chartPanel._indWheelHandler, { passive: false });
   }
@@ -3681,6 +3677,8 @@ function addSubPanel(key) {
   syncSubPanelToMain(chart);
   chart._uniqueId='sub_'+key; if(firstSeries) window._chartSyncSeries['sub_'+key]=firstSeries;
   subPanelCharts[key] = chart;
+  // Crosshair sync: broadcast from this panel to main chart + all other panels
+  chart.subscribeCrosshairMove(param => _pushXhair(chart, param));
   new ResizeObserver(()=>{if(subPanelCharts[key])subPanelCharts[key].applyOptions({width:div.clientWidth});}).observe(div);
 }
 
