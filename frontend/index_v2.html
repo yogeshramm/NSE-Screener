@@ -1941,6 +1941,7 @@ let _lastScreenData = null;   // moved here from line ~8165 to avoid TDZ crash o
 let currentChart = null, currentRsiChart = null, currentVolChart = null, currentMacdChart = null, currentChartSymbol = null;
 let chartOverlays = {}; // { key: series reference }
 let chartData = null; // stored chart API response for re-adding overlays
+let _liveChartTimer = null; // interval id for live daily-candle updates
 let screenAbort = null;
 let downloadPolling = null;
 let totalExpected = 150;
@@ -2909,6 +2910,7 @@ function resetScreenerTab() {
 }
 
 function closeChart() {
+  stopLiveChart();
   const tables = document.getElementById('tables-panel');
   const chart  = document.getElementById('chart-panel');
   // Restore tables
@@ -2948,6 +2950,55 @@ function openInsightsFromChart() { if(currentChartSymbol) openStock(currentChart
 
 let currentChartDays = 180;
 let currentChartInterval = '1D';
+
+// ── Live daily-candle updater ──────────────────────────────────────────────
+// When the backend injects today's candle from Angel One (live_candle:true),
+// we poll /market/ltp every 30s and push updates into the chart so the live
+// session candle (and its indicators) reflect real-time price movement.
+function stopLiveChart() {
+  if (_liveChartTimer) { clearInterval(_liveChartTimer); _liveChartTimer = null; }
+  const b = document.getElementById('chart-live-badge');
+  if (b) b.remove();
+}
+
+function startLiveChart(sym, liveTime) {
+  stopLiveChart();
+  // LIVE badge next to the chart title
+  const hdr = document.getElementById('chart-title');
+  if (hdr) {
+    const b = document.createElement('span');
+    b.id = 'chart-live-badge';
+    b.className = 'ml-2 inline-flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded bg-primary/20 text-primary';
+    b.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse-soft inline-block"></span>LIVE';
+    hdr.after(b);
+  }
+  async function tick() {
+    if (!currentChartSymbol || !window._scCandleSeries || !chartData) return;
+    try {
+      const r = await fetch(API + '/market/ltp?symbols=' + sym);
+      const d = await r.json();
+      if (!d.market_open) { stopLiveChart(); return; }
+      const p = d.prices[sym];
+      if (!p || !p.ltp) return;
+      const ltp = parseFloat(p.ltp);
+      // Grow the live candle's high/low as price moves throughout the session
+      const prev = chartData.candles[chartData.candles.length - 1];
+      const updated = {
+        time:  liveTime,
+        open:  prev.open,
+        high:  Math.max(prev.high, ltp),
+        low:   Math.min(prev.low,  ltp),
+        close: ltp,
+      };
+      chartData.candles[chartData.candles.length - 1] = updated; // keep in sync
+      window._scCandleSeries.update(updated);
+      document.getElementById('chart-price').textContent = '₹' + ltp;
+      updateOhlcOverlay(updated);
+    } catch(e) {}
+  }
+  tick();  // immediate first tick
+  _liveChartTimer = setInterval(tick, 30000); // refresh every 30s
+}
 
 async function loadChart(symbol, days, interval) {
   days = days || currentChartDays;
@@ -3049,6 +3100,7 @@ const OVERLAY_CONFIG = {
 let subPanelCharts = {}; // { key: chart instance }
 
 function renderChart(data) {
+  stopLiveChart();   // clear any running live-candle timer before rebuilding
   chartData = data;
   chartOverlays = {};
   // Adapt overlay titles for intraday (backend reuses daily slots for EMA 9/21/50)
@@ -3094,6 +3146,11 @@ function renderChart(data) {
   const cs=currentChart.addCandlestickSeries({upColor:cc.up,downColor:cc.down,borderUpColor:cc.up,borderDownColor:cc.down,wickUpColor:cc.up,wickDownColor:cc.down});
   cs.setData(data.candles);
   window._scCandleSeries = cs;
+  // Start live-candle polling when today's candle comes from Angel One
+  if (data.live_candle && data.candles.length && currentChartSymbol) {
+    const liveTime = data.candles[data.candles.length - 1].time;
+    setTimeout(() => startLiveChart(currentChartSymbol, liveTime), 300);
+  }
   // Re-apply any active toggles (INFO/HELP/EVENTS/TEMPLATE) to the new chart instance
   setTimeout(()=>{ try { scApplyAllChartOverlays(); if (scTemplateOn) renderScreenerTemplate(); } catch(e){} }, 50);
 

@@ -126,6 +126,39 @@ def _intraday_chart(symbol: str, interval: str):
     return result
 
 
+def _inject_live_daily_candle(df, symbol: str):
+    """During NSE market hours, append today's live OHLC candle from Angel One
+    if today is not yet in the historical DataFrame (pkl files are updated
+    post-market, so today's candle is always missing during trading hours).
+    This lets daily-chart indicators reflect the live session price."""
+    try:
+        import pandas as pd
+        from data.angel_ltp import get_ltp_bulk, is_market_open
+        if not is_market_open():
+            return df, False
+        # Normalise today to midnight (no timezone) to match pkl index style
+        today = pd.Timestamp.now(tz="Asia/Kolkata").normalize().tz_localize(None)
+        # If today already present (e.g. data freshly synced), skip
+        if not df.empty and df.index[-1].normalize() >= today:
+            return df, False
+        prices = get_ltp_bulk([symbol])
+        p = prices.get(symbol)
+        if not p or not p.get("ltp"):
+            return df, False
+        ltp   = float(p["ltp"])
+        open_ = float(p["open"])  or ltp
+        high  = max(float(p["high"]) or ltp, ltp)
+        low   = min(float(p["low"])  or ltp, ltp)
+        new_row = pd.DataFrame(
+            {"Open": [open_], "High": [high], "Low": [low],
+             "Close": [ltp], "Volume": [0]},
+            index=[today],
+        )
+        return pd.concat([df, new_row]), True
+    except Exception:
+        return df, False
+
+
 @router.get("/chart/{symbol}")
 def get_chart_data(symbol: str, days: int = 200, interval: str = "1D"):
     """Returns OHLCV candlestick data + computed indicator overlays for charting.
@@ -145,6 +178,9 @@ def get_chart_data(symbol: str, days: int = 200, interval: str = "1D"):
     df_full = bundle["daily_df"]
     if df_full is None or len(df_full) < 5:
         raise HTTPException(404, f"Insufficient data for {symbol}")
+
+    # Inject today's live candle during market hours (pkl only has up to prev close)
+    df_full, live_candle_injected = _inject_live_daily_candle(df_full, symbol)
 
     # Use ALL data for indicator computation, limit display range later
     df = df_full.copy()
@@ -441,4 +477,5 @@ def get_chart_data(symbol: str, days: int = 200, interval: str = "1D"):
         },
         "price": round(df["Close"].iloc[-1], 2),
         "bars": len(trim(candles)),
+        "live_candle": live_candle_injected,   # True when today's candle is from Angel One LTP
     }
