@@ -668,14 +668,15 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
       </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Row 1: Watchlist · Events · Sector Pulse -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
       <!-- Watchlist section -->
       <div class="lg:col-span-1 bg-surface-container-low rounded-xl border border-outline-variant/20 overflow-hidden">
         <div class="px-4 py-3 border-b border-outline-variant/10 flex items-center justify-between">
           <span class="text-[10px] font-black uppercase tracking-[0.15em] text-primary">Your Watchlist</span>
           <span class="text-[9px] text-on-surface-variant">click to open chart</span>
         </div>
-        <div id="home-wl-body" class="divide-y divide-outline-variant/10 max-h-72 overflow-y-auto">
+        <div id="home-wl-body" class="divide-y divide-outline-variant/10 max-h-52 overflow-y-auto">
           <div class="px-4 py-6 text-center text-on-surface-variant/50 text-xs">Loading…</div>
         </div>
       </div>
@@ -686,7 +687,7 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
           <span class="text-[10px] font-black uppercase tracking-[0.15em] text-primary">Upcoming Events</span>
           <span class="text-[9px] text-on-surface-variant ml-2">(watchlist stocks)</span>
         </div>
-        <div id="home-events-body" class="divide-y divide-outline-variant/10 max-h-72 overflow-y-auto">
+        <div id="home-events-body" class="divide-y divide-outline-variant/10 max-h-52 overflow-y-auto">
           <div class="px-4 py-6 text-center text-on-surface-variant/50 text-xs">Loading…</div>
         </div>
       </div>
@@ -696,13 +697,55 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
         <div class="px-4 py-3 border-b border-outline-variant/10">
           <span class="text-[10px] font-black uppercase tracking-[0.15em] text-primary">Sector Pulse</span>
         </div>
-        <div id="home-sector-body" class="p-3 grid grid-cols-2 gap-2 max-h-72 overflow-y-auto">
+        <div id="home-sector-body" class="p-3 grid grid-cols-2 gap-2 max-h-52 overflow-y-auto">
           <div class="col-span-2 px-4 py-6 text-center text-on-surface-variant/50 text-xs">Loading…</div>
         </div>
       </div>
     </div>
 
-    <div class="mt-6 text-[9px] text-on-surface-variant/40 text-center">Morning briefing · Updated on load</div>
+    <!-- Row 2: Market Movers (Gainers | Losers) + Breakout Watch -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+      <!-- Gainers -->
+      <div class="bg-surface-container-low rounded-xl border border-outline-variant/20 overflow-hidden">
+        <div class="px-4 py-3 border-b border-outline-variant/10 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-[#00e5a0] inline-block"></span>
+            <span class="text-[10px] font-black uppercase tracking-[0.15em] text-[#00e5a0]">Top Gainers</span>
+          </div>
+          <span id="home-movers-badge" class="text-[8px] font-bold px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant hidden">LIVE</span>
+        </div>
+        <div id="home-gainers-body" class="divide-y divide-outline-variant/10">
+          <div class="px-4 py-5 text-center text-on-surface-variant/50 text-xs">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Losers -->
+      <div class="bg-surface-container-low rounded-xl border border-outline-variant/20 overflow-hidden">
+        <div class="px-4 py-3 border-b border-outline-variant/10 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-[#ff4757] inline-block"></span>
+          <span class="text-[10px] font-black uppercase tracking-[0.15em] text-[#ff4757]">Top Losers</span>
+        </div>
+        <div id="home-losers-body" class="divide-y divide-outline-variant/10">
+          <div class="px-4 py-5 text-center text-on-surface-variant/50 text-xs">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Breakout Watch -->
+      <div class="bg-surface-container-low rounded-xl border border-outline-variant/20 overflow-hidden">
+        <div class="px-4 py-3 border-b border-outline-variant/10 flex items-center gap-2">
+          <span class="material-symbols-outlined text-xs text-primary">rocket_launch</span>
+          <span class="text-[10px] font-black uppercase tracking-[0.15em] text-primary">Breakout Watch</span>
+          <span class="text-[9px] text-on-surface-variant ml-auto">within 3% of 52W high</span>
+        </div>
+        <div id="home-breakout-body" class="divide-y divide-outline-variant/10">
+          <div class="px-4 py-5 text-center text-on-surface-variant/50 text-xs">Loading…</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="text-[9px] text-on-surface-variant/40 text-center pb-2">Nifty 200 · Updated on load <span id="home-movers-note"></span></div>
   </div>
 </section>
 
@@ -8343,6 +8386,66 @@ async function loadHome() {
         }).join('');
       } else {
         secBody.innerHTML = '<div class="col-span-2 px-4 py-6 text-center text-on-surface-variant/50 text-xs">Sector data unavailable</div>';
+      }
+    }
+  } catch(e) {}
+
+  // Market Movers (Top Gainers / Top Losers / Breakout Watch)
+  try {
+    const mvRes = await fetch(API + '/market/movers').then(r => r.json()).catch(() => null);
+    if (mvRes) {
+      const badge  = document.getElementById('home-movers-badge');
+      const note   = document.getElementById('home-movers-note');
+      const gBody  = document.getElementById('home-gainers-body');
+      const lBody  = document.getElementById('home-losers-body');
+      const bBody  = document.getElementById('home-breakout-body');
+
+      if (badge && mvRes.market_open) {
+        badge.textContent = '● LIVE';
+        badge.classList.remove('hidden');
+        badge.classList.add('text-[#00e5a0]', 'bg-[#00e5a0]/10', 'border', 'border-[#00e5a0]/30', 'animate-pulse-soft');
+      }
+      if (note) note.textContent = mvRes.market_open ? '· Live prices' : '· EOD prices';
+
+      function _moverRow(m, isGainer) {
+        const col = isGainer ? '#00e5a0' : '#ff4757';
+        const sign = m.change_pct >= 0 ? '+' : '';
+        return `<div class="px-4 py-2.5 flex items-center justify-between hover:bg-surface-container-highest/30 cursor-pointer" onclick="switchTab('screener');setTimeout(()=>openChart('${m.symbol}'),100)">
+          <div class="min-w-0">
+            <div class="text-xs font-black text-on-surface">${m.symbol}</div>
+            <div class="text-[9px] text-on-surface-variant/60 truncate">${m.sector || ''}</div>
+          </div>
+          <div class="text-right flex-shrink-0 ml-3">
+            <div class="text-xs font-mono text-on-surface">₹${m.price}</div>
+            <div class="text-[10px] font-black font-mono" style="color:${col}">${sign}${m.change_pct}%</div>
+          </div>
+        </div>`;
+      }
+
+      if (gBody) {
+        gBody.innerHTML = mvRes.gainers?.length
+          ? mvRes.gainers.map(m => _moverRow(m, true)).join('')
+          : '<div class="px-4 py-5 text-center text-on-surface-variant/50 text-xs">No data</div>';
+      }
+      if (lBody) {
+        lBody.innerHTML = mvRes.losers?.length
+          ? mvRes.losers.map(m => _moverRow(m, false)).join('')
+          : '<div class="px-4 py-5 text-center text-on-surface-variant/50 text-xs">No data</div>';
+      }
+      if (bBody) {
+        bBody.innerHTML = mvRes.breakout_watch?.length
+          ? mvRes.breakout_watch.map(b => `
+            <div class="px-4 py-2.5 flex items-center justify-between hover:bg-surface-container-highest/30 cursor-pointer" onclick="switchTab('screener');setTimeout(()=>openChart('${b.symbol}'),100)">
+              <div class="min-w-0">
+                <div class="text-xs font-black text-on-surface">${b.symbol}</div>
+                <div class="text-[9px] text-on-surface-variant/60 truncate">${b.sector || ''}</div>
+              </div>
+              <div class="text-right flex-shrink-0 ml-3">
+                <div class="text-xs font-mono text-on-surface">₹${b.price}</div>
+                <div class="text-[10px] font-black font-mono text-primary">${b.pct_from_high}% from ATH</div>
+              </div>
+            </div>`).join('')
+          : '<div class="px-4 py-5 text-center text-on-surface-variant/50 text-xs">No stocks near 52W high</div>';
       }
     }
   } catch(e) {}
