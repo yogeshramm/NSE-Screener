@@ -668,6 +668,21 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
       </div>
     </div>
 
+    <!-- Home Quick Chart Search -->
+    <div class="relative mb-6">
+      <div class="flex items-center gap-2 bg-surface-container/60 border border-outline-variant/30 rounded-xl px-4 py-2.5 focus-within:border-primary/50 transition-colors">
+        <svg class="w-4 h-4 text-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input id="home-search-input" type="text" placeholder="Quick chart — type any NSE symbol…" autocomplete="off" spellcheck="false"
+          class="flex-1 bg-transparent text-xs text-on-surface placeholder:text-on-surface-variant/40 outline-none"
+          oninput="onHomeSearchInput(this.value)"
+          onkeydown="if(event.key==='Escape'){document.getElementById('home-search-dd').classList.add('hidden');this.value='';}"
+        />
+        <kbd class="hidden sm:inline text-[9px] text-on-surface-variant/40 border border-outline-variant/20 rounded px-1 py-0.5">ESC</kbd>
+      </div>
+      <div id="home-search-dd" class="hidden absolute left-0 right-0 top-full mt-1 z-50 bg-surface-container border border-outline-variant/30 rounded-xl shadow-lg overflow-hidden max-h-60 overflow-y-auto">
+      </div>
+    </div>
+
     <!-- Row 1: Watchlist · Events · Sector Pulse -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
       <!-- Watchlist section -->
@@ -2737,6 +2752,47 @@ async function ensureScBriefing(symbol) {
   } catch(e){}
 }
 
+// ============ HOME QUICK CHART SEARCH ============
+let _homeSearchTimeout = null;
+function onHomeSearchInput(val) {
+  clearTimeout(_homeSearchTimeout);
+  const dd = document.getElementById('home-search-dd');
+  if (!val || val.length < 1) { dd.classList.add('hidden'); return; }
+  _homeSearchTimeout = setTimeout(async () => {
+    try {
+      const res = await fetch(API + '/data/search?q=' + encodeURIComponent(val));
+      const data = await res.json();
+      if (!data.results || !data.results.length) {
+        dd.innerHTML = '<div class="text-[10px] text-on-surface-variant/50 p-3 text-center">No matches</div>';
+        dd.classList.remove('hidden');
+        return;
+      }
+      dd.innerHTML = data.results.map(r => {
+        const enc = encodeURIComponent(r.symbol);
+        const safe = r.symbol.replace(/'/g, "\\'");
+        return `<a href="#stock=${enc}" onclick="event.preventDefault();openHomeChart('${safe}')" class="flex items-center justify-between hover:bg-surface-container-highest/60 px-4 py-2.5 cursor-pointer no-underline block">
+          <span class="text-xs font-black text-primary">${r.symbol}</span>
+          <span class="text-[10px] text-on-surface-variant truncate ml-3">${r.name !== r.symbol ? r.name : ''}</span>
+        </a>`;
+      }).join('');
+      dd.classList.remove('hidden');
+    } catch(e) {}
+  }, 180);
+}
+function openHomeChart(sym) {
+  const inp = document.getElementById('home-search-input');
+  if (inp) inp.value = '';
+  document.getElementById('home-search-dd')?.classList.add('hidden');
+  switchTab('screener');
+  setTimeout(() => { try { openChart(sym); } catch(e) {} }, 120);
+}
+// Close home search dropdown on outside click
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#home-search-input') && !e.target.closest('#home-search-dd')) {
+    document.getElementById('home-search-dd')?.classList.add('hidden');
+  }
+});
+
 // ============ SEARCH AUTOCOMPLETE ============
 let searchTimeout=null;
 function onSearchInput(val) {
@@ -2748,7 +2804,7 @@ function onSearchInput(val) {
       const res=await fetch(API+'/data/search?q='+encodeURIComponent(val));
       const data=await res.json();
       if(!data.results.length){dd.innerHTML='<div class="text-[10px] text-on-surface-variant/50 p-3 text-center">No matches</div>';dd.classList.remove('hidden');return;}
-      dd.innerHTML=data.results.map(r=>`<div class="flex items-center justify-between hover:bg-surface-container-highest/60 rounded-lg px-3 py-2 cursor-pointer" onclick="selectSearchResult('${r.symbol}')"><span class="text-xs font-bold text-primary">${r.symbol}</span><span class="text-[10px] text-on-surface-variant truncate ml-2">${r.name!==r.symbol?r.name:''}</span></div>`).join('');
+      dd.innerHTML=data.results.map(r=>{const enc=encodeURIComponent(r.symbol);const safe=r.symbol.replace(/'/g,"\\'");return `<a href="#stock=${enc}" onclick="event.preventDefault();selectSearchResult('${safe}')" class="flex items-center justify-between hover:bg-surface-container-highest/60 rounded-lg px-3 py-2 cursor-pointer no-underline block"><span class="text-xs font-bold text-primary">${r.symbol}</span><span class="text-[10px] text-on-surface-variant truncate ml-2">${r.name!==r.symbol?r.name:''}</span></a>`;}).join('');
       dd.classList.remove('hidden');
     } catch(e){}
   }, 200);
@@ -8564,11 +8620,14 @@ async function loadHome() {
       if (!items.length) {
         wlBody.innerHTML = '<div class="px-4 py-6 text-center text-on-surface-variant/50 text-xs">No watchlist items</div>';
       } else {
-        wlBody.innerHTML = items.map(it => `
-          <div class="px-4 py-2.5 flex items-center justify-between hover:bg-surface-container-highest/30 cursor-pointer" onclick="switchTab('screener');setTimeout(()=>openChart('${it.symbol}'),100)">
+        wlBody.innerHTML = items.map(it => {
+          const enc = encodeURIComponent(it.symbol);
+          const safe = it.symbol.replace(/'/g, "\\'");
+          return `<a href="#stock=${enc}" onclick="event.preventDefault();switchTab('screener');setTimeout(()=>openChart('${safe}'),100)" class="px-4 py-2.5 flex items-center justify-between hover:bg-surface-container-highest/30 cursor-pointer no-underline block">
             <span class="text-xs font-bold text-on-surface">${it.symbol}</span>
             <span class="text-xs font-mono text-on-surface-variant home-wl-ltp" data-sym="${it.symbol}">—</span>
-          </div>`).join('');
+          </a>`;
+        }).join('');
         // Fetch LTP
         const syms = items.map(i => i.symbol).join(',');
         if (syms) {
@@ -8659,7 +8718,9 @@ async function loadHome() {
       function _moverRow(m, isGainer) {
         const col = isGainer ? '#00e5a0' : '#ff4757';
         const sign = m.change_pct >= 0 ? '+' : '';
-        return `<div class="px-4 py-2.5 flex items-center justify-between hover:bg-surface-container-highest/30 cursor-pointer" onclick="switchTab('screener');setTimeout(()=>openChart('${m.symbol}'),100)">
+        const enc = encodeURIComponent(m.symbol);
+        const safeSym = m.symbol.replace(/'/g, "\\'");
+        return `<a href="#stock=${enc}" onclick="event.preventDefault();switchTab('screener');setTimeout(()=>openChart('${safeSym}'),100)" class="px-4 py-2.5 flex items-center justify-between hover:bg-surface-container-highest/30 cursor-pointer no-underline block">
           <div class="min-w-0">
             <div class="text-xs font-black text-on-surface">${m.symbol}</div>
             <div class="text-[9px] text-on-surface-variant/60 truncate">${m.sector || ''}</div>
@@ -8668,7 +8729,7 @@ async function loadHome() {
             <div class="text-xs font-mono text-on-surface">₹${m.price}</div>
             <div class="text-[10px] font-black font-mono" style="color:${col}">${sign}${m.change_pct}%</div>
           </div>
-        </div>`;
+        </a>`;
       }
 
       if (gBody) {
@@ -8683,8 +8744,10 @@ async function loadHome() {
       }
       if (bBody) {
         bBody.innerHTML = mvRes.breakout_watch?.length
-          ? mvRes.breakout_watch.map(b => `
-            <div class="px-4 py-2.5 flex items-center justify-between hover:bg-surface-container-highest/30 cursor-pointer" onclick="switchTab('screener');setTimeout(()=>openChart('${b.symbol}'),100)">
+          ? mvRes.breakout_watch.map(b => {
+            const enc = encodeURIComponent(b.symbol);
+            const safeSym = b.symbol.replace(/'/g, "\\'");
+            return `<a href="#stock=${enc}" onclick="event.preventDefault();switchTab('screener');setTimeout(()=>openChart('${safeSym}'),100)" class="px-4 py-2.5 flex items-center justify-between hover:bg-surface-container-highest/30 cursor-pointer no-underline block">
               <div class="min-w-0">
                 <div class="text-xs font-black text-on-surface">${b.symbol}</div>
                 <div class="text-[9px] text-on-surface-variant/60 truncate">${b.sector || ''}</div>
@@ -8693,7 +8756,8 @@ async function loadHome() {
                 <div class="text-xs font-mono text-on-surface">₹${b.price}</div>
                 <div class="text-[10px] font-black font-mono text-primary">${b.pct_from_high}% from ATH</div>
               </div>
-            </div>`).join('')
+            </a>`;
+          }).join('')
           : '<div class="px-4 py-5 text-center text-on-surface-variant/50 text-xs">No stocks near 52W high</div>';
       }
     }
