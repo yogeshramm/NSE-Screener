@@ -3392,7 +3392,8 @@ function renderChart(data) {
 }
 
 // ── Breakout signal pills ─────────────────────────────────────────────────────
-// 4 always-visible pill badges in the chart header showing quick breakout status
+// 4 pill badges in chart header: Fisher · KVO · RSI · EMA 200
+// Fisher replaces ST (already default overlay); KVO replaces raw vol ratio
 function renderBreakoutPills(data) {
   const el = document.getElementById('sc-breakout-pills');
   if (!el) return;
@@ -3404,17 +3405,25 @@ function renderBreakoutPills(data) {
   const highs   = candles.map(c => c.high);
   const lows    = candles.map(c => c.low);
   const closes  = candles.map(c => c.close);
+  const volumes = vols.map(v => v.value);
 
-  // 1. Volume vs 20-day average (last bar vs prior 20 bars avg)
-  const lastVol  = vols.length ? vols[vols.length - 1].value : 0;
-  const prevVols = vols.slice(Math.max(0, vols.length - 21), vols.length - 1);
-  const avgVol   = prevVols.length ? prevVols.reduce((s, v) => s + v.value, 0) / prevVols.length : 0;
-  const volRatio = avgVol > 0 ? lastVol / avgVol : 0;
-  const volOk    = volRatio >= 1.5;
+  // 1. Ehlers Fisher Transform — bullish when Fisher line > Signal line
+  const { fisher, signal: fisherSig } = pracComputeFisher(highs, lows, closes);
+  const fisherLast    = fisher.slice().reverse().find(v => v != null);
+  const fisherSigLast = fisherSig.slice().reverse().find(v => v != null);
+  const fisherBull    = fisherLast != null && fisherSigLast != null && fisherLast > fisherSigLast;
+  const fisherValid   = fisherLast != null;
 
-  // 2. Supertrend direction (period 7, mult 3 — screener defaults)
-  const { dir } = pracComputeSupertrend(highs, lows, closes, 7, 3);
-  const stBull  = dir[n - 1] === 1;
+  // 2. Klinger Volume Oscillator — bullish when KVO > Signal line
+  const kvoReady = volumes.length === n && n >= 60;
+  let klingBull = false, kvoValid = false;
+  if (kvoReady) {
+    const { kvo, signal: kvoSig } = pracComputeKlinger(highs, lows, closes, volumes);
+    const kvoLast    = kvo.slice().reverse().find(v => v != null);
+    const kvoSigLast = kvoSig.slice().reverse().find(v => v != null);
+    klingBull = kvoLast != null && kvoSigLast != null && kvoLast > kvoSigLast;
+    kvoValid  = kvoLast != null;
+  }
 
   // 3. RSI 14 > 50
   const rsiArr  = pracComputeRSI(closes, 14);
@@ -3422,29 +3431,29 @@ function renderBreakoutPills(data) {
   const rsiBull = rsiVal != null && rsiVal > 50;
 
   // 4. Price vs EMA 200
-  const ema200  = pracComputeEMA(closes, 200);
-  const lastEma = ema200[n - 1];
+  const ema200     = pracComputeEMA(closes, 200);
+  const lastEma    = ema200[n - 1];
   const ema200Bull = lastEma != null && closes[n - 1] > lastEma;
+  const emaOk      = n >= 200 ? ema200Bull : null;
 
   function pill(label, ok, neutral = false) {
-    const bg    = ok ? 'rgba(110,255,192,0.12)' : neutral ? 'rgba(255,255,255,0.06)' : 'rgba(255,71,87,0.12)';
-    const col   = ok ? '#6effc0' : neutral ? '#6b7280' : '#ff6b81';
-    const bdr   = ok ? 'rgba(110,255,192,0.18)' : neutral ? 'rgba(255,255,255,0.10)' : 'rgba(255,71,87,0.18)';
-    const icon  = ok ? '✓' : neutral ? '–' : '✗';
-    return `<span style="background:${bg};color:${col};border:1px solid ${bdr};border-radius:4px;padding:1px 7px;font-size:9px;font-weight:800;letter-spacing:0.04em;line-height:1.7;white-space:nowrap;font-family:inherit">${icon} ${label}</span>`;
+    const bg  = ok ? 'rgba(110,255,192,0.12)' : neutral ? 'rgba(255,255,255,0.06)' : 'rgba(255,71,87,0.12)';
+    const col = ok ? '#6effc0' : neutral ? '#6b7280' : '#ff6b81';
+    const bdr = ok ? 'rgba(110,255,192,0.18)' : neutral ? 'rgba(255,255,255,0.10)' : 'rgba(255,71,87,0.18)';
+    const icn = ok ? '✓' : neutral ? '–' : '✗';
+    return `<span style="background:${bg};color:${col};border:1px solid ${bdr};border-radius:4px;padding:1px 7px;font-size:9px;font-weight:800;letter-spacing:0.04em;line-height:1.7;white-space:nowrap;font-family:inherit">${icn} ${label}</span>`;
   }
 
-  const volLabel = volRatio > 0 ? `Vol ${volRatio.toFixed(1)}×` : 'Vol –';
-  const stLabel  = stBull ? 'ST ↑' : 'ST ↓';
-  const rsiLabel = rsiVal != null ? `RSI ${Math.round(rsiVal)}` : 'RSI –';
-  const emaLabel = n >= 200 ? (ema200Bull ? 'Above EMA 200' : 'Below EMA 200') : `EMA200 (${n}d)`;
-  const emaOk    = n >= 200 ? ema200Bull : null;
+  const fisherLabel  = fisherValid ? `Fisher ${fisherBull ? '↑' : '↓'}` : 'Fisher –';
+  const klingerLabel = kvoValid    ? `KVO ${klingBull ? '↑' : '↓'}`    : 'KVO –';
+  const rsiLabel     = rsiVal != null ? `RSI ${Math.round(rsiVal)}`     : 'RSI –';
+  const emaLabel     = n >= 200 ? (ema200Bull ? 'Above EMA 200' : 'Below EMA 200') : `EMA200 (${n}d)`;
 
   el.innerHTML =
     `<span style="font-size:8px;font-weight:900;letter-spacing:0.06em;text-transform:uppercase;color:var(--on-surface-variant,#9ca3af);opacity:0.55;margin-right:2px">Breakout</span>` +
-    pill(volLabel,  volOk) +
-    pill(stLabel,   stBull) +
-    pill(rsiLabel,  rsiBull) +
+    pill(fisherLabel,  fisherBull,  !fisherValid) +
+    pill(klingerLabel, klingBull,   !kvoValid) +
+    pill(rsiLabel,     rsiBull,     rsiVal == null) +
     (emaOk === null ? pill(emaLabel, false, true) : pill(emaLabel, ema200Bull));
 
   el.classList.remove('hidden');
@@ -6614,6 +6623,36 @@ function pracComputeForceIndex(closes, volumes, period = 13) {
     out[i] = ema;
   }
   return out;
+}
+function pracComputeKlinger(highs, lows, closes, volumes) {
+  const n = closes.length;
+  if (n < 60) return { kvo: new Array(n).fill(null), signal: new Array(n).fill(null) };
+  // HLC sum, trend direction
+  const hlc   = closes.map((c, i) => highs[i] + lows[i] + c);
+  const trend = new Array(n).fill(1);
+  for (let i = 1; i < n; i++) trend[i] = hlc[i] >= hlc[i - 1] ? 1 : -1;
+  // Daily movement + cumulative movement
+  const dm = highs.map((h, i) => h - lows[i]);
+  const cm = new Array(n).fill(0);
+  cm[0] = dm[0];
+  for (let i = 1; i < n; i++)
+    cm[i] = trend[i] === trend[i - 1] ? cm[i - 1] + dm[i] : dm[i - 1] + dm[i];
+  // Volume Force
+  const vf = new Array(n).fill(0);
+  for (let i = 1; i < n; i++)
+    vf[i] = volumes[i] * Math.abs(2 * (dm[i] / (cm[i] || 0.001) - 1)) * trend[i] * 100;
+  // KVO = EMA(vf,34) − EMA(vf,55)
+  const e34 = pracComputeEMA(vf, 34), e55 = pracComputeEMA(vf, 55);
+  const kvo = new Array(n).fill(null);
+  for (let i = 54; i < n; i++)
+    if (e34[i] != null && e55[i] != null) kvo[i] = e34[i] - e55[i];
+  // Signal = 13-period EMA of valid KVO values, aligned back
+  const kvoValid = kvo.filter(v => v != null);
+  const sigEma   = pracComputeEMA(kvoValid, 13);
+  const signal   = new Array(n).fill(null);
+  let vi = 0;
+  for (let i = 0; i < n; i++) if (kvo[i] != null) signal[i] = sigEma[vi++] ?? null;
+  return { kvo, signal };
 }
 function pracComputeCMO(closes, period = 14) {
   const n = closes.length, out = new Array(n).fill(null);
