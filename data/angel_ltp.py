@@ -49,7 +49,7 @@ def get_ltp_bulk(symbols: list[str], exchange: str = "NSE") -> dict[str, dict]:
         batch = fresh[i:i + _BATCH]
         try:
             r = requests.post(_URL, headers=headers,
-                              json={"mode": "LTP", "exchangeTokens": {exchange: batch}},
+                              json={"mode": "FULL", "exchangeTokens": {exchange: batch}},
                               timeout=5)
             data = r.json()
         except Exception:
