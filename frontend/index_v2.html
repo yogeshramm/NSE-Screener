@@ -3333,10 +3333,6 @@ function renderChart(data) {
     }
     _pushXhair(currentChart, param);
   });
-  // RSI and MACD panels sync back to main + each other
-  if (currentRsiChart)  currentRsiChart.subscribeCrosshairMove(param  => _pushXhair(currentRsiChart,  param));
-  if (currentMacdChart) currentMacdChart.subscribeCrosshairMove(param => _pushXhair(currentMacdChart, param));
-
   // Force all sub-panels to match main chart's logical range after initial render
   setTimeout(()=>{
     try {
@@ -3489,6 +3485,8 @@ function renderRsiPanel(data, el) {
   }
   syncSubPanelToMain(currentRsiChart);
   currentRsiChart._uniqueId='rsi'; window._chartSyncSeries['rsi']=rsiLine;
+  const _rsiCh = currentRsiChart;
+  _rsiCh.subscribeCrosshairMove(param => _pushXhair(_rsiCh, param));
 }
 
 function renderMacdPanel(data, el) {
@@ -3504,6 +3502,8 @@ function renderMacdPanel(data, el) {
   hist.setData(data.panels.macd_hist);
   syncSubPanelToMain(currentMacdChart);
   currentMacdChart._uniqueId='macd'; window._chartSyncSeries['macd']=macdLine;
+  const _macdCh = currentMacdChart;
+  _macdCh.subscribeCrosshairMove(param => _pushXhair(_macdCh, param));
 }
 
 function addChartOverlay(key) {
