@@ -1545,7 +1545,7 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
           <div id="prac-sub-panels" class="flex flex-col gap-2" style="flex-shrink:0"></div>
         </div>
         <!-- BOTTOM ACTION BAR (floating overlay — always visible regardless of how many indicator panels are open) -->
-        <div class="absolute bottom-0 left-0 right-0 z-30 px-4 py-3 bg-surface-container/95 backdrop-blur-sm border-t border-outline-variant/20 shadow-[0_-4px_20px_rgba(0,0,0,0.25)] flex items-center justify-between">
+        <div class="absolute bottom-0 left-0 right-0 z-30 px-4 pt-3 pb-9 bg-surface-container/95 backdrop-blur-sm border-t border-outline-variant/20 shadow-[0_-4px_20px_rgba(0,0,0,0.25)] flex items-center justify-between">
           <div class="flex items-center gap-3">
             <button id="prac-btn-next" onclick="practiceNextDay()" class="flex items-center gap-2 px-5 py-2.5 bg-surface-container-highest text-on-surface font-bold rounded-lg text-xs uppercase active:scale-95 transition-transform hover:bg-surface-variant">
               <span class="material-symbols-outlined text-sm">skip_next</span> Next Day
@@ -5822,6 +5822,7 @@ let pracAutoPlaySpeed = 1; // 1x = 1 candle/sec
 let pracBriefing = null;
 let pracHelpMode = false;   // candle pattern detection HELP toggle
 let pracNewsMode = false;   // news anomaly markers
+let _pracXhairSyncing = false; // crosshair sync guard
 // {universe, max_days, symbol, start_idx} for replay — persisted to
 // localStorage so the Replay button stays available across page reloads
 // (in-memory only vanished on every refresh and confused users).
@@ -6884,15 +6885,19 @@ function renderPracticeChart() {
     } else if (pracVisibleCandles.length) {
       updatePracticeOhlc(pracVisibleCandles[pracVisibleCandles.length - 1]);
     }
-    const subs = [];
-    if (pracRsiChart && pracRsiLine) subs.push([pracRsiChart, pracRsiLine]);
-    for (const k in pracSubPanels) if (pracSubPanels[k]._syncLine) subs.push([pracSubPanels[k], pracSubPanels[k]._syncLine]);
-    subs.forEach(([c, line]) => {
-      try {
-        if (!param.time) c.clearCrosshairPosition();
-        else c.setCrosshairPosition(undefined, param.time, line);
-      } catch(e){}
-    });
+    if (_pracXhairSyncing) return;
+    _pracXhairSyncing = true;
+    try {
+      const subs = [];
+      if (pracRsiChart && pracRsiLine) subs.push([pracRsiChart, pracRsiLine]);
+      for (const k in pracSubPanels) if (pracSubPanels[k]._syncLine) subs.push([pracSubPanels[k], pracSubPanels[k]._syncLine]);
+      subs.forEach(([c, line]) => {
+        try {
+          if (!param.time) c.clearCrosshairPosition();
+          else c.setCrosshairPosition(undefined, param.time, line);
+        } catch(e){}
+      });
+    } finally { _pracXhairSyncing = false; }
   });
 
   pracChart.timeScale().fitContent();
@@ -7235,6 +7240,37 @@ function buildPracticePanel(key, el, builder, height = 70) {
 
   const syncLine = builder(chart);
   chart._syncLine = syncLine;
+
+  // Reverse crosshair sync: hovering over this sub-panel pushes crosshair
+  // back to the main chart and all other sub-panels.
+  const _thisPracChart = chart;
+  chart.subscribeCrosshairMove(param => {
+    if (_pracXhairSyncing) return;
+    _pracXhairSyncing = true;
+    try {
+      // Main chart
+      if (pracChart && pracCandleSeries) {
+        if (!param.time) pracChart.clearCrosshairPosition();
+        else {
+          const candle = pracVisibleCandles.find(c => c.time === param.time);
+          pracChart.setCrosshairPosition(candle ? candle.close : undefined, param.time, pracCandleSeries);
+        }
+      }
+      // RSI panel
+      if (pracRsiChart && pracRsiLine && pracRsiChart !== _thisPracChart) {
+        if (!param.time) pracRsiChart.clearCrosshairPosition();
+        else pracRsiChart.setCrosshairPosition(undefined, param.time, pracRsiLine);
+      }
+      // Other sub-panels
+      for (const k in pracSubPanels) {
+        const p = pracSubPanels[k];
+        if (p !== _thisPracChart && p._syncLine) {
+          if (!param.time) p.clearCrosshairPosition();
+          else p.setCrosshairPosition(undefined, param.time, p._syncLine);
+        }
+      }
+    } finally { _pracXhairSyncing = false; }
+  });
 
   pracSubPanels[key] = chart;
   pracActiveInd[key] = { seriesList: [], type: 'panel', panelKey: key };
