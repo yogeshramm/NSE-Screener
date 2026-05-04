@@ -128,33 +128,13 @@ def _intraday_chart(symbol: str, interval: str):
 
 def _inject_live_daily_candle(df, symbol: str):
     """During NSE market hours, append today's live OHLC candle from Angel One
-    if today is not yet in the historical DataFrame (pkl files are updated
-    post-market, so today's candle is always missing during trading hours).
-    This lets daily-chart indicators reflect the live session price."""
+    if today is not yet in the historical DataFrame."""
     try:
-        import pandas as pd
-        from data.angel_ltp import get_ltp_bulk, is_market_open
+        from data.angel_ltp import get_ltp_bulk, is_market_open, inject_live_candle
         if not is_market_open():
             return df, False
-        # Normalise today to midnight (no timezone) to match pkl index style
-        today = pd.Timestamp.now(tz="Asia/Kolkata").normalize().tz_localize(None)
-        # If today already present (e.g. data freshly synced), skip
-        if not df.empty and df.index[-1].normalize() >= today:
-            return df, False
         prices = get_ltp_bulk([symbol])
-        p = prices.get(symbol)
-        if not p or not p.get("ltp"):
-            return df, False
-        ltp   = float(p["ltp"])
-        open_ = float(p["open"])  or ltp
-        high  = max(float(p["high"]) or ltp, ltp)
-        low   = min(float(p["low"])  or ltp, ltp)
-        new_row = pd.DataFrame(
-            {"Open": [open_], "High": [high], "Low": [low],
-             "Close": [ltp], "Volume": [0]},
-            index=[today],
-        )
-        return pd.concat([df, new_row]), True
+        return inject_live_candle(df, prices.get(symbol, {}))
     except Exception:
         return df, False
 

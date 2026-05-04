@@ -26,6 +26,32 @@ def is_market_open() -> bool:
     return T(9, 15) <= t <= T(15, 30)
 
 
+def inject_live_candle(hist_df, sym_price: dict):
+    """Append today's live candle to hist_df if today is absent.
+    sym_price: one entry from get_ltp_bulk(), e.g. {ltp, open, high, low}.
+    Returns (possibly_new_df, was_injected: bool).
+    Shared by routes_chart and routes_screen so both charts and screener
+    indicator computation reflect the live session price."""
+    if not sym_price or not sym_price.get("ltp"):
+        return hist_df, False
+    try:
+        today = pd.Timestamp.now(tz="Asia/Kolkata").normalize().tz_localize(None)
+        if not hist_df.empty and hist_df.index[-1].normalize() >= today:
+            return hist_df, False          # already have today's bar
+        ltp   = float(sym_price["ltp"])
+        open_ = float(sym_price.get("open") or ltp)
+        high  = max(float(sym_price.get("high") or ltp), ltp)
+        low   = min(float(sym_price.get("low")  or ltp), ltp)
+        new_row = pd.DataFrame(
+            {"Open": [open_], "High": [high], "Low": [low],
+             "Close": [ltp], "Volume": [0]},
+            index=[today],
+        )
+        return pd.concat([hist_df, new_row]), True
+    except Exception:
+        return hist_df, False
+
+
 def get_ltp_bulk(symbols: list[str], exchange: str = "NSE") -> dict[str, dict]:
     """Returns {symbol: {ltp, open, high, low, close, change_pct}} with _TTL-sec cache."""
     token_sym: dict[str, str] = {}

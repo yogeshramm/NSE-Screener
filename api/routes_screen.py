@@ -161,6 +161,18 @@ def run_screen(request: ScreenRequest):
         import pickle
         from setup_data import FUNDAMENTALS_DIR
 
+        # During market hours, batch-fetch live OHLC from Angel One for all
+        # candidates upfront.  This lets indicators (RSI, EMA, Supertrend,
+        # score) be computed with today's live session candle, not just the
+        # post-market pkl data from yesterday.
+        from data.angel_ltp import get_ltp_bulk, is_market_open, inject_live_candle
+        live_prices: dict = {}
+        if is_market_open():
+            try:
+                live_prices = get_ltp_bulk(list(candidates))
+            except Exception:
+                live_prices = {}
+
         symbols = []
         prefetched: dict[str, dict] = {}
         skipped = 0
@@ -169,8 +181,12 @@ def run_screen(request: ScreenRequest):
             if hist_df is None or len(hist_df) < 50:
                 skipped += 1
                 continue
+            # Inject today's live candle so price/volume filters and all
+            # downstream indicators use the current session price
+            if live_prices:
+                hist_df, _ = inject_live_candle(hist_df, live_prices.get(sym, {}))
             last_close = hist_df["Close"].iloc[-1]
-            avg_vol = hist_df["Volume"].mean()
+            avg_vol = hist_df["Volume"].iloc[:-1].mean() if live_prices.get(sym) else hist_df["Volume"].mean()
             if last_close < request.min_price:
                 skipped += 1
                 continue
@@ -207,6 +223,9 @@ def run_screen(request: ScreenRequest):
     else:
         symbols = [s.strip().upper() for s in request.symbols]
         prefetched = {}
+        # Fetch live prices for manually-specified symbols too
+        from data.angel_ltp import get_ltp_bulk, is_market_open, inject_live_candle
+        live_prices = get_ltp_bulk(symbols) if is_market_open() else {}
 
     # Fetch data for all symbols (use prefetched bundles when available)
     stocks = []
@@ -214,6 +233,10 @@ def run_screen(request: ScreenRequest):
     for symbol in symbols:
         try:
             bundle = prefetched.get(symbol) or get_stock_bundle(symbol)
+            # Inject live candle for manual-symbol path (preset path already injected above)
+            if not prefetched and live_prices:
+                df, _ = inject_live_candle(bundle["daily_df"], live_prices.get(symbol, {}))
+                bundle = {**bundle, "daily_df": df}
             stocks.append(bundle)
         except Exception as e:
             errors.append({"symbol": symbol, "error": str(e)})
