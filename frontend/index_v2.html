@@ -1998,6 +1998,7 @@ let watchlistData = [];
 let alertModalSymbol = null;
 let _lastScreenData = null;   // moved here from line ~8165 to avoid TDZ crash on scan
 let currentChart = null, currentRsiChart = null, currentVolChart = null, currentMacdChart = null, currentChartSymbol = null;
+let _chartReturnTab = null; // set when chart opened from a non-screener tab
 
 // ── Crosshair sync (module-level so addSubPanel can reach it) ─────────────────
 let _xhairSyncing = false;
@@ -3002,6 +3003,14 @@ function openChart(symbol) {
     // Hide bottom nav while chart is open so it doesn't block controls
     const bn = document.getElementById('bottom-nav');
     if (bn) bn.style.display = 'none';
+  } else if (_chartReturnTab) {
+    // Opened from another tab — full-width chart, no split pane
+    tables.style.display = 'none';
+    tables.style.width   = '0';
+    tables.style.minWidth = '';
+    chart.classList.remove('mob-fs');
+    chart.style.display  = 'flex';
+    chart.style.width    = '100%';
   } else {
     // Desktop: side-by-side split pane
     tables.style.display   = '';
@@ -3082,8 +3091,21 @@ function closeChart() {
   scAnalyzeCache = {};
   const hs=document.getElementById('sc-help-summary'); if(hs){hs.classList.add('hidden');hs.innerHTML='';}
   const pp=document.getElementById('sc-breakout-pills'); if(pp){pp.classList.add('hidden');pp.innerHTML='';}
+  // Return to originating tab if chart was opened from outside the screener
+  if (_chartReturnTab) {
+    const ret = _chartReturnTab;
+    _chartReturnTab = null;
+    switchTab(ret);
+  }
 }
 function openInsightsFromChart() { if(currentChartSymbol) openStock(currentChartSymbol); }
+
+// Open chart from the Breakout tab — full-width in screener tab, back button returns here
+function openBoChart(sym) {
+  _chartReturnTab = 'breakouts';
+  switchTab('screener');
+  setTimeout(() => openChart(sym), 100);
+}
 
 let currentChartDays = 180;
 let currentChartInterval = '1D';
@@ -4664,12 +4686,14 @@ async function runBOScan() {
       const sc = h.score || 0;
       const scCol = sc >= 100 ? 'text-[#00e5a0]' : sc >= 60 ? 'text-yellow-400' : 'text-on-surface-variant';
       const fmt = (v) => v === null || v === undefined ? '—' : typeof v === 'number' ? v : v;
-      return `<tr class="hover:bg-surface-container-highest/30">
-        <td class="px-4 py-2.5 font-bold text-on-surface">${_stockLink(h.symbol)}</td>
+      const safeSym = h.symbol.replace(/'/g, "\\'");
+      const encSym  = encodeURIComponent(h.symbol);
+      return `<tr class="hover:bg-surface-container-highest/30 cursor-pointer" onclick="openBoChart('${safeSym}')">
+        <td class="px-4 py-2.5 font-bold text-on-surface"><a href="#stock=${encSym}" onclick="event.preventDefault();event.stopPropagation();openBoChart('${safeSym}');" class="hover:text-primary transition-colors">${h.symbol}</a></td>
         <td class="px-4 py-2.5 text-right">\u20b9${h.close}</td>
         <td class="px-4 py-2.5 text-right font-bold ${scCol}">${sc}</td>
         ${modeCols.map(([k]) => `<td class="px-4 py-2.5 text-right">${fmt(h[k])}</td>`).join('')}
-        <td class="px-4 py-2.5 text-center"><span class="material-symbols-outlined text-sm cursor-pointer hover:text-primary" onclick="switchTab('screener'); setTimeout(()=>openChart('${h.symbol}'),100);">bar_chart</span></td>
+        <td class="px-4 py-2.5 text-center"><span class="material-symbols-outlined text-sm text-primary/60">bar_chart</span></td>
       </tr>`;
     }).join('')}</tbody>`;
     res.innerHTML = `<div class="overflow-x-auto"><table class="w-full text-left border-collapse">${thead}${tbody}</table></div>`;
