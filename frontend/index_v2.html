@@ -4840,10 +4840,11 @@ const IND_VIS_MAP = {
   'VWAP Bands':'candles_bands','Bollinger Band Squeeze':'candles_bands',
   'Ichimoku Cloud':'candles_cloud','Pivot Levels':'candles_levels',
   'Hidden Bullish Divergence':'candles_div',
-  'RSI':'osc_bounded','Stochastic RSI':'osc_bounded','ADX':'osc_bounded',
+  'RSI':'osc_bounded','Stochastic RSI':'osc_bounded',
   'Williams %R':'osc_negative',
-  'Chande Momentum Oscillator':'osc_centered','ROC':'osc_centered','CMF':'osc_centered',
-  'Ehlers Fisher Transform':'osc_centered','Elder Force Index':'osc_centered',
+  'ADX':'adx_lines',
+  'Chande Momentum Oscillator':'osc_cmo','ROC':'osc_centered','CMF':'osc_centered',
+  'Ehlers Fisher Transform':'fisher_lines','Elder Force Index':'force_hist',
   'MACD':'macd','Klinger Volume Oscillator':'macd',
   'Awesome Oscillator':'hist_centered',
   'OBV':'line_only','ATR':'line_only',
@@ -4910,7 +4911,6 @@ const IND_DRAW = {
     // Each bounded oscillator has its own standard thresholds — use them verbatim.
     let v, refs;
     if (name.includes('Stochastic')) { v = pracComputeStochRSI(closes); refs = [[20,'20'],[80,'80']]; }
-    else if (name === 'ADX')          { v = pracComputeADX(c.map(x=>x.high), c.map(x=>x.low), closes); refs = [[20,'20'],[25,'25']]; }
     else                              { v = pracComputeRSI(closes, 14); refs = [[30,'30'],[70,'70']]; }
     _drawOscLine(ctx, W, H, v, 0, 100, refs, '#a855f7');
   },
@@ -4932,6 +4932,76 @@ const IND_DRAW = {
   hist_centered: (ctx, W, H, c) => {
     const v = pracComputeAO(c.map(x=>x.high), c.map(x=>x.low));
     _drawHist(ctx, W, H, v);
+  },
+  // Ehlers Fisher Transform — Fisher line (green) + 1-bar signal line (orange)
+  fisher_lines: (ctx, W, H, c) => {
+    const {fisher, signal} = pracComputeFisher(c.map(x=>x.high), c.map(x=>x.low), c.map(x=>x.close));
+    const all = [...fisher, ...signal].filter(v => v != null && !isNaN(v));
+    if (!all.length) return;
+    const pad = 4;
+    const lo = Math.min(-2.5, ...all), hi = Math.max(2.5, ...all);
+    _drawOscLine(ctx, W, H, fisher, lo, hi, [[0,'0']], '#6effc0');
+    const range = hi - lo || 1, step = (W - pad*2) / signal.length;
+    ctx.strokeStyle = '#f97316'; ctx.lineWidth = 1.2; ctx.beginPath();
+    let first = true;
+    signal.forEach((v, i) => {
+      if (v == null || isNaN(v)) return;
+      const x = pad + i * step + step/2;
+      const y = pad + (hi - v) / range * (H - pad*2);
+      if (first) { ctx.moveTo(x, y); first = false; } else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    // Legend
+    ctx.font = 'bold 7px monospace'; ctx.fillStyle = '#6effc0'; ctx.textAlign = 'left';
+    ctx.fillText('Fisher', 6, 10); ctx.fillStyle = '#f97316'; ctx.fillText('Signal', 46, 10);
+    ctx.textAlign = 'left';
+  },
+  // Elder Force Index — histogram (price-change × volume EMA)
+  force_hist: (ctx, W, H, c) => {
+    const v = pracComputeForceIndex(c.map(x=>x.close), c.map(x=>x.volume));
+    _drawHist(ctx, W, H, v);
+    const pad = 4;
+    ctx.font = 'bold 7px monospace'; ctx.fillStyle = '#ffffff55'; ctx.textAlign = 'left';
+    ctx.fillText('Force = ΔClose × Vol', 6, 10); ctx.textAlign = 'left';
+  },
+  // Chande Momentum Oscillator — -100/+100 scale, ±50 overbought/oversold
+  osc_cmo: (ctx, W, H, c) => {
+    const v = pracComputeCMO(c.map(x=>x.close), 14);
+    _drawOscLine(ctx, W, H, v, -100, 100, [[50,'50'],[0,'0'],[-50,'-50']], '#c084fc');
+  },
+  // ADX with +DI (green) and -DI (red) — complete directional system
+  adx_lines: (ctx, W, H, c) => {
+    const {adx, plus_di, minus_di} = pracComputeADXFull(c.map(x=>x.high), c.map(x=>x.low), c.map(x=>x.close));
+    const pad = 4, cap = 60, step = (W - pad*2) / adx.length;
+    const yv = v => pad + (cap - Math.min(v == null || isNaN(v) ? 0 : v, cap)) / cap * (H - pad*2);
+    // Ref lines 20 and 25
+    [[25,'25'],[20,'20']].forEach(([val, lbl]) => {
+      const y = yv(val);
+      ctx.strokeStyle = '#ffffff22'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - pad, y); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#ffffff66'; ctx.font = '8px monospace'; ctx.textAlign = 'right';
+      ctx.fillText(lbl, W - pad - 1, y - 2); ctx.textAlign = 'left';
+    });
+    // +DI green
+    const drawLine = (arr, col) => {
+      ctx.strokeStyle = col; ctx.lineWidth = 1.3; ctx.beginPath();
+      let first = true;
+      arr.forEach((v, i) => {
+        if (v == null || isNaN(v)) return;
+        const x = pad + i * step + step/2, y = yv(v);
+        if (first) { ctx.moveTo(x, y); first = false; } else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    };
+    drawLine(plus_di, '#00e5a0');
+    drawLine(minus_di, '#ff4757');
+    drawLine(adx, '#f97316');  // ADX thicker orange on top
+    // Legend
+    ctx.font = 'bold 7px monospace'; ctx.textAlign = 'left';
+    ctx.fillStyle = '#00e5a0'; ctx.fillText('+DI', 6, 10);
+    ctx.fillStyle = '#ff4757'; ctx.fillText('-DI', 26, 10);
+    ctx.fillStyle = '#f97316'; ctx.fillText('ADX', 46, 10);
   },
   line_only: (ctx, W, H, c, name) => {
     const closes = c.map(x=>x.close);
@@ -6450,6 +6520,82 @@ function pracComputeVortex(highs, lows, closes, period = 14) {
     if (trSum) { vip[i] = pSum / trSum; vim[i] = mSum / trSum; }
   }
   return { vip, vim };
+}
+
+function pracComputeFisher(highs, lows, closes, period = 10) {
+  const n = closes.length;
+  const fisher = new Array(n).fill(null), signal = new Array(n).fill(null);
+  for (let i = period - 1; i < n; i++) {
+    const hi = Math.max(...highs.slice(i - period + 1, i + 1));
+    const lo = Math.min(...lows.slice(i - period + 1, i + 1));
+    const range = hi - lo || 0.001;
+    let val = 2 * ((closes[i] - lo) / range) - 1;
+    val = Math.max(-0.999, Math.min(0.999, val));
+    fisher[i] = 0.5 * Math.log((1 + val) / (1 - val));
+    signal[i] = i > period - 1 && fisher[i - 1] != null ? fisher[i - 1] : 0;
+  }
+  return { fisher, signal };
+}
+function pracComputeForceIndex(closes, volumes, period = 13) {
+  const n = closes.length, raw = new Array(n).fill(null);
+  for (let i = 1; i < n; i++) raw[i] = (closes[i] - closes[i-1]) * volumes[i];
+  const out = new Array(n).fill(null);
+  const k = 2 / (period + 1);
+  let ema = null;
+  for (let i = 1; i < n; i++) {
+    if (raw[i] == null) continue;
+    ema = ema == null ? raw[i] : raw[i] * k + ema * (1 - k);
+    out[i] = ema;
+  }
+  return out;
+}
+function pracComputeCMO(closes, period = 14) {
+  const n = closes.length, out = new Array(n).fill(null);
+  for (let i = period; i < n; i++) {
+    let up = 0, down = 0;
+    for (let j = i - period + 1; j <= i; j++) {
+      const diff = closes[j] - closes[j - 1];
+      if (diff > 0) up += diff; else down += Math.abs(diff);
+    }
+    const denom = up + down;
+    out[i] = denom ? 100 * (up - down) / denom : 0;
+  }
+  return out;
+}
+function pracComputeADXFull(highs, lows, closes, period = 14) {
+  const n = closes.length;
+  const tr = [0], plusDM = [0], minusDM = [0];
+  for (let i = 1; i < n; i++) {
+    tr.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i-1]), Math.abs(lows[i] - closes[i-1])));
+    const up = highs[i] - highs[i-1], dn = lows[i-1] - lows[i];
+    plusDM.push(up > dn && up > 0 ? up : 0);
+    minusDM.push(dn > up && dn > 0 ? dn : 0);
+  }
+  const smooth = arr => {
+    const out = new Array(n).fill(null);
+    if (n < period) return out;
+    let sum = 0; for (let i = 1; i <= period; i++) sum += arr[i];
+    out[period] = sum;
+    for (let i = period + 1; i < n; i++) out[i] = out[i-1] - out[i-1] / period + arr[i];
+    return out;
+  };
+  const trS = smooth(tr), pdS = smooth(plusDM), mdS = smooth(minusDM);
+  const plus_di = new Array(n).fill(null), minus_di = new Array(n).fill(null), dx = new Array(n).fill(null);
+  for (let i = period; i < n; i++) {
+    if (trS[i]) {
+      plus_di[i] = 100 * pdS[i] / trS[i];
+      minus_di[i] = 100 * mdS[i] / trS[i];
+      const s = plus_di[i] + minus_di[i];
+      dx[i] = s ? 100 * Math.abs(plus_di[i] - minus_di[i]) / s : 0;
+    }
+  }
+  const adx = new Array(n).fill(null);
+  if (n >= period * 2) {
+    let sum = 0; for (let i = period; i < period * 2; i++) sum += (dx[i] || 0);
+    adx[period * 2 - 1] = sum / period;
+    for (let i = period * 2; i < n; i++) adx[i] = (adx[i-1] * (period - 1) + (dx[i] || 0)) / period;
+  }
+  return { adx, plus_di, minus_di };
 }
 
 function pracComputeVWAPBands(highs, lows, closes, volumes) {

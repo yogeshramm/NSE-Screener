@@ -125,16 +125,16 @@ INDICATOR_ACCURACY = {
     },
     "chande_momentum": {
         "accuracy_score": 76,
-        "bull_signal": "CMO in 10-50 range and rising = momentum in sweet spot. CMO crossing above zero on green candle = bullish shift.",
-        "bear_signal": "CMO below 10 or above 50 = extremes, reversal likely. CMO declining while price rises = momentum failure.",
-        "what_to_watch": "More responsive than RSI — catches momentum shifts 2-3 bars faster. Zero line crossing is key. CMO divergence with price = strong reversal signal. Works well on faster timeframes (4H, 1H).",
+        "bull_signal": "CMO crossing above zero = bullish momentum shift. CMO in +20 to +50 range and rising = momentum building in a healthy uptrend. CMO divergence (price lower high, CMO higher high) = reversal signal.",
+        "bear_signal": "CMO below zero and falling = bearish momentum confirmed. CMO above +50 = overbought extreme, reversal likely. CMO below -50 = oversold, but in downtrends can stay depressed — wait for zero-line cross.",
+        "what_to_watch": "Range is -100 to +100 (not 0-100 like RSI). Overbought/oversold levels are ±50. More responsive than RSI — catches momentum shifts 2-3 bars faster. Zero line crossing is the primary signal. CMO divergence with price = strong reversal setup. Works well on faster timeframes (4H, 1H).",
         "best_for": "Fast momentum detection",
     },
     "force_index": {
         "accuracy_score": 77,
-        "bull_signal": "Force Index crosses above zero = price-volume force turning bullish. Rising Force Index = conviction increasing. Green high-volume candle with rising FI = strong entry.",
-        "bear_signal": "Force Index below zero = bearish force. Extreme negative values = exhaustion (potential reversal).",
-        "what_to_watch": "Combines price change × volume × EMA — captures all three momentum drivers. Extreme values signal exhaustion. FI divergence with price = force weakening, reversal setup.",
+        "bull_signal": "Force Index crosses above zero = price-volume force turning bullish. Rising FI with expanding green candles = conviction increasing. Sharp spike up in FI on breakout = institutional buying confirmed.",
+        "bear_signal": "Force Index below zero = bearish force. FI making lower lows while price holds = hidden distribution. Extreme negative values = selling exhaustion (potential reversal).",
+        "what_to_watch": "Formula: Force = (Close − Prev Close) × Volume. A 13-period EMA is applied to smooth noise. Combines price direction and volume magnitude — a green candle with low volume barely moves the FI; same move with 3× volume = major FI spike. FI divergence with price = force weakening, reversal setup. Better as confirmation than standalone signal.",
         "best_for": "Price-volume force measurement",
     },
     "vortex": {
