@@ -4435,14 +4435,25 @@ async function renderScreenerTemplate() {
     rows.innerHTML = '<div class="text-[10px] text-on-surface-variant/70 text-center py-6">Could not load deep history for ' + sym + '.</div>';
     return;
   }
-  const checks = _computeMinervini(deep.candles, deep.volumes || []);
+  // Fetch real RS rank vs Nifty 500 (cached 6h by /market/rs \u2014 fast).
+  // Falls back to null if unavailable; _computeMinervini shows proxy instead.
+  let rsRank = null;
+  try {
+    const rsResp = await fetch(API + '/market/rs?universe=nifty500');
+    if (rsResp.ok) {
+      const rsData = await rsResp.json();
+      rsRank = (rsData.rs && rsData.rs[sym] !== undefined) ? rsData.rs[sym] : null;
+    }
+  } catch(e) {}
+  const checks = _computeMinervini(deep.candles, deep.volumes || [], rsRank);
   if (!checks) {
     rows.innerHTML = `<div class="text-[10px] text-on-surface-variant/70 text-center py-6">Need \u2265 210 bars of history for this stock to evaluate (have ${deep.candles.length}).</div>`;
     return;
   }
   const passed = checks.filter(c => c.pass).length;
   const total = checks.length;
-  const scoreCol = passed >= 6 ? 'text-[#00e5a0]' : passed >= 4 ? 'text-yellow-400' : 'text-[#ff4757]';
+  // 10 checks now \u2014 green \u22658, yellow \u22656, red below
+  const scoreCol = passed >= 8 ? 'text-[#00e5a0]' : passed >= 6 ? 'text-yellow-400' : 'text-[#ff4757]';
   scoreEl.innerHTML = `<span class="${scoreCol} font-bold">${passed}/${total}</span>`;
   rows.innerHTML = checks.map(c => {
     const icon = c.pass ? 'check_circle' : 'cancel';
@@ -7546,28 +7557,30 @@ function _refreshFwButtons() {
   if (f) f.className = fw === 'free' ? onCls : offCls;
 }
 
-function _computeMinervini(candles, volumes) {
-  // Function name kept for backward-compat with existing localStorage values.
-  // candles: full visible series (260 warmup + game days so far).
-  // volumes: parallel array from pracVisibleVolumes (each item has .value).
-  // Returns array of {key, label, pass, value, threshold, hint}.
+function _computeMinervini(candles, volumes, rsRank) {
+  // candles: full visible series. volumes: parallel array.
+  // rsRank: optional percentile (1-99) vs Nifty 500 from /market/rs.
+  //   Screener TEMPLATE passes real rank; Practice game passes undefined
+  //   (falls back to 6M absolute return proxy — no cross-stock data available).
+  // Returns array of {key, label, pass, value, hint} — 10 checks total.
   const n = candles.length;
-  if (n < 210) return null;  // not enough history
+  if (n < 210) return null;  // need at least 200 bars for 200DMA
   const closes = candles.map(c => c.close);
-  const highs = candles.map(c => c.high);
-  const lows = candles.map(c => c.low);
-  const vols = (volumes || []).map(v => (v && typeof v === 'object') ? (v.value || 0) : (v || 0));
-  const price = closes[n - 1];
-  const sma = (arr, p) => arr.slice(-p).reduce((a,b)=>a+b,0) / p;
+  const highs  = candles.map(c => c.high);
+  const lows   = candles.map(c => c.low);
+  const vols   = (volumes || []).map(v => (v && typeof v === 'object') ? (v.value || 0) : (v || 0));
+  const price  = closes[n - 1];
+  const sma    = (arr, p) => arr.slice(-p).reduce((a, b) => a + b, 0) / p;
+  const sma50  = sma(closes, 50);
   const sma150 = sma(closes, 150);
   const sma200 = sma(closes, 200);
-  const sma200_20ago = closes.slice(-220, -20).slice(-200).reduce((a,b)=>a+b,0) / 200;
+  const sma200_20ago = closes.slice(-220, -20).slice(-200).reduce((a, b) => a + b, 0) / 200;
   const high252 = Math.max(...highs.slice(-Math.min(252, n)));
   const low252  = Math.min(...lows.slice(-Math.min(252, n)));
   const pctFromHigh = (price - high252) / high252 * 100;
-  const pctFromLow  = (price - low252) / low252 * 100;
-  const ret6m = n >= 126 ? (price - closes[n - 127]) / closes[n - 127] * 100 : null;
-  const avgVol20 = vols.slice(-21, -1).reduce((a,b)=>a+b,0) / 20;
+  const pctFromLow  = (price - low252)  / low252  * 100;
+  const ret6m   = n >= 126 ? (price - closes[n - 127]) / closes[n - 127] * 100 : null;
+  const avgVol20 = vols.slice(-21, -1).reduce((a, b) => a + b, 0) / 20;
   const volRatio = avgVol20 > 0 ? vols[n - 1] / avgVol20 : 0;
   // RSI-14
   let gain = 0, loss = 0;
@@ -7575,50 +7588,66 @@ function _computeMinervini(candles, volumes) {
     const d = closes[i] - closes[i - 1];
     if (d > 0) gain += d; else loss -= d;
   }
-  const rs = loss === 0 ? 100 : gain / loss;
-  const rsi = 100 - 100 / (1 + rs);
+  const rsiRaw = loss === 0 ? 100 : gain / loss;
+  const rsi = 100 - 100 / (1 + rsiRaw);
+  const hasRsRank = rsRank !== null && rsRank !== undefined;
   return [
-    { key:'trend_stack', label:'Price > 150DMA > 200DMA',
-      pass: price > sma150 && sma150 > sma200,
-      value: `₹${price.toFixed(0)} / ${sma150.toFixed(0)} / ${sma200.toFixed(0)}`,
-      hint:'Stage-2 uptrend: price above both long MAs, 150 above 200' },
-    { key:'ma200_rising', label:'200DMA rising past month',
+    // ── Full MA hierarchy — 3 additions (was 1 bundled check) ─────────────
+    { key:'above_50dma', label:'Price > 50 DMA',
+      pass: price > sma50,
+      value: `₹${price.toFixed(0)}  /  MA₅₀ ${sma50.toFixed(0)}`,
+      hint: 'Short-term trend: price must lead the 50-day MA — first to confirm an uptrend' },
+    { key:'ma50_above_150', label:'50 DMA > 150 DMA',
+      pass: sma50 > sma150,
+      value: `${sma50.toFixed(0)}  >  ${sma150.toFixed(0)}`,
+      hint: 'Critical hierarchy: short-term trend leads medium-term — first to break when a stock rolls over' },
+    { key:'ma150_above_200', label:'150 DMA > 200 DMA',
+      pass: sma150 > sma200,
+      value: `${sma150.toFixed(0)}  >  ${sma200.toFixed(0)}`,
+      hint: 'Full Stage 2 alignment: medium-term trend above long-term baseline' },
+    // ── 200DMA slope ──────────────────────────────────────────────────────
+    { key:'ma200_rising', label:'200 DMA rising vs 1 month ago',
       pass: sma200 > sma200_20ago,
-      value:`Δ ${((sma200 - sma200_20ago) / sma200_20ago * 100).toFixed(1)}%`,
-      hint:'The longest trendline itself must be sloping up' },
+      value: `Δ ${((sma200 - sma200_20ago) / sma200_20ago * 100).toFixed(1)}%`,
+      hint: 'The longest trendline must itself be sloping upward — flat or declining 200DMA = no buy' },
+    // ── 52W range ─────────────────────────────────────────────────────────
     { key:'near_52w_high', label:'Within 25% of 52W high',
       pass: pctFromHigh > -25,
-      value:`${pctFromHigh.toFixed(1)}%`,
-      hint:'Strong stocks stay close to recent highs' },
+      value: `${pctFromHigh.toFixed(1)}%`,
+      hint: 'Strong stocks stay close to their yearly high — not languishing in the middle of the range' },
     { key:'above_52w_low', label:'>30% above 52W low',
       pass: pctFromLow > 30,
-      value:`+${pctFromLow.toFixed(1)}%`,
-      hint:'Filters out broken-down bases' },
-    { key:'rel_strength', label:'6M return > 10% (RS proxy)',
-      pass: ret6m !== null && ret6m > 10,
-      value: ret6m !== null ? `${ret6m.toFixed(1)}%` : '—',
-      hint:'Relative-strength proxy — strong stocks outperform the market' },
-    { key:'volume_surge', label:'Today\'s volume ≥ 1.5× 20D avg',
+      value: `+${pctFromLow.toFixed(1)}%`,
+      hint: 'Filters broken-down bases: stock must have made a real structural recovery' },
+    // ── Relative Strength — corrected from 6M proxy to real rank ─────────
+    { key:'rel_strength',
+      label: hasRsRank ? 'RS Rank ≥70 vs Nifty 500' : '6M return > 10% (RS proxy)',
+      pass:  hasRsRank ? rsRank >= 70 : (ret6m !== null && ret6m > 10),
+      value: hasRsRank ? `Rank ${rsRank}/99` : (ret6m !== null ? `${ret6m.toFixed(1)}%` : '—'),
+      hint:  hasRsRank
+        ? 'Outperforms 70%+ of Nifty 500 peers — Minervini/O’Neil require top 30% relative strength'
+        : 'RS proxy — 6M absolute return (live RS rank unavailable in practice game context)' },
+    // ── Volume & momentum ─────────────────────────────────────────────────
+    { key:'volume_surge', label:'Volume ≥1.5× 20-day avg',
       pass: volRatio >= 1.5,
-      value:`${volRatio.toFixed(2)}×`,
-      hint:'Breakouts without volume tend to fail' },
+      value: `${volRatio.toFixed(2)}×`,
+      hint: 'Breakouts on thin volume tend to fail — institutions must be participating' },
     { key:'not_overextended', label:'RSI-14 between 40 and 75',
       pass: rsi >= 40 && rsi <= 75,
       value: rsi.toFixed(1),
-      hint:'Don\'t chase; avoid parabolic entries' },
-    ...(function(){
-      // Institutional footprint check — use volume-surge days as a proxy when
-      // real bulk/block archive data doesn't cover the game window.
+      hint: 'Don’t chase parabolic moves (>75); avoid entering weakness (<40)' },
+    // ── Distribution footprint ────────────────────────────────────────────
+    ...(function() {
       const surges = _volumeSurgeDays(candles, volumes || [], 2.0, 20);
       const windowStart = Math.max(0, n - 10);
       let distCount = 0;
       for (let i = windowStart; i < n; i++) if (surges.dist.has(i)) distCount++;
       return [{
         key: 'no_heavy_distribution',
-        label: 'No heavy distribution in last 10 days',
+        label: 'No heavy distribution (last 10 days)',
         pass: distCount <= 1,
         value: distCount + ' dist day' + (distCount === 1 ? '' : 's'),
-        hint: 'Big-volume down days = institutional selling; ≤ 1 is acceptable',
+        hint: 'High-volume down days = institutional selling. ≤1 is acceptable; 2+ = warning',
       }];
     })(),
   ];
