@@ -204,7 +204,7 @@ html:not(.dark) .brand-gradient {
 .ghost-border { outline: 1px solid var(--outline-variant-alpha); }
 input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(255,140,0,0.15); }
 .tab-content { display: none; }
-.tab-content.active { display: flex; }
+.tab-content.active { display: flex; min-height: 0; }
 @keyframes pulse-soft { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.7;transform:scale(1.05)} }
 .animate-pulse-soft { animation: pulse-soft 2s cubic-bezier(0.4,0,0.6,1) infinite; }
 .brand-gradient { background: linear-gradient(135deg, var(--brand-start) 0%, var(--brand-end) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
@@ -3182,10 +3182,17 @@ function renderChart(data) {
   // Show latest candle OHLC by default
   if(data.candles.length) updateOhlcOverlay(data.candles[data.candles.length-1]);
 
-  // Bidirectional crosshair sync — _xhairSyncing guard prevents infinite loops
-  // when setCrosshairPosition() fires subscribeCrosshairMove on the target chart.
+  // Bidirectional crosshair sync across main chart ↔ RSI ↔ MACD.
+  // Rules:
+  //  • Only sync when param.time is valid — don't push "cursor left" clears to
+  //    other panels (they manage their own clear / last-position).
+  //  • _xhairSyncing guard prevents setCrosshairPosition() from triggering an
+  //    infinite loop back into subscribeCrosshairMove.
+  //  • When syncing TO the main candlestick chart, supply the candle close price
+  //    so the horizontal crosshair line snaps correctly.
   let _xhairSyncing = false;
   function _pushXhair(fromChart, param) {
+    if (!param.time) return;          // skip "cursor left" events — let each panel manage its own clear
     if (_xhairSyncing) return;
     _xhairSyncing = true;
     try {
@@ -3197,11 +3204,16 @@ function renderChart(data) {
       for (const k in subPanelCharts) { if (subPanelCharts[k] !== fromChart) targets.push(subPanelCharts[k]); }
       targets.forEach(c => {
         try {
-          if (!param.time) { c.clearCrosshairPosition(); return; }
-          const series = (c === currentChart)
-            ? window._scCandleSeries
-            : window._chartSyncSeries[c._uniqueId || ''];
-          if (series) c.setCrosshairPosition(undefined, param.time, series);
+          let price, series;
+          if (c === currentChart) {
+            // Use close price for proper crosshair placement on candlestick chart
+            const candle = chartData?.candles?.find(x => x.time === param.time);
+            price  = candle ? candle.close : undefined;
+            series = window._scCandleSeries;
+          } else {
+            series = window._chartSyncSeries[c._uniqueId || ''];
+          }
+          if (series) c.setCrosshairPosition(price, param.time, series);
         } catch(e) {}
       });
     } finally { _xhairSyncing = false; }
