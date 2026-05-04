@@ -3032,7 +3032,10 @@ function openChart(symbol) {
 function resetScreenerTab() {
   // Close chart on every Screener tab visit, but PRESERVE results so users
   // can navigate back from a chart/insights view without losing their screen.
-  closeChart();
+  // Skip closeChart() when openBoChart() is mid-flight (_chartReturnTab set) —
+  // closeChart() would see _chartReturnTab and switch back to Breakouts,
+  // creating a circular tab-switch loop before openChart() can run.
+  if (!_chartReturnTab) closeChart();
   const inp = document.getElementById('symbols-input'); if (inp) inp.value = '';
   const dd = document.getElementById('search-dropdown'); if (dd) dd.classList.add('hidden');
   if (_lastScreenData) {
