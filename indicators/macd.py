@@ -11,7 +11,8 @@ class MACDIndicator(BaseIndicator):
 
     @property
     def default_params(self) -> dict:
-        return {"macd_fast": 12, "macd_slow": 26, "macd_signal": 9}
+        return {"macd_fast": 12, "macd_slow": 26, "macd_signal": 9,
+                "histogram_mode": False}
 
     def compute(self, df: pd.DataFrame, params: dict) -> dict:
         fast = params["macd_fast"]
@@ -61,17 +62,32 @@ class MACDIndicator(BaseIndicator):
         bullish = computed["bullish_crossover"]
         imminent = computed["imminent_crossover"]
         expanding = computed["expanding_histogram"]
+        hist_mode = params.get("histogram_mode", False)
 
-        if bullish and expanding:
-            status = "PASS"
-        elif bullish or (imminent and expanding):
-            status = "BORDERLINE"
+        if hist_mode:
+            # OF6 mode: histogram accelerating is the primary signal (data-derived)
+            # PASS = expanding for 2+ consecutive bars (momentum building)
+            # BORDERLINE = expanding today only
+            hist_pos = computed["histogram"] > 0
+            if expanding and hist_pos:
+                status = "PASS"
+            elif expanding:
+                status = "BORDERLINE"
+            else:
+                status = "FAIL"
+            threshold = "Histogram rising (momentum mode)"
         else:
-            status = "FAIL"
+            if bullish and expanding:
+                status = "PASS"
+            elif bullish or (imminent and expanding):
+                status = "BORDERLINE"
+            else:
+                status = "FAIL"
+            threshold = "Bullish crossover with expanding histogram"
 
         return {
             "status": status,
             "value": f"MACD={computed['macd']}, Signal={computed['signal']}, Hist={computed['histogram']}",
-            "threshold": "Bullish crossover with expanding histogram",
-            "details": f"Crossover: {bullish}, Imminent: {imminent}, Expanding: {expanding}",
+            "threshold": threshold,
+            "details": f"Crossover: {bullish}, Imminent: {imminent}, Expanding: {expanding}, HistMode: {hist_mode}",
         }
