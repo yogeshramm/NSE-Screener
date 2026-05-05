@@ -1,4 +1,4 @@
-"""Market analytics API: RS + sector heatmap + movers."""
+"""Market analytics API: RS + sector heatmap + movers + market direction."""
 import pickle
 import time
 from pathlib import Path
@@ -183,4 +183,51 @@ def market_movers():
         "_ts": time.time(),
     }
     _cache_set(cache_key, result)
+    return result
+
+
+@router.get("/market/direction")
+def market_direction():
+    """
+    Nifty 50 (NIFTYBEES) and Nifty 500 (MONIFTY500) market direction via EMA21/EMA50.
+    Bull: price > EMA21 AND EMA50. Mixed: price > EMA21 only. Bear: price ≤ EMA21.
+    Cached 30 minutes.
+    """
+    _DIR_TTL = 1800  # 30 min
+    cached = _cache_get("direction")
+    if cached is not None and time.time() - cached.get("_ts", 0) < _DIR_TTL:
+        return cached
+
+    from setup_data import HISTORY_DIR
+
+    def _direction(pkl_name: str) -> dict:
+        try:
+            p = HISTORY_DIR / f"{pkl_name}.pkl"
+            with open(p, "rb") as f:
+                df = pickle.load(f)
+            close = df["Close"]
+            price = float(close.iloc[-1])
+            ema21 = float(close.ewm(span=21, adjust=False).mean().iloc[-1])
+            ema50 = float(close.ewm(span=50, adjust=False).mean().iloc[-1])
+            if price > ema21 and price > ema50:
+                status = "bull"
+            elif price > ema21:
+                status = "mixed"
+            else:
+                status = "bear"
+            return {
+                "status": status,
+                "price": round(price, 2),
+                "ema21": round(ema21, 2),
+                "ema50": round(ema50, 2),
+            }
+        except Exception as e:
+            return {"status": "unknown", "error": str(e)}
+
+    result = {
+        "nifty50": _direction("NIFTYBEES"),
+        "nifty500": _direction("MONIFTY500"),
+        "_ts": time.time(),
+    }
+    _cache_set("direction", result)
     return result

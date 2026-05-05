@@ -92,6 +92,11 @@ def get_default_config() -> dict:
             "roc_period": 20,
             "roc_minimum": 0,
         },
+        # Relative Strength rank gate — hard pre-filter (OF3 turns this on)
+        "rs_rank": {
+            "enabled": False,           # off by default; OF3 preset sets to True
+            "min_rs_percentile": 70,    # only stocks ranked ≥70/99 pass Stage 1
+        },
 
         # --- PRECISION / HIDDEN GEM INDICATORS ---
 

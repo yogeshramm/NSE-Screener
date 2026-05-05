@@ -766,9 +766,11 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
   <!-- MARKET PULSE PANEL (collapsible) -->
   <div class="border-b border-outline-variant/10 bg-surface-container-low">
     <div class="flex items-center justify-between px-4 py-2 cursor-pointer" onclick="toggleMarketPulse()">
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-3 flex-wrap">
         <span class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">MARKET PULSE</span>
-        <span class="text-[9px] text-on-surface-variant">Sector rotation · Top Relative Strength (6M)</span>
+        <span class="text-[9px] text-on-surface-variant hidden sm:inline">Sector rotation · Top Relative Strength (6M)</span>
+        <!-- Market Direction chips — fetched on load, always visible -->
+        <div id="md-chips" class="flex items-center gap-1.5"></div>
       </div>
       <span id="mp-chevron" class="material-symbols-outlined text-sm text-on-surface-variant">expand_more</span>
     </div>
@@ -4543,6 +4545,28 @@ async function toggleMarketPulse() {
   body.classList.toggle('hidden', !open);
   chev.textContent = open ? 'expand_less' : 'expand_more';
   if (open && !mpLoaded) { await loadMarketPulse(); mpLoaded = true; }
+}
+
+async function loadMarketDirection() {
+  try {
+    const d = await fetch(API + '/market/direction').then(r => r.json());
+    const chips = document.getElementById('md-chips');
+    if (!chips) return;
+    const col = s => s === 'bull'  ? 'bg-[#00e5a0]/10 text-[#00e5a0] border-[#00e5a0]/30'
+                   : s === 'mixed' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
+                   : s === 'bear'  ? 'bg-[#ff4757]/10 text-[#ff4757] border-[#ff4757]/30'
+                   :                 'bg-surface-variant/40 text-on-surface-variant border-transparent';
+    const icon = s => s === 'bull' ? 'trending_up' : s === 'mixed' ? 'trending_flat' : s === 'bear' ? 'trending_down' : 'help_outline';
+    const n50  = (d.nifty50  || {}).status || 'unknown';
+    const n500 = (d.nifty500 || {}).status || 'unknown';
+    chips.innerHTML = `
+      <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-bold uppercase ${col(n50)}" title="Nifty 50 — EMA21 vs EMA50 (NIFTYBEES)">
+        <span class="material-symbols-outlined text-[11px] leading-none">${icon(n50)}</span>N50 ${n50}
+      </span>
+      <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-bold uppercase ${col(n500)}" title="Nifty 500 — EMA21 vs EMA50 (MONIFTY500)">
+        <span class="material-symbols-outlined text-[11px] leading-none">${icon(n500)}</span>N500 ${n500}
+      </span>`;
+  } catch(_) { /* silently skip — chips stay empty */ }
 }
 async function loadMarketPulse() {
   try {
@@ -8601,6 +8625,7 @@ function initApp() {
   loadFilterPanel();
   populatePresetDropdowns();
   initData();
+  loadMarketDirection();  // Market direction chips in Screener header (N50/N500)
   // Add the star/favourite toggle to each chart-indicator checkbox row.
   injectChartIndStars();
   // Load risk gates config from localStorage

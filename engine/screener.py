@@ -77,12 +77,34 @@ def screen_stock_stage1(symbol: str, daily_df: pd.DataFrame, stock_data: dict,
             "score": 0, "scores": {"total_score": 0},
             "price": stock_data.get("latest_close") or stock_data.get("current_price"),
             "sector": stock_data.get("sector"),
+            "rs_rank": stock_data.get("rs_rank"),
             "indicator_results": [], "fundamental_results": {},
             "late_entry": {"status": "SKIPPED", "value": "N/A", "threshold": "N/A",
                            "details": f"Insufficient history ({len(daily_df) if daily_df is not None else 0} bars)"},
             "tech_pass": 0, "tech_fail": 0, "fund_pass": 0, "fund_fail": 0,
             "insufficient_history": True,
         }
+
+    # RS Rank hard gate — used by OF3 and similar presets.
+    # Checks BEFORE any indicator computation so failing stocks cost no CPU.
+    rs_rank_cfg = config.get("rs_rank", {})
+    if rs_rank_cfg.get("enabled", False):
+        rs = stock_data.get("rs_rank")
+        min_rs = rs_rank_cfg.get("min_rs_percentile", 70)
+        if rs is None or rs < min_rs:
+            rs_label = f"{rs}/99" if rs is not None else "N/A"
+            return {
+                "symbol": symbol, "stage": 1, "passed": False,
+                "score": 0, "scores": {"total_score": 0},
+                "price": stock_data.get("latest_close") or stock_data.get("current_price"),
+                "sector": stock_data.get("sector"),
+                "rs_rank": rs,
+                "indicator_results": [], "fundamental_results": {},
+                "late_entry": {"status": "SKIPPED", "value": "N/A", "threshold": "N/A",
+                               "details": f"RS Rank gate: {rs_label} < {min_rs}"},
+                "tech_pass": 0, "tech_fail": 0, "fund_pass": 0, "fund_fail": 0,
+                "rs_gate_fail": True,
+            }
 
     # Build indicator inputs from config
     enabled, params = _build_indicator_inputs(config)
@@ -136,6 +158,7 @@ def screen_stock_stage1(symbol: str, daily_df: pd.DataFrame, stock_data: dict,
         "scores": scores,
         "price": stock_data.get("latest_close") or stock_data.get("current_price"),
         "sector": sector,
+        "rs_rank": stock_data.get("rs_rank"),
         "pe": stock_data.get("trailing_pe"),
         "roe": stock_data.get("roe_pct"),
         "roce": stock_data.get("roce"),

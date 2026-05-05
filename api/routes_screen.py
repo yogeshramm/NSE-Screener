@@ -4,6 +4,8 @@ POST /screen — Run full screening with filter config JSON.
 
 import json
 import math
+import time
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
@@ -227,6 +229,31 @@ def run_screen(request: ScreenRequest):
         from data.angel_ltp import get_ltp_bulk, is_market_open, inject_live_candle
         live_prices = get_ltp_bulk(symbols) if is_market_open() else {}
 
+    # Pre-fetch RS ranks when the rs_rank filter is enabled (OF3 and similar).
+    # We load from the /market/rs cache first (6h TTL, warmed daily) so it's
+    # free during normal operation; compute fresh only if cache is cold/missing.
+    # RS rank must be relative to the full Nifty 500 universe — not just the
+    # subset being screened — so that percentile rankings are market-meaningful.
+    rs_rank_map: dict[str, int] = {}
+    if config.get("rs_rank", {}).get("enabled", False):
+        from engine.market_analytics import compute_rs_ranks as _crs
+        import pickle as _pk2
+        _rs_cache = Path(__file__).parent.parent / "data_store" / "market_cache" / "rs_nifty500.pkl"
+        if _rs_cache.exists() and time.time() - _rs_cache.stat().st_mtime < 6 * 3600:
+            try:
+                with open(_rs_cache, "rb") as f:
+                    _rs_data = _pk2.load(f)
+                rs_rank_map = _rs_data.get("rs", {})
+            except Exception:
+                pass
+        if not rs_rank_map:
+            from data.nse_symbols import get_nifty500_live, NIFTY_500_FALLBACK
+            try:
+                _n500 = list(get_nifty500_live())
+            except Exception:
+                _n500 = list(NIFTY_500_FALLBACK)
+            rs_rank_map = _crs(_n500)
+
     # Fetch data for all symbols (use prefetched bundles when available)
     stocks = []
     errors = []
@@ -243,6 +270,12 @@ def run_screen(request: ScreenRequest):
 
     if not stocks:
         raise HTTPException(502, f"Could not fetch data for any symbol. Errors: {errors}")
+
+    # Inject RS ranks into every bundle's stock_data before screening.
+    # Handles both the prefetched path (scan_all) and the manual-symbols path.
+    if rs_rank_map:
+        for stock in stocks:
+            stock["stock_data"]["rs_rank"] = rs_rank_map.get(stock["symbol"])
 
     # Run screening
     result = run_full_screen(stocks, config)
