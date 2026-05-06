@@ -9457,17 +9457,8 @@ async function openInsightsPro(symbol) {
   }
 }
 function closeInsightsPro() {
-  // Collapse body but keep header visible — click the bar to re-expand
-  const body = document.getElementById('ip-body');
-  const chev = document.getElementById('ip-chev');
-  if (body && !body.classList.contains('hidden')) {
-    body.classList.add('hidden');
-    if (chev) chev.textContent = 'expand_more';
-  } else {
-    // Already collapsed — fully hide on second close
-    const p = document.getElementById('ip-panel');
-    if (p) p.classList.add('translate-y-full');
-  }
+  const p = document.getElementById('ip-panel');
+  if (p) p.classList.add('translate-y-full');
 }
 function _ipRenderAnalystBody(a, price, state) {
   // state: undefined/'loading' → still fetching; 'empty' → fetch done, zero sources
