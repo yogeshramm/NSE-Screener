@@ -363,6 +363,15 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
   /* 2. Show bottom nav — only after login (body.app-active set by JS) */
   body.app-active #bottom-nav { display: flex !important; }
 
+  /* 2b. Login overlay — scrollable so register form (3 fields + ToS + button)
+         stays reachable when the Android soft keyboard shrinks the viewport.
+         Anchor to top so the user can scroll down to the submit button. */
+  #login-overlay {
+    overflow-y: auto !important;
+    align-items: flex-start !important;
+    padding: 1.5rem 0 2rem !important;
+  }
+
   /* 3. Chart full-screen overlay on mobile */
   #chart-panel.mob-fs {
     position: fixed !important;
@@ -1992,7 +2001,7 @@ let authToken = _getToken();
 // If a session token exists, immediately hide the login overlay before the async
 // checkAuth() fetch completes — prevents the "flash-of-login-wall → auto-dismiss"
 // visual glitch. checkAuth() restores it via _showLoginWall() if the token is stale.
-if (authToken) { const _lo = document.getElementById('login-overlay'); if (_lo) _lo.style.display = 'none'; document.body.classList.add('app-active'); }
+if (authToken) { const _lo = document.getElementById('login-overlay'); if (_lo) _lo.style.display = 'none'; document.body.classList.add('app-active'); const _bn = document.getElementById('bottom-nav'); if (_bn) _bn.style.display = 'flex'; }
 let authMode = 'login';
 let filterExpanded = false;
 let activePresetName = null;
@@ -2152,10 +2161,16 @@ async function handleAuth(e) {
 function _showLoginWall() {
   document.getElementById('login-overlay').style.display = 'flex';
   document.body.classList.remove('app-active');  // hides bottom-nav on mobile
+  // Also hide via inline style so it works regardless of CSS media query width
+  const _bn = document.getElementById('bottom-nav');
+  if (_bn) _bn.style.display = 'none';
 }
 function _hideLoginWall() {
   document.getElementById('login-overlay').style.display = 'none';
   document.body.classList.add('app-active');     // shows bottom-nav on mobile
+  // Also show via inline style so it works regardless of CSS media query width
+  const _bn = document.getElementById('bottom-nav');
+  if (_bn) _bn.style.display = 'flex';
 }
 
 async function checkAuth() {
@@ -2811,9 +2826,9 @@ function onSearchInput(val) {
   }, 200);
 }
 function selectSearchResult(sym) {
-  document.getElementById('symbols-input').value=sym;
   hideSearchDropdown();
-  runScreen();
+  document.getElementById('symbols-input').value='';
+  openInsightsPro(sym);
 }
 function hideSearchDropdown() { document.getElementById('search-dropdown')?.classList.add('hidden'); }
 
