@@ -4,12 +4,16 @@ Per-stock news feed from official RSS sources (Moneycontrol, Mint, ET Markets).
 """
 import os, re, json, time, html, urllib.parse as up
 from xml.etree import ElementTree as ET
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import requests
 
 CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data_store", "news")
 os.makedirs(CACHE_DIR, exist_ok=True)
 TTL = 6 * 3600
+_EMPTY_CACHE_TTL = 1 * 3600  # re-fetch empty caches after 1h instead of 6h
+
+# Module-level cache: symbol → company name (populated on first lookup)
+_NAME_CACHE: Dict[str, Optional[str]] = {}
 
 _HDR = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
@@ -82,11 +86,40 @@ def _match_symbol(item_text: str, symbol: str, aliases: List[str]) -> bool:
     return False
 
 
+def _company_name_from_master(symbol: str) -> Optional[str]:
+    """Look up human-readable company name from Angel One master (e.g. 'Bajaj Auto Ltd').
+    Cached in-process; falls back gracefully if master not available."""
+    global _NAME_CACHE
+    if symbol in _NAME_CACHE:
+        return _NAME_CACHE[symbol]
+    name = None
+    try:
+        from data.angel_master import get_nse_equity_df
+        df = get_nse_equity_df()
+        # Angel symbol format: 'BAJAJ-AUTO-EQ'; our symbol: 'BAJAJ-AUTO'
+        trading_sym = symbol if symbol.endswith("-EQ") else f"{symbol}-EQ"
+        row = df[df["symbol"] == trading_sym]
+        if not row.empty:
+            v = str(row.iloc[0]["name"]).strip()
+            if v and v.lower() not in ("nan", "none", ""):
+                name = v
+    except Exception:
+        pass
+    _NAME_CACHE[symbol] = name
+    return name
+
+
 def _aliases(symbol: str) -> List[str]:
-    # Load company name from fundamentals pickle if available
+    al: List[str] = []
+
+    # 1. Angel master: most reliable source of company names
+    master_name = _company_name_from_master(symbol)
+    if master_name:
+        al.append(master_name)
+
+    # 2. Fundamentals pickle (future-proof: may gain 'company_name' field later)
     fa_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data_store", "fundamentals")
     fa_path = os.path.join(fa_dir, f"{symbol}.pkl")
-    al = []
     if os.path.exists(fa_path):
         try:
             import pickle
@@ -94,22 +127,44 @@ def _aliases(symbol: str) -> List[str]:
             if isinstance(fa, dict):
                 for k in ("company_name", "name", "long_name"):
                     v = fa.get(k)
-                    if v and isinstance(v, str): al.append(v)
-        except Exception: pass
-    # Strip common suffixes
+                    if v and isinstance(v, str) and v not in al:
+                        al.append(v)
+        except Exception:
+            pass
+
+    # 3. Heuristic: NSE symbols with hyphens (BAJAJ-AUTO → "Bajaj Auto")
+    #    and M&M style symbols (M&M → "M M" then dropped — keep only if useful)
+    if "-" in symbol:
+        readable = symbol.replace("-", " ").title()  # "Bajaj Auto"
+        if readable not in al:
+            al.append(readable)
+
+    # 4. Strip common legal suffixes to get shorter searchable forms
+    #    e.g. "Bajaj Auto Limited" → also add "Bajaj Auto"
     more = []
     for n in al:
-        base = re.sub(r"\s+(ltd|limited|industries|corporation|corp|inc|india|pvt|private)\.?\s*$", "", n, flags=re.I).strip()
-        if base and base != n: more.append(base)
+        base = re.sub(
+            r"\s+(ltd|limited|industries|industry|corporation|corp|inc|india|pvt|private|group|solutions|technologies|technology|services|enterprises?)\.?\s*$",
+            "", n, flags=re.I
+        ).strip()
+        if base and base != n and base not in al and base not in more:
+            more.append(base)
     return al + more
 
 
 def get_news(symbol: str, limit: int = 5) -> List[Dict[str, Any]]:
     symbol = symbol.upper().strip()
     cache_f = os.path.join(CACHE_DIR, f"{symbol}.json")
-    if os.path.exists(cache_f) and time.time() - os.path.getmtime(cache_f) < TTL:
-        try: return json.load(open(cache_f))[:limit]
-        except Exception: pass
+    if os.path.exists(cache_f):
+        age = time.time() - os.path.getmtime(cache_f)
+        try:
+            cached = json.load(open(cache_f))
+            # Use cached result if fresh; but re-fetch sooner if cache was empty
+            cache_ttl = _EMPTY_CACHE_TTL if len(cached) == 0 else TTL
+            if age < cache_ttl:
+                return cached[:limit]
+        except Exception:
+            pass
     items = _fetch_all_feeds()
     aliases = _aliases(symbol)
     matches = []
