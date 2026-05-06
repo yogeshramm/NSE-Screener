@@ -30,12 +30,12 @@ _SOURCE_RANK: Dict[str, int] = {
     "business standard": 1,
     "economic times":    2,
     "et markets":        2,
-    "mint":              3,
-    "livemint":          3,
-    "live mint":         3,
-    "business line":     4,
-    "hindu business":    4,
-    "moneycontrol":      5,
+    "business line":     3,
+    "hindu business":    3,
+    "moneycontrol":      4,
+    "mint":              5,
+    "livemint":          5,
+    "live mint":         5,
 }
 
 def _source_rank(source_str: str) -> int:
@@ -44,6 +44,25 @@ def _source_rank(source_str: str) -> int:
         if key in s:
             return rank
     return 9  # unknown sources shown last
+
+# Sources to skip entirely (low quality / non-news / non-English outlets)
+_SKIP_SOURCES = {
+    "simplywall.st", "simply wall st", "equitypandit", "moneymunch",
+    "scanx.trade", "latestsly", "latestly", "tradingview",
+    "tickertape", "trendlyne",
+}
+
+def _is_quality_item(item: Dict[str, Any]) -> bool:
+    """Return False for low-quality or non-English articles."""
+    src = item.get("source", "").lower()
+    if any(skip in src for skip in _SKIP_SOURCES):
+        return False
+    # Skip titles with heavy non-ASCII (Hindi/other scripts)
+    title = item.get("title", "")
+    non_ascii = sum(1 for c in title if ord(c) > 127)
+    if non_ascii > len(title) * 0.3:   # >30% non-ASCII → skip
+        return False
+    return True
 
 # ── Preferred direct RSS feeds (checked first, before Google News) ──────────
 # These carry today's articles reliably; fetched once per 30min (shared cache)
@@ -223,6 +242,8 @@ def _match_direct(items: List[Dict], query: str, symbol: str) -> List[Dict]:
 # ── Merge + sort ───────────────────────────────────────────────────────────
 def _merge_and_sort(all_raw: List[Dict], limit: int) -> List[Dict]:
     """Deduplicate, sort by recency desc then source rank, build final dicts."""
+    # Quality filter first
+    all_raw = [it for it in all_raw if _is_quality_item(it)]
     # Sort: most recent first; among same-day, preferred source first
     now = time.time()
     all_raw.sort(key=lambda x: (-(x.get("_ts") or 0), x.get("_rank", 9)))
