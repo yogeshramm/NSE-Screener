@@ -9641,6 +9641,15 @@ function _ipRender(d) {
   }).join('');
   // Why
   const why = (d.why||[]).map(r => `<li class="text-xs text-on-surface leading-relaxed">${r}</li>`).join('');
+  // News fetch timestamp → relative label e.g. "2m ago", "1h ago"
+  const _newsAge = ts => {
+    if (!ts) return '';
+    const s = Math.floor(Date.now()/1000 - ts);
+    if (s < 60)  return 'just now';
+    if (s < 3600) return Math.floor(s/60) + 'm ago';
+    return Math.floor(s/3600) + 'h ago';
+  };
+  const newsFetchLabel = d.news_fetched_at ? _newsAge(d.news_fetched_at) : '';
   // News
   const news = (d.news||[]).length ? (d.news||[]).map(n =>
     `<a href="${n.link}" target="_blank" rel="noopener" class="block py-2 border-b border-outline-variant/10 hover:bg-surface-container-highest/30 px-2 rounded">
@@ -9742,7 +9751,10 @@ function _ipRender(d) {
         })()}
       </div>
       <div class="bg-surface-container/40 rounded-lg p-4 md:col-span-2">
-        <div class="text-[10px] font-black uppercase tracking-wider text-primary mb-3">Latest News (3)</div>
+        <div class="flex items-baseline gap-2 mb-3">
+          <div class="text-[10px] font-black uppercase tracking-wider text-primary">Latest News (${(d.news||[]).length})</div>
+          ${newsFetchLabel ? `<span class="text-[9px] text-on-surface-variant normal-case tracking-normal">fetched ${newsFetchLabel}</span>` : ''}
+        </div>
         <div class="space-y-0">${news}</div>
       </div>
       <div class="bg-surface-container/40 rounded-lg p-4">

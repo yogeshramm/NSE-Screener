@@ -188,9 +188,11 @@ def insights_pro(symbol: str):
 
     # News (top 3)
     news = []
+    news_fetched_at = None
     try:
-        from data.stock_news import get_news
+        from data.stock_news import get_news, get_news_fetched_at
         news = get_news(symbol, limit=3)
+        news_fetched_at = get_news_fetched_at(symbol)
     except Exception: pass
 
     # Upcoming events (next 2) — uses the same 48h-fresh cache the Events tab
@@ -246,6 +248,7 @@ def insights_pro(symbol: str):
         "flows": {"net_cr": fii_dii_net},
         "inst_stock": inst_stock,
         "news": news,
+        "news_fetched_at": news_fetched_at,
         "events": events,
         "analyst": analyst,
     }

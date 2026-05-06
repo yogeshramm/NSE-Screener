@@ -13,8 +13,8 @@ import requests
 CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data_store", "news")
 os.makedirs(CACHE_DIR, exist_ok=True)
 
-TTL_HIT   = 2 * 3600   # 2h for non-empty results
-TTL_MISS  = 20 * 60    # 20min if nothing found (retry sooner)
+TTL_HIT   = 30 * 60    # 30min for non-empty results (fresh enough for trading)
+TTL_MISS  = 10 * 60    # 10min if nothing found (retry sooner)
 
 _HDR = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
@@ -174,6 +174,14 @@ def _match_global(items: List[Dict], symbol: str, query: str) -> List[Dict]:
 
 
 # ── Public API ─────────────────────────────────────────────────────────────
+
+def get_news_fetched_at(symbol: str) -> Optional[float]:
+    """Return Unix timestamp of when this symbol's news cache was last written, or None."""
+    cache_f = os.path.join(CACHE_DIR, f"{symbol.upper().strip()}.json")
+    if os.path.exists(cache_f):
+        return os.path.getmtime(cache_f)
+    return None
+
 
 def get_news(symbol: str, limit: int = 5) -> List[Dict[str, Any]]:
     symbol = symbol.upper().strip()
