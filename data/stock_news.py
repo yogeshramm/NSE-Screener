@@ -1,38 +1,44 @@
 """
-Per-stock news feed from official RSS sources (Moneycontrol, Mint, ET Markets).
-6h disk cache per symbol. Keyword-based sentiment tag.
+Per-stock news feed.
+
+Primary:   Google News RSS (stock-specific search query — always has results)
+Secondary: ET Markets / Mint global feeds (catch market-wide mentions)
+Cache:     data_store/news/{SYMBOL}.json  — 2h TTL for results, 20min for empty
 """
-import os, re, json, time, html, urllib.parse as up
+import os, re, json, time, html
 from xml.etree import ElementTree as ET
 from typing import List, Dict, Any, Optional
 import requests
 
 CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data_store", "news")
 os.makedirs(CACHE_DIR, exist_ok=True)
-TTL = 6 * 3600
-_EMPTY_CACHE_TTL = 1 * 3600  # re-fetch empty caches after 1h instead of 6h
 
-# Module-level cache: symbol → company name (populated on first lookup)
-_NAME_CACHE: Dict[str, Optional[str]] = {}
+TTL_HIT   = 2 * 3600   # 2h for non-empty results
+TTL_MISS  = 20 * 60    # 20min if nothing found (retry sooner)
 
 _HDR = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
     "Accept": "application/rss+xml, application/xml, text/xml, */*",
 }
 
-# Official RSS — live feeds only (Moneycontrol RSS is stale/broken as of 2025)
-_FEEDS = [
-    ("ET Markets",  "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms"),
-    ("ET Stocks",   "https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms"),
-    ("ET Companies","https://economictimes.indiatimes.com/industry/rssfeeds/13352306.cms"),
-    ("Mint Markets","https://www.livemint.com/rss/markets"),
+# Supplementary ET/Mint global feeds (broad market news)
+_GLOBAL_FEEDS = [
+    ("ET Markets",   "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms"),
+    ("ET Stocks",    "https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms"),
+    ("ET Companies", "https://economictimes.indiatimes.com/industry/rssfeeds/13352306.cms"),
+    ("Mint Markets", "https://www.livemint.com/rss/markets"),
     ("Mint Companies","https://www.livemint.com/rss/companies"),
 ]
 
-_POS = re.compile(r"\b(beat|beats|surge|surges|surged|gain|gains|rally|rallies|rises?|rose|jump|jumps|jumped|upgrade|outperform|record|profit|strong|growth|bullish|buy|positive|win|wins|tops?|exceeds?)\b", re.I)
-_NEG = re.compile(r"\b(miss|misses|missed|plunge|plunges|fall|falls|fell|drop|drops|dropped|decline|declines|downgrade|underperform|loss|losses|weak|bearish|sell|negative|probe|fraud|raid|cut|cuts)\b", re.I)
+_POS  = re.compile(r"\b(beat|beats|surge|surges|surged|gain|gains|rally|rallies|rises?|rose|jump|jumps|jumped|upgrade|outperform|record|profit|strong|growth|bullish|buy|positive|win|wins|tops?|exceeds?)\b", re.I)
+_NEG  = re.compile(r"\b(miss|misses|missed|plunge|plunges|fall|falls|fell|drop|drops|dropped|decline|declines|downgrade|underperform|loss|losses|weak|bearish|sell|negative|probe|fraud|raid|cut|cuts)\b", re.I)
 _WARN = re.compile(r"\b(probe|investigation|lawsuit|fraud|raid|sebi|default|warning|alert|scam)\b", re.I)
 
+# In-process cache: symbol → company name from Angel master
+_NAME_CACHE: Dict[str, Optional[str]] = {}
+
+
+# ── Sentiment ──────────────────────────────────────────────────────────────
 
 def _sentiment(text: str) -> str:
     if _WARN.search(text): return "⚠️"
@@ -42,6 +48,8 @@ def _sentiment(text: str) -> str:
     return "🟰"
 
 
+# ── RSS parser ─────────────────────────────────────────────────────────────
+
 def _parse_rss(xml_text: str, source: str) -> List[Dict[str, Any]]:
     out = []
     try:
@@ -50,45 +58,21 @@ def _parse_rss(xml_text: str, source: str) -> List[Dict[str, Any]]:
         return out
     for item in root.iter("item"):
         title = (item.findtext("title") or "").strip()
-        link = (item.findtext("link") or "").strip()
-        pub = (item.findtext("pubDate") or "").strip()
-        desc = re.sub(r"<[^>]+>", "", html.unescape(item.findtext("description") or "")).strip()
-        if title:
-            out.append({"source": source, "title": title, "link": link, "pub": pub, "desc": desc[:220]})
+        link  = (item.findtext("link")  or "").strip()
+        pub   = (item.findtext("pubDate") or "").strip()
+        desc  = re.sub(r"<[^>]+>", "", html.unescape(item.findtext("description") or "")).strip()
+        if not title:
+            continue
+        # Google News appends " - Source Name" to titles — strip it for display
+        # e.g. "Bajaj Auto Q4 results - Economic Times" → keep as-is (useful context)
+        out.append({"source": source, "title": title, "link": link, "pub": pub, "desc": desc[:300]})
     return out
 
 
-def _fetch_all_feeds() -> List[Dict[str, Any]]:
-    cache_f = os.path.join(CACHE_DIR, "_all.pkl")
-    if os.path.exists(cache_f) and time.time() - os.path.getmtime(cache_f) < TTL:
-        try:
-            import pickle; return pickle.load(open(cache_f, "rb"))
-        except Exception: pass
-    items = []
-    for src, url in _FEEDS:
-        try:
-            r = requests.get(url, headers=_HDR, timeout=10)
-            if r.status_code == 200:
-                items.extend(_parse_rss(r.text, src))
-        except Exception: continue
-    try:
-        import pickle; pickle.dump(items, open(cache_f, "wb"))
-    except Exception: pass
-    return items
-
-
-def _match_symbol(item_text: str, symbol: str, aliases: List[str]) -> bool:
-    t = item_text.lower()
-    for term in [symbol] + aliases:
-        if len(term) < 3: continue
-        if re.search(r"\b" + re.escape(term.lower()) + r"\b", t):
-            return True
-    return False
-
+# ── Company name lookup ────────────────────────────────────────────────────
 
 def _company_name_from_master(symbol: str) -> Optional[str]:
-    """Look up human-readable company name from Angel One master (e.g. 'Bajaj Auto Ltd').
-    Cached in-process; falls back gracefully if master not available."""
+    """Angel One master → human-readable name e.g. 'Bajaj Auto Ltd'. In-process cached."""
     global _NAME_CACHE
     if symbol in _NAME_CACHE:
         return _NAME_CACHE[symbol]
@@ -96,7 +80,6 @@ def _company_name_from_master(symbol: str) -> Optional[str]:
     try:
         from data.angel_master import get_nse_equity_df
         df = get_nse_equity_df()
-        # Angel symbol format: 'BAJAJ-AUTO-EQ'; our symbol: 'BAJAJ-AUTO'
         trading_sym = symbol if symbol.endswith("-EQ") else f"{symbol}-EQ"
         row = df[df["symbol"] == trading_sym]
         if not row.empty:
@@ -109,78 +92,137 @@ def _company_name_from_master(symbol: str) -> Optional[str]:
     return name
 
 
-def _aliases(symbol: str) -> List[str]:
-    al: List[str] = []
+def _search_query(symbol: str) -> str:
+    """Build the best Google News search string for this stock.
 
-    # 1. Angel master: most reliable source of company names
-    master_name = _company_name_from_master(symbol)
-    if master_name:
-        al.append(master_name)
-
-    # 2. Fundamentals pickle (future-proof: may gain 'company_name' field later)
-    fa_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data_store", "fundamentals")
-    fa_path = os.path.join(fa_dir, f"{symbol}.pkl")
-    if os.path.exists(fa_path):
-        try:
-            import pickle
-            fa = pickle.load(open(fa_path, "rb"))
-            if isinstance(fa, dict):
-                for k in ("company_name", "name", "long_name"):
-                    v = fa.get(k)
-                    if v and isinstance(v, str) and v not in al:
-                        al.append(v)
-        except Exception:
-            pass
-
-    # 3. Heuristic: NSE symbols with hyphens (BAJAJ-AUTO → "Bajaj Auto")
-    #    and M&M style symbols (M&M → "M M" then dropped — keep only if useful)
-    if "-" in symbol:
-        readable = symbol.replace("-", " ").title()  # "Bajaj Auto"
-        if readable not in al:
-            al.append(readable)
-
-    # 4. Strip common legal suffixes to get shorter searchable forms
-    #    e.g. "Bajaj Auto Limited" → also add "Bajaj Auto"
-    more = []
-    for n in al:
+    Priority: Angel master name (stripped of Ltd/Limited/etc.)
+              → hyphen heuristic (BAJAJ-AUTO → 'Bajaj Auto')
+              → raw symbol
+    """
+    name = _company_name_from_master(symbol)
+    if name:
+        # Strip legal suffixes one pass
         base = re.sub(
-            r"\s+(ltd|limited|industries|industry|corporation|corp|inc|india|pvt|private|group|solutions|technologies|technology|services|enterprises?)\.?\s*$",
-            "", n, flags=re.I
+            r"\s+(ltd|limited|industries|industry|corporation|corp|inc|india|pvt|private"
+            r"|group|solutions|technologies|technology|services|enterprises?)\.?\s*$",
+            "", name, flags=re.I
         ).strip()
-        if base and base != n and base not in al and base not in more:
-            more.append(base)
-    return al + more
+        return base or name
 
+    if "-" in symbol:
+        return symbol.replace("-", " ").title()   # BAJAJ-AUTO → "Bajaj Auto"
+
+    return symbol   # RELIANCE, TCS, etc. often match directly
+
+
+# ── Per-stock Google News fetch ────────────────────────────────────────────
+
+def _fetch_google_news(query: str) -> List[Dict[str, Any]]:
+    """Search Google News RSS for a stock-specific query."""
+    import urllib.parse
+    q = urllib.parse.quote_plus(f"{query} stock NSE")
+    url = f"https://news.google.com/rss/search?q={q}&hl=en-IN&gl=IN&ceid=IN:en"
+    try:
+        r = requests.get(url, headers=_HDR, timeout=12)
+        if r.status_code == 200:
+            return _parse_rss(r.text, "Google News")
+    except Exception:
+        pass
+    return []
+
+
+# ── Global ET/Mint feeds (supplementary) ──────────────────────────────────
+
+_GLOBAL_CACHE_F  = os.path.join(CACHE_DIR, "_all.pkl")
+_GLOBAL_CACHE_TTL = 6 * 3600
+
+def _fetch_global_feeds() -> List[Dict[str, Any]]:
+    if os.path.exists(_GLOBAL_CACHE_F) and time.time() - os.path.getmtime(_GLOBAL_CACHE_F) < _GLOBAL_CACHE_TTL:
+        try:
+            import pickle; return pickle.load(open(_GLOBAL_CACHE_F, "rb"))
+        except Exception: pass
+    items = []
+    for src, url in _GLOBAL_FEEDS:
+        try:
+            r = requests.get(url, headers=_HDR, timeout=10)
+            if r.status_code == 200:
+                items.extend(_parse_rss(r.text, src))
+        except Exception: continue
+    try:
+        import pickle; pickle.dump(items, open(_GLOBAL_CACHE_F, "wb"))
+    except Exception: pass
+    return items
+
+
+def _match_global(items: List[Dict], symbol: str, query: str) -> List[Dict]:
+    """Filter global feed items that mention this stock."""
+    # Build match terms: raw symbol + words from the search query
+    terms = [symbol]
+    for word in re.split(r"\s+", query):
+        if len(word) >= 4:
+            terms.append(word)
+    matches = []
+    for it in items:
+        text = (it["title"] + " " + it.get("desc", "")).lower()
+        # Require ALL words of the query to appear (e.g. both "bajaj" and "auto")
+        query_words = [w.lower() for w in re.split(r"\s+", query) if len(w) >= 4]
+        if query_words and all(re.search(r"\b" + re.escape(w) + r"\b", text) for w in query_words):
+            matches.append(it)
+        elif re.search(r"\b" + re.escape(symbol.lower()) + r"\b", text):
+            matches.append(it)
+    return matches
+
+
+# ── Public API ─────────────────────────────────────────────────────────────
 
 def get_news(symbol: str, limit: int = 5) -> List[Dict[str, Any]]:
     symbol = symbol.upper().strip()
     cache_f = os.path.join(CACHE_DIR, f"{symbol}.json")
+
+    # Serve from cache if fresh
     if os.path.exists(cache_f):
         age = time.time() - os.path.getmtime(cache_f)
         try:
             cached = json.load(open(cache_f))
-            # Use cached result if fresh; but re-fetch sooner if cache was empty
-            cache_ttl = _EMPTY_CACHE_TTL if len(cached) == 0 else TTL
-            if age < cache_ttl:
+            ttl = TTL_MISS if len(cached) == 0 else TTL_HIT
+            if age < ttl:
                 return cached[:limit]
         except Exception:
             pass
-    items = _fetch_all_feeds()
-    aliases = _aliases(symbol)
-    matches = []
-    for it in items:
-        text = f"{it['title']} {it['desc']}"
-        if _match_symbol(text, symbol, aliases):
-            matches.append({
-                "source": it["source"], "title": it["title"], "link": it["link"],
-                "pub": it["pub"], "sentiment": _sentiment(text),
-            })
-    # Dedupe by title
+
+    query = _search_query(symbol)
+
+    # Primary: Google News (stock-specific — always returns results if stock exists)
+    google_items = _fetch_google_news(query)
+
+    # Secondary: ET/Mint global feed filtered to this stock
+    global_items = _match_global(_fetch_global_feeds(), symbol, query)
+
+    # Merge: Google News first (more specific), then global feed
+    all_raw = google_items + global_items
+
+    # Build result objects with sentiment
+    results = []
+    for it in all_raw:
+        text = it["title"] + " " + it.get("desc", "")
+        results.append({
+            "source":    it["source"],
+            "title":     it["title"],
+            "link":      it["link"],
+            "pub":       it["pub"],
+            "sentiment": _sentiment(text),
+        })
+
+    # Deduplicate by title (first 60 chars)
     seen = set(); uniq = []
-    for m in matches:
+    for m in results:
         k = m["title"].lower()[:60]
-        if k in seen: continue
-        seen.add(k); uniq.append(m)
-    try: json.dump(uniq, open(cache_f, "w"))
-    except Exception: pass
+        if k not in seen:
+            seen.add(k); uniq.append(m)
+
+    try:
+        json.dump(uniq, open(cache_f, "w"))
+    except Exception:
+        pass
+
     return uniq[:limit]
