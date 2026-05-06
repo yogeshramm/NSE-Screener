@@ -2225,9 +2225,9 @@ function onSearchInput(val) {
   }, 200);
 }
 function selectSearchResult(sym) {
-  document.getElementById('symbols-input').value=sym;
   hideSearchDropdown();
-  runScreen();
+  document.getElementById('symbols-input').value='';
+  openChart(sym);
 }
 function hideSearchDropdown() { document.getElementById('search-dropdown')?.classList.add('hidden'); }
 
