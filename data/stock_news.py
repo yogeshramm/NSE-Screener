@@ -18,6 +18,7 @@ os.makedirs(CACHE_DIR, exist_ok=True)
 
 TTL_HIT  = 30 * 60   # 30min — fresh enough for trading
 TTL_MISS = 10 * 60   # 10min if nothing found (retry sooner)
+BULK_TTL = 2 * 3600  # 2h — pre-fetch bulk cache (written by news_prefetch.py)
 
 _HDR = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
@@ -289,6 +290,18 @@ def get_news(symbol: str, limit: int = 5) -> List[Dict[str, Any]]:
                 return cached[:limit]
         except Exception:
             pass
+
+    # Bulk pre-fetch fallback (written by news_prefetch.py at 4 PM / 6 PM IST)
+    bulk_f = os.path.join(CACHE_DIR, f"_bulk_{symbol}.json")
+    if os.path.exists(bulk_f):
+        bulk_age = time.time() - os.path.getmtime(bulk_f)
+        if bulk_age < BULK_TTL:
+            try:
+                cached = json.load(open(bulk_f))
+                if cached:
+                    return cached[:limit]
+            except Exception:
+                pass
 
     query = _search_query(symbol)
 
