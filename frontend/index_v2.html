@@ -2084,6 +2084,14 @@ function _stockLink(symbol, label) {
   return `<a href="#stock=${enc}" onclick="event.preventDefault();event.stopPropagation();_openStockInline('${sym}');" class="hover:text-primary transition-colors font-bold">${lbl}</a>`;
 }
 
+// Event badge helper — small coloured line under stock name
+function _evBadge(r) {
+  if (!r || !r.event_badge) return '';
+  const d = r.event_badge;
+  const col = d.days < 0 ? '#6effc0' : d.days === 0 ? '#ef4444' : '#f59e0b';
+  return `<div class="text-[8.5px] font-medium leading-tight mt-0.5 tracking-wide" style="color:${col}">${d.text}</div>`;
+}
+
 // ============ AUTH ============
 function showAuthTab(mode) {
   authMode = mode;
@@ -2887,7 +2895,7 @@ function renderResults(data) {
     const rsi=r.indicators?.find(x=>x.name.toLowerCase().includes('rsi'))?.value||'--';
     return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" data-sym="${r.symbol}" onclick="openInsightsPro('${r.symbol}')" oncontextmenu="event.preventDefault();showCtxMenu(event,'${r.symbol}')">
       <td class="px-3 py-2.5 font-bold ${r.passed?'text-primary':'text-on-surface-variant'}">${r.rank||i+1}</td>
-      <td class="px-3 py-2.5"><div class="font-bold text-on-surface">${_stockLink(r.symbol)}</div><div class="text-[9px] text-on-surface-variant">${r.sector||''}</div></td>
+      <td class="px-3 py-2.5"><div class="font-bold text-on-surface">${_stockLink(r.symbol)}</div><div class="text-[9px] text-on-surface-variant">${r.sector||''}</div>${_evBadge(r)}</td>
       <td class="px-3 py-2.5 text-right text-on-surface ltp-cell" data-sym="${r.symbol}">\u20b9${r.price||'--'}</td>
       <td class="px-3 py-2.5 text-right text-on-surface-variant">${pe}</td>
       <td class="px-3 py-2.5 text-right text-on-surface-variant">${rsi}</td>
@@ -2905,7 +2913,7 @@ function renderResults(data) {
   s2.innerHTML=data.stage2_results.map((r,i)=>`
     <tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" data-sym="${r.symbol}" onclick="openInsightsPro('${r.symbol}')" oncontextmenu="event.preventDefault();showCtxMenu(event,'${r.symbol}')">
       <td class="px-3 py-2.5 font-bold text-secondary">${r.rank||i+1}</td>
-      <td class="px-3 py-2.5 font-bold text-on-surface">${_stockLink(r.symbol)}</td>
+      <td class="px-3 py-2.5"><div class="font-bold text-on-surface">${_stockLink(r.symbol)}</div>${_evBadge(r)}</td>
       <td class="px-3 py-2.5 text-right text-on-surface ltp-cell" data-sym="${r.symbol}">\u20b9${r.price||'--'}</td>
       <td class="px-3 py-2.5 text-right text-error font-mono">${r.stop_loss?'\u20b9'+r.stop_loss:'--'}</td>
       <td class="px-3 py-2.5 text-right text-primary font-mono">${r.target?'\u20b9'+r.target:'--'}</td>

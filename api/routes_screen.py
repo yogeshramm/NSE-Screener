@@ -284,6 +284,17 @@ def run_screen(request: ScreenRequest):
     stage1 = [_clean_result(r) for r in result["stage1_results"]]
     stage2 = [_clean_result(r) for r in result["stage2_results"]]
 
+    # Inject event badges — fetch events once for the whole batch (served from cache)
+    try:
+        from data.nse_events import fetch_nse_events, get_event_badge
+        ev_list = fetch_nse_events()
+        for row in stage1:
+            row["event_badge"] = get_event_badge(row["symbol"], ev_list)
+        for row in stage2:
+            row["event_badge"] = get_event_badge(row["symbol"], ev_list)
+    except Exception:
+        pass
+
     payload = {
         "total_screened": result["total_screened"],
         "stage1_passed": result["stage1_passed"],
