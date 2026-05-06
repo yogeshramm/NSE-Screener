@@ -1,0 +1,231 @@
+{
+  "ema": {
+    "enabled": true,
+    "fast_ema_period": 50,
+    "slow_ema_period": 200
+  },
+  "rsi": {
+    "enabled": true,
+    "rsi_period": 14,
+    "rsi_min": 52,
+    "rsi_max": 70
+  },
+  "macd": {
+    "enabled": true,
+    "macd_fast": 12,
+    "macd_slow": 26,
+    "macd_signal": 9,
+    "histogram_mode": true
+  },
+  "volume_surge": {
+    "enabled": true,
+    "volume_surge_multiplier": 1.1,
+    "volume_lookback": 20
+  },
+  "sector_performance": {
+    "enabled": false,
+    "sector_lookback": 30
+  },
+  "anchored_vwap": {
+    "enabled": false,
+    "vwap_anchor": "auto",
+    "swing_lookback": 50
+  },
+  "hidden_divergence": {
+    "enabled": false,
+    "divergence_timeframe": "4H",
+    "divergence_indicator": "RSI",
+    "divergence_lookback": 30,
+    "rsi_period": 14
+  },
+  "pivot_levels": {
+    "enabled": false,
+    "pivot_type": "both"
+  },
+  "awesome_oscillator": {
+    "enabled": false,
+    "ao_fast": 5,
+    "ao_slow": 34,
+    "ao_timeframe": "daily"
+  },
+  "supertrend": {
+    "enabled": true,
+    "supertrend_period": 10,
+    "supertrend_multiplier": 3.0
+  },
+  "adx": {
+    "enabled": true,
+    "adx_period": 14,
+    "adx_minimum": 20
+  },
+  "obv": {
+    "enabled": true,
+    "obv_lookback": 15,
+    "obv_direction": "rising"
+  },
+  "cmf": {
+    "enabled": false,
+    "cmf_period": 20,
+    "cmf_minimum": 0.1
+  },
+  "roc": {
+    "enabled": false,
+    "roc_period": 20,
+    "roc_minimum": 1
+  },
+  "fisher_transform": {
+    "enabled": false,
+    "fisher_period": 10,
+    "fisher_signal_period": 1
+  },
+  "klinger_oscillator": {
+    "enabled": false,
+    "kvo_fast": 34,
+    "kvo_slow": 55,
+    "kvo_signal": 13
+  },
+  "chande_momentum": {
+    "enabled": false,
+    "cmo_period": 14,
+    "cmo_min": 10,
+    "cmo_max": 40
+  },
+  "force_index": {
+    "enabled": false,
+    "efi_period": 13
+  },
+  "vortex": {
+    "enabled": true,
+    "vortex_period": 14,
+    "vi_threshold": 0.07
+  },
+  "roe": {
+    "enabled": true,
+    "roe_minimum": 12
+  },
+  "roce": {
+    "enabled": true,
+    "roce_minimum": 10
+  },
+  "debt_to_equity": {
+    "enabled": true,
+    "de_maximum": 1.0,
+    "exclude_psu_infra": true
+  },
+  "eps": {
+    "enabled": true,
+    "eps_minimum": 0,
+    "eps_trend": "positive"
+  },
+  "free_cash_flow": {
+    "enabled": true,
+    "fcf_trend": "positive_growth"
+  },
+  "institutional_holdings": {
+    "enabled": true,
+    "institutional_trend": "rising_or_stable"
+  },
+  "analyst_ratings": {
+    "enabled": false,
+    "analyst_buy_minimum": 3
+  },
+  "earnings_blackout": {
+    "enabled": true,
+    "earnings_blackout_days": 7
+  },
+  "pe_ratio": {
+    "enabled": true,
+    "pe_maximum": 40
+  },
+  "daily_turnover": {
+    "enabled": true,
+    "turnover_minimum": 5
+  },
+  "free_float": {
+    "enabled": true,
+    "freefloat_minimum": 30
+  },
+  "late_entry_stage1": {
+    "enabled": false,
+    "max_extension_from_breakout": 6,
+    "max_expansion_candles_without_pause": 2,
+    "entry_proximity_max": 3
+  },
+  "breakout_proximity": {
+    "enabled": false,
+    "breakout_proximity_max": 5
+  },
+  "breakout_volume": {
+    "enabled": false,
+    "breakout_volume_multiplier": 2.0
+  },
+  "breakout_rsi": {
+    "enabled": false,
+    "breakout_rsi_min": 55,
+    "breakout_rsi_max": 70,
+    "breakout_rsi_reject": 75
+  },
+  "supply_zone": {
+    "enabled": false,
+    "upside_clear_minimum": 5
+  },
+  "institutional_flow": {
+    "enabled": false,
+    "fii_dii_sessions": 5
+  },
+  "breakout_candle": {
+    "enabled": true,
+    "candle_close_quality": 50
+  },
+  "bb_squeeze": {
+    "enabled": false,
+    "bb_period": 20,
+    "bb_multiplier": 2.0,
+    "kc_multiplier": 1.5
+  },
+  "stochastic_rsi": {
+    "enabled": false,
+    "stochrsi_rsi_period": 14,
+    "stochrsi_stoch_period": 14,
+    "stochrsi_oversold": 20,
+    "stochrsi_overbought": 90
+  },
+  "williams_r": {
+    "enabled": false,
+    "williams_period": 14,
+    "williams_min": -40,
+    "williams_max": -10
+  },
+  "vwap_bands": {
+    "enabled": false,
+    "vwap_sigma": 1.0,
+    "vwap_period": 20
+  },
+  "ichimoku": {
+    "enabled": false,
+    "ichimoku_tenkan": 9,
+    "ichimoku_kijun": 26,
+    "ichimoku_senkou": 52
+  },
+  "late_entry_stage2": {
+    "enabled": false,
+    "stage2_max_extension": 4,
+    "stale_breakout_sessions": 2
+  },
+  "risk_management": {
+    "enabled": true,
+    "sl_atr_period": 14,
+    "sl_atr_multiplier": 2.0,
+    "target_atr_multiplier": 4.0
+  },
+  "scoring": {
+    "technical_weight": 50,
+    "fundamental_weight": 30,
+    "breakout_weight": 10,
+    "liquidity_weight": 10
+  },
+  "rs_rank": {
+    "enabled": true,
+    "min_rs_percentile": 60
+  }
+}
