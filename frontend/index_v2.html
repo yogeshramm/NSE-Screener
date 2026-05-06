@@ -2001,7 +2001,7 @@ let authToken = _getToken();
 // If a session token exists, immediately hide the login overlay before the async
 // checkAuth() fetch completes — prevents the "flash-of-login-wall → auto-dismiss"
 // visual glitch. checkAuth() restores it via _showLoginWall() if the token is stale.
-if (authToken) { const _lo = document.getElementById('login-overlay'); if (_lo) _lo.style.display = 'none'; document.body.classList.add('app-active'); const _bn = document.getElementById('bottom-nav'); if (_bn) _bn.style.display = 'flex'; }
+if (authToken) { const _lo = document.getElementById('login-overlay'); if (_lo) _lo.style.display = 'none'; document.body.classList.add('app-active'); }
 let authMode = 'login';
 let filterExpanded = false;
 let activePresetName = null;
@@ -2160,17 +2160,11 @@ async function handleAuth(e) {
 // ── Login wall helpers ─────────────────────────────────────────────────────
 function _showLoginWall() {
   document.getElementById('login-overlay').style.display = 'flex';
-  document.body.classList.remove('app-active');  // hides bottom-nav on mobile
-  // Also hide via inline style so it works regardless of CSS media query width
-  const _bn = document.getElementById('bottom-nav');
-  if (_bn) _bn.style.display = 'none';
+  document.body.classList.remove('app-active');  // hides bottom-nav on mobile via CSS
 }
 function _hideLoginWall() {
   document.getElementById('login-overlay').style.display = 'none';
-  document.body.classList.add('app-active');     // shows bottom-nav on mobile
-  // Also show via inline style so it works regardless of CSS media query width
-  const _bn = document.getElementById('bottom-nav');
-  if (_bn) _bn.style.display = 'flex';
+  document.body.classList.add('app-active');     // shows bottom-nav on mobile via CSS
 }
 
 async function checkAuth() {
