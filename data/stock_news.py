@@ -150,38 +150,111 @@ def _parse_rss(xml_text: str, default_source: str) -> List[Dict[str, Any]]:
 
 
 # ── Company name lookup ────────────────────────────────────────────────────
-_NAME_CACHE: Dict[str, Optional[str]] = {}
 
-def _company_name_from_master(symbol: str) -> Optional[str]:
-    global _NAME_CACHE
-    if symbol in _NAME_CACHE:
-        return _NAME_CACHE[symbol]
-    name = None
+# Brand overrides: legal name ≠ media name, or stock missing from NSE CSV
+_BRAND_OVERRIDE: Dict[str, str] = {
+    "TATAMOTORS":   "Tata Motors",
+    "TATACONSUM":   "Tata Consumer Products",
+    "TATASTEEL":    "Tata Steel",
+    "TATAPOWER":    "Tata Power",
+    "HDFCBANK":     "HDFC Bank",
+    "ICICIBANK":    "ICICI Bank",
+    "KOTAKBANK":    "Kotak Mahindra Bank",
+    "AXISBANK":     "Axis Bank",
+    "INDUSINDBK":   "IndusInd Bank",
+    "BAJFINANCE":   "Bajaj Finance",
+    "BAJAJFINSV":   "Bajaj Finserv",
+    "BAJAJ-AUTO":   "Bajaj Auto",
+    "ZOMATO":       "Zomato",
+    "NYKAA":        "Nykaa",
+    "PAYTM":        "Paytm",
+    "SWIGGY":       "Swiggy",
+    "MAPMYINDIA":   "MapMyIndia",
+    "POLICYBZR":    "Policybazaar",
+    "DELHIVERY":    "Delhivery",
+    "IXIGO":        "Ixigo",
+    "FIRSTCRY":     "FirstCry",
+    "YATHARTH":     "Yatharth Hospital",
+    "LTIM":         "LTIMindtree",
+    "LTTS":         "L&T Technology Services",
+    "LT":           "Larsen and Toubro",
+    "RELIANCE":     "Reliance Industries",
+    "SUNPHARMA":    "Sun Pharma",
+    "DRREDDY":      "Dr Reddys",
+    "CIPLA":        "Cipla",
+    "APOLLOHOSP":   "Apollo Hospitals",
+    "ONGC":         "ONGC",
+    "NTPC":         "NTPC",
+    "POWERGRID":    "Power Grid",
+    "COALINDIA":    "Coal India",
+}
+
+# NSE equity full-name map from EQUITY_L.csv (7-day TTL cache)
+_NSE_NAME_MAP: Dict[str, str] = {}
+_NSE_NAME_MAP_READY: bool = False
+_NSE_NAMES_CACHE_F = os.path.join(CACHE_DIR, "_nse_names.json")
+_SUFFIX_RE = re.compile(
+    r"\s+(limited|ltd\.?|industries|industry|corporation|corp\.?|inc\.?"
+    r"|pvt\.?|private|enterprises?|laboratories|lab)\.?\s*$",
+    re.I,
+)
+
+def _load_nse_name_map() -> None:
+    global _NSE_NAME_MAP, _NSE_NAME_MAP_READY
+    if _NSE_NAME_MAP_READY:
+        return
+    # Try local 7-day cache first
+    if os.path.exists(_NSE_NAMES_CACHE_F):
+        age = time.time() - os.path.getmtime(_NSE_NAMES_CACHE_F)
+        if age < 7 * 86400:
+            try:
+                _NSE_NAME_MAP.update(json.load(open(_NSE_NAMES_CACHE_F)))
+                _NSE_NAME_MAP_READY = True
+                return
+            except Exception:
+                pass
+    # Fetch from NSE archives
     try:
-        from data.angel_master import get_nse_equity_df
-        df = get_nse_equity_df()
-        trading_sym = symbol if symbol.endswith("-EQ") else f"{symbol}-EQ"
-        row = df[df["symbol"] == trading_sym]
-        if not row.empty:
-            v = str(row.iloc[0]["name"]).strip()
-            if v and v.lower() not in ("nan", "none", ""):
-                name = v
+        import csv, io
+        r = requests.get(
+            "https://archives.nseindia.com/content/equities/EQUITY_L.csv",
+            headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64)"},
+            timeout=15,
+        )
+        if r.status_code == 200:
+            reader = csv.DictReader(io.StringIO(r.text))
+            for row in reader:
+                sym  = row.get("SYMBOL", "").strip()
+                name = row.get("NAME OF COMPANY", "").strip()
+                if sym and name:
+                    _NSE_NAME_MAP[sym] = name
+            try:
+                json.dump(_NSE_NAME_MAP, open(_NSE_NAMES_CACHE_F, "w"))
+            except Exception:
+                pass
     except Exception:
         pass
-    _NAME_CACHE[symbol] = name
-    return name
+    _NSE_NAME_MAP_READY = True
+
 
 def _search_query(symbol: str) -> str:
-    name = _company_name_from_master(symbol)
-    if name:
-        base = re.sub(
-            r"\s+(ltd|limited|industries|industry|corporation|corp|inc|india|pvt|private"
-            r"|group|solutions|technologies|technology|services|enterprises?)\.?\s*$",
-            "", name, flags=re.I
-        ).strip()
-        return base or name
+    """Return the best search query for this symbol's news."""
+    # 1. Hard-coded brand override (highest priority)
+    if symbol in _BRAND_OVERRIDE:
+        return _BRAND_OVERRIDE[symbol]
+
+    # 2. NSE EQUITY_L.csv — full legal name, stripped of generic suffixes
+    _load_nse_name_map()
+    raw = _NSE_NAME_MAP.get(symbol, "")
+    if raw:
+        cleaned = _SUFFIX_RE.sub("", raw).strip()
+        return cleaned if cleaned else raw
+
+    # 3. Hyphenated symbol → title-case words (e.g. BAJAJ-AUTO → "Bajaj Auto")
     if "-" in symbol:
         return symbol.replace("-", " ").title()
+
+    # 4. Symbol as-is (Google News often recognises tickers directly)
     return symbol
 
 
