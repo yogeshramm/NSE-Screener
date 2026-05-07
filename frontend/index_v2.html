@@ -2092,6 +2092,85 @@ function _evBadge(r) {
   return `<div class="text-[8.5px] font-medium leading-tight mt-0.5 tracking-wide" style="color:${col}">${d.text}</div>`;
 }
 
+// ============ QUICK LOOKUP (search bar → single row in Stage 1) ============
+// Client-side event badge from insights-pro events[] array (same logic as server get_event_badge)
+function _quickEvBadge(events) {
+  if (!events || !events.length) return '';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const MON = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+  let best = null, bestDelta = null;
+  for (const ev of events) {
+    const ds = (ev.date || '').trim().slice(0,11);
+    if (!ds) continue;
+    let d = null;
+    if (/^\d{4}-\d{2}-\d{2}/.test(ds)) { const p=ds.split('-'); d=new Date(+p[0],+p[1]-1,+p[2]); }
+    else if (/^\d{1,2}-[a-zA-Z]{3}-\d{4}/i.test(ds)) { const p=ds.split('-'); d=new Date(+p[2],(MON[p[1].toLowerCase()]??0),+p[0]); }
+    else if (/^\d{2}-\d{2}-\d{4}/.test(ds)) { const p=ds.split('-'); d=new Date(+p[2],+p[1]-1,+p[0]); }
+    if (!d || isNaN(d)) continue;
+    d.setHours(0,0,0,0);
+    const delta = Math.round((d-today)/86400000);
+    if (delta>=-1 && delta<=3) { if (best===null||Math.abs(delta)<Math.abs(bestDelta)){best=ev;bestDelta=delta;} }
+  }
+  if (!best) return '';
+  const raw=(best.event||'').toLowerCase();
+  const label=raw.includes('result')?'Results':raw.includes('dividend')?'Dividend':raw.includes('split')?'Split':
+    raw.includes('bonus')?'Bonus':raw.includes('buyback')?'Buyback':raw.includes('rights')?'Rights Issue':
+    raw.includes('agm')?'AGM':raw.includes('board')?'Board Mtg':(best.event||'Event').slice(0,15);
+  const text=bestDelta===0?`* ${label} Today`:bestDelta===-1?`* ${label} +1d`:bestDelta===1?`* ${label} Tomorrow`:`* ${label} -${bestDelta}d`;
+  const col=bestDelta<0?'#6effc0':bestDelta===0?'#ef4444':'#f59e0b';
+  return `<div class="text-[8.5px] font-medium leading-tight mt-0.5 tracking-wide" style="color:${col}">${text}</div>`;
+}
+
+async function _showQuickLookup(sym) {
+  // Never overwrite active screener results
+  if (window._lastScreenData && (_lastScreenData.stage1_results||[]).length > 0) return;
+  if (typeof switchStage === 'function') switchStage(1);
+  const s1 = document.getElementById('s1-body');
+  if (!s1) return;
+  s1.innerHTML = `<tr><td colspan="11" class="px-3 py-5 text-center text-on-surface-variant/50 text-xs">
+    <span class="inline-block w-3 h-3 border-2 border-primary/40 border-t-primary rounded-full animate-spin align-middle mr-2"></span>
+    Looking up <span class="text-primary font-bold">${sym}</span>…
+  </td></tr>`;
+  try {
+    const d = await fetch(API+'/stock/'+sym+'/insights-pro').then(r=>r.ok?r.json():null);
+    if (!d) { s1.innerHTML=`<tr><td colspan="11" class="px-3 py-6 text-center text-on-surface-variant/50 text-xs">No data for ${sym}</td></tr>`; return; }
+    const t=d.technicals||{}, f=d.fundamentals||{};
+    const mfs=d.multi_factor?.score;
+    const pe=f.pe!=null?(+f.pe).toFixed(1):'—';
+    const rsi=t.rsi!=null?(+t.rsi).toFixed(1):'—';
+    const roe=f.roe!=null?(+f.roe).toFixed(1):'—';
+    const price=t.price!=null?'₹'+t.price:'—';
+    const sector=d.sector?.name||'';
+    const verdict=d.verdict||'—';
+    const vCls=verdict==='BUY'||verdict==='STRONG BUY'?'bg-primary/10 text-primary':
+      verdict==='SELL'||verdict==='STRONG SELL'?'bg-error/10 text-error':'bg-yellow-400/10 text-yellow-400';
+    const mfsBadge=mfs!=null?`<span class="px-2 py-0.5 ${mfs>=80?'bg-[#00e5a0]/20 text-[#00e5a0]':mfs>=60?'bg-primary/15 text-primary':mfs>=40?'bg-yellow-400/15 text-yellow-400':'bg-surface-container-highest text-on-surface-variant'} rounded-full text-[10px] font-black">${mfs}</span>`:'<span class="text-on-surface-variant/30">—</span>';
+    const scoreBadge=d.score!=null?`<span class="px-2 py-0.5 ${d.score>=60?'bg-primary/20 text-primary':d.score>=40?'bg-yellow-400/20 text-yellow-400':'bg-surface-container-highest text-on-surface-variant'} rounded-full text-[10px] font-black">${d.score}</span>`:'—';
+    const evB=_quickEvBadge(d.events||[]);
+    const ss=sym.replace(/'/g,"\\'");
+    s1.innerHTML=`<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" onclick="openInsightsPro('${ss}')">
+      <td class="px-3 py-2.5 text-primary/40 text-lg font-bold select-none">›</td>
+      <td class="px-3 py-2.5">
+        <div class="flex items-center gap-2 mb-0.5"><span class="text-[7px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/10 text-primary/70 border border-primary/20">SEARCH</span><div class="font-bold text-on-surface">${_stockLink(sym)}</div></div>
+        <div class="text-[9px] text-on-surface-variant">${sector}</div>${evB}
+      </td>
+      <td class="px-3 py-2.5 text-right text-on-surface ltp-cell" data-sym="${sym}">${price}</td>
+      <td class="px-3 py-2.5 text-right text-on-surface-variant">${pe}</td>
+      <td class="px-3 py-2.5 text-right text-on-surface-variant">${rsi}</td>
+      <td class="px-3 py-2.5 text-right text-on-surface-variant">${roe}</td>
+      <td class="px-3 py-2.5 text-right">${mfsBadge}</td>
+      <td class="px-3 py-2.5 text-center text-on-surface-variant/30">—</td>
+      <td class="px-3 py-2.5 text-right">${scoreBadge}</td>
+      <td class="px-3 py-2.5 text-center"><span class="${vCls} text-[10px] px-2 py-0.5 rounded-full font-black uppercase">${verdict}</span></td>
+      <td class="px-3 py-2.5 text-center"><button onclick="event.stopPropagation();addToWatchlist('${ss}')" class="text-on-surface-variant hover:text-primary" title="Add to watchlist"><span class="material-symbols-outlined" style="font-size:14px;">bookmark_add</span></button></td>
+    </tr>`;
+    if (typeof startLivePrices === 'function') startLivePrices([sym]);
+  } catch(e) {
+    const s1b=document.getElementById('s1-body');
+    if (s1b) s1b.innerHTML=`<tr><td colspan="11" class="px-3 py-6 text-center text-error/70 text-xs">Could not load data for ${sym}</td></tr>`;
+  }
+}
+
 // ============ AUTH ============
 function showAuthTab(mode) {
   authMode = mode;
@@ -2802,7 +2881,8 @@ function openHomeChart(sym) {
   if (inp) inp.value = '';
   document.getElementById('home-search-dd')?.classList.add('hidden');
   switchTab('screener');
-  setTimeout(() => { try { openChart(sym); } catch(e) {} }, 120);
+  openInsightsPro(sym);   // opens insights panel + chart
+  _showQuickLookup(sym);  // shows quick-lookup row in Stage 1
 }
 // Close home search dropdown on outside click
 document.addEventListener('click', (e) => {
@@ -2830,7 +2910,9 @@ function onSearchInput(val) {
 function selectSearchResult(sym) {
   hideSearchDropdown();
   document.getElementById('symbols-input').value='';
+  switchTab('screener');
   openInsightsPro(sym);
+  _showQuickLookup(sym);
 }
 function hideSearchDropdown() { document.getElementById('search-dropdown')?.classList.add('hidden'); }
 
