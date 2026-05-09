@@ -4936,14 +4936,17 @@ function scApplyMarkers() {
   if (scTradeZonesOn && currentChartSymbol && chartData.candles?.length) {
     const lastTs = chartData.candles[chartData.candles.length - 1].time;
     // Engine-suggested zones from optimal levels cache (if loaded via ENTRY/EXIT overlay)
+    // Each badge only shows when current price is within 5% of that zone (proximity-gated)
     const plan = scOptimalCache[currentChartSymbol];
     if (plan && plan.tradeable) {
-      if (plan.entry    !== null && plan.entry    !== undefined)
-        markers.push({ time: lastTs, position: 'belowBar', color: '#eab308', shape: 'square', text: `Bz ₹${plan.entry}` });
-      if (plan.target   !== null && plan.target   !== undefined)
-        markers.push({ time: lastTs, position: 'aboveBar', color: '#00e5a0', shape: 'square', text: `Sz ₹${plan.target}` });
-      if (plan.stop_loss !== null && plan.stop_loss !== undefined)
-        markers.push({ time: lastTs, position: 'belowBar', color: '#ff4757', shape: 'square', text: `SLz ₹${plan.stop_loss}` });
+      const close = chartData.candles[chartData.candles.length - 1].close;
+      const near  = (zone) => Math.abs(close - zone) / zone * 100 <= 5;
+      if (plan.entry    !== null && plan.entry    !== undefined && near(plan.entry))
+        markers.push({ time: lastTs, position: 'belowBar', color: 'rgba(234,179,8,0.55)',   shape: 'square', text: `Bz ₹${plan.entry}` });
+      if (plan.target   !== null && plan.target   !== undefined && near(plan.target))
+        markers.push({ time: lastTs, position: 'aboveBar', color: 'rgba(0,229,160,0.55)',   shape: 'square', text: `Sz ₹${plan.target}` });
+      if (plan.stop_loss !== null && plan.stop_loss !== undefined && near(plan.stop_loss))
+        markers.push({ time: lastTs, position: 'belowBar', color: 'rgba(255,71,87,0.55)',   shape: 'square', text: `SLz ₹${plan.stop_loss}` });
     }
     // User portfolio trades for this symbol
     const trades = _pfGetTradesForSymbol(currentChartSymbol);
