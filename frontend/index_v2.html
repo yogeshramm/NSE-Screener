@@ -4943,7 +4943,7 @@ function scApplyMarkers() {
       if (plan.target   !== null && plan.target   !== undefined)
         markers.push({ time: lastTs, position: 'aboveBar', color: '#00e5a0', shape: 'square', text: `Sz ₹${plan.target}` });
       if (plan.stop_loss !== null && plan.stop_loss !== undefined)
-        markers.push({ time: lastTs, position: 'aboveBar', color: '#ff4757', shape: 'square', text: `SLz ₹${plan.stop_loss}` });
+        markers.push({ time: lastTs, position: 'belowBar', color: '#ff4757', shape: 'square', text: `SLz ₹${plan.stop_loss}` });
     }
     // User portfolio trades for this symbol
     const trades = _pfGetTradesForSymbol(currentChartSymbol);
