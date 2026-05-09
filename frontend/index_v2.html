@@ -4426,7 +4426,9 @@ let scTradeZonesOn = true;   // Trade Zones on by default
 let scMarkMode = false;      // click-to-mark BUY mode
 let scBriefingCache = {}; // {symbol: data}
 let scEventsCache = {};   // {symbol: events[]}
-let scOptimalCache = {};  // {symbol: optimal-levels response}
+let scOptimalCache = {};  // {symbol: plan[]} newest-first array, max 3 per symbol
+let scSLMode = 'none';   // 'none' | 'atr' | 'pct'  — opt-in stop loss mode
+let scSLPct  = 5;        // stop % used when scSLMode === 'pct'
 let sc52HiLine = null, sc52LoLine = null;
 let scOptLines = [];      // entry / stop / target price lines
 
@@ -4617,21 +4619,26 @@ async function toggleScreenerOptimal() {
     : 'text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
   if (!scOptimalOn) { if (panel) panel.classList.add('hidden'); scClearOptimalLines(); return; }
   if (!currentChartSymbol) return;
-  let plan = scOptimalCache[currentChartSymbol];
-  if (!plan) {
-    try {
-      const r = await fetch(API + '/stock/' + currentChartSymbol + '/optimal-levels');
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      plan = await r.json();
-      scOptimalCache[currentChartSymbol] = plan;
-    } catch(e) {
-      showPracticeToast?.('Optimal levels unavailable: ' + e.message, 'err');
-      return;
+  // Always fetch fresh so price-moved sessions get a new numbered plan
+  try {
+    const r = await fetch(API + '/stock/' + currentChartSymbol + '/optimal-levels');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const plan = await r.json();
+    // Accumulate as numbered array (max 3); skip if entry unchanged vs newest
+    if (!Array.isArray(scOptimalCache[currentChartSymbol]))
+      scOptimalCache[currentChartSymbol] = [];
+    const arr = scOptimalCache[currentChartSymbol];
+    const prev = arr[0];
+    if (!prev || !plan.entry || !prev.entry || Math.abs(plan.entry - prev.entry) > 0.5) {
+      arr.unshift(plan);
+      if (arr.length > 3) arr.pop();
     }
+    scRenderOptimalPanel(arr[0]);
+    scApplyOptimalLines(arr[0]);
+    scApplyMarkers();
+  } catch(e) {
+    showPracticeToast?.('Optimal levels unavailable: ' + e.message, 'err');
   }
-  scRenderOptimalPanel(plan);
-  scApplyOptimalLines(plan);
-  scApplyMarkers();  // refresh Bz/Sz/SLz trade-zone markers from newly cached plan
 }
 
 function scApplyOptimalLines(plan) {
@@ -4649,6 +4656,23 @@ function scClearOptimalLines() {
   const cs = window._scCandleSeries;
   if (cs) scOptLines.forEach(ln => { try { cs.removePriceLine(ln); } catch(e){} });
   scOptLines = [];
+}
+
+function setSLMode(mode) {
+  scSLMode = mode;
+  const arr = Array.isArray(scOptimalCache[currentChartSymbol]) ? scOptimalCache[currentChartSymbol] : [];
+  if (arr.length) scRenderOptimalPanel(arr[0]);
+  scApplyMarkers();
+}
+
+function setSLPct(val) {
+  scSLPct = Math.max(0.5, Math.min(20, parseFloat(val) || 5));
+  const arr = Array.isArray(scOptimalCache[currentChartSymbol]) ? scOptimalCache[currentChartSymbol] : [];
+  if (arr.length && arr[0].entry) {
+    const el = document.getElementById('sc-slz-val');
+    if (el) el.textContent = '₹' + (arr[0].entry * (1 - scSLPct / 100)).toFixed(2);
+  }
+  scApplyMarkers();
 }
 
 function scRenderOptimalPanel(plan) {
@@ -4678,7 +4702,16 @@ function scRenderOptimalPanel(plan) {
     const fmt = (v) => v !== null && v !== undefined ? '\u20b9' + v.toLocaleString('en-IN') : '—';
     h += `<div class="grid grid-cols-3 gap-2 mb-3">
       <div class="bg-surface-container rounded p-2 border-l-2" style="border-color:#3b82f6"><div class="text-[8px] uppercase font-bold text-on-surface-variant">Entry</div><div class="font-mono text-sm font-bold">${fmt(plan.entry)}</div></div>
-      <div class="bg-surface-container rounded p-2 border-l-2" style="border-color:#ff4757"><div class="text-[8px] uppercase font-bold text-error">Stop</div><div class="font-mono text-sm font-bold text-error">${fmt(plan.stop_loss)}</div><div class="text-[8px] text-on-surface-variant">${plan.risk_pct}%</div></div>
+      <div class="bg-surface-container rounded p-2 border-l-2" style="border-color:#ff4757">
+        <div class="text-[8px] uppercase font-bold text-error">Stop Loss</div>
+        <div class="font-mono text-sm font-bold text-error" id="sc-slz-val">${scSLMode==='atr'?fmt(plan.stop_loss):scSLMode==='pct'?fmt(+(plan.entry*(1-scSLPct/100)).toFixed(2)):'— off'}</div>
+        <div class="flex gap-1 mt-1">
+          <button onclick="setSLMode('none')" class="px-1.5 py-0.5 text-[7px] font-bold rounded ${scSLMode==='none'?'bg-surface-container-highest text-on-surface':'bg-surface-container-high text-on-surface-variant hover:text-on-surface'}">OFF</button>
+          <button onclick="setSLMode('atr')"  class="px-1.5 py-0.5 text-[7px] font-bold rounded ${scSLMode==='atr' ?'bg-error text-white':'bg-surface-container-high text-on-surface-variant hover:text-on-surface'}">ATR</button>
+          <button onclick="setSLMode('pct')"  class="px-1.5 py-0.5 text-[7px] font-bold rounded ${scSLMode==='pct' ?'bg-error text-white':'bg-surface-container-high text-on-surface-variant hover:text-on-surface'}">%</button>
+        </div>
+        ${scSLMode==='pct'?`<input id="sc-slz-pct" type="number" value="${scSLPct}" min="0.5" max="20" step="0.5" placeholder="5" class="mt-1 w-full bg-surface-container-highest px-1 py-0.5 rounded text-[9px] font-mono text-error" oninput="setSLPct(this.value)" />`:''}
+      </div>
       <div class="bg-surface-container rounded p-2 border-l-2" style="border-color:#00e5a0"><div class="text-[8px] uppercase font-bold text-primary">Target</div><div class="font-mono text-sm font-bold text-primary">${fmt(plan.target)}</div><div class="text-[8px] text-on-surface-variant">${plan.risk_reward}:1 R:R</div></div>
     </div>`;
   }
@@ -4935,18 +4968,41 @@ function scApplyMarkers() {
   // TRADE ZONES: engine Bz/Sz/SLz on latest candle + user YBz/YSz on entry/exit candles
   if (scTradeZonesOn && currentChartSymbol && chartData.candles?.length) {
     const lastTs = chartData.candles[chartData.candles.length - 1].time;
-    // Engine-suggested zones from optimal levels cache (if loaded via ENTRY/EXIT overlay)
-    // Each badge only shows when current price is within 5% of that zone (proximity-gated)
-    const plan = scOptimalCache[currentChartSymbol];
-    if (plan && plan.tradeable) {
+    // Engine-suggested zones — array of plans, newest = index 0 = "1"
+    // Bz  : solid, proximity-gated (<5%) — confirmed signal, show only when live
+    // Sz  : 3-phase opacity (10/50/100%) by proximity — future exit, always present
+    // SLz : same opacity phasing, opt-in only (scSLMode !== 'none')
+    const plans = Array.isArray(scOptimalCache[currentChartSymbol])
+      ? scOptimalCache[currentChartSymbol]
+      : (scOptimalCache[currentChartSymbol] ? [scOptimalCache[currentChartSymbol]] : []);
+    if (plans.length) {
       const close = chartData.candles[chartData.candles.length - 1].close;
-      const near  = (zone) => Math.abs(close - zone) / zone * 100 <= 5;
-      if (plan.entry    !== null && plan.entry    !== undefined && near(plan.entry))
-        markers.push({ time: lastTs, position: 'belowBar', color: 'rgba(234,179,8,0.55)',   shape: 'square', text: `Bz ₹${plan.entry}` });
-      if (plan.target   !== null && plan.target   !== undefined && near(plan.target))
-        markers.push({ time: lastTs, position: 'aboveBar', color: 'rgba(0,229,160,0.55)',   shape: 'square', text: `Sz ₹${plan.target}` });
-      if (plan.stop_loss !== null && plan.stop_loss !== undefined && near(plan.stop_loss))
-        markers.push({ time: lastTs, position: 'belowBar', color: 'rgba(255,71,87,0.55)',   shape: 'square', text: `SLz ₹${plan.stop_loss}` });
+      // 3-phase opacity: <5% → 100%, 5-10% → 50%, >10% → 10%
+      const phase = (zone) => {
+        const d = Math.abs(close - zone) / zone * 100;
+        return d < 5 ? 1.0 : d < 10 ? 0.5 : 0.1;
+      };
+      plans.forEach((plan, idx) => {
+        if (!plan || !plan.tradeable) return;
+        const n = idx + 1;
+        // Bz — solid, only when within 5% of entry (opportunity is live)
+        if (plan.entry != null && Math.abs(close - plan.entry) / plan.entry * 100 < 5)
+          markers.push({ time: lastTs, position: 'belowBar', color: '#eab308', shape: 'square', text: `Bz${n} ₹${plan.entry}` });
+        // Sz — always visible, 3-phase opacity (future exit target)
+        if (plan.target != null) {
+          const a = phase(plan.target);
+          markers.push({ time: lastTs, position: 'aboveBar', color: `rgba(0,229,160,${a})`, shape: 'square', text: `Sz${n} ₹${plan.target}` });
+        }
+        // SLz — opt-in via dropdown, 3-phase opacity (future risk level)
+        if (scSLMode !== 'none' && plan.entry != null) {
+          const slPrice = scSLMode === 'atr' ? plan.stop_loss
+                        : +(plan.entry * (1 - scSLPct / 100)).toFixed(2);
+          if (slPrice != null) {
+            const a = phase(slPrice);
+            markers.push({ time: lastTs, position: 'belowBar', color: `rgba(255,71,87,${a})`, shape: 'square', text: `SLz${n} ₹${slPrice}` });
+          }
+        }
+      });
     }
     // User portfolio trades for this symbol
     const trades = _pfGetTradesForSymbol(currentChartSymbol);
