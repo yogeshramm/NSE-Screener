@@ -1757,6 +1757,10 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
         <div><label class="text-[10px] font-bold uppercase text-on-surface-variant">Buy Price</label><input id="pf-price" type="number" step="0.01" class="w-full mt-1 bg-surface-container-highest px-3 py-2 rounded text-sm" placeholder="1234.50" /></div>
       </div>
       <div><label class="text-[10px] font-bold uppercase text-on-surface-variant">Date (optional)</label><input id="pf-date" type="date" class="w-full mt-1 bg-surface-container-highest px-3 py-2 rounded text-sm" /></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-[10px] font-bold uppercase text-on-surface-variant">Stop Loss <span class="text-[9px] text-red-400">(optional)</span></label><input id="pf-sl" type="number" step="0.01" class="w-full mt-1 bg-surface-container-highest px-3 py-2 rounded text-sm" placeholder="0.00" /></div>
+        <div><label class="text-[10px] font-bold uppercase text-on-surface-variant">Target <span class="text-[9px] text-emerald-400">(optional)</span></label><input id="pf-tgt" type="number" step="0.01" class="w-full mt-1 bg-surface-container-highest px-3 py-2 rounded text-sm" placeholder="0.00" /></div>
+      </div>
       <div><label class="text-[10px] font-bold uppercase text-on-surface-variant">Notes (optional)</label><input id="pf-notes" type="text" class="w-full mt-1 bg-surface-container-highest px-3 py-2 rounded text-sm" /></div>
     </div>
     <div class="p-5 border-t border-outline-variant/20 flex gap-2">
@@ -2711,14 +2715,16 @@ function _pfRenderBody(rows) {
     </tr>`;
   }).join('');
 }
-function pfShowAdd() { document.getElementById('pf-add-modal').style.display = 'flex'; ['pf-sym','pf-qty','pf-price','pf-date','pf-notes'].forEach(i => { const el=document.getElementById(i); if(el) el.value=''; }); }
+function pfShowAdd() { document.getElementById('pf-add-modal').style.display = 'flex'; ['pf-sym','pf-qty','pf-price','pf-date','pf-sl','pf-tgt','pf-notes'].forEach(i => { const el=document.getElementById(i); if(el) el.value=''; }); }
 function pfHideAdd() { document.getElementById('pf-add-modal').style.display = 'none'; }
 async function pfSubmitAdd() {
   const sym = document.getElementById('pf-sym').value.trim().toUpperCase();
   const qty = parseFloat(document.getElementById('pf-qty').value);
   const price = parseFloat(document.getElementById('pf-price').value);
   if (!sym || !qty || !price) { showPracticeToast?.('Symbol, qty and buy price are required', 'err'); return; }
-  const body = { symbol: sym, qty, buy_price: price, buy_date: document.getElementById('pf-date').value, notes: document.getElementById('pf-notes').value };
+  const sl  = parseFloat(document.getElementById('pf-sl').value)  || null;
+  const tgt = parseFloat(document.getElementById('pf-tgt').value) || null;
+  const body = { symbol: sym, qty, buy_price: price, buy_date: document.getElementById('pf-date').value, notes: document.getElementById('pf-notes').value, ...(sl  ? {stop_loss: sl}  : {}), ...(tgt ? {target: tgt} : {}) };
   try {
     const r = await fetch(API + '/portfolio/add', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -4625,6 +4631,7 @@ async function toggleScreenerOptimal() {
   }
   scRenderOptimalPanel(plan);
   scApplyOptimalLines(plan);
+  scApplyMarkers();  // refresh Bz/Sz/SLz trade-zone markers from newly cached plan
 }
 
 function scApplyOptimalLines(plan) {
