@@ -3759,47 +3759,59 @@ function removeChartOverlay(key) {
 
 // ===== RESIZABLE PANELS =====
 let resizeState=null;
+function _attachResizeHandle(h){
+  h.addEventListener('mousedown',startPanelResize);
+  h.addEventListener('touchstart',startPanelResize,{passive:false});
+}
 function injectResizeHandles(){
   document.querySelectorAll('.panel-resize-handle').forEach(h=>h.remove());
-  const container=document.querySelector('#chart-panel .flex-1');
+  // FIX: use chart-container's parentElement — querySelector('#chart-panel .flex-1') incorrectly
+  // finds #sc-tt-rows (inside the Trend Template overlay) which has 0 children.
+  const container=document.getElementById('chart-container')?.parentElement;
   if(!container) return;
-  // Exclude the sub-panels wrapper — it is not a chart, only its children are
-  const panels=Array.from(container.children).filter(el=>el.style.display!=='none'&&el.id&&el.id!=='sub-panels'&&!el.classList.contains('panel-resize-handle'));
+  // FIX: use computed style — sc-help-summary/sc-optimal-panel/sc-briefing-panel use the Tailwind
+  // 'hidden' class for display:none, not inline style, so el.style.display is '' not 'none'.
+  const panels=Array.from(container.children).filter(el=>
+    getComputedStyle(el).display!=='none'&&el.id&&el.id!=='sub-panels'&&!el.classList.contains('panel-resize-handle'));
   for(let i=0;i<panels.length-1;i++){
     const h=document.createElement('div'); h.className='panel-resize-handle';
     h.dataset.above=panels[i].id; h.dataset.below=panels[i+1].id;
-    panels[i].after(h); h.addEventListener('mousedown',startPanelResize);
+    panels[i].after(h); _attachResizeHandle(h);
   }
-  // Sub-panels: first inject a handle between the last main panel and the first sub-panel
-  // so every sub-panel is resizable, then handles between each sub-panel
+  // Sub-panels: bridge handle between last main panel and first sub-panel,
+  // then handles between each sub-panel
   const sp=document.getElementById('sub-panels');
   if(sp){
     const subs=Array.from(sp.children).filter(el=>!el.classList.contains('panel-resize-handle'));
     if(subs.length>0&&panels.length>0){
       const h=document.createElement('div'); h.className='panel-resize-handle';
       h.dataset.above=panels[panels.length-1].id; h.dataset.below=subs[0].id;
-      sp.insertBefore(h,subs[0]); h.addEventListener('mousedown',startPanelResize);
+      sp.insertBefore(h,subs[0]); _attachResizeHandle(h);
     }
     for(let i=0;i<subs.length-1;i++){
       const h=document.createElement('div'); h.className='panel-resize-handle';
       h.dataset.above=subs[i].id; h.dataset.below=subs[i+1].id;
-      subs[i].after(h); h.addEventListener('mousedown',startPanelResize);
+      subs[i].after(h); _attachResizeHandle(h);
     }
   }
 }
+function _resizeClientY(e){ return e.touches ? e.touches[0].clientY : e.clientY; }
 function startPanelResize(e){
   e.preventDefault();
   const h=e.currentTarget, a=document.getElementById(h.dataset.above), b=document.getElementById(h.dataset.below);
   if(!a||!b) return;
   h.classList.add('active');
-  resizeState={handle:h,a,b,startY:e.clientY,aH:a.offsetHeight,bH:b.offsetHeight};
+  resizeState={handle:h,a,b,startY:_resizeClientY(e),aH:a.offsetHeight,bH:b.offsetHeight};
   document.addEventListener('mousemove',doPanelResize);
   document.addEventListener('mouseup',stopPanelResize);
+  document.addEventListener('touchmove',doPanelResize,{passive:false});
+  document.addEventListener('touchend',stopPanelResize);
   document.body.style.cursor='row-resize'; document.body.style.userSelect='none';
 }
 function doPanelResize(e){
   if(!resizeState) return;
-  const delta=e.clientY-resizeState.startY;
+  if(e.cancelable) e.preventDefault();
+  const delta=_resizeClientY(e)-resizeState.startY;
   const isMainA=resizeState.a.id==='chart-container', isMainB=resizeState.b.id==='chart-container';
   const minA=isMainA?150:40, minB=isMainB?150:40, maxA=isMainA?600:300, maxB=isMainB?600:300;
   let nA=Math.max(minA,Math.min(maxA,resizeState.aH+delta));
@@ -3815,6 +3827,8 @@ function stopPanelResize(){
   if(resizeState){resizeState.handle.classList.remove('active');resizeState=null;}
   document.removeEventListener('mousemove',doPanelResize);
   document.removeEventListener('mouseup',stopPanelResize);
+  document.removeEventListener('touchmove',doPanelResize);
+  document.removeEventListener('touchend',stopPanelResize);
   document.body.style.cursor=''; document.body.style.userSelect='';
 }
 function updateChartH(id,h){
