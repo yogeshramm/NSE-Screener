@@ -1030,25 +1030,40 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
           <span class="material-symbols-outlined text-sm cursor-pointer hover:text-primary" onclick="openInsightsFromChart()">psychology</span>
           <span id="chart-close-btn" class="material-symbols-outlined text-sm cursor-pointer hover:text-error" onclick="closeChart()">close</span>
         </div>
-        <!-- Row 2: interval + timeframe controls (scrollable on mobile) -->
+        <!-- Row 2: interval + timeframe compact dropdowns -->
         <div id="chart-header-controls" class="flex items-center gap-1.5 flex-shrink-0">
-          <div class="flex bg-surface-container-highest rounded-md p-0.5 gap-0.5" title="Candle interval">
-            <button onclick="changeChartInterval('5m',this)" class="chart-iv-btn px-2 py-0.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">5m</button>
-            <button onclick="changeChartInterval('15m',this)" class="chart-iv-btn px-2 py-0.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">15m</button>
-            <button onclick="changeChartInterval('1h',this)" class="chart-iv-btn px-2 py-0.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">1h</button>
-            <div class="w-px bg-outline-variant/40 mx-0.5"></div>
-            <button onclick="changeChartInterval('1D',this)" class="chart-iv-btn px-2 py-0.5 text-[9px] font-bold rounded bg-surface-variant text-primary">D</button>
-            <button onclick="changeChartInterval('1W',this)" class="chart-iv-btn px-2 py-0.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">W</button>
-            <button onclick="changeChartInterval('1M',this)" class="chart-iv-btn px-2 py-0.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">M</button>
+          <!-- Interval dropdown -->
+          <div class="relative" id="chart-iv-dd-wrap">
+            <button onclick="toggleChartIvDd(event)" class="flex items-center gap-0.5 px-2 py-0.5 text-[9px] font-bold rounded bg-surface-container-highest text-primary hover:bg-surface-variant" title="Candle interval">
+              <span id="chart-iv-label">D</span>
+              <span class="material-symbols-outlined text-[10px] leading-none">expand_more</span>
+            </button>
+            <div id="chart-iv-dd" class="hidden absolute top-full left-0 mt-0.5 bg-surface-container-highest border border-outline-variant/30 rounded shadow-xl z-[200] w-[64px] py-0.5">
+              <div class="px-2 py-0.5 text-[7.5px] text-on-surface-variant/50 font-semibold uppercase tracking-wider">Intraday</div>
+              <button onclick="selectChartIv('5m','5m')" class="chart-iv-opt w-full text-left px-3 py-1 text-[9px] hover:bg-surface-variant text-on-surface-variant hover:text-primary">5m</button>
+              <button onclick="selectChartIv('15m','15m')" class="chart-iv-opt w-full text-left px-3 py-1 text-[9px] hover:bg-surface-variant text-on-surface-variant hover:text-primary">15m</button>
+              <button onclick="selectChartIv('1h','1h')" class="chart-iv-opt w-full text-left px-3 py-1 text-[9px] hover:bg-surface-variant text-on-surface-variant hover:text-primary">1h</button>
+              <div class="border-t border-outline-variant/20 my-0.5"></div>
+              <div class="px-2 py-0.5 text-[7.5px] text-on-surface-variant/50 font-semibold uppercase tracking-wider">Daily+</div>
+              <button onclick="selectChartIv('1D','D')" class="chart-iv-opt w-full text-left px-3 py-1 text-[9px] hover:bg-surface-variant text-on-surface-variant hover:text-primary font-bold text-primary">D</button>
+              <button onclick="selectChartIv('1W','W')" class="chart-iv-opt w-full text-left px-3 py-1 text-[9px] hover:bg-surface-variant text-on-surface-variant hover:text-primary">W</button>
+              <button onclick="selectChartIv('1M','M')" class="chart-iv-opt w-full text-left px-3 py-1 text-[9px] hover:bg-surface-variant text-on-surface-variant hover:text-primary">M</button>
+            </div>
           </div>
-          <div class="w-px h-4 bg-outline-variant/30 hidden sm:block"></div>
-          <div class="flex bg-surface-container-highest rounded-md p-0.5 gap-0.5" title="Date range">
-            <button onclick="changeChartTimeframe(30,this)" class="chart-tf-btn px-2 py-0.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">1M</button>
-            <button onclick="changeChartTimeframe(90,this)" class="chart-tf-btn px-2 py-0.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">3M</button>
-            <button onclick="changeChartTimeframe(180,this)" class="chart-tf-btn px-2 py-0.5 text-[9px] font-bold rounded bg-surface-variant text-primary">6M</button>
-            <button onclick="changeChartTimeframe(365,this)" class="chart-tf-btn px-2 py-0.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">1Y</button>
-            <button onclick="changeChartTimeframe(1825,this)" class="chart-tf-btn px-2 py-0.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">5Y</button>
-            <button onclick="changeChartTimeframe(3650,this)" class="chart-tf-btn px-2 py-0.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary">10Y</button>
+          <!-- Timeframe dropdown -->
+          <div class="relative" id="chart-tf-dd-wrap">
+            <button onclick="toggleChartTfDd(event)" class="flex items-center gap-0.5 px-2 py-0.5 text-[9px] font-bold rounded bg-surface-container-highest text-primary hover:bg-surface-variant" title="Date range">
+              <span id="chart-tf-label">6M</span>
+              <span class="material-symbols-outlined text-[10px] leading-none">expand_more</span>
+            </button>
+            <div id="chart-tf-dd" class="hidden absolute top-full left-0 mt-0.5 bg-surface-container-highest border border-outline-variant/30 rounded shadow-xl z-[200] w-[56px] py-0.5">
+              <button onclick="selectChartTf(30,'1M')" class="chart-tf-opt w-full text-left px-3 py-1 text-[9px] hover:bg-surface-variant text-on-surface-variant hover:text-primary">1M</button>
+              <button onclick="selectChartTf(90,'3M')" class="chart-tf-opt w-full text-left px-3 py-1 text-[9px] hover:bg-surface-variant text-on-surface-variant hover:text-primary">3M</button>
+              <button onclick="selectChartTf(180,'6M')" class="chart-tf-opt w-full text-left px-3 py-1 text-[9px] hover:bg-surface-variant text-on-surface-variant hover:text-primary font-bold text-primary">6M</button>
+              <button onclick="selectChartTf(365,'1Y')" class="chart-tf-opt w-full text-left px-3 py-1 text-[9px] hover:bg-surface-variant text-on-surface-variant hover:text-primary">1Y</button>
+              <button onclick="selectChartTf(1825,'5Y')" class="chart-tf-opt w-full text-left px-3 py-1 text-[9px] hover:bg-surface-variant text-on-surface-variant hover:text-primary">5Y</button>
+              <button onclick="selectChartTf(3650,'10Y')" class="chart-tf-opt w-full text-left px-3 py-1 text-[9px] hover:bg-surface-variant text-on-surface-variant hover:text-primary">10Y</button>
+            </div>
           </div>
         </div>
         <!-- Breakout signal pills — always visible when a chart is open -->
@@ -3268,6 +3283,9 @@ async function loadChart(symbol, days, interval) {
   interval = interval || currentChartInterval;
   currentChartDays = days;
   currentChartInterval = interval;
+  // Sync dropdown labels whenever chart loads
+  _updateIvOpts(interval);
+  _updateTfOpts(days);
   // Fire-and-forget briefing fetch so 52W line shows on OHLC overlay
   ensureScBriefing(symbol);
   try {
@@ -3278,12 +3296,63 @@ async function loadChart(symbol, days, interval) {
   } catch(e) { document.getElementById('chart-container').innerHTML='<p class="text-error p-4 text-sm">Chart error: '+e.message+'</p>'; }
 }
 
-function changeChartInterval(interval, el) {
-  currentChartInterval = interval;
-  document.querySelectorAll('.chart-iv-btn').forEach(b=>{
-    b.className = 'chart-iv-btn px-2 py-0.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary';
+// ── Chart interval/timeframe dropdown helpers ─────────────────────────────
+const _IV_LABEL  = {'5m':'5m','15m':'15m','1h':'1h','1D':'D','1W':'W','1M':'M'};
+const _TF_LABEL  = {30:'1M',90:'3M',180:'6M',365:'1Y',1825:'5Y',3650:'10Y'};
+
+function _closChartDds(){
+  document.getElementById('chart-iv-dd')?.classList.add('hidden');
+  document.getElementById('chart-tf-dd')?.classList.add('hidden');
+}
+function toggleChartIvDd(e){
+  e?.stopPropagation();
+  const dd=document.getElementById('chart-iv-dd');
+  const was=dd.classList.contains('hidden');
+  _closChartDds();
+  if(was) dd.classList.remove('hidden');
+}
+function toggleChartTfDd(e){
+  e?.stopPropagation();
+  const dd=document.getElementById('chart-tf-dd');
+  const was=dd.classList.contains('hidden');
+  _closChartDds();
+  if(was) dd.classList.remove('hidden');
+}
+document.addEventListener('click', _closChartDds);
+
+function _updateIvOpts(interval){
+  document.querySelectorAll('.chart-iv-opt').forEach(b=>{
+    const active = b.getAttribute('onclick')?.includes("'"+interval+"'");
+    b.classList.toggle('text-primary', !!active);
+    b.classList.toggle('font-bold',   !!active);
+    b.classList.toggle('text-on-surface-variant', !active);
   });
-  if(el) el.className = 'chart-iv-btn px-2 py-0.5 text-[9px] font-bold rounded bg-surface-variant text-primary';
+  const lbl = document.getElementById('chart-iv-label');
+  if(lbl) lbl.textContent = _IV_LABEL[interval] || interval;
+}
+function _updateTfOpts(days){
+  document.querySelectorAll('.chart-tf-opt').forEach(b=>{
+    const active = b.getAttribute('onclick')?.startsWith('selectChartTf('+days+',');
+    b.classList.toggle('text-primary', !!active);
+    b.classList.toggle('font-bold',   !!active);
+    b.classList.toggle('text-on-surface-variant', !active);
+  });
+  const lbl = document.getElementById('chart-tf-label');
+  if(lbl) lbl.textContent = _TF_LABEL[days] || days+'d';
+}
+
+function selectChartIv(interval, label){
+  _closChartDds();
+  changeChartInterval(interval);
+}
+function selectChartTf(days, label){
+  _closChartDds();
+  changeChartTimeframe(days);
+}
+
+function changeChartInterval(interval) {
+  currentChartInterval = interval;
+  _updateIvOpts(interval);
   // Intraday intervals: backend fetches max available from Angel; days param irrelevant
   const intraday = ['5m','15m','1h'].includes(interval);
   let days = currentChartDays;
@@ -3292,22 +3361,15 @@ function changeChartInterval(interval, el) {
     else if (interval === '1M' && days < 730) days = 730;
     if (days !== currentChartDays) {
       currentChartDays = days;
-      document.querySelectorAll('.chart-tf-btn').forEach(b=>{
-        const matches = b.getAttribute('onclick')?.includes('('+days+',');
-        b.className = 'chart-tf-btn px-2 py-0.5 text-[9px] font-bold rounded ' +
-          (matches ? 'bg-surface-variant text-primary' : 'text-on-surface-variant hover:text-primary');
-      });
+      _updateTfOpts(days);
     }
   }
   if(currentChartSymbol) loadChart(currentChartSymbol, days, interval);
 }
 
-function changeChartTimeframe(days, el) {
+function changeChartTimeframe(days) {
   currentChartDays = days;
-  document.querySelectorAll('.chart-tf-btn').forEach(b=>{
-    b.className = 'chart-tf-btn px-2 py-0.5 text-[9px] font-bold rounded text-on-surface-variant hover:text-primary';
-  });
-  if(el) el.className = 'chart-tf-btn px-2 py-0.5 text-[9px] font-bold rounded bg-surface-variant text-primary';
+  _updateTfOpts(days);
   if(currentChartSymbol) loadChart(currentChartSymbol, days, currentChartInterval);
 }
 
