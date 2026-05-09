@@ -2717,7 +2717,7 @@ async function pfSubmitAdd() {
   const sym = document.getElementById('pf-sym').value.trim().toUpperCase();
   const qty = parseFloat(document.getElementById('pf-qty').value);
   const price = parseFloat(document.getElementById('pf-price').value);
-  if (!sym || !qty || !price) { alert('Symbol, qty, and buy price are required'); return; }
+  if (!sym || !qty || !price) { showPracticeToast?.('Symbol, qty and buy price are required', 'err'); return; }
   const body = { symbol: sym, qty, buy_price: price, buy_date: document.getElementById('pf-date').value, notes: document.getElementById('pf-notes').value };
   try {
     const r = await fetch(API + '/portfolio/add', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
@@ -2726,16 +2726,16 @@ async function pfSubmitAdd() {
     await _pfLoadTradesCache(true);
     scApplyMarkers();
     loadPortfolio();
-  } catch(e) { alert('Failed: ' + e.message); }
+  } catch(e) { showPracticeToast?.('Failed: ' + e.message, 'err'); }
 }
 async function pfDelete(id) {
-  if (!confirm('Remove this position?')) return;
+  // No confirm() — blocks Chrome extension; trash icon is sufficient intent signal
   try {
     await fetch(API + '/portfolio/' + encodeURIComponent(id), {method:'DELETE'});
     await _pfLoadTradesCache(true);
     scApplyMarkers();
     loadPortfolio();
-  } catch(e) { alert('Delete failed: ' + e.message); }
+  } catch(e) { showPracticeToast?.('Delete failed: ' + e.message, 'err'); }
 }
 
 function pfOpenCloseModal(id, sym) {
