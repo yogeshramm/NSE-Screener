@@ -1007,6 +1007,9 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
               <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" autocomplete="off" data-chart-ind="ichimoku" onchange="toggleChartIndicator('ichimoku',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#ef4444] rounded inline-block"></span>Ichimoku Cloud</label>
               <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" autocomplete="off" data-chart-ind="pivots" onchange="toggleChartIndicator('pivots',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#facc15] rounded inline-block"></span>Pivot Levels</label>
               <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded" title="Accumulation (cyan square, below green candle) / Distribution (pink square, above red candle) on bars with volume ≥ 2× 20-day avg — institutional-footprint flags"><input type="checkbox" autocomplete="off" data-chart-ind="vol_surge" onchange="toggleChartIndicator('vol_surge',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#22d3ee] rounded inline-block"></span>Volume Surge (ACC/DIST)</label>
+              <div class="border-t border-outline-variant/20 my-1 mx-1"></div>
+              <div class="px-2 py-0.5 text-[7.5px] text-on-surface-variant/50 font-semibold uppercase tracking-wider">Trade</div>
+              <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded" title="Engine-suggested Bz/Sz/SLz zones on latest candle + your YBz/YSz trade entry/exit markers"><input type="checkbox" autocomplete="off" checked data-chart-ind="trade_zones" onchange="toggleChartIndicator('trade_zones',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#eab308] rounded inline-block"></span>Trade Zones</label>
               <div class="border-t border-outline-variant/20 mt-2 pt-2"><div class="text-[8px] font-black text-on-surface-variant uppercase tracking-widest mb-2">Panels</div></div>
               <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" autocomplete="off" data-chart-ind="rsi" onchange="toggleChartIndicator('rsi',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#a855f7] rounded inline-block"></span>RSI (14)</label>
               <label class="flex items-center gap-2 text-[10px] cursor-pointer hover:bg-surface-container-highest/40 px-2 py-1 rounded"><input type="checkbox" autocomplete="off" data-chart-ind="macd" onchange="toggleChartIndicator('macd',this.checked)" class="w-3 h-3 rounded text-primary bg-surface-container-highest border-none focus:ring-0"/><span class="w-2 h-0.5 bg-[#f97316] rounded inline-block"></span>MACD</label>
@@ -1027,6 +1030,7 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
           <button id="sc-avwap-btn" onclick="toggleAnchoredVWAP()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded hidden sm:inline-flex" title="Anchored VWAP">aVWAP</button>
           <button id="sc-tt-btn" onclick="toggleScreenerTemplate()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded hidden sm:inline-flex" title="Trend Template">TEMPLATE</button>
           <button id="sc-oe-btn" onclick="toggleScreenerOptimal()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded hidden sm:inline-flex" title="Optimal Entry/Exit">ENTRY/EXIT</button>
+          <button id="sc-mark-btn" onclick="toggleMarkMode()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded inline-flex" title="Click then click a candle to mark your BUY entry">MARK</button>
           <span class="material-symbols-outlined text-sm cursor-pointer hover:text-primary" onclick="openInsightsFromChart()">psychology</span>
           <span id="chart-close-btn" class="material-symbols-outlined text-sm cursor-pointer hover:text-error" onclick="closeChart()">close</span>
         </div>
@@ -1669,13 +1673,13 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
         <thead class="bg-surface-container border-b border-outline-variant/20">
           <tr>
             <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">Symbol</th>
+            <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">Status</th>
             <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Qty</th>
             <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Buy</th>
-            <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">LTP</th>
+            <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">LTP / Sell</th>
             <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Invested</th>
-            <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Current</th>
             <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">P&amp;L</th>
-            <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Day</th>
+            <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">SL / Tgt</th>
             <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Date</th>
             <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center"></th>
           </tr>
@@ -1687,6 +1691,57 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
     </div>
   </div>
 </section>
+
+<!-- Trade Mark Modal (click candle on chart → mark BUY) -->
+<div id="pf-mark-modal" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/60" style="display:none">
+  <div class="w-[360px] max-w-[calc(100vw-2rem)] glass-panel rounded-2xl border border-outline-variant/20 bg-surface-container-low overflow-hidden">
+    <div class="p-5 border-b border-outline-variant/20 flex items-center justify-between">
+      <div>
+        <h3 class="text-sm font-black uppercase tracking-widest text-primary">Mark BUY Trade</h3>
+        <div class="text-[10px] text-on-surface-variant mt-0.5">Recording entry for <span id="pf-mark-sym" class="font-bold text-on-surface"></span></div>
+      </div>
+      <button onclick="pfHideMarkModal()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <div class="p-5 space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-[10px] font-bold uppercase text-on-surface-variant">Buy Price</label><input id="pf-mark-price" type="number" step="0.05" class="w-full mt-1 bg-surface-container-highest px-3 py-2 rounded text-sm font-mono" placeholder="0.00" /></div>
+        <div><label class="text-[10px] font-bold uppercase text-on-surface-variant">Qty / Shares</label><input id="pf-mark-qty" type="number" class="w-full mt-1 bg-surface-container-highest px-3 py-2 rounded text-sm font-mono" placeholder="10" /></div>
+      </div>
+      <div><label class="text-[10px] font-bold uppercase text-on-surface-variant">Buy Date</label><input id="pf-mark-date" type="date" class="w-full mt-1 bg-surface-container-highest px-3 py-2 rounded text-sm" /></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-[10px] font-bold uppercase text-error">Stop Loss <span class="text-on-surface-variant normal-case">(optional)</span></label><input id="pf-mark-sl" type="number" step="0.05" class="w-full mt-1 bg-surface-container-highest px-3 py-2 rounded text-sm font-mono" placeholder="auto" /></div>
+        <div><label class="text-[10px] font-bold uppercase text-primary">Target <span class="text-on-surface-variant normal-case">(optional)</span></label><input id="pf-mark-tgt" type="number" step="0.05" class="w-full mt-1 bg-surface-container-highest px-3 py-2 rounded text-sm font-mono" placeholder="auto" /></div>
+      </div>
+      <div><label class="text-[10px] font-bold uppercase text-on-surface-variant">Notes</label><input id="pf-mark-notes" type="text" class="w-full mt-1 bg-surface-container-highest px-3 py-2 rounded text-sm" placeholder="RSI dip play, vol confirmation…" /></div>
+    </div>
+    <div class="p-5 border-t border-outline-variant/20 flex gap-2">
+      <button onclick="pfHideMarkModal()" class="flex-1 px-3 py-2 bg-surface-container-highest text-on-surface font-bold text-xs rounded">Cancel</button>
+      <button onclick="pfSubmitMark()" class="flex-1 px-3 py-2 bg-primary text-on-primary font-bold text-xs rounded">Save Trade</button>
+    </div>
+  </div>
+</div>
+
+<!-- Close Trade Modal -->
+<div id="pf-close-modal" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/60" style="display:none">
+  <div class="w-[320px] max-w-[calc(100vw-2rem)] glass-panel rounded-2xl border border-outline-variant/20 bg-surface-container-low overflow-hidden">
+    <div class="p-5 border-b border-outline-variant/20 flex items-center justify-between">
+      <div>
+        <h3 class="text-sm font-black uppercase tracking-widest">Close Trade</h3>
+        <div class="text-[10px] text-on-surface-variant mt-0.5">Record exit for <span id="pf-close-sym" class="font-bold text-on-surface"></span></div>
+      </div>
+      <button onclick="pfHideCloseModal()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <div class="p-5 space-y-3">
+      <input type="hidden" id="pf-close-id" />
+      <div><label class="text-[10px] font-bold uppercase text-on-surface-variant">Sell Price</label><input id="pf-close-price" type="number" step="0.05" class="w-full mt-1 bg-surface-container-highest px-3 py-2 rounded text-sm font-mono" placeholder="0.00" /></div>
+      <div><label class="text-[10px] font-bold uppercase text-on-surface-variant">Sell Date</label><input id="pf-close-date" type="date" class="w-full mt-1 bg-surface-container-highest px-3 py-2 rounded text-sm" /></div>
+    </div>
+    <div class="p-5 border-t border-outline-variant/20 flex gap-2">
+      <button onclick="pfHideCloseModal()" class="flex-1 px-3 py-2 bg-surface-container-highest text-on-surface font-bold text-xs rounded">Cancel</button>
+      <button onclick="pfSubmitClose()" class="flex-1 px-3 py-2 bg-error text-on-error font-bold text-xs rounded">Close Trade</button>
+    </div>
+  </div>
+</div>
 
 <!-- Portfolio Add Modal -->
 <div id="pf-add-modal" class="fixed inset-0 z-[85] flex items-center justify-center bg-black/60" style="display:none">
@@ -2601,6 +2656,9 @@ window.addEventListener('popstate', (e) => {
 async function loadPortfolio() {
   try {
     const r = await fetch(API + '/portfolio'); const d = await r.json();
+    // Sync the chart-marker cache with fresh data
+    _pfTradesCache = d.positions || [];
+    _pfTradesCacheTs = Date.now();
     _pfRenderTotals(d.totals || {}); _pfRenderBody(d.positions || []);
   } catch(e) {
     document.getElementById('pf-body').innerHTML = `<tr><td colspan="10" class="px-3 py-8 text-center text-error text-xs">Load failed: ${e.message}</td></tr>`;
@@ -2612,9 +2670,9 @@ function _pfRenderTotals(t) {
   const cards = [
     ['Invested', `\u20b9${Math.round(t.invested||0).toLocaleString('en-IN')}`, 'text-on-surface'],
     ['Current', `\u20b9${Math.round(t.current||0).toLocaleString('en-IN')}`, 'text-on-surface'],
-    ['Total P&L', `\u20b9${_pfFmt(t.pnl||0)}`, _pfCol(t.pnl||0)],
-    ['Return %', `${(t.pnl_pct||0)>=0?'+':''}${(t.pnl_pct||0).toFixed(2)}%`, _pfCol(t.pnl_pct||0)],
-    ['Day', `\u20b9${_pfFmt(t.day_change||0)}`, _pfCol(t.day_change||0)],
+    ['Open P&L', `\u20b9${_pfFmt(t.pnl||0)} (${(t.pnl_pct||0)>=0?'+':''}${(t.pnl_pct||0).toFixed(2)}%)`, _pfCol(t.pnl||0)],
+    ['Day Change', `\u20b9${_pfFmt(t.day_change||0)}`, _pfCol(t.day_change||0)],
+    ['Realized', `\u20b9${_pfFmt(t.realized_pnl||0)}`, _pfCol(t.realized_pnl||0)],
   ];
   document.getElementById('pf-totals').innerHTML = cards.map(([l,v,c]) =>
     `<div class="bg-surface-container/40 rounded-lg p-3"><div class="text-[9px] font-bold uppercase text-on-surface-variant">${l}</div><div class="text-base font-black ${c} mt-1 font-mono">${v}</div></div>`
@@ -2623,19 +2681,35 @@ function _pfRenderTotals(t) {
 function _pfRenderBody(rows) {
   const body = document.getElementById('pf-body');
   if (!rows.length) { body.innerHTML = '<tr><td colspan="10" class="px-3 py-12 text-center text-on-surface-variant/50">No positions. Click "Add Position" to start tracking.</td></tr>'; return; }
-  body.innerHTML = rows.map(r => `
-    <tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40">
-      <td class="px-3 py-2.5 font-bold text-on-surface cursor-pointer" onclick="openInsightsPro('${r.symbol}')">${r.symbol}</td>
+  const R = '₹';
+  body.innerHTML = rows.map(r => {
+    const isClosed = r.status === 'closed';
+    const statusBadge = isClosed
+      ? `<span class="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase bg-surface-container text-on-surface-variant">CLOSED</span>`
+      : `<span class="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase bg-primary/20 text-primary">OPEN</span>`;
+    const ltpCell = isClosed
+      ? `<td class="px-3 py-2.5 text-right font-mono text-on-surface-variant">${R}${r.ltp}<div class="text-[8px] text-on-surface-variant/50">${r.sell_date||''}</div></td>`
+      : `<td class="px-3 py-2.5 text-right font-mono">${R}${r.ltp}<div class="text-[8px] ${_pfCol(r.day_pct)}">${(r.day_pct>=0?'+':'')}${r.day_pct}%</div></td>`;
+    const pnlCell = `<td class="px-3 py-2.5 text-right font-mono font-bold ${_pfCol(r.pnl)}">${R}${_pfFmt(r.pnl)}<div class="text-[8px]">(${(r.pnl_pct>=0?'+':'')}${r.pnl_pct}%)</div></td>`;
+    const slTgt = (r.stop_loss || r.target)
+      ? `<td class="px-3 py-2.5 text-right text-[9px] font-mono leading-relaxed">${r.stop_loss ? `<div class="text-error">SL ${R}${r.stop_loss}</div>` : ''}${r.target ? `<div class="text-primary">T ${R}${r.target}</div>` : ''}</td>`
+      : `<td class="px-3 py-2.5 text-right text-on-surface-variant/30 text-[9px]">—</td>`;
+    const actionsCell = isClosed
+      ? `<td class="px-3 py-2.5 text-center"><button onclick="pfDelete('${r.id}')" class="text-on-surface-variant hover:text-error"><span class="material-symbols-outlined text-sm">delete</span></button></td>`
+      : `<td class="px-3 py-2.5 text-center"><button onclick="pfOpenCloseModal('${r.id}','${r.symbol}')" class="text-[8px] font-bold text-on-surface-variant hover:text-error px-1.5 py-0.5 rounded bg-surface-container-highest border border-outline-variant/20" title="Close trade">CLOSE</button> <button onclick="pfDelete('${r.id}')" class="text-on-surface-variant hover:text-error"><span class="material-symbols-outlined text-sm">delete</span></button></td>`;
+    return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 ${isClosed?'opacity-60':''}">
+      <td class="px-3 py-2.5 font-bold text-on-surface cursor-pointer" onclick="openInsightsPro('${r.symbol}')">${r.symbol}${r.notes ? `<div class="text-[8px] text-on-surface-variant/50 font-normal">${r.notes}</div>` : ''}</td>
+      <td class="px-3 py-2.5">${statusBadge}</td>
       <td class="px-3 py-2.5 text-right font-mono">${r.qty}</td>
-      <td class="px-3 py-2.5 text-right font-mono text-on-surface-variant">\u20b9${r.buy_price}</td>
-      <td class="px-3 py-2.5 text-right font-mono">\u20b9${r.ltp}</td>
-      <td class="px-3 py-2.5 text-right font-mono text-on-surface-variant">\u20b9${Math.round(r.invested).toLocaleString('en-IN')}</td>
-      <td class="px-3 py-2.5 text-right font-mono font-bold">\u20b9${Math.round(r.current).toLocaleString('en-IN')}</td>
-      <td class="px-3 py-2.5 text-right font-mono font-bold ${_pfCol(r.pnl)}">${_pfFmt(r.pnl)} <span class="text-[9px]">(${(r.pnl_pct>=0?'+':'')}${r.pnl_pct}%)</span></td>
-      <td class="px-3 py-2.5 text-right font-mono ${_pfCol(r.day_change)}">${_pfFmt(r.day_change)} <span class="text-[9px]">(${(r.day_pct>=0?'+':'')}${r.day_pct}%)</span></td>
-      <td class="px-3 py-2.5 text-right text-[10px] text-on-surface-variant">${r.buy_date||'—'}</td>
-      <td class="px-3 py-2.5 text-center"><button onclick="pfDelete('${r.id}')" class="text-on-surface-variant hover:text-error"><span class="material-symbols-outlined text-sm">delete</span></button></td>
-    </tr>`).join('');
+      <td class="px-3 py-2.5 text-right font-mono text-on-surface-variant">${R}${r.buy_price}</td>
+      ${ltpCell}
+      <td class="px-3 py-2.5 text-right font-mono text-on-surface-variant">${R}${Math.round(r.invested).toLocaleString('en-IN')}</td>
+      ${pnlCell}
+      ${slTgt}
+      <td class="px-3 py-2.5 text-right text-[9px] text-on-surface-variant">${r.buy_date||'—'}</td>
+      ${actionsCell}
+    </tr>`;
+  }).join('');
 }
 function pfShowAdd() { document.getElementById('pf-add-modal').style.display = 'flex'; ['pf-sym','pf-qty','pf-price','pf-date','pf-notes'].forEach(i => { const el=document.getElementById(i); if(el) el.value=''; }); }
 function pfHideAdd() { document.getElementById('pf-add-modal').style.display = 'none'; }
@@ -2648,13 +2722,48 @@ async function pfSubmitAdd() {
   try {
     const r = await fetch(API + '/portfolio/add', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    pfHideAdd(); loadPortfolio();
+    pfHideAdd();
+    await _pfLoadTradesCache(true);
+    scApplyMarkers();
+    loadPortfolio();
   } catch(e) { alert('Failed: ' + e.message); }
 }
 async function pfDelete(id) {
   if (!confirm('Remove this position?')) return;
-  try { await fetch(API + '/portfolio/' + encodeURIComponent(id), {method:'DELETE'}); loadPortfolio(); }
-  catch(e) { alert('Delete failed: ' + e.message); }
+  try {
+    await fetch(API + '/portfolio/' + encodeURIComponent(id), {method:'DELETE'});
+    await _pfLoadTradesCache(true);
+    scApplyMarkers();
+    loadPortfolio();
+  } catch(e) { alert('Delete failed: ' + e.message); }
+}
+
+function pfOpenCloseModal(id, sym) {
+  document.getElementById('pf-close-id').value = id;
+  document.getElementById('pf-close-sym').textContent = sym;
+  document.getElementById('pf-close-price').value = '';
+  // Default sell date to today
+  document.getElementById('pf-close-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('pf-close-modal').style.display = 'flex';
+}
+function pfHideCloseModal() { document.getElementById('pf-close-modal').style.display = 'none'; }
+async function pfSubmitClose() {
+  const id    = document.getElementById('pf-close-id').value;
+  const price = parseFloat(document.getElementById('pf-close-price').value);
+  const date  = document.getElementById('pf-close-date').value;
+  if (!price) { showPracticeToast?.('Enter sell price', 'err'); return; }
+  try {
+    const r = await fetch(API + '/portfolio/' + encodeURIComponent(id) + '/close', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({sell_price: price, sell_date: date})
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    pfHideCloseModal();
+    await _pfLoadTradesCache(true);
+    scApplyMarkers();
+    loadPortfolio();
+    showPracticeToast?.('Trade closed', 'ok');
+  } catch(e) { showPracticeToast?.('Failed: ' + e.message, 'err'); }
 }
 
 // ============ FILTER PANEL ============
@@ -3575,6 +3684,14 @@ function renderChart(data) {
     }
     _pushXhair(currentChart, param);
   });
+
+  // Click-to-mark: in MARK mode, clicking a candle opens the Trade Mark modal
+  currentChart.subscribeClick(param => {
+    if (!scMarkMode || !param.time) return;
+    const candle = chartData?.candles?.find(c => c.time === param.time);
+    if (!candle) return;
+    openMarkTradeModal(candle);
+  });
   // Force all sub-panels to match main chart's logical range after initial render
   setTimeout(()=>{
     try {
@@ -3994,12 +4111,14 @@ function applyStarredChartDefaults() {
   document.querySelectorAll('#chart-ind-dropdown [data-chart-ind]').forEach(cb => {
     cb.checked = s.has(cb.dataset.chartInd);
   });
-  // scVolSurgeOn tracks the vol_surge checkbox independently (marker overlay),
-  // so sync it here or its flag won't match the new checkbox state.
+  // scVolSurgeOn / scTradeZonesOn track checkbox state independently
   scVolSurgeOn = s.has('vol_surge');
+  scTradeZonesOn = s.has('trade_zones');
 }
 
 function toggleChartIndicator(key, checked) {
+  // Trade Zones: Bz/Sz/SLz + YBz/YSz marker overlay
+  if(key==='trade_zones') { scTradeZonesOn = !!checked; scApplyMarkers(); return; }
   // Volume-surge ACC/DIST marker overlay (uses the same shared marker array
   // as HELP + EVENTS — scApplyMarkers picks up the state flag).
   if(key==='vol_surge') { scVolSurgeOn = !!checked; scApplyMarkers(); return; }
@@ -4297,11 +4416,110 @@ async function runBacktest() {
 
 // ============ SCREENER CHART OVERLAYS (INFO + HELP + EVENTS + ENTRY/EXIT) ============
 let scInfoOn = false, scHelpOn = false, scEventsOn = false, scVolSurgeOn = false, scTemplateOn = false, scOptimalOn = false;
+let scTradeZonesOn = true;   // Trade Zones on by default
+let scMarkMode = false;      // click-to-mark BUY mode
 let scBriefingCache = {}; // {symbol: data}
 let scEventsCache = {};   // {symbol: events[]}
 let scOptimalCache = {};  // {symbol: optimal-levels response}
 let sc52HiLine = null, sc52LoLine = null;
 let scOptLines = [];      // entry / stop / target price lines
+
+// ── Portfolio trade cache (for YBz/YSz markers on chart) ──────────────────
+let _pfTradesCache = [];    // all positions loaded from /portfolio
+let _pfTradesCacheTs = 0;   // unix-ms of last load
+
+function _pfGetTradesForSymbol(sym) {
+  return _pfTradesCache.filter(t => (t.symbol || '').toUpperCase() === sym.toUpperCase());
+}
+function _pfDateToTs(dateStr) {
+  if (!dateStr) return null;
+  // Handles YYYY-MM-DD; returns unix seconds (midnight UTC)
+  try { return Math.floor(new Date(dateStr + 'T00:00:00').getTime() / 1000); } catch(e) { return null; }
+}
+function _pfSnapToCandle(ts) {
+  if (!ts || !chartData?.candles?.length) return null;
+  const candles = chartData.candles;
+  if (ts < candles[0].time - 86400 || ts > candles[candles.length - 1].time + 7 * 86400) return null;
+  let best = candles[0], bestDiff = Math.abs(candles[0].time - ts);
+  for (const c of candles) {
+    const d = Math.abs(c.time - ts);
+    if (d < bestDiff) { bestDiff = d; best = c; }
+  }
+  return best.time;
+}
+async function _pfLoadTradesCache(force = false) {
+  const now = Date.now();
+  if (!force && _pfTradesCache.length && (now - _pfTradesCacheTs) < 30000) return;
+  try {
+    const r = await fetch(API + '/portfolio');
+    if (r.ok) { const d = await r.json(); _pfTradesCache = d.positions || []; _pfTradesCacheTs = now; }
+  } catch(e) {}
+}
+
+function toggleMarkMode() {
+  scMarkMode = !scMarkMode;
+  const btn = document.getElementById('sc-mark-btn');
+  if (!btn) return;
+  if (scMarkMode) {
+    btn.className = 'text-[9px] font-bold text-on-primary bg-primary px-2 py-0.5 rounded sm:inline-flex';
+    showPracticeToast?.('Click any candle on the chart to mark your BUY entry', 'ok');
+  } else {
+    btn.className = 'text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded hidden sm:inline-flex';
+  }
+}
+
+function openMarkTradeModal(candle) {
+  // Pre-fill with candle close price; pull SL/target from optimal levels if available
+  const sym = currentChartSymbol || '';
+  const closePrice = candle.close;
+  const dateTs = candle.time;
+  // Convert unix seconds → YYYY-MM-DD
+  const d = new Date(dateTs * 1000);
+  const dateStr = d.toISOString().slice(0, 10);
+  // Pre-fill from optimal levels if we have a fresh plan
+  const plan = scOptimalCache[sym];
+  const suggestSl  = (plan && plan.stop_loss) ? plan.stop_loss : '';
+  const suggestTgt = (plan && plan.target)    ? plan.target    : '';
+  // Set modal fields
+  const el = id => document.getElementById(id);
+  if (!el('pf-mark-modal')) return;
+  el('pf-mark-sym').textContent   = sym;
+  el('pf-mark-price').value       = closePrice;
+  el('pf-mark-qty').value         = '';
+  el('pf-mark-date').value        = dateStr;
+  el('pf-mark-sl').value          = suggestSl;
+  el('pf-mark-tgt').value         = suggestTgt;
+  el('pf-mark-notes').value       = '';
+  el('pf-mark-modal').style.display = 'flex';
+  // Deactivate mark mode immediately so user can read chart again
+  scMarkMode = false;
+  const btn = document.getElementById('sc-mark-btn');
+  if (btn) btn.className = 'text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded hidden sm:inline-flex';
+}
+
+function pfHideMarkModal() { document.getElementById('pf-mark-modal').style.display = 'none'; }
+
+async function pfSubmitMark() {
+  const sym   = document.getElementById('pf-mark-sym').textContent.trim().toUpperCase();
+  const price = parseFloat(document.getElementById('pf-mark-price').value);
+  const qty   = parseFloat(document.getElementById('pf-mark-qty').value);
+  const date  = document.getElementById('pf-mark-date').value;
+  const sl    = parseFloat(document.getElementById('pf-mark-sl').value) || null;
+  const tgt   = parseFloat(document.getElementById('pf-mark-tgt').value) || null;
+  const notes = document.getElementById('pf-mark-notes').value;
+  if (!sym || !price || !qty) { showPracticeToast?.('Symbol, price and qty are required', 'err'); return; }
+  const body = { symbol: sym, qty, buy_price: price, buy_date: date, notes,
+    ...(sl  ? {stop_loss: sl}  : {}),
+    ...(tgt ? {target: tgt}    : {}) };
+  try {
+    const r = await fetch(API + '/portfolio/add', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    pfHideMarkModal();
+    await _pfLoadTradesCache(true);
+    scApplyMarkers();
+    showPracticeToast?.(`${sym} position added`, 'ok');
+  } catch(e) { showPracticeToast?.('Failed: ' + e.message, 'err'); }
+}
 
 function scApplyAllChartOverlays() {
   if (scInfoOn) scApply52WLines();
@@ -4705,6 +4923,44 @@ function scApplyMarkers() {
       else if (surges.dist.has(i)) markers.push({
         time: t, position: 'aboveBar', color: '#f472b6', shape: 'square', text: 'DIST',
       });
+    }
+  }
+  // TRADE ZONES: engine Bz/Sz/SLz on latest candle + user YBz/YSz on entry/exit candles
+  if (scTradeZonesOn && currentChartSymbol && chartData.candles?.length) {
+    const lastTs = chartData.candles[chartData.candles.length - 1].time;
+    // Engine-suggested zones from optimal levels cache (if loaded via ENTRY/EXIT overlay)
+    const plan = scOptimalCache[currentChartSymbol];
+    if (plan && plan.tradeable) {
+      if (plan.entry    !== null && plan.entry    !== undefined)
+        markers.push({ time: lastTs, position: 'belowBar', color: '#eab308', shape: 'square', text: `Bz ₹${plan.entry}` });
+      if (plan.target   !== null && plan.target   !== undefined)
+        markers.push({ time: lastTs, position: 'aboveBar', color: '#00e5a0', shape: 'square', text: `Sz ₹${plan.target}` });
+      if (plan.stop_loss !== null && plan.stop_loss !== undefined)
+        markers.push({ time: lastTs, position: 'aboveBar', color: '#ff4757', shape: 'square', text: `SLz ₹${plan.stop_loss}` });
+    }
+    // User portfolio trades for this symbol
+    const trades = _pfGetTradesForSymbol(currentChartSymbol);
+    for (const t of trades) {
+      if (t.buy_date) {
+        const bts = _pfSnapToCandle(_pfDateToTs(t.buy_date));
+        if (bts) {
+          const pnlSuffix = (t.pnl_pct !== undefined && t.pnl_pct !== null)
+            ? ` ${t.pnl_pct >= 0 ? '+' : ''}${t.pnl_pct}%` : '';
+          markers.push({ time: bts, position: 'belowBar', color: '#22d3ee', shape: 'square',
+            text: `YBz ₹${t.buy_price}${pnlSuffix}` });
+        }
+      }
+      if (t.status === 'closed' && t.sell_date) {
+        const sts = _pfSnapToCandle(_pfDateToTs(t.sell_date));
+        if (sts) markers.push({ time: sts, position: 'aboveBar', color: '#fb923c', shape: 'square',
+          text: `YSz ₹${t.sell_price} ${(t.pnl_pct||0) >= 0 ? '+' : ''}${t.pnl_pct||0}%` });
+      }
+      // P&L floater on latest candle for open positions
+      if (t.status === 'open' && t.pnl_pct !== undefined && t.pnl_pct !== null) {
+        const col = t.pnl_pct >= 0 ? '#00e5a0' : '#ff4757';
+        markers.push({ time: lastTs, position: 'aboveBar', color: col, shape: 'circle',
+          text: `${t.pnl_pct >= 0 ? '▲' : '▼'} ${t.pnl_pct >= 0 ? '+' : ''}${t.pnl_pct}%` });
+      }
     }
   }
   markers.sort((a,b) => a.time - b.time);
