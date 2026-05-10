@@ -449,7 +449,22 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
   #symbols-input-container { width: 100%; flex: 1 1 100%; }
   #screener-action-right { justify-content: flex-end; }
 
-  /* 7. Home stat cards: single row scrollable on very narrow, 2-col otherwise is fine */
+  /* 7. Home stat cards: horizontal scroll strip on mobile (Kite-style metric cards) */
+  #tab-home .grid.grid-cols-2.md\\:grid-cols-4 {
+    display: flex !important;
+    overflow-x: auto !important;
+    gap: 0.5rem !important;
+    padding-bottom: 4px !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin-bottom: 1rem !important;
+  }
+  #tab-home .grid.grid-cols-2.md\\:grid-cols-4::-webkit-scrollbar { display: none; }
+  #tab-home .grid.grid-cols-2.md\\:grid-cols-4 > div {
+    min-width: 120px;
+    flex: 0 0 auto;
+  }
+
   /* 8. Insights pro / modals: full screen */
   #insights-pro-modal > div {
     width: 100% !important;
@@ -539,6 +554,11 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
 
   /* Comfortable touch targets on screener rows (was py-2.5) */
   #s1-table td, #s2-table td { padding-top: 0.65rem !important; padding-bottom: 0.65rem !important; }
+
+  /* 15. Home page: tighter padding on mobile */
+  #tab-home .p-6 { padding: 0.75rem !important; }
+  #tab-home .mb-6 { margin-bottom: 0.75rem !important; }
+  #tab-home .gap-6 { gap: 0.75rem !important; }
 }
 </style>
 </head>
@@ -786,13 +806,25 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
         </div>
       </div>
 
-      <!-- Upcoming Events section -->
-      <div class="lg:col-span-1 bg-surface-container-low rounded-xl border border-outline-variant/20 overflow-hidden">
-        <div class="px-4 py-3 border-b border-outline-variant/10">
-          <span class="text-[10px] font-black uppercase tracking-[0.15em] text-primary">Upcoming Events</span>
-          <span class="text-[9px] text-on-surface-variant ml-2">(watchlist stocks)</span>
+      <!-- Portfolio widget (replacing Events) — Kite-inspired P&L card -->
+      <div class="lg:col-span-1 bg-surface-container-low rounded-xl border border-outline-variant/20 overflow-hidden order-first lg:order-none">
+        <div class="px-4 py-3 border-b border-outline-variant/10 flex items-center justify-between">
+          <div class="flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-primary" style="font-size:14px">account_balance_wallet</span>
+            <span class="text-[10px] font-black uppercase tracking-[0.15em] text-primary">Portfolio</span>
+          </div>
+          <button onclick="switchTab('portfolio')" class="text-[9px] text-primary hover:opacity-70 flex items-center gap-0.5 font-bold">
+            View all <span class="material-symbols-outlined" style="font-size:12px">chevron_right</span>
+          </button>
         </div>
-        <div id="home-events-body" class="divide-y divide-outline-variant/10 max-h-52 overflow-y-auto">
+        <!-- Mini P&L summary strip -->
+        <div id="home-pf-summary" class="px-4 py-2 border-b border-outline-variant/10 bg-surface-container-highest/20 grid grid-cols-3 gap-2">
+          <div class="text-center"><div class="text-[8px] text-on-surface-variant/60 uppercase">Invested</div><div id="home-pf-inv" class="text-xs font-black font-mono text-on-surface">—</div></div>
+          <div class="text-center"><div class="text-[8px] text-on-surface-variant/60 uppercase">P&L</div><div id="home-pf-pnl" class="text-xs font-black font-mono">—</div></div>
+          <div class="text-center"><div class="text-[8px] text-on-surface-variant/60 uppercase">Today</div><div id="home-pf-day" class="text-xs font-black font-mono">—</div></div>
+        </div>
+        <!-- Positions list -->
+        <div id="home-pf-body" class="divide-y divide-outline-variant/10 max-h-48 overflow-y-auto">
           <div class="px-4 py-6 text-center text-on-surface-variant/50 text-xs">Loading…</div>
         </div>
       </div>
@@ -1119,7 +1151,7 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
           <button id="sc-oe-btn" onclick="toggleScreenerOptimal()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded hidden sm:inline-flex" title="Optimal Entry/Exit">ENTRY/EXIT</button>
           <button id="sc-mark-btn" onclick="toggleMarkMode()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded inline-flex" title="Click then click a candle to mark your BUY entry">MARK</button>
           <span class="material-symbols-outlined text-sm cursor-pointer hover:text-primary" onclick="openInsightsFromChart()">psychology</span>
-          <a id="chart-popout-btn" href="#" target="_blank" onclick="this.href='#chart='+encodeURIComponent(currentChartSymbol||'')" class="hidden sm:inline-flex items-center text-on-surface-variant hover:text-primary" title="Open full-page chart in new tab">
+          <a id="chart-popout-btn" href="#" target="_blank" onclick="this.href='#chart='+encodeURIComponent(currentChartSymbol||'')" class="inline-flex items-center text-on-surface-variant hover:text-primary" title="Open full-page chart in new tab">
             <span class="material-symbols-outlined text-sm">open_in_new</span>
           </a>
           <button id="chart-fullpage-exit" onclick="exitChartFullpage()" title="Exit full-page chart — back to app" class="items-center gap-1 px-2 py-0.5 text-[9px] font-bold text-on-surface-variant hover:text-primary bg-surface-container-highest rounded">
@@ -9664,32 +9696,10 @@ async function loadHome() {
       }
     }
 
-    // Upcoming Events for watchlist stocks
-    const evBody = document.getElementById('home-events-body');
-    if (evBody && items.length) {
-      try {
-        const wlSyms = new Set(items.map(i => i.symbol));
-        const evRes = await fetch(API + '/events/calendar').then(r => r.json()).catch(() => ({events:[]}));
-        const evts = (evRes.events || []).filter(e => wlSyms.has(e.symbol)).slice(0, 5);
-        if (evts.length) {
-          evBody.innerHTML = evts.map(e => `
-            <div class="px-4 py-2.5 hover:bg-surface-container-highest/30">
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-on-surface">${e.symbol}</span>
-                <span class="text-[9px] text-on-surface-variant">${e.date || ''}</span>
-              </div>
-              <div class="text-[10px] text-on-surface-variant/70">${e.event_type || e.description || ''}</div>
-            </div>`).join('');
-        } else {
-          evBody.innerHTML = '<div class="px-4 py-6 text-center text-on-surface-variant/50 text-xs">No upcoming events for watchlist</div>';
-        }
-      } catch(e) {
-        evBody.innerHTML = '<div class="px-4 py-6 text-center text-on-surface-variant/50 text-xs">Events unavailable</div>';
-      }
-    } else if (evBody) {
-      evBody.innerHTML = '<div class="px-4 py-6 text-center text-on-surface-variant/50 text-xs">Add stocks to watchlist to see events</div>';
-    }
   } catch(e) {}
+
+  // Portfolio widget on home
+  loadHomePortfolio();
 
   // Sector Pulse — use /market/sector-heatmap (same data used by Market Pulse panel)
   try {
@@ -9782,6 +9792,69 @@ async function loadHome() {
       }
     }
   } catch(e) {}
+}
+
+async function loadHomePortfolio() {
+  const inv = document.getElementById('home-pf-inv');
+  const pnlEl = document.getElementById('home-pf-pnl');
+  const dayEl = document.getElementById('home-pf-day');
+  const body  = document.getElementById('home-pf-body');
+  if (!body) return;
+  try {
+    const d = await fetch(API + '/portfolio').then(r => r.json());
+    const positions = (d.positions || []).filter(p => p.status === 'open');
+    const t = d.totals || {};
+
+    // Summary strip
+    const fmtCr = v => {
+      const n = Math.round(Math.abs(v || 0));
+      if (n >= 10000000) return (v<0?'-':'') + '₹' + (n/10000000).toFixed(1) + 'Cr';
+      if (n >= 100000)   return (v<0?'-':'') + '₹' + (n/100000).toFixed(1) + 'L';
+      return (v<0?'-':'') + '₹' + n.toLocaleString('en-IN');
+    };
+    if (inv)  inv.textContent  = fmtCr(t.invested || 0);
+    const pnl = t.pnl || 0;
+    const pnlPct = t.pnl_pct || 0;
+    if (pnlEl) {
+      const col = pnl > 0 ? '#00e5a0' : pnl < 0 ? '#ff4757' : '#888';
+      pnlEl.innerHTML = `<span style="color:${col}">${pnl>=0?'+':''}${fmtCr(pnl)}</span><span style="color:${col};font-size:9px"> (${pnlPct>=0?'+':''}${pnlPct.toFixed(1)}%)</span>`;
+    }
+    const day = t.day_change || 0;
+    if (dayEl) {
+      const col = day > 0 ? '#00e5a0' : day < 0 ? '#ff4757' : '#888';
+      dayEl.innerHTML = `<span style="color:${col}">${day>=0?'+':''}${fmtCr(day)}</span>`;
+    }
+
+    if (!positions.length) {
+      body.innerHTML = `<div class="px-4 py-5 text-center text-on-surface-variant/50 text-xs">
+        No open positions · <button onclick="switchTab('portfolio')" class="text-primary hover:opacity-70 font-bold">Add your first trade</button>
+      </div>`;
+      return;
+    }
+
+    body.innerHTML = positions.slice(0, 6).map(p => {
+      const col = p.pnl_pct > 0 ? '#00e5a0' : p.pnl_pct < 0 ? '#ff4757' : '#888';
+      const safe = p.symbol.replace(/'/g, "\\'");
+      const enc  = encodeURIComponent(p.symbol);
+      return `<a href="#stock=${enc}" onclick="event.preventDefault();openStockView('${safe}','portfolio')"
+        class="px-4 py-2.5 flex items-center justify-between hover:bg-surface-container-highest/30 cursor-pointer no-underline block">
+        <div class="min-w-0">
+          <div class="text-xs font-black text-on-surface">${p.symbol}</div>
+          <div class="text-[9px] text-on-surface-variant/60">${p.qty}×₹${Number(p.buy_price).toFixed(0)}</div>
+        </div>
+        <div class="text-right flex-shrink-0 ml-3">
+          <div class="text-xs font-mono text-on-surface">₹${Number(p.ltp||p.buy_price).toFixed(0)}</div>
+          <div class="text-[10px] font-black font-mono" style="color:${col}">${p.pnl_pct>=0?'+':''}${Number(p.pnl_pct).toFixed(2)}%</div>
+        </div>
+      </a>`;
+    }).join('');
+
+    if (positions.length > 6) {
+      body.insertAdjacentHTML('beforeend', `<div class="px-4 py-2 text-center text-[9px] text-primary cursor-pointer hover:opacity-70" onclick="switchTab('portfolio')">+${positions.length-6} more positions →</div>`);
+    }
+  } catch(e) {
+    if (body) body.innerHTML = `<div class="px-4 py-5 text-center text-on-surface-variant/50 text-xs">Portfolio unavailable</div>`;
+  }
 }
 
 // ============ FEATURE 2: CSV EXPORT ============
@@ -10049,6 +10122,7 @@ function ctxAction(action) {
   closeCtxMenu();
   if (!sym) return;
   if (action === 'chart') { switchTab('screener'); setTimeout(() => openChart(sym), 100); }
+  else if (action === 'newtab') { window.open('#chart=' + encodeURIComponent(sym), '_blank'); }
   else if (action === 'insights') { openInsightsPro(sym); }
   else if (action === 'watchlist') { addToWatchlist(sym); }
   else if (action === 'compare') { addToCompare(sym); }
@@ -11136,6 +11210,7 @@ document.addEventListener('click', (e) => {
 <div id="ctx-menu" class="fixed z-[300] hidden bg-surface-container border border-outline-variant/20 rounded-xl shadow-2xl py-1.5" style="min-width:176px">
   <div id="ctx-sym-label" class="px-3 py-1.5 text-[10px] font-black text-primary border-b border-outline-variant/10 mb-1"></div>
   <button class="ctx-item" onclick="ctxAction('chart')"><span class="material-symbols-outlined text-sm">candlestick_chart</span> Open Chart</button>
+  <button class="ctx-item font-bold" onclick="ctxAction('newtab')" style="color:var(--primary)"><span class="material-symbols-outlined text-sm">open_in_new</span> Open in New Tab <span class="text-[8px] ml-auto opacity-60">full page</span></button>
   <button class="ctx-item" onclick="ctxAction('insights')"><span class="material-symbols-outlined text-sm">insights</span> View Insights</button>
   <button class="ctx-item" onclick="ctxAction('watchlist')"><span class="material-symbols-outlined text-sm">bookmark_add</span> Add to Watchlist</button>
   <button class="ctx-item" onclick="ctxAction('compare')"><span class="material-symbols-outlined text-sm">compare</span> Add to Compare</button>
