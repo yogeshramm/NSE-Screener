@@ -454,8 +454,16 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
   .chat-fab-wrap { right: max(1rem, env(safe-area-inset-right, 1rem)) !important; }
   #chat-window   { width: calc(100vw - 2rem) !important; }
 
-  /* 13. Insights panel: sit above the 60px bottom nav, not behind it */
-  #ip-panel { bottom: 60px !important; z-index: 250 !important; }
+  /* 13. Insights panel: above bottom nav, ABOVE full-screen chart, larger */
+  #ip-panel { bottom: 60px !important; z-index: 350 !important; border-radius: 18px 18px 0 0 !important; }
+  #ip-body  { max-height: 65vh !important; }
+  /* Drag handle: show on mobile */
+  #ip-drag-handle { display: flex !important; }
+  /* chart back button: show "Back" text label */
+  #chart-back-label { display: inline !important; }
+  /* Chart toolbar buttons hidden on mobile sm:inline-flex — show ENTRY/EXIT and INFO */
+  #sc-oe-btn  { display: inline-flex !important; }
+  #sc-info-btn { display: inline-flex !important; }
 }
 </style>
 </head>
@@ -981,8 +989,9 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
       <div id="chart-header" class="border-b border-outline-variant/20 px-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 bg-surface-container" style="min-height:2.5rem;padding-top:4px;padding-bottom:4px">
         <!-- Row 1 left: back (mobile) + title + price -->
         <div id="chart-header-left" class="flex items-center gap-2 min-w-0 flex-1">
-          <button id="chart-back-btn" onclick="closeChart()" class="w-7 h-7 items-center justify-center rounded flex-shrink-0 text-on-surface-variant hover:text-primary" title="Back to list">
+          <button id="chart-back-btn" onclick="closeChart()" class="flex items-center gap-1 px-2 py-1 rounded-lg flex-shrink-0 text-on-surface-variant hover:text-primary hover:bg-surface-container-highest" title="Back to list">
             <span class="material-symbols-outlined" style="font-size:18px">arrow_back_ios</span>
+            <span id="chart-back-label" class="text-[11px] font-bold" style="display:none">Back</span>
           </button>
           <span class="text-[10px] font-black uppercase tracking-widest text-on-surface truncate">
             <span id="chart-title">--</span>
@@ -2401,6 +2410,15 @@ function closeMobileAccount() {
   const overlay = document.getElementById('mobile-account-overlay');
   if (overlay) overlay.classList.add('hidden');
 }
+function openMobileMore() {
+  closeMobileAccount();
+  const overlay = document.getElementById('mobile-more-overlay');
+  if (overlay) overlay.classList.remove('hidden');
+}
+function closeMobileMore() {
+  const overlay = document.getElementById('mobile-more-overlay');
+  if (overlay) overlay.classList.add('hidden');
+}
 
 // ============ USER MENU + PROFILE ============
 let _currentUserData = null;  // cached /auth/me response
@@ -2572,8 +2590,13 @@ function switchTab(tab, opts) {
     }
   });
   // Sync bottom nav active state (mobile)
+  const _bnavMoreTabs = new Set(['events','backtest','indicators','config']);
   document.querySelectorAll('.bnav-tab').forEach(el => {
-    el.classList.toggle('bnav-active', el.dataset.tab === tab);
+    if (el.id === 'bnav-more') {
+      el.classList.toggle('bnav-active', _bnavMoreTabs.has(tab));
+    } else {
+      el.classList.toggle('bnav-active', el.dataset.tab === tab);
+    }
   });
   document.getElementById('config-footer').style.display = tab === 'config' ? 'flex' : 'none';
   if (tab === 'config') loadConfig();
@@ -9877,28 +9900,55 @@ function _drawAVWAP(anchorTime) {
 // ============ INSIGHTS POPUP (Tier 1 Feature 4) ============
 // Dock: no backdrop, sits at bottom of viewport, body collapsible, pointer-events pass through outside panel.
 function _ipHTML() {
-  return `<div id="ip-panel" class="fixed left-0 right-0 bottom-0 z-[70] translate-y-full transition-transform duration-300 bg-surface-container-low/95 backdrop-blur border-t border-outline-variant/30 shadow-2xl rounded-t-2xl">
-    <div id="ip-header" class="bg-surface-container-low border-b border-outline-variant/20 px-5 py-2 flex items-center justify-between cursor-pointer" onclick="toggleInsightsPro()">
-      <div class="flex items-center gap-3 flex-wrap">
-        <span class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">INSIGHTS</span>
-        <span id="ip-symbol" class="text-sm font-black text-on-surface"></span>
-        <span id="ip-verdict" class="px-3 py-0.5 rounded-full text-[10px] font-black uppercase"></span>
-        <span id="ip-score" class="font-mono text-xs text-on-surface-variant"></span>
-        <span id="ip-mini" class="font-mono text-[10px] text-on-surface-variant hidden md:inline"></span>
+  return `<div id="ip-panel" class="fixed left-0 right-0 bottom-0 z-[70] translate-y-full transition-transform duration-300 bg-surface-container-low/95 backdrop-blur border-t border-outline-variant/30 shadow-2xl rounded-t-2xl overflow-hidden">
+    <!-- Drag handle (mobile only) -->
+    <div id="ip-drag-handle" class="justify-center pt-2.5 pb-1 cursor-grab active:cursor-grabbing" style="display:none" onclick="toggleInsightsPro()">
+      <div class="w-10 h-[3px] rounded-full bg-on-surface-variant/30 mx-auto"></div>
+    </div>
+    <!-- Header -->
+    <div id="ip-header" class="bg-surface-container-low border-b border-outline-variant/20 px-4 py-2.5 flex items-center justify-between cursor-pointer" onclick="toggleInsightsPro()">
+      <div class="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
+        <span class="text-[9px] font-black uppercase tracking-[0.2em] text-primary flex-shrink-0">INSIGHTS</span>
+        <span id="ip-symbol" class="text-sm font-black text-on-surface truncate"></span>
+        <span id="ip-verdict" class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase flex-shrink-0"></span>
+        <span id="ip-score" class="font-mono text-[10px] text-on-surface-variant flex-shrink-0 hidden sm:inline"></span>
       </div>
-      <div class="flex items-center gap-2">
-        <button id="ip-chart-btn" onclick="event.stopPropagation();" class="text-[10px] font-bold text-primary hover:underline">Open Chart</button>
-        <button id="ip-collapse-btn" onclick="event.stopPropagation();toggleInsightsPro()" class="text-on-surface-variant hover:text-on-surface"><span id="ip-chev" class="material-symbols-outlined text-lg">expand_less</span></button>
-        <button onclick="event.stopPropagation();closeInsightsPro()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-lg">close</span></button>
+      <div class="flex items-center gap-1.5 flex-shrink-0 ml-2">
+        <button id="ip-chart-btn" onclick="event.stopPropagation();"
+          class="text-[10px] font-bold text-primary px-2.5 py-1 bg-primary/10 hover:bg-primary/20 rounded-full transition-colors whitespace-nowrap">
+          Chart ↗
+        </button>
+        <button id="ip-collapse-btn" onclick="event.stopPropagation();toggleInsightsPro()"
+          class="w-7 h-7 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-highest">
+          <span id="ip-chev" class="material-symbols-outlined" style="font-size:20px">expand_less</span>
+        </button>
+        <button onclick="event.stopPropagation();closeInsightsPro()"
+          class="w-7 h-7 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-highest hover:text-error" title="Close">
+          <span class="material-symbols-outlined" style="font-size:20px">close</span>
+        </button>
       </div>
     </div>
-    <div id="ip-body" class="px-5 py-4 overflow-y-auto" style="max-height:45vh"></div>
+    <!-- Mini stats row: visible on mobile in collapsed state -->
+    <div id="ip-mini-row" class="px-4 py-1.5 flex items-center gap-2 border-b border-outline-variant/10 bg-surface-container-lowest/60" style="display:none">
+      <span class="material-symbols-outlined text-primary" style="font-size:13px">monitoring</span>
+      <span id="ip-mini" class="font-mono text-[10px] text-on-surface-variant"></span>
+    </div>
+    <!-- Body -->
+    <div id="ip-body" class="px-5 py-4 overflow-y-auto" style="max-height:45vh;-webkit-overflow-scrolling:touch"></div>
   </div>`;
 }
 function _ipMount() {
   if (document.getElementById('ip-panel')) return;
   const d = document.createElement('div'); d.innerHTML = _ipHTML();
   while (d.firstChild) document.body.appendChild(d.firstChild);
+  // Touch swipe-down to close (mobile)
+  const panel = document.getElementById('ip-panel');
+  let _ts = 0, _ty = 0;
+  panel.addEventListener('touchstart', e => { _ty = e.touches[0].clientY; _ts = Date.now(); }, {passive:true});
+  panel.addEventListener('touchend', e => {
+    const dy = e.changedTouches[0].clientY - _ty;
+    if (dy > 70 && Date.now() - _ts < 350) closeInsightsPro();
+  }, {passive:true});
 }
 function toggleInsightsPro() {
   const body = document.getElementById('ip-body');
@@ -9927,14 +9977,21 @@ async function openInsightsPro(symbol) {
   document.getElementById('ip-verdict').className = 'px-3 py-0.5 rounded-full text-[10px] font-black uppercase bg-surface-container-highest text-on-surface-variant';
   document.getElementById('ip-score').textContent = '';
   document.getElementById('ip-mini').textContent = '';
+  const _miniRow = document.getElementById('ip-mini-row');
+  if (_miniRow) _miniRow.style.display = 'none'; // hide until content loads
   body.classList.remove('hidden'); document.getElementById('ip-chev').textContent='expand_less';
   body.innerHTML = '<div class="text-center py-8 text-on-surface-variant text-sm">Loading insights…</div>';
   panel.classList.remove('translate-y-full');
-  // Also open chart in background so user can reference both
-  if (typeof openChart === 'function' && (typeof currentChartSymbol === 'undefined' || currentChartSymbol !== symbol)) {
+  // Desktop: auto-open chart side-by-side. Mobile: user taps "Chart ↗" to open explicitly.
+  if (window.innerWidth >= 640 && typeof openChart === 'function' && (typeof currentChartSymbol === 'undefined' || currentChartSymbol !== symbol)) {
     try { openChart(symbol); } catch(e){}
   }
-  document.getElementById('ip-chart-btn').onclick = (e) => { e.stopPropagation(); openChart(symbol); };
+  document.getElementById('ip-chart-btn').onclick = (e) => {
+    e.stopPropagation();
+    // On mobile: slide down ip-panel first so chart is fully visible
+    if (window.innerWidth < 640) closeInsightsPro();
+    openChart(symbol);
+  };
   try {
     const [rPro, rMtf] = await Promise.all([
       fetch(API + '/stock/' + symbol + '/insights-pro').then(x => x.ok ? x.json() : Promise.reject('HTTP ' + x.status)),
@@ -9948,7 +10005,11 @@ async function openInsightsPro(symbol) {
     if (t.rsi != null) bits.push(`RSI ${t.rsi}`);
     if (rPro.mtf && !rPro.mtf.error) bits.push(`MTF ${rPro.mtf.total>=0?'+':''}${rPro.mtf.total}`);
     if (rPro.multi_factor?.score != null) bits.push(`MFS ${rPro.multi_factor.score}`);
-    document.getElementById('ip-mini').textContent = bits.join(' · ');
+    const miniText = bits.join(' · ');
+    document.getElementById('ip-mini').textContent = miniText;
+    // Show mini-row when we have content (both mobile and desktop)
+    const miniRow = document.getElementById('ip-mini-row');
+    if (miniRow && miniText) miniRow.style.display = 'flex';
     // Analyst data may not be cached server-side. Auto-trigger its fetch in the
     // background — runs independently, does NOT block chart or other cards.
     _autoLoadAnalystIfMissing();
@@ -9959,6 +10020,9 @@ async function openInsightsPro(symbol) {
 function closeInsightsPro() {
   const p = document.getElementById('ip-panel');
   if (p) p.classList.add('translate-y-full');
+  // Reset mini-row so it doesn't flash stale content on next open
+  const mr = document.getElementById('ip-mini-row');
+  if (mr) mr.style.display = 'none';
 }
 function _ipRenderAnalystBody(a, price, state) {
   // state: undefined/'loading' → still fetching; 'empty' → fetch done, zero sources
@@ -10733,6 +10797,10 @@ document.addEventListener('click', (e) => {
   </a>
   <a href="#portfolio" onclick="event.preventDefault();switchTab('portfolio')" class="bnav-tab" data-tab="portfolio">
     <span class="material-symbols-outlined bnav-icon">account_balance_wallet</span>
+    <span class="bnav-label">Portfolio</span>
+  </a>
+  <a href="#" onclick="event.preventDefault();openMobileMore()" class="bnav-tab" id="bnav-more">
+    <span class="material-symbols-outlined bnav-icon">apps</span>
     <span class="bnav-label">More</span>
   </a>
   <a href="#" onclick="event.preventDefault();openMobileAccount()" class="bnav-tab" id="bnav-account">
@@ -10762,6 +10830,38 @@ document.addEventListener('click', (e) => {
       <span class="material-symbols-outlined text-lg">logout</span>
       <span>Logout</span>
     </button>
+  </div>
+</div>
+
+<!-- ==================== MOBILE MORE SHEET ==================== -->
+<div id="mobile-more-overlay" class="hidden fixed inset-0 z-[400]" onclick="closeMobileMore()">
+  <div class="absolute bottom-[68px] left-3 right-3 rounded-2xl overflow-hidden"
+       style="background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);box-shadow:0 -8px 32px rgba(0,0,0,0.6)"
+       onclick="event.stopPropagation()">
+    <div class="px-4 py-2.5 border-b flex items-center justify-between" style="border-color:rgba(255,255,255,0.07)">
+      <span class="text-[9px] font-black uppercase tracking-[0.2em] text-primary">More Tabs</span>
+      <button onclick="closeMobileMore()" class="w-6 h-6 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-white/10">
+        <span class="material-symbols-outlined" style="font-size:16px">close</span>
+      </button>
+    </div>
+    <div class="grid grid-cols-4 gap-0">
+      <button onclick="closeMobileMore();switchTab('events')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors">
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">event</span>
+        <span class="text-[9px] font-bold text-on-surface-variant uppercase">Events</span>
+      </button>
+      <button onclick="closeMobileMore();switchTab('backtest')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors">
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">history</span>
+        <span class="text-[9px] font-bold text-on-surface-variant uppercase">Backtest</span>
+      </button>
+      <button onclick="closeMobileMore();switchTab('indicators')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors">
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">candlestick_chart</span>
+        <span class="text-[9px] font-bold text-on-surface-variant uppercase">Indic.</span>
+      </button>
+      <button onclick="closeMobileMore();switchTab('config')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors">
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">tune</span>
+        <span class="text-[9px] font-bold text-on-surface-variant uppercase">Config</span>
+      </button>
+    </div>
   </div>
 </div>
 
