@@ -2415,7 +2415,10 @@ function _stockLink(symbol, label) {
   // onclick → left-click opens chart inline without navigating
   const enc = encodeURIComponent(symbol);
   const sym = symbol.replace(/'/g, "\\'");
-  return `<a href="#chart=${enc}" onclick="event.preventDefault();event.stopPropagation();_openStockInline('${sym}');" class="hover:text-primary transition-colors font-bold">${lbl}</a>`;
+  // oncontextmenu stopPropagation → right-click on the name gives browser-native "Open Link in New Tab"
+  // Middle-click also works natively (href is the real URL)
+  // onclick preventDefault → left-click stays in-app
+  return `<a href="#chart=${enc}" onclick="event.preventDefault();event.stopPropagation();_openStockInline('${sym}');" oncontextmenu="event.stopPropagation()" class="hover:text-primary transition-colors font-bold">${lbl}</a>`;
 }
 
 // Event badge helper — small coloured line under stock name
