@@ -464,6 +464,8 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
   /* Chart toolbar buttons hidden on mobile sm:inline-flex — show ENTRY/EXIT and INFO */
   #sc-oe-btn  { display: inline-flex !important; }
   #sc-info-btn { display: inline-flex !important; }
+  /* Drawing tools: hide trendline + fib on mobile (h-line only) */
+  #draw-trend-btn, #draw-fib-btn { display: none !important; }
 
   /* 14. Mobile table optimization ─────────────────────────────
      Collapse wide tables to fit the phone — desktop is unchanged.
@@ -1131,6 +1133,16 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
             </div>
           </div>
         </div>
+          <!-- Drawing tools group -->
+          <div class="flex items-center gap-0.5 border-l border-outline-variant/20 pl-2 ml-1">
+            <button id="draw-hline-btn" onclick="setDrawMode(_drawMode==='hline'?null:'hline')" title="Horizontal line — click chart to place" class="flex items-center justify-center w-6 h-6 rounded text-[11px] font-bold text-on-surface-variant hover:bg-surface-container-highest hover:text-primary transition-colors">─</button>
+            <button id="draw-trend-btn" onclick="setDrawMode(_drawMode==='trend'?null:'trend')" title="Trendline — click 2 points" class="flex items-center justify-center w-6 h-6 rounded text-[11px] font-bold text-on-surface-variant hover:bg-surface-container-highest hover:text-primary transition-colors">↗</button>
+            <button id="draw-fib-btn"   onclick="setDrawMode(_drawMode==='fib'?null:'fib')"   title="Fibonacci retracement — click high then low" class="flex items-center justify-center w-6 h-6 rounded text-[11px] font-bold text-on-surface-variant hover:bg-surface-container-highest hover:text-primary transition-colors">φ</button>
+            <button onclick="clearAllDrawings()" title="Clear all drawings for this stock" class="flex items-center justify-center w-6 h-6 rounded text-on-surface-variant/50 hover:bg-surface-container-highest hover:text-error transition-colors"><span class="material-symbols-outlined" style="font-size:13px">delete_sweep</span></button>
+          </div>
+        </div>
+        <!-- Draw-mode hint bar (shown only when a drawing tool is active) -->
+        <div id="draw-hint-bar" class="hidden w-full px-3 py-1 text-[10px] font-bold text-primary bg-primary/8 border-b border-primary/20 text-center tracking-wide"></div>
         <!-- Breakout signal pills — always visible when a chart is open -->
         <div id="sc-breakout-pills" class="hidden w-full flex items-center flex-wrap gap-1.5 pt-0.5">
         </div>
@@ -2178,6 +2190,131 @@ let chartOverlays = {}; // { key: series reference }
 let chartData = null; // stored chart API response for re-adding overlays
 let _liveChartTimer = null; // interval id for live daily-candle updates
 let screenAbort = null;
+
+// ── Chart Drawing Tools ───────────────────────────────────────────────────────
+let _drawMode   = null;  // 'hline' | 'trend' | 'fib' | null
+let _drawPending = [];   // collected clicks for 2-click tools
+let _drawings   = {};    // { symbol: { hlines:[{price,pl}], trends:[{p1,p2,series}], fibs:[{hi,lo,lines}] } }
+const _DRAW_KEY = 'mx_chart_drawings_v2';
+
+function _drawingsForSym(sym) {
+  if (!_drawings[sym]) _drawings[sym] = { hlines: [], trends: [], fibs: [] };
+  return _drawings[sym];
+}
+
+function _saveDrawings(sym) {
+  try {
+    const all = JSON.parse(localStorage.getItem(_DRAW_KEY) || '{}');
+    const d = _drawings[sym] || { hlines: [], trends: [], fibs: [] };
+    all[sym] = {
+      hlines: d.hlines.map(h => ({ price: h.price })),
+      trends: d.trends.map(t => ({ p1: { price: t.p1.price, time: t.p1.time }, p2: { price: t.p2.price, time: t.p2.time } })),
+      fibs:   d.fibs.map(f => ({ hi: f.hi, lo: f.lo })),
+    };
+    localStorage.setItem(_DRAW_KEY, JSON.stringify(all));
+  } catch(e) {}
+}
+
+function _restoreDrawings(sym) {
+  if (!sym || !chartData?.candles?.length) return;
+  try {
+    const all = JSON.parse(localStorage.getItem(_DRAW_KEY) || '{}');
+    const d = all[sym]; if (!d) return;
+    (d.hlines || []).forEach(h => _addHLine(h.price, true));
+    (d.trends || []).forEach(t => _addTrendline(t.p1, t.p2, true));
+    (d.fibs   || []).forEach(f => _addFib({ price: f.hi, time: 0 }, { price: f.lo, time: 1 }, true));
+  } catch(e) {}
+}
+
+function setDrawMode(mode) {
+  _drawMode = mode;
+  _drawPending = [];
+  // Button active states
+  ['hline','trend','fib'].forEach(m => {
+    const b = document.getElementById('draw-' + m + '-btn');
+    if (b) {
+      if (m === mode) {
+        b.style.background = 'rgba(var(--color-primary-rgb,255,140,0),0.15)';
+        b.style.color = 'var(--color-primary,#FF8C00)';
+      } else {
+        b.style.background = '';
+        b.style.color = '';
+      }
+    }
+  });
+  // Hint bar
+  const hint = document.getElementById('draw-hint-bar');
+  if (hint) {
+    const msgs = { hline: '─  Click the chart to place a horizontal level  (Esc to cancel)', trend: '↗  Click point 1, then point 2  (Esc to cancel)', fib: 'φ  Click the HIGH, then the LOW  (Esc to cancel)' };
+    hint.textContent = msgs[mode] || '';
+    hint.style.display = mode ? 'block' : 'none';
+  }
+  // Cursor
+  const wrap = document.querySelector('#chart-panel .flex-1');
+  if (wrap) wrap.style.cursor = mode ? 'crosshair' : '';
+}
+
+function _addHLine(price, skipSave) {
+  const sym = currentChartSymbol; if (!sym || !window._scCandleSeries) return;
+  const pl = window._scCandleSeries.createPriceLine({
+    price, lineWidth: 1, lineStyle: 2,
+    color: '#6effc0', axisLabelVisible: true,
+    title: '₹' + price.toFixed(2),
+  });
+  _drawingsForSym(sym).hlines.push({ price, pl });
+  if (!skipSave) _saveDrawings(sym);
+}
+
+function _addTrendline(p1, p2, skipSave) {
+  const sym = currentChartSymbol; if (!sym || !currentChart || !chartData?.candles?.length) return;
+  const dt = p2.time - p1.time; if (dt === 0) return;
+  const slope = (p2.price - p1.price) / dt;
+  const lineData = chartData.candles.map(c => ({ time: c.time, value: +(p1.price + slope * (c.time - p1.time)).toFixed(4) }));
+  const series = currentChart.addLineSeries({
+    color: '#f59e0b', lineWidth: 2, lineStyle: 0,
+    lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
+  });
+  series.setData(lineData);
+  _drawingsForSym(sym).trends.push({ series, p1, p2 });
+  if (!skipSave) _saveDrawings(sym);
+}
+
+function _addFib(p1, p2, skipSave) {
+  const sym = currentChartSymbol; if (!sym || !window._scCandleSeries) return;
+  const hi = Math.max(p1.price, p2.price);
+  const lo = Math.min(p1.price, p2.price);
+  const range = hi - lo; if (range <= 0) return;
+  const levels = [
+    { r: 0,     name: '0%',    color: '#f87171' },
+    { r: 0.236, name: '23.6%', color: '#fb923c' },
+    { r: 0.382, name: '38.2%', color: '#fbbf24' },
+    { r: 0.5,   name: '50%',   color: '#4ade80' },
+    { r: 0.618, name: '61.8%', color: '#22d3ee' },
+    { r: 0.786, name: '78.6%', color: '#818cf8' },
+    { r: 1.0,   name: '100%',  color: '#f472b6' },
+  ];
+  const lines = levels.map(({ r, name, color }) => {
+    const price = lo + r * range;
+    const pl = window._scCandleSeries.createPriceLine({
+      price, color, lineWidth: 1, lineStyle: 2,
+      axisLabelVisible: true, title: 'Fib ' + name,
+    });
+    return { price, name, color, pl };
+  });
+  _drawingsForSym(sym).fibs.push({ hi, lo, lines });
+  if (!skipSave) _saveDrawings(sym);
+}
+
+function clearAllDrawings() {
+  const sym = currentChartSymbol; if (!sym) return;
+  const d = _drawings[sym]; if (!d) return;
+  d.hlines.forEach(h => { try { window._scCandleSeries?.removePriceLine(h.pl); } catch(e) {} });
+  d.trends.forEach(t => { try { currentChart?.removeSeries(t.series); } catch(e) {} });
+  d.fibs.forEach(f => { f.lines.forEach(l => { try { window._scCandleSeries?.removePriceLine(l.pl); } catch(e) {} }); });
+  _drawings[sym] = { hlines: [], trends: [], fibs: [] };
+  _saveDrawings(sym);
+  setDrawMode(null);
+}
 let downloadPolling = null;
 let _statusCache = null, _statusCacheTs = 0;  // shared 15s cache for /data/status
 let totalExpected = 150;
@@ -2493,6 +2630,7 @@ document.addEventListener('click', (e) => {
 // Esc to close any open auth modal
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
+    if (_drawMode) { setDrawMode(null); return; }  // cancel drawing tool first
     const p = document.getElementById('profile-modal');
     const c = document.getElementById('change-pwd-modal');
     if (p && p.style.display === 'flex') closeProfileModal();
@@ -3364,6 +3502,7 @@ function resetScreenerTab() {
 }
 
 function closeChart() {
+  setDrawMode(null); // cancel any active drawing tool
   stopLiveChart();
   const tables = document.getElementById('tables-panel');
   const chart  = document.getElementById('chart-panel');
@@ -3766,8 +3905,33 @@ function renderChart(data) {
     _pushXhair(currentChart, param);
   });
 
-  // Click-to-mark: in MARK mode, clicking a candle opens the Trade Mark modal
+  // Click handler: drawing tools take priority, then mark mode
   currentChart.subscribeClick(param => {
+    // Drawing tools
+    if (_drawMode && param.point) {
+      const price = window._scCandleSeries?.coordinateToPrice(param.point.y);
+      if (price == null || !isFinite(price)) return;
+      const time = param.time || Math.floor(Date.now() / 1000);
+
+      if (_drawMode === 'hline') {
+        _addHLine(price);
+        return; // stay in hline mode for multiple lines
+      }
+      // 2-click tools: trend + fib
+      _drawPending.push({ price, time });
+      if (_drawPending.length === 1) {
+        // First click — update hint to prompt second click
+        const hint = document.getElementById('draw-hint-bar');
+        if (hint) hint.textContent = _drawMode === 'trend' ? '↗  Point 1 set — now click point 2' : 'φ  High set — now click the LOW';
+      } else {
+        const [p1, p2] = _drawPending; _drawPending = [];
+        if (_drawMode === 'trend') _addTrendline(p1, p2);
+        else if (_drawMode === 'fib') _addFib(p1, p2);
+        setDrawMode(null); // auto-exit after one drawing
+      }
+      return;
+    }
+    // Mark mode (original handler)
     if (!scMarkMode || !param.time) return;
     const candle = chartData?.candles?.find(c => c.time === param.time);
     if (!candle) return;
@@ -3792,6 +3956,12 @@ function renderChart(data) {
     if(currentMacdChart)currentMacdChart.applyOptions({width:macdEl.clientWidth});
     if(currentVolChart)currentVolChart.applyOptions({width:volEl.clientWidth});
   }).observe(chartEl);
+
+  // Restore saved drawings for this symbol (after all series are ready)
+  setTimeout(() => _restoreDrawings(currentChartSymbol), 200);
+
+  // Reset any active draw mode when a new chart opens
+  setDrawMode(null);
 
   // Inject resize handles between panels
   setTimeout(()=>injectResizeHandles(), 150);
