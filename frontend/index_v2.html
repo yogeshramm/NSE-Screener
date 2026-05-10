@@ -464,6 +464,58 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
   /* Chart toolbar buttons hidden on mobile sm:inline-flex — show ENTRY/EXIT and INFO */
   #sc-oe-btn  { display: inline-flex !important; }
   #sc-info-btn { display: inline-flex !important; }
+
+  /* 14. Mobile table optimization ─────────────────────────────
+     Collapse wide tables to fit the phone — desktop is unchanged.
+     Column indices below are 1-based (CSS nth-child). */
+
+  /* Lift the min-width constraint so tables shrink to viewport */
+  #s1-table, #s2-table, #wl-table, #pf-table { min-width: 0 !important; }
+
+  /* Stage 1 — mobile keeps: Stock · Price · Score · Status · ★
+     Hiding: # (1) · PE (4) · RSI (5) · ROE% (6) · MFS (7) · MTF (8) */
+  #s1-table th:nth-child(1), #s1-table td:nth-child(1),
+  #s1-table th:nth-child(4), #s1-table td:nth-child(4),
+  #s1-table th:nth-child(5), #s1-table td:nth-child(5),
+  #s1-table th:nth-child(6), #s1-table td:nth-child(6),
+  #s1-table th:nth-child(7), #s1-table td:nth-child(7),
+  #s1-table th:nth-child(8), #s1-table td:nth-child(8)
+  { display: none !important; }
+
+  /* Stage 2 — mobile keeps: Stock · Price · SL · Target · Score · ★
+     Hiding: # (1) · R:R (6) · MFS (7) · MTF (8) · Status (10) */
+  #s2-table th:nth-child(1), #s2-table td:nth-child(1),
+  #s2-table th:nth-child(6), #s2-table td:nth-child(6),
+  #s2-table th:nth-child(7), #s2-table td:nth-child(7),
+  #s2-table th:nth-child(8), #s2-table td:nth-child(8),
+  #s2-table th:nth-child(10), #s2-table td:nth-child(10)
+  { display: none !important; }
+
+  /* Watchlist — mobile keeps: Symbol · Price · 10D Trend · Actions
+     Hiding: Score (4) · Alerts (5) · Status (6) */
+  #wl-table th:nth-child(4), #wl-table td:nth-child(4),
+  #wl-table th:nth-child(5), #wl-table td:nth-child(5),
+  #wl-table th:nth-child(6), #wl-table td:nth-child(6)
+  { display: none !important; }
+  /* Tighter padding on watchlist rows — original px-6 py-4 is too generous */
+  #wl-table th, #wl-table td { padding: 0.5rem 0.75rem !important; }
+
+  /* Portfolio — mobile keeps: Symbol · LTP/Sell · P&L (w/ %) · Actions
+     Hiding: Status (2) · Qty (3) · Buy (4) · Invested (6) · SL/Tgt (8) · Date (9) */
+  #pf-table th:nth-child(2), #pf-table td:nth-child(2),
+  #pf-table th:nth-child(3), #pf-table td:nth-child(3),
+  #pf-table th:nth-child(4), #pf-table td:nth-child(4),
+  #pf-table th:nth-child(6), #pf-table td:nth-child(6),
+  #pf-table th:nth-child(8), #pf-table td:nth-child(8),
+  #pf-table th:nth-child(9), #pf-table td:nth-child(9)
+  { display: none !important; }
+
+  /* Slightly larger symbol text for rapid scanning on small screens */
+  #s1-table td:nth-child(2) > div:first-child,
+  #s2-table td:nth-child(2) > div:first-child { font-size: 0.8rem !important; }
+
+  /* Comfortable touch targets on screener rows (was py-2.5) */
+  #s1-table td, #s2-table td { padding-top: 0.65rem !important; padding-bottom: 0.65rem !important; }
 }
 </style>
 </head>
@@ -916,7 +968,7 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
         <section id="stage-1-section">
           <div class="overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-low shadow-xl shadow-black/20">
             <div class="overflow-x-auto scrollbar-hide">
-            <table class="w-full text-left tabular-nums min-w-[700px]">
+            <table id="s1-table" class="w-full text-left tabular-nums min-w-[700px]">
               <thead>
                 <tr class="bg-surface-container border-b border-outline-variant/20">
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">#</th>
@@ -945,7 +997,7 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
         <section id="stage-2-section" class="hidden">
           <div class="overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-low shadow-xl shadow-black/20">
             <div class="overflow-x-auto scrollbar-hide">
-            <table class="w-full text-left tabular-nums min-w-[700px]">
+            <table id="s2-table" class="w-full text-left tabular-nums min-w-[700px]">
               <thead>
                 <tr class="bg-surface-container border-b border-outline-variant/20">
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">#</th>
@@ -1258,7 +1310,7 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
     <!-- Watchlist Table -->
     <div class="bg-surface-container-low rounded-xl overflow-hidden shadow-2xl">
       <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
+        <table id="wl-table" class="w-full text-left border-collapse">
           <thead>
             <tr class="bg-surface-container/50 border-b border-outline-variant/5">
               <th class="px-6 py-4 text-[0.65rem] font-bold uppercase tracking-widest text-on-surface-variant">Symbol</th>
@@ -1678,7 +1730,7 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
     <div id="pf-totals" class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6"></div>
     <!-- Positions table -->
     <div class="rounded-xl border border-outline-variant/20 bg-surface-container-low overflow-x-auto">
-      <table class="w-full min-w-[700px] text-left tabular-nums">
+      <table id="pf-table" class="w-full min-w-[700px] text-left tabular-nums">
         <thead class="bg-surface-container border-b border-outline-variant/20">
           <tr>
             <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">Symbol</th>
