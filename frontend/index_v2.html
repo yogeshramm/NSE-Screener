@@ -559,6 +559,24 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
   #tab-home .p-6 { padding: 0.75rem !important; }
   #tab-home .mb-6 { margin-bottom: 0.75rem !important; }
   #tab-home .gap-6 { gap: 0.75rem !important; }
+
+  /* 16. Home Row 2 (Gainers/Losers/Breakouts): horizontal scroll on mobile */
+  #home-row2 {
+    display: flex !important;
+    overflow-x: auto !important;
+    gap: 0.75rem !important;
+    margin-bottom: 0.75rem !important;
+    padding-bottom: 4px !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  #home-row2::-webkit-scrollbar { display: none; }
+  #home-row2 > div {
+    min-width: 78vw;
+    flex: 0 0 auto;
+  }
+  /* Limit list height in Row 2 cards on mobile */
+  #home-gainers-body, #home-losers-body, #home-breakout-body { max-height: 220px; overflow-y: auto; }
 }
 </style>
 </head>
@@ -757,6 +775,22 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
 
 <!-- ==================== TAB: HOME DASHBOARD ==================== -->
 <section class="tab-content flex-col w-full overflow-y-auto" id="tab-home">
+  <!-- Mobile-only market index strip (Kite-style) -->
+  <div id="home-index-strip" class="sm:hidden flex items-center gap-3 px-4 py-2.5 border-b border-outline-variant/10 overflow-x-auto scrollbar-hide text-[11px] font-mono font-bold" style="background:var(--surface-container-lowest)">
+    <div id="home-n50-chip" class="flex items-center gap-1.5 flex-shrink-0 px-3 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.04)">
+      <span class="text-on-surface-variant text-[9px] font-bold uppercase">N50</span>
+      <span id="home-n50-val" class="text-on-surface">—</span>
+      <span id="home-n50-chg" class="text-[9px]">—</span>
+    </div>
+    <div id="home-n500-chip" class="flex items-center gap-1.5 flex-shrink-0 px-3 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.04)">
+      <span class="text-on-surface-variant text-[9px] font-bold uppercase">N500</span>
+      <span id="home-n500-val" class="text-on-surface">—</span>
+      <span id="home-n500-chg" class="text-[9px]">—</span>
+    </div>
+    <button onclick="switchTab('screener')" class="flex-shrink-0 ml-auto text-[9px] font-bold text-primary flex items-center gap-0.5">
+      Screen <span class="material-symbols-outlined" style="font-size:12px">arrow_forward</span>
+    </button>
+  </div>
   <div class="p-6 max-w-[1400px] mx-auto w-full">
     <!-- Top stat cards -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
@@ -840,8 +874,8 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
       </div>
     </div>
 
-    <!-- Row 2: Market Movers (Gainers | Losers) + Breakout Watch -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- Row 2: Market Movers (Gainers | Losers) + Breakout Watch — horizontal scroll on mobile -->
+    <div id="home-row2" class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 
       <!-- Gainers -->
       <div class="bg-surface-container-low rounded-xl border border-outline-variant/20 overflow-hidden">
@@ -2847,7 +2881,7 @@ function switchTab(tab, opts) {
     }
   });
   // Sync bottom nav active state (mobile)
-  const _bnavMoreTabs = new Set(['events','backtest','indicators','config']);
+  const _bnavMoreTabs = new Set(['events','backtest','indicators','config','breakouts','practice']);
   document.querySelectorAll('.bnav-tab').forEach(el => {
     if (el.id === 'bnav-more') {
       el.classList.toggle('bnav-active', _bnavMoreTabs.has(tab));
@@ -9635,6 +9669,25 @@ async function loadHome() {
     }
   } catch(e) {}
 
+  // Mobile index strip — N50 / N500 bull/bear status
+  try {
+    const md = await fetch(API + '/market/direction').then(r => r.json()).catch(() => null);
+    if (md) {
+      const _statusColor = s => s === 'bull' ? '#00e5a0' : s === 'bear' ? '#ff4757' : '#f5a623';
+      const _statusIcon  = s => s === 'bull' ? '▲' : s === 'bear' ? '▼' : '–';
+      const n50s  = (md.nifty50  || {}).status || '—';
+      const n500s = (md.nifty500 || {}).status || '—';
+      const n50v  = document.getElementById('home-n50-val');
+      const n50c  = document.getElementById('home-n50-chg');
+      const n500v = document.getElementById('home-n500-val');
+      const n500c = document.getElementById('home-n500-chg');
+      if (n50v)  n50v.textContent  = 'Nifty 50';
+      if (n50c)  { n50c.textContent = _statusIcon(n50s) + ' ' + n50s.toUpperCase(); n50c.style.color = _statusColor(n50s); }
+      if (n500v) n500v.textContent = 'Nifty 500';
+      if (n500c) { n500c.textContent = _statusIcon(n500s) + ' ' + n500s.toUpperCase(); n500c.style.color = _statusColor(n500s); }
+    }
+  } catch(e) {}
+
   // Sector heatmap → top sector card
   try {
     const hmRes = await fetch(API + '/market/sector-heatmap?universe=nifty500').then(r => r.json()).catch(() => null);
@@ -11297,7 +11350,7 @@ document.addEventListener('click', (e) => {
 </script>
 
 <!-- ==================== BOTTOM NAV (mobile only) ==================== -->
-<nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 z-[200] flex items-center justify-around border-t" style="background:var(--surface-container-lowest);border-color:rgba(255,255,255,0.06);height:60px;padding:0 4px">
+<nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 z-[200] flex items-center justify-around border-t" style="background:var(--surface-container-lowest);border-color:rgba(255,255,255,0.06);height:60px;padding:0 8px">
   <a href="#home" onclick="event.preventDefault();switchTab('home')" class="bnav-tab" data-tab="home">
     <span class="material-symbols-outlined bnav-icon">home</span>
     <span class="bnav-label">Home</span>
@@ -11310,14 +11363,6 @@ document.addEventListener('click', (e) => {
     <span class="material-symbols-outlined bnav-icon">bookmarks</span>
     <span class="bnav-label">Watch</span>
   </a>
-  <a href="#breakouts" onclick="event.preventDefault();switchTab('breakouts')" class="bnav-tab" data-tab="breakouts">
-    <span class="material-symbols-outlined bnav-icon">trending_up</span>
-    <span class="bnav-label">Breaks</span>
-  </a>
-  <a href="#practice" onclick="event.preventDefault();switchTab('practice')" class="bnav-tab" data-tab="practice">
-    <span class="material-symbols-outlined bnav-icon">sports_esports</span>
-    <span class="bnav-label">Play</span>
-  </a>
   <a href="#portfolio" onclick="event.preventDefault();switchTab('portfolio')" class="bnav-tab" data-tab="portfolio">
     <span class="material-symbols-outlined bnav-icon">account_balance_wallet</span>
     <span class="bnav-label">Portfolio</span>
@@ -11325,10 +11370,6 @@ document.addEventListener('click', (e) => {
   <a href="#" onclick="event.preventDefault();openMobileMore()" class="bnav-tab" id="bnav-more">
     <span class="material-symbols-outlined bnav-icon">apps</span>
     <span class="bnav-label">More</span>
-  </a>
-  <a href="#" onclick="event.preventDefault();openMobileAccount()" class="bnav-tab" id="bnav-account">
-    <span class="material-symbols-outlined bnav-icon">account_circle</span>
-    <span class="bnav-label">Me</span>
   </a>
 </nav>
 
@@ -11368,6 +11409,14 @@ document.addEventListener('click', (e) => {
       </button>
     </div>
     <div class="grid grid-cols-4 gap-0">
+      <button onclick="closeMobileMore();switchTab('breakouts')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors">
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">trending_up</span>
+        <span class="text-[9px] font-bold text-on-surface-variant uppercase">Breaks</span>
+      </button>
+      <button onclick="closeMobileMore();switchTab('practice')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors">
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">sports_esports</span>
+        <span class="text-[9px] font-bold text-on-surface-variant uppercase">Play</span>
+      </button>
       <button onclick="closeMobileMore();switchTab('events')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors">
         <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">event</span>
         <span class="text-[9px] font-bold text-on-surface-variant uppercase">Events</span>
@@ -11376,13 +11425,21 @@ document.addEventListener('click', (e) => {
         <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">history</span>
         <span class="text-[9px] font-bold text-on-surface-variant uppercase">Backtest</span>
       </button>
-      <button onclick="closeMobileMore();switchTab('indicators')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors">
+      <button onclick="closeMobileMore();switchTab('indicators')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors border-t" style="border-color:rgba(255,255,255,0.07)">
         <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">candlestick_chart</span>
-        <span class="text-[9px] font-bold text-on-surface-variant uppercase">Indic.</span>
+        <span class="text-[9px] font-bold text-on-surface-variant uppercase">Indicators</span>
       </button>
-      <button onclick="closeMobileMore();switchTab('config')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors">
+      <button onclick="closeMobileMore();switchTab('config')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors border-t" style="border-color:rgba(255,255,255,0.07)">
         <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">tune</span>
         <span class="text-[9px] font-bold text-on-surface-variant uppercase">Config</span>
+      </button>
+      <button onclick="closeMobileMore();openMobileAccount()" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors border-t" style="border-color:rgba(255,255,255,0.07)">
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">account_circle</span>
+        <span class="text-[9px] font-bold text-on-surface-variant uppercase">Me</span>
+      </button>
+      <button onclick="closeMobileMore();openCmdK()" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors border-t" style="border-color:rgba(255,255,255,0.07)">
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">search</span>
+        <span class="text-[9px] font-bold text-on-surface-variant uppercase">Search</span>
       </button>
     </div>
   </div>
