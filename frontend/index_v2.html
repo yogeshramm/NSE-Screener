@@ -9957,8 +9957,8 @@ function _ipHTML() {
     <div id="ip-drag-handle" class="justify-center pt-2.5 pb-1 cursor-grab active:cursor-grabbing" style="display:none" onclick="toggleInsightsPro()">
       <div class="w-10 h-[3px] rounded-full bg-on-surface-variant/30 mx-auto"></div>
     </div>
-    <!-- Header -->
-    <div id="ip-header" class="bg-surface-container-low border-b border-outline-variant/20 px-4 py-2.5 flex items-center justify-between cursor-pointer" onclick="toggleInsightsPro()">
+    <!-- Header: only the chevron button and drag handle trigger collapse, NOT the whole row -->
+    <div id="ip-header" class="bg-surface-container-low border-b border-outline-variant/20 px-4 py-2.5 flex items-center justify-between">
       <div class="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
         <span class="text-[9px] font-black uppercase tracking-[0.2em] text-primary flex-shrink-0">INSIGHTS</span>
         <span id="ip-symbol" class="text-sm font-black text-on-surface truncate"></span>
@@ -9985,8 +9985,8 @@ function _ipHTML() {
       <span class="material-symbols-outlined text-primary" style="font-size:13px">monitoring</span>
       <span id="ip-mini" class="font-mono text-[10px] text-on-surface-variant"></span>
     </div>
-    <!-- Body -->
-    <div id="ip-body" class="px-5 py-4 overflow-y-auto" style="max-height:45vh;-webkit-overflow-scrolling:touch"></div>
+    <!-- Body: max-height animated via JS toggleInsightsPro() -->
+    <div id="ip-body" class="px-5 py-4 overflow-y-auto" style="max-height:65vh;overflow-y:auto;-webkit-overflow-scrolling:touch;transition:max-height 0.28s cubic-bezier(0.4,0,0.2,1),opacity 0.22s ease,padding 0.22s ease"></div>
   </div>`;
 }
 function _ipMount() {
@@ -10006,8 +10006,29 @@ function toggleInsightsPro() {
   const body = document.getElementById('ip-body');
   const chev = document.getElementById('ip-chev');
   if (!body) return;
-  const collapsed = body.classList.toggle('hidden');
-  chev.textContent = collapsed ? 'expand_more' : 'expand_less';
+  const isExpanded = body.dataset.ipState !== 'collapsed';
+  if (isExpanded) {
+    // Collapse: snapshot current height, then animate to 0
+    body.style.maxHeight = body.scrollHeight + 'px';
+    body.style.overflow = 'hidden';
+    requestAnimationFrame(() => {
+      body.style.maxHeight = '0px';
+      body.style.opacity = '0';
+      body.style.paddingTop = '0';
+      body.style.paddingBottom = '0';
+    });
+    body.dataset.ipState = 'collapsed';
+    if (chev) chev.textContent = 'expand_more';
+  } else {
+    // Expand: animate back to max-height
+    body.style.maxHeight = '65vh';
+    body.style.opacity = '1';
+    body.style.paddingTop = '';
+    body.style.paddingBottom = '';
+    body.style.overflow = '';
+    body.dataset.ipState = 'expanded';
+    if (chev) chev.textContent = 'expand_less';
+  }
 }
 // Fire-and-forget prefetch: warms the analyst cache (slow crawl4ai sources) while
 // the user looks at the chart. Popup will pick up the cached result when opened.
@@ -10031,7 +10052,14 @@ async function openInsightsPro(symbol) {
   document.getElementById('ip-mini').textContent = '';
   const _miniRow = document.getElementById('ip-mini-row');
   if (_miniRow) _miniRow.style.display = 'none'; // hide until content loads
-  body.classList.remove('hidden'); document.getElementById('ip-chev').textContent='expand_less';
+  // Always open in expanded state, using the animated system (not display:none)
+  body.dataset.ipState = 'expanded';
+  body.style.maxHeight = '65vh';
+  body.style.opacity = '1';
+  body.style.paddingTop = '';
+  body.style.paddingBottom = '';
+  body.style.overflow = '';
+  document.getElementById('ip-chev').textContent = 'expand_less';
   body.innerHTML = '<div class="text-center py-8 text-on-surface-variant text-sm">Loading insights…</div>';
   panel.classList.remove('translate-y-full');
   // Desktop: auto-open chart side-by-side. Mobile: user taps "Chart ↗" to open explicitly.
