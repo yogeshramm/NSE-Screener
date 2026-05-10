@@ -9,7 +9,7 @@ router = APIRouter()
 def live_ltp(symbols: str = ""):
     syms = [s.strip().upper() for s in symbols.split(",") if s.strip()][:100]
     market_open = is_market_open()
-    if not syms or not market_open:
+    if not syms:
         return {"market_open": market_open, "prices": {}}
     try:
         prices = get_ltp_bulk(syms)
