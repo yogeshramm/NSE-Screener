@@ -998,11 +998,10 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
         <option value="all">All NSE</option>
       </select>
       <div class="relative">
-        <button onclick="document.getElementById('preset-dropdown').classList.toggle('hidden')" class="bg-surface-container-high border border-outline-variant/20 rounded-lg text-[10px] font-bold h-10 px-3 text-on-surface flex items-center gap-2 min-w-[120px]">
+        <button id="preset-btn" onclick="togglePresetDropdown()" class="bg-surface-container-high border border-outline-variant/20 rounded-lg text-[10px] font-bold h-10 px-3 text-on-surface flex items-center gap-2 min-w-[120px]">
           <span id="preset-btn-text">Preset...</span>
           <span class="material-symbols-outlined text-xs">expand_more</span>
         </button>
-        <div id="preset-dropdown" class="hidden absolute left-0 top-11 w-52 max-h-60 overflow-y-auto bg-surface-container border border-outline-variant/20 rounded-xl shadow-2xl z-50 p-1.5"></div>
       </div>
       <span id="active-preset-badge" class="hidden text-[10px] bg-primary/20 text-primary px-2 py-1 rounded-full font-bold cursor-pointer" onclick="clearActivePreset()" style="display:none !important"></span>
       <button onclick="quickSavePreset()" class="text-[10px] text-on-surface-variant hover:text-primary font-bold uppercase" title="Save current filters as preset">
@@ -6477,6 +6476,22 @@ async function populatePresetDropdowns() {
   } catch(e){console.error('Preset load error:',e);}
 }
 
+function togglePresetDropdown() {
+  const dd = document.getElementById('preset-dropdown');
+  const btn = document.getElementById('preset-btn');
+  if (!dd || !btn) return;
+  if (!dd.classList.contains('hidden')) { dd.classList.add('hidden'); return; }
+  // Position using getBoundingClientRect so it works inside overflow:hidden parents
+  const r = btn.getBoundingClientRect();
+  const ddW = 208; // w-52
+  // Align left with button, but stay within viewport
+  let left = r.left;
+  if (left + ddW > window.innerWidth - 8) left = window.innerWidth - ddW - 8;
+  dd.style.top  = (r.bottom + 4) + 'px';
+  dd.style.left = left + 'px';
+  dd.classList.remove('hidden');
+}
+
 async function deletePreset(name) {
   if(!confirm('Delete preset "'+name+'"?')) return;
   try {
@@ -9591,7 +9606,7 @@ function initApp() {
   // Close dropdowns on outside click
   document.addEventListener('click',e=>{
     const pd=document.getElementById('preset-dropdown');
-    if(pd&&!pd.classList.contains('hidden')&&!e.target.closest('#preset-dropdown')&&!e.target.closest('[onclick*="preset-dropdown"]')) pd.classList.add('hidden');
+    if(pd&&!pd.classList.contains('hidden')&&!e.target.closest('#preset-dropdown')&&!e.target.closest('#preset-btn')) pd.classList.add('hidden');
     const cd=document.getElementById('chart-ind-dropdown');
     if(cd&&!cd.classList.contains('hidden')&&!e.target.closest('#chart-ind-dropdown')&&!e.target.closest('[onclick*="chart-ind-dropdown"]')) cd.classList.add('hidden');
     const sd=document.getElementById('search-dropdown');
@@ -10505,8 +10520,8 @@ function _ipHTML() {
           <span id="ip-chev" class="material-symbols-outlined" style="font-size:20px">expand_less</span>
         </button>
         <button onclick="event.stopPropagation();closeInsightsPro()"
-          class="w-7 h-7 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-highest hover:text-error" title="Close">
-          <span class="material-symbols-outlined" style="font-size:20px">close</span>
+          class="w-9 h-9 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-highest hover:text-error active:bg-error/20 active:text-error" title="Close" style="touch-action:manipulation;-webkit-tap-highlight-color:transparent">
+          <span class="material-symbols-outlined" style="font-size:22px">close</span>
         </button>
       </div>
     </div>
@@ -10525,12 +10540,21 @@ function _ipMount() {
   while (d.firstChild) document.body.appendChild(d.firstChild);
   // Touch swipe-down to close (mobile)
   const panel = document.getElementById('ip-panel');
-  let _ts = 0, _ty = 0;
-  panel.addEventListener('touchstart', e => { _ty = e.touches[0].clientY; _ts = Date.now(); }, {passive:true});
+  let _ts = 0, _ty = 0, _tMoved = false;
+  panel.addEventListener('touchstart', e => { _ty = e.touches[0].clientY; _ts = Date.now(); _tMoved = false; }, {passive:true});
+  panel.addEventListener('touchmove', () => { _tMoved = true; }, {passive:true});
   panel.addEventListener('touchend', e => {
     const dy = e.changedTouches[0].clientY - _ty;
     if (dy > 70 && Date.now() - _ts < 350) closeInsightsPro();
   }, {passive:true});
+  // Extra: direct touchend on close button so it fires even if panel touch handlers run first
+  const closeBtn = panel.querySelector('[title="Close"]');
+  if (closeBtn) {
+    closeBtn.addEventListener('touchend', e => {
+      e.stopPropagation();
+      closeInsightsPro();
+    }, {passive:false});
+  }
 }
 function toggleInsightsPro() {
   const body = document.getElementById('ip-body');
@@ -11389,6 +11413,9 @@ document.addEventListener('click', (e) => {
   };
 })();
 </script>
+
+<!-- ==================== PRESET DROPDOWN (body-level, escapes overflow clipping) ==================== -->
+<div id="preset-dropdown" class="hidden fixed w-52 max-h-60 overflow-y-auto bg-surface-container border border-outline-variant/20 rounded-xl shadow-2xl p-1.5" style="z-index:9999"></div>
 
 <!-- ==================== BOTTOM NAV (mobile only) ==================== -->
 <nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 z-[200] flex items-center justify-around border-t" style="background:var(--surface-container-lowest);border-color:rgba(255,255,255,0.06);height:60px;padding:0 8px">
