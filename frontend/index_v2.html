@@ -3962,6 +3962,25 @@ function renderChart(data) {
   // Reset any active draw mode when a new chart opens
   setDrawMode(null);
 
+  // Auto-fetch Trade Zones (Bz/Sz) so markers appear by default without needing
+  // to click ENTRY/EXIT first.  Fire-and-forget — does NOT block chart render.
+  (async (_sym) => {
+    try {
+      const r = await fetch(API + '/stock/' + _sym + '/optimal-levels');
+      if (!r.ok) return;
+      const plan = await r.json();
+      if (!plan || _sym !== currentChartSymbol) return; // stale if user switched
+      if (!Array.isArray(scOptimalCache[_sym])) scOptimalCache[_sym] = [];
+      const arr = scOptimalCache[_sym];
+      const prev = arr[0];
+      if (!prev || !plan.entry || !prev.entry || Math.abs(plan.entry - prev.entry) > 0.5) {
+        arr.unshift(plan);
+        if (arr.length > 3) arr.pop();
+      }
+      scApplyMarkers();
+    } catch(e) {}
+  })(currentChartSymbol);
+
   // Inject resize handles between panels
   setTimeout(()=>injectResizeHandles(), 150);
 
