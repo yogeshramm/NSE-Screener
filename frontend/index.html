@@ -3026,7 +3026,7 @@ function _pfRenderBody(rows) {
       ? `<td class="px-3 py-2.5 text-center"><button onclick="pfDelete('${r.id}')" class="text-on-surface-variant hover:text-error"><span class="material-symbols-outlined text-sm">delete</span></button></td>`
       : `<td class="px-3 py-2.5 text-center"><button onclick="pfOpenCloseModal('${r.id}','${r.symbol}')" class="text-[8px] font-bold text-on-surface-variant hover:text-error px-1.5 py-0.5 rounded bg-surface-container-highest border border-outline-variant/20" title="Close trade">CLOSE</button> <button onclick="pfDelete('${r.id}')" class="text-on-surface-variant hover:text-error"><span class="material-symbols-outlined text-sm">delete</span></button></td>`;
     return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 ${isClosed?'opacity-60':''}">
-      <td class="px-3 py-2.5 font-bold text-primary cursor-pointer hover:underline" onclick="openStockView('${r.symbol}','portfolio')" title="View chart + insights">${r.symbol}${r.notes ? `<div class="text-[8px] text-on-surface-variant/50 font-normal">${r.notes}</div>` : ''}</td>
+      <td class="px-3 py-2.5 font-bold text-primary" title="View chart + insights"><a href="#chart=${encodeURIComponent(r.symbol)}" onclick="event.preventDefault();event.stopPropagation();openStockView('${r.symbol}','portfolio')" oncontextmenu="event.stopPropagation()" class="hover:underline">${r.symbol}</a>${r.notes ? `<div class="text-[8px] text-on-surface-variant/50 font-normal">${r.notes}</div>` : ''}</td>
       <td class="px-3 py-2.5">${statusBadge}</td>
       <td class="px-3 py-2.5 text-right font-mono">${r.qty}</td>
       <td class="px-3 py-2.5 text-right font-mono text-on-surface-variant">${R}${r.buy_price}</td>
@@ -6571,7 +6571,7 @@ function renderWatchlist() {
     }
 
     return `<tr class="group hover:bg-surface-container-highest/30 transition-colors cursor-pointer ${triggered>0?'bg-primary/5':''}">
-      <td class="px-6 py-4"><div class="flex flex-col"><a href="#stock=${encodeURIComponent(item.symbol)}" onclick="event.preventDefault();viewWatchlistStock('${item.symbol.replace(/'/g,"\\'")}');" class="text-sm font-bold text-on-surface hover:text-primary cursor-pointer transition-colors">${item.symbol}</a><span class="text-[0.65rem] text-on-surface-variant/60">${item.added_date?new Date(item.added_date).toLocaleDateString():''}</span></div></td>
+      <td class="px-6 py-4"><div class="flex flex-col"><a href="#chart=${encodeURIComponent(item.symbol)}" onclick="event.preventDefault();viewWatchlistStock('${item.symbol.replace(/'/g,"\\'")}');" oncontextmenu="event.stopPropagation()" class="text-sm font-bold text-on-surface hover:text-primary cursor-pointer transition-colors">${item.symbol}</a><span class="text-[0.65rem] text-on-surface-variant/60">${item.added_date?new Date(item.added_date).toLocaleDateString():''}</span></div></td>
       <td class="px-6 py-4 text-right"><span class="wl-price-cell" data-sym="${item.symbol}">${price}</span></td>
       <td class="px-6 py-4 text-center"><span class="wl-sparkline" data-sym="${item.symbol}"><svg width="60" height="20" viewBox="0 0 60 20"><line x1="0" y1="10" x2="60" y2="10" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="3"/></svg></span></td>
       <td class="px-6 py-4 text-right"><span class="text-xs font-bold ${scoreColor} tabular-nums">${score}</span></td>
