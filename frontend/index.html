@@ -2392,9 +2392,11 @@ function _quickEvBadge(events) {
   return `<div class="text-[8.5px] font-medium leading-tight mt-0.5 tracking-wide" style="color:${col}">${text}</div>`;
 }
 
-async function _showQuickLookup(sym) {
-  // Never overwrite active screener results
-  if (window._lastScreenData && (_lastScreenData.stage1_results||[]).length > 0) return;
+async function _showQuickLookup(sym, opts = {}) {
+  const badge = opts.badge || 'SEARCH';
+  const force = opts.force || false;
+  // Never overwrite active screener results (unless forced by portfolio/watchlist)
+  if (!force && window._lastScreenData && (_lastScreenData.stage1_results||[]).length > 0) return;
   if (typeof switchStage === 'function') switchStage(1);
   const s1 = document.getElementById('s1-body');
   if (!s1) return;
@@ -2422,7 +2424,7 @@ async function _showQuickLookup(sym) {
     s1.innerHTML=`<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" onclick="openInsightsPro('${ss}')">
       <td class="px-3 py-2.5 text-primary/40 text-lg font-bold select-none">›</td>
       <td class="px-3 py-2.5">
-        <div class="flex items-center gap-2 mb-0.5"><span class="text-[7px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/10 text-primary/70 border border-primary/20">SEARCH</span><div class="font-bold text-on-surface">${_stockLink(sym)}</div></div>
+        <div class="flex items-center gap-2 mb-0.5"><span class="text-[7px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/10 text-primary/70 border border-primary/20">${badge}</span><div class="font-bold text-on-surface">${_stockLink(sym)}</div></div>
         <div class="text-[9px] text-on-surface-variant">${sector}</div>${evB}
       </td>
       <td class="px-3 py-2.5 text-right text-on-surface ltp-cell" data-sym="${sym}">${price}</td>
@@ -2914,7 +2916,7 @@ function _pfRenderBody(rows) {
       ? `<td class="px-3 py-2.5 text-center"><button onclick="pfDelete('${r.id}')" class="text-on-surface-variant hover:text-error"><span class="material-symbols-outlined text-sm">delete</span></button></td>`
       : `<td class="px-3 py-2.5 text-center"><button onclick="pfOpenCloseModal('${r.id}','${r.symbol}')" class="text-[8px] font-bold text-on-surface-variant hover:text-error px-1.5 py-0.5 rounded bg-surface-container-highest border border-outline-variant/20" title="Close trade">CLOSE</button> <button onclick="pfDelete('${r.id}')" class="text-on-surface-variant hover:text-error"><span class="material-symbols-outlined text-sm">delete</span></button></td>`;
     return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 ${isClosed?'opacity-60':''}">
-      <td class="px-3 py-2.5 font-bold text-primary cursor-pointer hover:underline" onclick="switchTab('screener');setTimeout(()=>openInsightsPro('${r.symbol}'),120)" title="Open chart">${r.symbol}${r.notes ? `<div class="text-[8px] text-on-surface-variant/50 font-normal">${r.notes}</div>` : ''}</td>
+      <td class="px-3 py-2.5 font-bold text-primary cursor-pointer hover:underline" onclick="openStockView('${r.symbol}','portfolio')" title="View chart + insights">${r.symbol}${r.notes ? `<div class="text-[8px] text-on-surface-variant/50 font-normal">${r.notes}</div>` : ''}</td>
       <td class="px-3 py-2.5">${statusBadge}</td>
       <td class="px-3 py-2.5 text-right font-mono">${r.qty}</td>
       <td class="px-3 py-2.5 text-right font-mono text-on-surface-variant">${R}${r.buy_price}</td>
@@ -3552,6 +3554,21 @@ function openBoChart(sym) {
   _chartReturnTab = 'breakouts';
   switchTab('screener');
   setTimeout(() => openChart(sym), 100);
+}
+
+// Open chart+insights from Portfolio or Watchlist tab.
+// Shows the stock row in Stage 1 (like search), opens insights panel + chart.
+// Closing the chart returns the user to the originating tab.
+function openStockView(sym, source) {
+  _chartReturnTab = source; // closeChart() will switchTab(source) on close
+  switchTab('screener');
+  const badgeLabel = source === 'portfolio' ? 'PORTFOLIO'
+                   : source === 'watchlist' ? 'WATCHLIST'
+                   : 'SEARCH';
+  // Show stock row in Stage 1 (force=true so it always shows even if scan has results)
+  _showQuickLookup(sym, { badge: badgeLabel, force: true });
+  // Open insights panel + chart (desktop opens chart automatically)
+  openInsightsPro(sym);
 }
 
 let currentChartDays = 180;
@@ -6379,7 +6396,7 @@ function renderWatchlist() {
   }).join('');
 }
 
-function viewWatchlistStock(symbol) { switchTab('screener'); setTimeout(()=>openChart(symbol),100); }
+function viewWatchlistStock(symbol) { openStockView(symbol, 'watchlist'); }
 
 async function loadWatchlistSparklines() {
   const cells = document.querySelectorAll('.wl-sparkline[data-sym]');
