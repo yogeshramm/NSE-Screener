@@ -10008,15 +10008,14 @@ function toggleInsightsPro() {
   if (!body) return;
   const isExpanded = body.dataset.ipState !== 'collapsed';
   if (isExpanded) {
-    // Collapse: snapshot current height, then animate to 0
+    // Collapse: lock to px height, force reflow, then animate to 0
     body.style.maxHeight = body.scrollHeight + 'px';
     body.style.overflow = 'hidden';
-    requestAnimationFrame(() => {
-      body.style.maxHeight = '0px';
-      body.style.opacity = '0';
-      body.style.paddingTop = '0';
-      body.style.paddingBottom = '0';
-    });
+    void body.offsetHeight; // force reflow so browser acknowledges the px value
+    body.style.maxHeight = '0px';
+    body.style.opacity = '0';
+    body.style.paddingTop = '0';
+    body.style.paddingBottom = '0';
     body.dataset.ipState = 'collapsed';
     if (chev) chev.textContent = 'expand_more';
   } else {
