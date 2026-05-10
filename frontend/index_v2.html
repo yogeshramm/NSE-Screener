@@ -385,7 +385,28 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
   #chart-back-btn { display: flex !important; }
   #chart-close-btn { display: none; }
   #chart-panel.mob-fs #chart-close-btn { display: none; }
+}
 
+/* ── Full-page chart mode (#chart=SYMBOL opens in new tab) ───────────────── */
+body.chart-fullpage { overflow: hidden; }
+body.chart-fullpage #nav-sidebar,
+body.chart-fullpage #ip-panel,
+body.chart-fullpage #bottom-nav { display: none !important; }
+body.chart-fullpage #chart-panel {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100dvh !important;
+  z-index: 999 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+body.chart-fullpage #chart-back-btn,
+body.chart-fullpage #sc-sidebar-toggle { display: none !important; }
+#chart-fullpage-exit { display: none !important; }
+body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
+
+@media (max-width: 639px) {
   /* 4. Chart header: two-row layout on mobile */
   #chart-header {
     height: auto !important;
@@ -1047,6 +1068,9 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
             <span class="material-symbols-outlined" style="font-size:18px">arrow_back_ios</span>
             <span id="chart-back-label" class="text-[11px] font-bold" style="display:none">Back</span>
           </button>
+          <button id="sc-sidebar-toggle" onclick="toggleSidebarCollapse()" class="hidden sm:inline-flex items-center justify-center w-6 h-6 rounded text-on-surface-variant hover:text-primary hover:bg-surface-container-highest flex-shrink-0" title="Collapse / expand stock list">
+            <span class="material-symbols-outlined" style="font-size:16px">chevron_left</span>
+          </button>
           <span class="text-[10px] font-black uppercase tracking-widest text-on-surface truncate">
             <span id="chart-title">--</span>
             <span id="chart-price" class="text-primary font-mono ml-1"></span>
@@ -1095,6 +1119,13 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
           <button id="sc-oe-btn" onclick="toggleScreenerOptimal()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded hidden sm:inline-flex" title="Optimal Entry/Exit">ENTRY/EXIT</button>
           <button id="sc-mark-btn" onclick="toggleMarkMode()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded inline-flex" title="Click then click a candle to mark your BUY entry">MARK</button>
           <span class="material-symbols-outlined text-sm cursor-pointer hover:text-primary" onclick="openInsightsFromChart()">psychology</span>
+          <a id="chart-popout-btn" href="#" target="_blank" onclick="this.href='#chart='+encodeURIComponent(currentChartSymbol||'')" class="hidden sm:inline-flex items-center text-on-surface-variant hover:text-primary" title="Open full-page chart in new tab">
+            <span class="material-symbols-outlined text-sm">open_in_new</span>
+          </a>
+          <button id="chart-fullpage-exit" onclick="exitChartFullpage()" title="Exit full-page chart — back to app" class="items-center gap-1 px-2 py-0.5 text-[9px] font-bold text-on-surface-variant hover:text-primary bg-surface-container-highest rounded">
+            <span class="material-symbols-outlined" style="font-size:13px">close_fullscreen</span>
+            <span class="hidden sm:inline">App</span>
+          </button>
           <span id="chart-close-btn" class="material-symbols-outlined text-sm cursor-pointer hover:text-error" onclick="closeChart()">close</span>
         </div>
         <!-- Row 2: interval + timeframe compact dropdowns -->
@@ -2352,7 +2383,7 @@ function _stockLink(symbol, label) {
   // onclick → left-click opens chart inline without navigating
   const enc = encodeURIComponent(symbol);
   const sym = symbol.replace(/'/g, "\\'");
-  return `<a href="#stock=${enc}" onclick="event.preventDefault();event.stopPropagation();_openStockInline('${sym}');" class="hover:text-primary transition-colors font-bold">${lbl}</a>`;
+  return `<a href="#chart=${enc}" onclick="event.preventDefault();event.stopPropagation();_openStockInline('${sym}');" class="hover:text-primary transition-colors font-bold">${lbl}</a>`;
 }
 
 // Event badge helper — small coloured line under stock name
@@ -2848,6 +2879,17 @@ window.addEventListener('popstate', (e) => {
       let symbol;
       try { symbol = decodeURIComponent(stockMatch[1]).toUpperCase(); }
       catch(e) { symbol = stockMatch[1].toUpperCase(); }
+      switchTab('screener', {fromHistory: true});
+      setTimeout(() => { try { if (typeof openChart === 'function') openChart(symbol); } catch(e) {} }, 250);
+      return;
+    }
+    // Full-page chart deep-link (#chart=SYMBOL — right-click → open in new tab)
+    const chartFpMatch = raw.match(/^chart=(.+)$/);
+    if (chartFpMatch) {
+      let symbol;
+      try { symbol = decodeURIComponent(chartFpMatch[1]).toUpperCase(); }
+      catch(e) { symbol = chartFpMatch[1].toUpperCase(); }
+      document.body.classList.add('chart-fullpage');
       switchTab('screener', {fromHistory: true});
       setTimeout(() => { try { if (typeof openChart === 'function') openChart(symbol); } catch(e) {} }, 250);
       return;
@@ -3448,8 +3490,8 @@ function openChart(symbol) {
     // Hide bottom nav while chart is open so it doesn't block controls
     const bn = document.getElementById('bottom-nav');
     if (bn) bn.style.display = 'none';
-  } else if (_chartReturnTab) {
-    // Opened from another tab — full-width chart, no split pane
+  } else if (_chartReturnTab || document.body.classList.contains('chart-fullpage')) {
+    // Opened from another tab OR full-page URL — full-width chart, no split pane
     tables.style.display = 'none';
     tables.style.width   = '0';
     tables.style.minWidth = '';
@@ -3464,7 +3506,16 @@ function openChart(symbol) {
     chart.classList.remove('mob-fs');
     chart.style.display    = 'flex';
     chart.style.width      = 'calc(100% - 330px)';
+    // Apply saved sidebar collapsed preference
+    if (_sidebarCollapsed) {
+      tables.style.display = 'none';
+      tables.style.width   = '0';
+      chart.style.width    = '100%';
+    }
   }
+  // Sync sidebar toggle icon with current state
+  const _stIcon = document.querySelector('#sc-sidebar-toggle .material-symbols-outlined');
+  if (_stIcon) _stIcon.textContent = _sidebarCollapsed ? 'chevron_right' : 'chevron_left';
   document.getElementById('chart-title').textContent = symbol;
   document.getElementById('chart-container').innerHTML = '';
   document.getElementById('rsi-container').innerHTML   = '';
@@ -3554,6 +3605,41 @@ function openBoChart(sym) {
   _chartReturnTab = 'breakouts';
   switchTab('screener');
   setTimeout(() => openChart(sym), 100);
+}
+
+// ── Sidebar collapse toggle ────────────────────────────────────────────────
+let _sidebarCollapsed = localStorage.getItem('scSidebarCollapsed') === 'true';
+
+function toggleSidebarCollapse() {
+  _sidebarCollapsed = !_sidebarCollapsed;
+  localStorage.setItem('scSidebarCollapsed', _sidebarCollapsed);
+  const tables = document.getElementById('tables-panel');
+  const chart  = document.getElementById('chart-panel');
+  if (!tables || !chart) return;
+  const icon = document.querySelector('#sc-sidebar-toggle .material-symbols-outlined');
+  if (_sidebarCollapsed) {
+    tables.style.display = 'none';
+    tables.style.width   = '0';
+    chart.style.width    = '100%';
+    if (icon) icon.textContent = 'chevron_right';
+  } else {
+    tables.style.display   = '';
+    tables.style.width     = '320px';
+    tables.style.minWidth  = '320px';
+    chart.style.width      = 'calc(100% - 330px)';
+    if (icon) icon.textContent = 'chevron_left';
+  }
+  // Nudge lightweight-charts to recalculate rendered width
+  setTimeout(() => { try { if (window._scChart) window._scChart.timeScale().scrollToRealTime(); } catch(e) {} }, 60);
+}
+
+// ── Full-page chart (via #chart=SYMBOL URL in a new tab) ──────────────────
+function exitChartFullpage() {
+  document.body.classList.remove('chart-fullpage');
+  if (window.location.hash.startsWith('#chart=')) {
+    history.replaceState(null, '', window.location.pathname + '#screener');
+  }
+  closeChart();
 }
 
 // Open chart+insights from Portfolio or Watchlist tab.
