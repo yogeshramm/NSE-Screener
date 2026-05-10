@@ -549,6 +549,16 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
       <span class="sb-label">Watch</span>
       <span class="sb-tooltip">Watchlist</span>
     </a>
+    <a href="#practice" class="nav-tab text-on-surface-variant" data-tab="practice" onclick="event.preventDefault();switchTab('practice')">
+      <span class="material-symbols-outlined">sports_esports</span>
+      <span class="sb-label">Practice</span>
+      <span class="sb-tooltip">Practice</span>
+    </a>
+    <a href="#events" class="nav-tab text-on-surface-variant" data-tab="events" onclick="event.preventDefault();switchTab('events')">
+      <span class="material-symbols-outlined">event</span>
+      <span class="sb-label">Events</span>
+      <span class="sb-tooltip">Events</span>
+    </a>
     <a href="#breakouts" class="nav-tab text-on-surface-variant" data-tab="breakouts" onclick="event.preventDefault();switchTab('breakouts')">
       <span class="material-symbols-outlined">trending_up</span>
       <span class="sb-label">Break.</span>
@@ -558,16 +568,6 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
       <span class="material-symbols-outlined">history</span>
       <span class="sb-label">Backtest</span>
       <span class="sb-tooltip">Backtester</span>
-    </a>
-    <a href="#events" class="nav-tab text-on-surface-variant" data-tab="events" onclick="event.preventDefault();switchTab('events')">
-      <span class="material-symbols-outlined">event</span>
-      <span class="sb-label">Events</span>
-      <span class="sb-tooltip">Events</span>
-    </a>
-    <a href="#practice" class="nav-tab text-on-surface-variant" data-tab="practice" onclick="event.preventDefault();switchTab('practice')">
-      <span class="material-symbols-outlined">sports_esports</span>
-      <span class="sb-label">Practice</span>
-      <span class="sb-tooltip">Practice</span>
     </a>
     <a href="#portfolio" class="nav-tab text-on-surface-variant" data-tab="portfolio" onclick="event.preventDefault();switchTab('portfolio')">
       <span class="material-symbols-outlined">account_balance_wallet</span>
@@ -9235,11 +9235,24 @@ async function loadHome() {
         wlBody.innerHTML = items.map(it => {
           const enc = encodeURIComponent(it.symbol);
           const safe = it.symbol.replace(/'/g, "\\'");
-          return `<a href="#stock=${enc}" onclick="event.preventDefault();switchTab('screener');setTimeout(()=>openChart('${safe}'),100)" class="px-4 py-2.5 flex items-center justify-between hover:bg-surface-container-highest/30 cursor-pointer no-underline block">
-            <span class="text-xs font-bold text-on-surface">${it.symbol}</span>
-            <span class="text-xs font-mono text-on-surface-variant home-wl-ltp" data-sym="${it.symbol}">—</span>
+          return `<a href="#stock=${enc}" onclick="event.preventDefault();switchTab('screener');setTimeout(()=>openChart('${safe}'),100)" class="px-4 py-2.5 flex items-center gap-2 hover:bg-surface-container-highest/30 cursor-pointer no-underline block">
+            <span class="text-xs font-bold text-on-surface flex-1">${it.symbol}</span>
+            <span class="home-wl-spark" data-sym="${it.symbol}"><svg width="56" height="18" viewBox="0 0 56 18"><line x1="0" y1="9" x2="56" y2="9" stroke="rgba(255,255,255,0.08)" stroke-width="1" stroke-dasharray="3"/></svg></span>
+            <span class="text-xs font-mono text-on-surface-variant home-wl-ltp text-right" data-sym="${it.symbol}" style="min-width:80px">—</span>
           </a>`;
         }).join('');
+        // Fetch sparklines
+        items.forEach(async it => {
+          try {
+            const cd = await fetch(API + '/chart/' + it.symbol + '?interval=D').then(r => r.json());
+            const closes = (cd.candles || []).slice(-20).map(c => c.close).filter(v => v > 0);
+            if (closes.length < 2) return;
+            const el = document.querySelector(`.home-wl-spark[data-sym="${it.symbol}"]`);
+            if (!el) return;
+            const col = closes[closes.length-1] >= closes[0] ? '#00e5a0' : '#ff4757';
+            el.innerHTML = drawSparkline(closes, col, 56, 18);
+          } catch(e) {}
+        });
         // Fetch LTP
         const syms = items.map(i => i.symbol).join(',');
         if (syms) {
@@ -9654,11 +9667,10 @@ document.addEventListener('click', (e) => {
 });
 
 // ============ FEATURE 6: WATCHLIST SPARKLINES (via loadHome helper) ============
-function drawSparkline(closes, color) {
+function drawSparkline(closes, color, w=60, h=20) {
   if (!closes || closes.length < 2) return '';
   const min = Math.min(...closes), max = Math.max(...closes);
   const range = max - min || 1;
-  const w = 60, h = 20;
   const pts = closes.map((c, i) => {
     const x = (i / (closes.length - 1)) * w;
     const y = h - ((c - min) / range) * (h - 2) - 1;
