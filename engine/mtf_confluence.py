@@ -85,15 +85,41 @@ def compute_mtf(sym: str) -> Optional[Dict[str, Any]]:
 
 
 def compute_bulk(symbols: List[str]) -> Dict[str, Dict[str, Any]]:
-    if os.path.exists(CACHE_F) and time.time() - os.path.getmtime(CACHE_F) < TTL:
+    # Load existing cache unconditionally so we can merge (never destroy).
+    cache: Dict[str, Dict[str, Any]] = {}
+    cache_mtime = 0.0
+    if os.path.exists(CACHE_F):
         try:
-            c = pickle.load(open(CACHE_F, "rb"))
-            if set(symbols).issubset(c.keys()): return {s: c[s] for s in symbols if s in c}
-        except Exception: pass
-    out = {}
-    for s in symbols:
-        r = compute_mtf(s)
-        if r is not None: out[s] = r
-    try: pickle.dump(out, open(CACHE_F, "wb"))
-    except Exception: pass
-    return out
+            cache = pickle.load(open(CACHE_F, "rb"))
+            cache_mtime = os.path.getmtime(CACHE_F)
+        except Exception:
+            cache = {}
+
+    cache_fresh = (time.time() - cache_mtime) < TTL
+
+    if cache_fresh:
+        missing = [s for s in symbols if s not in cache]
+        if not missing:
+            # Full hit — return immediately, no disk write needed.
+            return {s: cache[s] for s in symbols if s in cache}
+        # Partial miss — compute only the missing symbols, merge in.
+        for s in missing:
+            r = compute_mtf(s)
+            if r is not None:
+                cache[s] = r
+    else:
+        # Cache stale — recompute requested symbols; keep all others from
+        # old cache so subsequent requests don't lose their data.
+        for s in symbols:
+            r = compute_mtf(s)
+            if r is not None:
+                cache[s] = r
+
+    # Write merged cache (atomic-style via tmp file to avoid corruption).
+    try:
+        tmp = CACHE_F + ".tmp"
+        pickle.dump(cache, open(tmp, "wb"))
+        os.replace(tmp, CACHE_F)
+    except Exception:
+        pass
+    return {s: cache[s] for s in symbols if s in cache}

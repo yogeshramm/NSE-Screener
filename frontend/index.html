@@ -3635,7 +3635,6 @@ function startLivePrices(syms) {
       const r = await fetch(API + '/market/ltp?symbols=' + encodeURIComponent(symStr));
       const d = await r.json();
       const badge = document.getElementById('live-badge');
-      // Show LIVE badge only during market hours; keep updating prices always
       if (badge) {
         if (d.market_open) {
           badge.classList.remove('hidden'); badge.classList.add('flex');
@@ -3643,6 +3642,9 @@ function startLivePrices(syms) {
           badge.classList.add('hidden'); badge.classList.remove('flex');
         }
       }
+      // Stop the polling loop when market is closed — no point hitting
+      // Angel One every 5s overnight / weekends for zero new data.
+      if (!d.market_open) { stopLivePrices(); return; }
       Object.entries(d.prices || {}).forEach(([sym, p]) => {
         document.querySelectorAll(`.ltp-cell[data-sym="${sym}"]`).forEach(td => {
           const chg = p.change_pct;
@@ -4251,24 +4253,9 @@ function renderChart(data) {
   // Reset any active draw mode when a new chart opens
   setDrawMode(null);
 
-  // Auto-fetch Trade Zones (Bz/Sz) so markers appear by default without needing
-  // to click ENTRY/EXIT first.  Fire-and-forget — does NOT block chart render.
-  (async (_sym) => {
-    try {
-      const r = await fetch(API + '/stock/' + _sym + '/optimal-levels');
-      if (!r.ok) return;
-      const plan = await r.json();
-      if (!plan || _sym !== currentChartSymbol) return; // stale if user switched
-      if (!Array.isArray(scOptimalCache[_sym])) scOptimalCache[_sym] = [];
-      const arr = scOptimalCache[_sym];
-      const prev = arr[0];
-      if (!prev || !plan.entry || !prev.entry || Math.abs(plan.entry - prev.entry) > 0.5) {
-        arr.unshift(plan);
-        if (arr.length > 3) arr.pop();
-      }
-      scApplyMarkers();
-    } catch(e) {}
-  })(currentChartSymbol);
+  // Trade Zones (Bz/Sz) are fetched on demand when user clicks ENTRY/EXIT.
+  // Auto-fetching on every chart open was firing 8 heavy chart-pattern detectors
+  // per click — disabled for performance. Use the ENTRY/EXIT button to load.
 
   // Inject resize handles between panels
   setTimeout(()=>injectResizeHandles(), 150);
@@ -6612,11 +6599,17 @@ async function deletePreset(name) {
   } catch(e){alert('Delete failed: '+e.message);}
 }
 
+const _presetCache = new Map(); // JS-side cache so repeat clicks skip server roundtrip
 async function loadPreset(name) {
   if(!name)return;
   try {
-    const res=await fetch(API+'/presets/'+name);
-    const data=await res.json();
+    // Serve from JS cache if available — avoids server roundtrip for repeated clicks.
+    let data = _presetCache.get(name);
+    if (!data) {
+      const res=await fetch(API+'/presets/'+name);
+      data=await res.json();
+      _presetCache.set(name, data);
+    }
     // First disable ALL filters, then apply preset values (so only preset filters are ON)
     for(const[k,v] of Object.entries(fullConfig)){if(typeof v==='object'&&'enabled' in v) v.enabled=false;}
     for(const[k,v] of Object.entries(data.config)){if(k in fullConfig&&typeof fullConfig[k]==='object'&&typeof v==='object')Object.assign(fullConfig[k],v);else fullConfig[k]=v;}

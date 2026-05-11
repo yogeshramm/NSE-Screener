@@ -154,8 +154,14 @@ def get_chart_data(symbol: str, days: int = 200, interval: str = "1D"):
     # Cache is invalidated when new daily data arrives (after 24h at most).
     _dcache_key = f"{symbol}:{interval}:{days}"
     _dcached = _daily_cache.get(_dcache_key)
-    if _dcached and time.time() - _dcached[0] < 900:  # 900s = 15 min
-        return _dcached[1]
+    if _dcached:
+        cached_ts, cached_payload = _dcached
+        # Live-candle entries (market hours) expire after 30s — price accuracy
+        # tradeoff vs recomputing 19 indicators on 2477 rows on every click.
+        # Non-live entries expire after 15 min.
+        ttl = 30 if cached_payload.get("live_candle") else 900
+        if time.time() - cached_ts < ttl:
+            return cached_payload
 
     try:
         bundle = get_stock_bundle(symbol)
@@ -470,8 +476,9 @@ def get_chart_data(symbol: str, days: int = 200, interval: str = "1D"):
         "live_candle": live_candle_injected,   # True when today's candle is from Angel One LTP
     }
 
-    # Store in daily cache (don't cache live-candle responses — they change every tick)
-    if not live_candle_injected:
-        _daily_cache[_dcache_key] = (time.time(), result)
+    # Cache all responses. Live-candle results use a short 30s TTL (price
+    # updates every 30s is fine — avoids recomputing 19 indicators on 2477 rows
+    # on every single chart click during market hours). Non-live uses 15 min.
+    _daily_cache[_dcache_key] = (time.time(), result)
 
     return result
