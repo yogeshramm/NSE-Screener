@@ -3660,6 +3660,21 @@ function startLivePrices(syms) {
 
 // ============ CHART ============
 function openChart(symbol) {
+  // Reset overlay toggle state on every stock switch so ENTRY/EXIT, TEMPLATE etc.
+  // always start OFF for the new stock (closeChart() only runs when panel closes).
+  scInfoOn=false; scHelpOn=false; scEventsOn=false; scTemplateOn=false; scOptimalOn=false;
+  scClearOptimalLines();
+  const _op = document.getElementById('sc-optimal-panel'); if (_op) _op.classList.add('hidden');
+  const _ob = document.getElementById('sc-oe-btn');      if (_ob) _ob.className = 'text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
+  const ib  = document.getElementById('sc-info-btn');    if (ib)  ib.className  = 'text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
+  const hb  = document.getElementById('sc-help-btn');    if (hb)  hb.className  = 'text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
+  const eb  = document.getElementById('sc-events-btn');  if (eb)  eb.className  = 'text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
+  const tb  = document.getElementById('sc-tt-btn');      if (tb)  tb.className  = 'text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded';
+  const tp  = document.getElementById('sc-tt-panel');    if (tp)  tp.classList.add('hidden');
+  const hs  = document.getElementById('sc-help-summary');if (hs)  { hs.classList.add('hidden'); hs.innerHTML=''; }
+  const pp  = document.getElementById('sc-breakout-pills'); if (pp) { pp.classList.add('hidden'); pp.innerHTML=''; }
+  scClear52WLines(); scClearTriggerLines();
+
   currentChartSymbol = symbol;
   const tables = document.getElementById('tables-panel');
   const chart  = document.getElementById('chart-panel');
