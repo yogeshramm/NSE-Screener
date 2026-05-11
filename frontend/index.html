@@ -5557,9 +5557,9 @@ function scApplyMarkers() {
       plans.forEach((plan, idx) => {
         if (!plan || !plan.tradeable) return;
         const n = idx + 1;
-        // Bz — aboveBar (belowBar gets buried under volume bars); proximity-gated <5%
+        // Bz — belowBar (entry zone); proximity-gated <5%
         if (plan.entry != null && Math.abs(close - plan.entry) / plan.entry * 100 < 5)
-          markers.push({ time: lastTs, position: 'aboveBar', color: '#eab308', shape: 'square', text: `Bz${n} ₹${plan.entry}` });
+          markers.push({ time: lastTs, position: 'belowBar', color: '#eab308', shape: 'square', text: `Bz${n} ₹${plan.entry}` });
         // Sz — always visible, 3-phase opacity (future exit target)
         if (plan.target != null) {
           const a = phase(plan.target);
