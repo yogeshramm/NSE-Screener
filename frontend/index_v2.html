@@ -4256,8 +4256,8 @@ function renderChart(data) {
   // Trade Zones: background auto-fetch on chart open (only if checkbox on + no cached data).
   // /optimal-levels is pure numpy (~350ms), safe to fire non-blocking.
   // ENTRY/EXIT button still works as before for the full panel + re-fetch.
-  if (scTradeZonesOn && sym && (!currentInterval || currentInterval === 'D' || currentInterval === '1D')) {
-    const _tzSym = sym;
+  if (scTradeZonesOn && currentChartSymbol && !data.intraday) {
+    const _tzSym = currentChartSymbol;
     setTimeout(async () => {
       if (currentChartSymbol !== _tzSym) return; // user already switched stock
       if (scOptimalCache[_tzSym] && Array.isArray(scOptimalCache[_tzSym]) && scOptimalCache[_tzSym].length) return; // already cached
