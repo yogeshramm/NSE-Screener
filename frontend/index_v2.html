@@ -9764,6 +9764,12 @@ checkAuth();
 
 // ============ FEATURE 1: HOME DASHBOARD ============
 async function loadHome() {
+  // Kick off heavy parallel requests FIRST so they're in-flight while we do cheap work.
+  // Fetch sector-heatmap ONCE and reuse for both the "Top Sector" card and "Sector Pulse" widget.
+  const _hmPromise = fetch(API + '/market/sector-heatmap?universe=nifty500').then(r => r.json()).catch(() => null);
+  const _mdPromise = fetch(API + '/market/direction').then(r => r.json()).catch(() => null);
+  const _mvPromise = fetch(API + '/market/movers').then(r => r.json()).catch(() => null);
+
   // Fetch data status for stat cards — uses shared 15s cache, no extra request
   try {
     const st = await _fetchStatus().catch(() => null);
@@ -9809,7 +9815,7 @@ async function loadHome() {
 
   // Mobile index strip — N50 / N500 bull/bear status
   try {
-    const md = await fetch(API + '/market/direction').then(r => r.json()).catch(() => null);
+    const md = await _mdPromise;
     if (md) {
       const _statusColor = s => s === 'bull' ? '#00e5a0' : s === 'bear' ? '#ff4757' : '#f5a623';
       const _statusIcon  = s => s === 'bull' ? '▲' : s === 'bear' ? '▼' : '–';
@@ -9828,7 +9834,7 @@ async function loadHome() {
 
   // Sector heatmap → top sector card
   try {
-    const hmRes = await fetch(API + '/market/sector-heatmap?universe=nifty500').then(r => r.json()).catch(() => null);
+    const hmRes = await _hmPromise;
     const sectors = hmRes?.sectors || [];
     if (sectors.length) {
       // Sort by 1M return
@@ -9865,7 +9871,7 @@ async function loadHome() {
         // Fetch sparklines
         items.forEach(async it => {
           try {
-            const cd = await fetch(API + '/chart/' + it.symbol + '?interval=D').then(r => r.json());
+            const cd = await fetch(API + '/chart/' + it.symbol + '?interval=D&sparkline=true').then(r => r.json());
             const closes = (cd.candles || []).slice(-20).map(c => c.close).filter(v => v > 0);
             if (closes.length < 2) return;
             const el = document.querySelector(`.home-wl-spark[data-sym="${it.symbol}"]`);
@@ -9900,7 +9906,7 @@ async function loadHome() {
     const secBody = document.getElementById('home-sector-body');
     if (secBody) {
       secBody.innerHTML = '<div class="col-span-2 py-4 text-center text-on-surface-variant/50 text-[10px]">Loading…</div>';
-      const hmRes = await fetch(API + '/market/sector-heatmap?universe=nifty500').then(r => r.json()).catch(() => null);
+      const hmRes = await _hmPromise;
       const sectors = hmRes?.sectors || [];
       if (sectors.length) {
         // Sort by 1D return for pulse view
@@ -9924,7 +9930,7 @@ async function loadHome() {
 
   // Market Movers (Top Gainers / Top Losers / Breakout Watch)
   try {
-    const mvRes = await fetch(API + '/market/movers').then(r => r.json()).catch(() => null);
+    const mvRes = await _mvPromise;
     if (mvRes) {
       const badge  = document.getElementById('home-movers-badge');
       const note   = document.getElementById('home-movers-note');

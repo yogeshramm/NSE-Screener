@@ -141,13 +141,41 @@ def _inject_live_daily_candle(df, symbol: str):
 
 
 @router.get("/chart/{symbol}")
-def get_chart_data(symbol: str, days: int = 200, interval: str = "1D"):
+def get_chart_data(symbol: str, days: int = 200, interval: str = "1D", sparkline: bool = False):
     """Returns OHLCV candlestick data + computed indicator overlays for charting.
     interval: '1D' (daily), '1W' (weekly), '1M' (monthly), '5m'/'15m'/'1h' (intraday via Angel)
+    sparkline=true: skip all indicator computation, return only OHLC candles (fast path for home-tab sparklines)
     """
     symbol = symbol.strip().upper()
     if interval in _ANGEL_MAP:
         return _intraday_chart(symbol, interval)
+
+    # Sparkline fast-path: just return OHLC, no indicators, short cache
+    if sparkline:
+        _spark_key = f"{symbol}:spark"
+        _spark_cached = _daily_cache.get(_spark_key)
+        if _spark_cached and time.time() - _spark_cached[0] < 1800:  # 30-min sparkline cache
+            return _spark_cached[1]
+        try:
+            bundle = get_stock_bundle(symbol)
+            df = bundle["daily_df"]
+            if df is None or len(df) < 5:
+                raise HTTPException(404, f"No data for {symbol}")
+            trim = df.tail(days)
+            candles = [
+                {"time": int(ts.timestamp()), "open": round(float(r.Open), 2),
+                 "high": round(float(r.High), 2), "low": round(float(r.Low), 2),
+                 "close": round(float(r.Close), 2), "volume": int(r.Volume)}
+                for ts, r in trim.iterrows()
+            ]
+            result = {"symbol": symbol, "interval": interval, "candles": candles,
+                      "indicators": {}, "live_candle": False, "sparkline": True}
+            _daily_cache[_spark_key] = (time.time(), result)
+            return result
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(502, str(e))
 
     # Daily/weekly/monthly chart cache — 15-min TTL
     # Keyed by symbol+interval+days so different day ranges cache separately.
