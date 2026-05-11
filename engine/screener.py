@@ -359,7 +359,7 @@ def screen_stock_stage2(symbol: str, daily_df: pd.DataFrame, stock_data: dict,
 
 def run_full_screen(stocks_data: list[dict], config: dict | None = None) -> dict:
     """
-    Run the complete 2-stage screening on a list of stocks.
+    Run the complete 3-stage screening on a list of stocks.
 
     Args:
         stocks_data: list of dicts, each containing:
@@ -370,14 +370,19 @@ def run_full_screen(stocks_data: list[dict], config: dict | None = None) -> dict
         dict with:
           - stage1_results: list of Stage 1 results, sorted by score
           - stage2_results: list of Stage 2 results, sorted by score
-          - stage1_passed: list of symbols that passed Stage 1
-          - stage2_passed: list of symbols that passed Stage 2
+          - stage3_results: list of Stage 3 results (Stage 2 passed + monthly filter)
+          - stage1_passed / stage2_passed / stage3_passed: symbol lists
     """
+    from engine.monthly_filter import check_stage3_monthly
+
     if config is None:
         config = get_default_config()
 
     stage1_results = []
     stage2_results = []
+
+    # Build a quick lookup for daily_df by symbol (needed for Stage 3)
+    daily_df_map: dict[str, pd.DataFrame] = {s["symbol"]: s["daily_df"] for s in stocks_data}
 
     for stock in stocks_data:
         symbol = stock["symbol"]
@@ -403,11 +408,30 @@ def run_full_screen(stocks_data: list[dict], config: dict | None = None) -> dict
     for i, r in enumerate(stage2_results):
         r["rank"] = i + 1
 
+    # ── Stage 3: Monthly confirmation filter on Stage 2 passed stocks ────────
+    stage3_results = []
+    for s2 in stage2_results:
+        if not s2["passed"]:
+            continue
+        sym = s2["symbol"]
+        daily_df = daily_df_map.get(sym)
+        m_result = check_stage3_monthly(daily_df)
+        # Attach monthly filter result to a copy of the Stage 2 row
+        s3 = {**s2, "monthly_filter": m_result, "stage3_passed": m_result["passed"]}
+        stage3_results.append(s3)
+
+    # Sort Stage 3: passed first (by score), then failed (by score)
+    stage3_results.sort(key=lambda x: (not x["stage3_passed"], -x["score"]))
+    for i, r in enumerate(stage3_results):
+        r["rank"] = i + 1
+
     return {
         "stage1_results": stage1_results,
         "stage2_results": stage2_results,
+        "stage3_results": stage3_results,
         "stage1_passed": [r["symbol"] for r in stage1_results if r["passed"]],
         "stage2_passed": [r["symbol"] for r in stage2_results if r["passed"]],
+        "stage3_passed": [r["symbol"] for r in stage3_results if r.get("stage3_passed")],
         "total_screened": len(stocks_data),
         "config": config,
     }

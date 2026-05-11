@@ -283,6 +283,7 @@ def run_screen(request: ScreenRequest):
     # Clean results for JSON serialization
     stage1 = [_clean_result(r) for r in result["stage1_results"]]
     stage2 = [_clean_result(r) for r in result["stage2_results"]]
+    stage3 = [_clean_result(r) for r in result["stage3_results"]]
 
     # Inject event badges — fetch events once for the whole batch (served from cache)
     try:
@@ -292,6 +293,8 @@ def run_screen(request: ScreenRequest):
             row["event_badge"] = get_event_badge(row["symbol"], ev_list)
         for row in stage2:
             row["event_badge"] = get_event_badge(row["symbol"], ev_list)
+        for row in stage3:
+            row["event_badge"] = get_event_badge(row["symbol"], ev_list)
     except Exception:
         pass
 
@@ -299,8 +302,10 @@ def run_screen(request: ScreenRequest):
         "total_screened": result["total_screened"],
         "stage1_passed": result["stage1_passed"],
         "stage2_passed": result["stage2_passed"],
+        "stage3_passed": result["stage3_passed"],
         "stage1_results": stage1,
         "stage2_results": stage2,
+        "stage3_results": stage3,
         "fetch_errors": errors,
     }
     # Bypass FastAPI's jsonable_encoder (pathologically slow on this payload —

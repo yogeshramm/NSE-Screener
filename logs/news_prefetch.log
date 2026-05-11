@@ -1,0 +1,208 @@
+04:30:43  === news_prefetch start ===
+04:30:44    NSE CSV: 204 Nifty 200 symbols
+04:30:44  Fetching news for 204 stocks  delay=0.4s  dry_run=True
+04:30:44    [  1/204] 360ONE           dry-run
+04:30:44    [  2/204] ABB              dry-run
+04:30:45    [  3/204] APLAPOLLO        dry-run
+04:30:45    [  4/204] AUBANK           dry-run
+04:30:45    [  5/204] ADANIENSOL       dry-run
+04:30:46    [  6/204] ADANIENT         dry-run
+04:30:46    [  7/204] ADANIGREEN       dry-run
+04:30:47    [  8/204] ADANIPORTS       dry-run
+04:30:47    [  9/204] ADANIPOWER       dry-run
+04:30:47    [ 10/204] ATGL             dry-run
+04:30:48    [ 11/204] ABCAPITAL        dry-run
+04:30:48    [ 12/204] ALKEM            dry-run
+04:30:49    [ 13/204] AMBUJACEM        dry-run
+04:30:49    [ 14/204] APOLLOHOSP       dry-run
+04:30:49    [ 15/204] ASHOKLEY         dry-run
+04:30:50    [ 16/204] ASIANPAINT       dry-run
+04:30:50    [ 17/204] ASTRAL           dry-run
+04:30:51    [ 18/204] AUROPHARMA       dry-run
+04:30:51    [ 19/204] DMART            dry-run
+04:30:51    [ 20/204] AXISBANK         dry-run
+04:30:52    [ 21/204] BSE              dry-run
+04:30:52    [ 22/204] BAJAJ-AUTO       dry-run
+04:30:53    [ 23/204] BAJFINANCE       dry-run
+04:30:53    [ 24/204] BAJAJFINSV       dry-run
+04:30:53    [ 25/204] BAJAJHLDNG       dry-run
+04:30:54    [ 26/204] BANKBARODA       dry-run
+04:30:54    [ 27/204] BANKINDIA        dry-run
+04:30:55    [ 28/204] BDL              dry-run
+04:30:55    [ 29/204] BEL              dry-run
+04:30:55    [ 30/204] BHARATFORG       dry-run
+04:30:56    [ 31/204] BHEL             dry-run
+04:30:56    [ 32/204] BPCL             dry-run
+04:30:57    [ 33/204] BHARTIARTL       dry-run
+04:30:57    [ 34/204] GROWW            dry-run
+04:30:57    [ 35/204] BIOCON           dry-run
+04:30:58    [ 36/204] BLUESTARCO       dry-run
+04:30:58    [ 37/204] BOSCHLTD         dry-run
+04:30:59    [ 38/204] BRITANNIA        dry-run
+04:30:59    [ 39/204] CGPOWER          dry-run
+04:31:00    [ 40/204] CANBK            dry-run
+04:31:00    [ 41/204] CHOLAFIN         dry-run
+04:31:00    [ 42/204] CIPLA            dry-run
+04:31:01    [ 43/204] COALINDIA        dry-run
+04:31:01    [ 44/204] COCHINSHIP       dry-run
+04:31:02    [ 45/204] COFORGE          dry-run
+04:31:02    [ 46/204] COLPAL           dry-run
+04:31:02    [ 47/204] CONCOR           dry-run
+04:31:03    [ 48/204] COROMANDEL       dry-run
+04:31:03    [ 49/204] CUMMINSIND       dry-run
+04:31:04    [ 50/204] DLF              dry-run
+04:31:04    [ 51/204] DABUR            dry-run
+04:31:04    [ 52/204] DIVISLAB         dry-run
+04:31:05    [ 53/204] DIXON            dry-run
+04:31:05    [ 54/204] DRREDDY          dry-run
+04:31:06    [ 55/204] DUMMYVEDL1       dry-run
+04:31:06    [ 56/204] DUMMYVEDL2       dry-run
+04:31:06    [ 57/204] DUMMYVEDL3       dry-run
+04:31:07    [ 58/204] DUMMYVEDL4       dry-run
+04:31:07    [ 59/204] EICHERMOT        dry-run
+04:31:08    [ 60/204] ETERNAL          dry-run
+04:31:08    [ 61/204] EXIDEIND         dry-run
+04:31:08    [ 62/204] NYKAA            dry-run
+04:31:09    [ 63/204] FEDERALBNK       dry-run
+04:31:09    [ 64/204] FORTIS           dry-run
+04:31:10    [ 65/204] GAIL             dry-run
+04:31:10    [ 66/204] GVT&D            dry-run
+04:31:10    [ 67/204] GMRAIRPORT       dry-run
+04:31:11    [ 68/204] GLENMARK         dry-run
+04:31:11    [ 69/204] GODFRYPHLP       dry-run
+04:31:12    [ 70/204] GODREJCP         dry-run
+04:31:12    [ 71/204] GODREJPROP       dry-run
+04:31:12    [ 72/204] GRASIM           dry-run
+04:31:13    [ 73/204] HCLTECH          dry-run
+04:31:13    [ 74/204] HDFCAMC          dry-run
+04:31:14    [ 75/204] HDFCBANK         dry-run
+04:31:14    [ 76/204] HDFCLIFE         dry-run
+04:31:14    [ 77/204] HAVELLS          dry-run
+04:31:15    [ 78/204] HEROMOTOCO       dry-run
+04:31:15    [ 79/204] HINDALCO         dry-run
+04:31:16    [ 80/204] HAL              dry-run
+04:31:16    [ 81/204] HINDPETRO        dry-run
+04:31:17    [ 82/204] HINDUNILVR       dry-run
+04:31:17    [ 83/204] HINDZINC         dry-run
+04:31:17    [ 84/204] POWERINDIA       dry-run
+04:31:18    [ 85/204] HUDCO            dry-run
+04:31:18    [ 86/204] HYUNDAI          dry-run
+04:31:19    [ 87/204] ICICIBANK        dry-run
+04:31:19    [ 88/204] ICICIGI          dry-run
+04:31:19    [ 89/204] ICICIAMC         dry-run
+04:31:20    [ 90/204] IDFCFIRSTB       dry-run
+04:31:20    [ 91/204] ITC              dry-run
+04:31:21    [ 92/204] INDIANB          dry-run
+04:31:21    [ 93/204] INDHOTEL         dry-run
+04:31:21    [ 94/204] IOC              dry-run
+04:31:22    [ 95/204] IRCTC            dry-run
+04:31:22    [ 96/204] IRFC             dry-run
+04:31:23    [ 97/204] IREDA            dry-run
+04:31:23    [ 98/204] INDUSTOWER       dry-run
+04:31:23    [ 99/204] INDUSINDBK       dry-run
+04:31:24    [100/204] NAUKRI           dry-run
+04:31:24    [101/204] INFY             dry-run
+04:31:25    [102/204] INDIGO           dry-run
+04:31:25    [103/204] JSWENERGY        dry-run
+04:31:25    [104/204] JSWSTEEL         dry-run
+04:31:26    [105/204] JINDALSTEL       dry-run
+04:31:26    [106/204] JIOFIN           dry-run
+04:31:27    [107/204] JUBLFOOD         dry-run
+04:31:27    [108/204] KEI              dry-run
+04:31:27    [109/204] KPITTECH         dry-run
+04:31:28    [110/204] KALYANKJIL       dry-run
+04:31:28    [111/204] KOTAKBANK        dry-run
+04:31:29    [112/204] LTF              dry-run
+04:31:29    [113/204] LGEINDIA         dry-run
+04:31:29    [114/204] LICHSGFIN        dry-run
+04:31:30    [115/204] LTM              dry-run
+04:31:30    [116/204] LT               dry-run
+04:31:31    [117/204] LAURUSLABS       dry-run
+04:31:31    [118/204] LENSKART         dry-run
+04:31:31    [119/204] LODHA            dry-run
+04:31:32    [120/204] LUPIN            dry-run
+04:31:32    [121/204] MRF              dry-run
+04:31:33    [122/204] M&MFIN           dry-run
+04:31:33    [123/204] M&M              dry-run
+04:31:34    [124/204] MANKIND          dry-run
+04:31:34    [125/204] MARICO           dry-run
+04:31:34    [126/204] MARUTI           dry-run
+04:31:35    [127/204] MFSL             dry-run
+04:31:35    [128/204] MAXHEALTH        dry-run
+04:31:36    [129/204] MAZDOCK          dry-run
+04:31:36    [130/204] MOTILALOFS       dry-run
+04:31:36    [131/204] MPHASIS          dry-run
+04:31:37    [132/204] MCX              dry-run
+04:31:37    [133/204] MUTHOOTFIN       dry-run
+04:31:38    [134/204] NHPC             dry-run
+04:31:38    [135/204] NMDC             dry-run
+04:31:38    [136/204] NTPC             dry-run
+04:31:39    [137/204] NATIONALUM       dry-run
+04:31:39    [138/204] NESTLEIND        dry-run
+04:31:40    [139/204] OBEROIRLTY       dry-run
+04:31:40    [140/204] ONGC             dry-run
+04:31:40    [141/204] OIL              dry-run
+04:31:41    [142/204] PAYTM            dry-run
+04:31:41    [143/204] OFSS             dry-run
+04:31:42    [144/204] POLICYBZR        dry-run
+04:31:42    [145/204] PIIND            dry-run
+04:31:42    [146/204] PAGEIND          dry-run
+04:31:43    [147/204] PATANJALI        dry-run
+04:31:43    [148/204] PERSISTENT       dry-run
+04:31:44    [149/204] PHOENIXLTD       dry-run
+04:31:44    [150/204] PIDILITIND       dry-run
+04:31:44    [151/204] POLYCAB          dry-run
+04:31:45    [152/204] PFC              dry-run
+04:31:45    [153/204] POWERGRID        dry-run
+04:31:46    [154/204] PREMIERENE       dry-run
+04:31:46    [155/204] PRESTIGE         dry-run
+04:31:46    [156/204] PNB              dry-run
+04:31:47    [157/204] RECLTD           dry-run
+04:31:47    [158/204] RADICO           dry-run
+04:31:48    [159/204] RVNL             dry-run
+04:31:48    [160/204] RELIANCE         dry-run
+04:31:48    [161/204] SBICARD          dry-run
+04:31:49    [162/204] SBILIFE          dry-run
+04:31:49    [163/204] SRF              dry-run
+04:31:50    [164/204] MOTHERSON        dry-run
+04:31:50    [165/204] SHREECEM         dry-run
+04:31:50    [166/204] SHRIRAMFIN       dry-run
+04:31:51    [167/204] ENRIN            dry-run
+04:31:51    [168/204] SIEMENS          dry-run
+04:31:52    [169/204] SOLARINDS        dry-run
+04:31:52    [170/204] SBIN             dry-run
+04:31:52    [171/204] SAIL             dry-run
+04:31:53    [172/204] SUNPHARMA        dry-run
+04:31:53    [173/204] SUPREMEIND       dry-run
+04:31:54    [174/204] SUZLON           dry-run
+04:31:54    [175/204] SWIGGY           dry-run
+04:31:55    [176/204] TVSMOTOR         dry-run
+04:31:55    [177/204] TATACAP          dry-run
+04:31:55    [178/204] TATACOMM         dry-run
+04:31:56    [179/204] TCS              dry-run
+04:31:56    [180/204] TATACONSUM       dry-run
+04:31:57    [181/204] TATAELXSI        dry-run
+04:31:57    [182/204] TATAINVEST       dry-run
+04:31:57    [183/204] TMCV             dry-run
+04:31:58    [184/204] TMPV             dry-run
+04:31:58    [185/204] TATAPOWER        dry-run
+04:31:59    [186/204] TATASTEEL        dry-run
+04:31:59    [187/204] TECHM            dry-run
+04:31:59    [188/204] TITAN            dry-run
+04:32:00    [189/204] TORNTPHARM       dry-run
+04:32:00    [190/204] TRENT            dry-run
+04:32:01    [191/204] TIINDIA          dry-run
+04:32:01    [192/204] UPL              dry-run
+04:32:01    [193/204] ULTRACEMCO       dry-run
+04:32:02    [194/204] UNIONBANK        dry-run
+04:32:02    [195/204] UNITDSPR         dry-run
+04:32:03    [196/204] VBL              dry-run
+04:32:03    [197/204] VEDL             dry-run
+04:32:03    [198/204] VMM              dry-run
+04:32:04    [199/204] IDEA             dry-run
+04:32:04    [200/204] VOLTAS           dry-run
+04:32:05    [201/204] WAAREEENER       dry-run
+04:32:05    [202/204] WIPRO            dry-run
+04:32:05    [203/204] YESBANK          dry-run
+04:32:06    [204/204] ZYDUSLIFE        dry-run
+04:32:06  === done in 82s — ok=204 skipped=0 errors=0 ===

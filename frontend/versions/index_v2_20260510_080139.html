@@ -385,28 +385,7 @@ aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
   #chart-back-btn { display: flex !important; }
   #chart-close-btn { display: none; }
   #chart-panel.mob-fs #chart-close-btn { display: none; }
-}
 
-/* ── Full-page chart mode (#chart=SYMBOL opens in new tab) ───────────────── */
-body.chart-fullpage { overflow: hidden; }
-body.chart-fullpage #nav-sidebar,
-body.chart-fullpage #ip-panel,
-body.chart-fullpage #bottom-nav { display: none !important; }
-body.chart-fullpage #chart-panel {
-  position: fixed !important;
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100dvh !important;
-  z-index: 999 !important;
-  display: flex !important;
-  flex-direction: column !important;
-}
-body.chart-fullpage #chart-back-btn,
-body.chart-fullpage #sc-sidebar-toggle { display: none !important; }
-#chart-fullpage-exit { display: none !important; }
-body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
-
-@media (max-width: 639px) {
   /* 4. Chart header: two-row layout on mobile */
   #chart-header {
     height: auto !important;
@@ -449,22 +428,7 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
   #symbols-input-container { width: 100%; flex: 1 1 100%; }
   #screener-action-right { justify-content: flex-end; }
 
-  /* 7. Home stat cards: horizontal scroll strip on mobile (Kite-style metric cards) */
-  #tab-home .grid.grid-cols-2.md\\:grid-cols-4 {
-    display: flex !important;
-    overflow-x: auto !important;
-    gap: 0.5rem !important;
-    padding-bottom: 4px !important;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    margin-bottom: 1rem !important;
-  }
-  #tab-home .grid.grid-cols-2.md\\:grid-cols-4::-webkit-scrollbar { display: none; }
-  #tab-home .grid.grid-cols-2.md\\:grid-cols-4 > div {
-    min-width: 120px;
-    flex: 0 0 auto;
-  }
-
+  /* 7. Home stat cards: single row scrollable on very narrow, 2-col otherwise is fine */
   /* 8. Insights pro / modals: full screen */
   #insights-pro-modal > div {
     width: 100% !important;
@@ -554,29 +518,6 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
 
   /* Comfortable touch targets on screener rows (was py-2.5) */
   #s1-table td, #s2-table td { padding-top: 0.65rem !important; padding-bottom: 0.65rem !important; }
-
-  /* 15. Home page: tighter padding on mobile */
-  #tab-home .p-6 { padding: 0.75rem !important; }
-  #tab-home .mb-6 { margin-bottom: 0.75rem !important; }
-  #tab-home .gap-6 { gap: 0.75rem !important; }
-
-  /* 16. Home Row 2 (Gainers/Losers/Breakouts): horizontal scroll on mobile */
-  #home-row2 {
-    display: flex !important;
-    overflow-x: auto !important;
-    gap: 0.75rem !important;
-    margin-bottom: 0.75rem !important;
-    padding-bottom: 4px !important;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-  #home-row2::-webkit-scrollbar { display: none; }
-  #home-row2 > div {
-    min-width: 78vw;
-    flex: 0 0 auto;
-  }
-  /* Limit list height in Row 2 cards on mobile */
-  #home-gainers-body, #home-losers-body, #home-breakout-body { max-height: 220px; overflow-y: auto; }
 }
 </style>
 </head>
@@ -775,22 +716,6 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
 
 <!-- ==================== TAB: HOME DASHBOARD ==================== -->
 <section class="tab-content flex-col w-full overflow-y-auto" id="tab-home">
-  <!-- Mobile-only market index strip (Kite-style) -->
-  <div id="home-index-strip" class="sm:hidden flex items-center gap-3 px-4 py-2.5 border-b border-outline-variant/10 overflow-x-auto scrollbar-hide text-[11px] font-mono font-bold" style="background:var(--surface-container-lowest)">
-    <div id="home-n50-chip" class="flex items-center gap-1.5 flex-shrink-0 px-3 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.04)">
-      <span class="text-on-surface-variant text-[9px] font-bold uppercase">N50</span>
-      <span id="home-n50-val" class="text-on-surface">—</span>
-      <span id="home-n50-chg" class="text-[9px]">—</span>
-    </div>
-    <div id="home-n500-chip" class="flex items-center gap-1.5 flex-shrink-0 px-3 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.04)">
-      <span class="text-on-surface-variant text-[9px] font-bold uppercase">N500</span>
-      <span id="home-n500-val" class="text-on-surface">—</span>
-      <span id="home-n500-chg" class="text-[9px]">—</span>
-    </div>
-    <button onclick="switchTab('screener')" class="flex-shrink-0 ml-auto text-[9px] font-bold text-primary flex items-center gap-0.5">
-      Screen <span class="material-symbols-outlined" style="font-size:12px">arrow_forward</span>
-    </button>
-  </div>
   <div class="p-6 max-w-[1400px] mx-auto w-full">
     <!-- Top stat cards -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
@@ -840,25 +765,13 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
         </div>
       </div>
 
-      <!-- Portfolio widget (replacing Events) — Kite-inspired P&L card -->
-      <div class="lg:col-span-1 bg-surface-container-low rounded-xl border border-outline-variant/20 overflow-hidden order-first lg:order-none">
-        <div class="px-4 py-3 border-b border-outline-variant/10 flex items-center justify-between">
-          <div class="flex items-center gap-1.5">
-            <span class="material-symbols-outlined text-primary" style="font-size:14px">account_balance_wallet</span>
-            <span class="text-[10px] font-black uppercase tracking-[0.15em] text-primary">Portfolio</span>
-          </div>
-          <button onclick="switchTab('portfolio')" class="text-[9px] text-primary hover:opacity-70 flex items-center gap-0.5 font-bold">
-            View all <span class="material-symbols-outlined" style="font-size:12px">chevron_right</span>
-          </button>
+      <!-- Upcoming Events section -->
+      <div class="lg:col-span-1 bg-surface-container-low rounded-xl border border-outline-variant/20 overflow-hidden">
+        <div class="px-4 py-3 border-b border-outline-variant/10">
+          <span class="text-[10px] font-black uppercase tracking-[0.15em] text-primary">Upcoming Events</span>
+          <span class="text-[9px] text-on-surface-variant ml-2">(watchlist stocks)</span>
         </div>
-        <!-- Mini P&L summary strip -->
-        <div id="home-pf-summary" class="px-4 py-2 border-b border-outline-variant/10 bg-surface-container-highest/20 grid grid-cols-3 gap-2">
-          <div class="text-center"><div class="text-[8px] text-on-surface-variant/60 uppercase">Invested</div><div id="home-pf-inv" class="text-xs font-black font-mono text-on-surface">—</div></div>
-          <div class="text-center"><div class="text-[8px] text-on-surface-variant/60 uppercase">P&L</div><div id="home-pf-pnl" class="text-xs font-black font-mono">—</div></div>
-          <div class="text-center"><div class="text-[8px] text-on-surface-variant/60 uppercase">Today</div><div id="home-pf-day" class="text-xs font-black font-mono">—</div></div>
-        </div>
-        <!-- Positions list -->
-        <div id="home-pf-body" class="divide-y divide-outline-variant/10 max-h-48 overflow-y-auto">
+        <div id="home-events-body" class="divide-y divide-outline-variant/10 max-h-52 overflow-y-auto">
           <div class="px-4 py-6 text-center text-on-surface-variant/50 text-xs">Loading…</div>
         </div>
       </div>
@@ -874,8 +787,8 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
       </div>
     </div>
 
-    <!-- Row 2: Market Movers (Gainers | Losers) + Breakout Watch — horizontal scroll on mobile -->
-    <div id="home-row2" class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- Row 2: Market Movers (Gainers | Losers) + Breakout Watch -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 
       <!-- Gainers -->
       <div class="bg-surface-container-low rounded-xl border border-outline-variant/20 overflow-hidden">
@@ -998,10 +911,11 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
         <option value="all">All NSE</option>
       </select>
       <div class="relative">
-        <button id="preset-btn" onclick="togglePresetDropdown()" class="bg-surface-container-high border border-outline-variant/20 rounded-lg text-[10px] font-bold h-10 px-3 text-on-surface flex items-center gap-2 min-w-[120px]">
+        <button onclick="document.getElementById('preset-dropdown').classList.toggle('hidden')" class="bg-surface-container-high border border-outline-variant/20 rounded-lg text-[10px] font-bold h-10 px-3 text-on-surface flex items-center gap-2 min-w-[120px]">
           <span id="preset-btn-text">Preset...</span>
           <span class="material-symbols-outlined text-xs">expand_more</span>
         </button>
+        <div id="preset-dropdown" class="hidden absolute left-0 top-11 w-52 max-h-60 overflow-y-auto bg-surface-container border border-outline-variant/20 rounded-xl shadow-2xl z-50 p-1.5"></div>
       </div>
       <span id="active-preset-badge" class="hidden text-[10px] bg-primary/20 text-primary px-2 py-1 rounded-full font-bold cursor-pointer" onclick="clearActivePreset()" style="display:none !important"></span>
       <button onclick="quickSavePreset()" class="text-[10px] text-on-surface-variant hover:text-primary font-bold uppercase" title="Save current filters as preset">
@@ -1046,15 +960,8 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
             <span class="stage-tab-short">S2</span>
             <span id="s2-tab-count" class="text-[10px] font-mono px-1.5 py-0.5 bg-secondary/20 rounded ml-1">0</span>
           </button>
-          <button onclick="switchStage(3)" id="stage-tab-3" class="flex-shrink-0 px-3 sm:px-5 py-3 text-xs font-black uppercase tracking-[0.15em] text-on-surface-variant hover:text-on-surface border-b-2 border-transparent flex items-center gap-2 transition-colors whitespace-nowrap">
-            <span class="w-2 h-2 rounded-full bg-[#6effc0] flex-shrink-0"></span>
-            <span class="stage-tab-long">Stage 3: Monthly Confirm</span>
-            <span class="stage-tab-short">S3</span>
-            <span id="s3-tab-count" class="text-[10px] font-mono px-1.5 py-0.5 bg-[#6effc0]/20 rounded ml-1">0</span>
-          </button>
           <span id="s1-count" class="hidden">0</span>
           <span id="s2-count" class="hidden">0</span>
-          <span id="s3-count" class="hidden">0</span>
           <span id="live-badge" class="hidden items-center gap-1 text-[10px] font-bold text-primary ml-2">
             <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse inline-block"></span>LIVE
           </span>
@@ -1117,39 +1024,6 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
             </div>
           </div>
         </section>
-        <!-- STAGE 3: Monthly Confirmation -->
-        <section id="stage-3-section" class="hidden">
-          <div class="mb-3 flex items-center gap-2 px-1">
-            <span class="w-2 h-2 rounded-full bg-[#6effc0]"></span>
-            <span class="text-[10px] font-black uppercase tracking-widest text-[#6effc0]">Monthly Macro Filter</span>
-            <span class="text-[10px] text-on-surface-variant ml-1">— 4 conditions: 10M SMA · RSI>50 · MACD>0 · Supertrend</span>
-          </div>
-          <div class="overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-low shadow-xl shadow-black/20">
-            <div class="overflow-x-auto scrollbar-hide">
-            <table id="s3-table" class="w-full text-left tabular-nums min-w-[700px]">
-              <thead>
-                <tr class="bg-surface-container border-b border-outline-variant/20">
-                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">#</th>
-                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">Stock</th>
-                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Price</th>
-                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right text-error">SL</th>
-                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right text-primary">Target</th>
-                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">R:R</th>
-                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center" title="Monthly conditions: SMA10↑ · RSI>50 · MACD>0 · Supertrend">Monthly</th>
-                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Score</th>
-                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">Status</th>
-                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">
-                    <span class="material-symbols-outlined text-xs">bookmark</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody id="s3-body" class="text-xs">
-                <tr><td colspan="10" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 3 results appear after screening</td></tr>
-              </tbody>
-            </table>
-            </div>
-          </div>
-        </section>
       </div>
     </div>
     <!-- RIGHT: CHART PANEL -->
@@ -1172,9 +1046,6 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
           <button id="chart-back-btn" onclick="closeChart()" class="flex items-center gap-1 px-2 py-1 rounded-lg flex-shrink-0 text-on-surface-variant hover:text-primary hover:bg-surface-container-highest" title="Back to list">
             <span class="material-symbols-outlined" style="font-size:18px">arrow_back_ios</span>
             <span id="chart-back-label" class="text-[11px] font-bold" style="display:none">Back</span>
-          </button>
-          <button id="sc-sidebar-toggle" onclick="toggleSidebarCollapse()" class="hidden sm:inline-flex items-center justify-center w-6 h-6 rounded text-on-surface-variant hover:text-primary hover:bg-surface-container-highest flex-shrink-0" title="Collapse / expand stock list">
-            <span class="material-symbols-outlined" style="font-size:16px">chevron_left</span>
           </button>
           <span class="text-[10px] font-black uppercase tracking-widest text-on-surface truncate">
             <span id="chart-title">--</span>
@@ -1224,13 +1095,6 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
           <button id="sc-oe-btn" onclick="toggleScreenerOptimal()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded hidden sm:inline-flex" title="Optimal Entry/Exit">ENTRY/EXIT</button>
           <button id="sc-mark-btn" onclick="toggleMarkMode()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded inline-flex" title="Click then click a candle to mark your BUY entry">MARK</button>
           <span class="material-symbols-outlined text-sm cursor-pointer hover:text-primary" onclick="openInsightsFromChart()">psychology</span>
-          <a id="chart-popout-btn" href="#" target="_blank" onclick="this.href='#chart='+encodeURIComponent(currentChartSymbol||'')" class="inline-flex items-center text-on-surface-variant hover:text-primary" title="Open full-page chart in new tab">
-            <span class="material-symbols-outlined text-sm">open_in_new</span>
-          </a>
-          <button id="chart-fullpage-exit" onclick="exitChartFullpage()" title="Exit full-page chart — back to app" class="items-center gap-1 px-2 py-0.5 text-[9px] font-bold text-on-surface-variant hover:text-primary bg-surface-container-highest rounded">
-            <span class="material-symbols-outlined" style="font-size:13px">close_fullscreen</span>
-            <span class="hidden sm:inline">App</span>
-          </button>
           <span id="chart-close-btn" class="material-symbols-outlined text-sm cursor-pointer hover:text-error" onclick="closeChart()">close</span>
         </div>
         <!-- Row 2: interval + timeframe compact dropdowns -->
@@ -2488,10 +2352,7 @@ function _stockLink(symbol, label) {
   // onclick → left-click opens chart inline without navigating
   const enc = encodeURIComponent(symbol);
   const sym = symbol.replace(/'/g, "\\'");
-  // oncontextmenu stopPropagation → right-click on the name gives browser-native "Open Link in New Tab"
-  // Middle-click also works natively (href is the real URL)
-  // onclick preventDefault → left-click stays in-app
-  return `<a href="#chart=${enc}" onclick="event.preventDefault();event.stopPropagation();_openStockInline('${sym}');" oncontextmenu="event.stopPropagation()" class="hover:text-primary transition-colors font-bold">${lbl}</a>`;
+  return `<a href="#stock=${enc}" onclick="event.preventDefault();event.stopPropagation();_openStockInline('${sym}');" class="hover:text-primary transition-colors font-bold">${lbl}</a>`;
 }
 
 // Event badge helper — small coloured line under stock name
@@ -2531,11 +2392,9 @@ function _quickEvBadge(events) {
   return `<div class="text-[8.5px] font-medium leading-tight mt-0.5 tracking-wide" style="color:${col}">${text}</div>`;
 }
 
-async function _showQuickLookup(sym, opts = {}) {
-  const badge = opts.badge || 'SEARCH';
-  const force = opts.force || false;
-  // Never overwrite active screener results (unless forced by portfolio/watchlist)
-  if (!force && window._lastScreenData && (_lastScreenData.stage1_results||[]).length > 0) return;
+async function _showQuickLookup(sym) {
+  // Never overwrite active screener results
+  if (window._lastScreenData && (_lastScreenData.stage1_results||[]).length > 0) return;
   if (typeof switchStage === 'function') switchStage(1);
   const s1 = document.getElementById('s1-body');
   if (!s1) return;
@@ -2563,7 +2422,7 @@ async function _showQuickLookup(sym, opts = {}) {
     s1.innerHTML=`<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" onclick="openInsightsPro('${ss}')">
       <td class="px-3 py-2.5 text-primary/40 text-lg font-bold select-none">›</td>
       <td class="px-3 py-2.5">
-        <div class="flex items-center gap-2 mb-0.5"><span class="text-[7px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/10 text-primary/70 border border-primary/20">${badge}</span><div class="font-bold text-on-surface">${_stockLink(sym)}</div></div>
+        <div class="flex items-center gap-2 mb-0.5"><span class="text-[7px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/10 text-primary/70 border border-primary/20">SEARCH</span><div class="font-bold text-on-surface">${_stockLink(sym)}</div></div>
         <div class="text-[9px] text-on-surface-variant">${sector}</div>${evB}
       </td>
       <td class="px-3 py-2.5 text-right text-on-surface ltp-cell" data-sym="${sym}">${price}</td>
@@ -2884,34 +2743,22 @@ async function submitChangePassword() {
   }
 }
 
-// ============ STAGE 1/2/3 TAB SWITCHING (within Screener) ============
+// ============ STAGE 1/2 TAB SWITCHING (within Screener) ============
 function switchStage(n) {
   const s1 = document.getElementById('stage-1-section');
   const s2 = document.getElementById('stage-2-section');
-  const s3 = document.getElementById('stage-3-section');
   const t1 = document.getElementById('stage-tab-1');
   const t2 = document.getElementById('stage-tab-2');
-  const t3 = document.getElementById('stage-tab-3');
   if (!s1 || !s2 || !t1 || !t2) return;
-
-  const BASE   = 'flex-shrink-0 px-3 sm:px-5 py-3 text-xs font-black uppercase tracking-[0.15em] border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap';
-  const OFF    = `${BASE} text-on-surface-variant hover:text-on-surface border-transparent`;
-  const ON_S1  = `${BASE} text-primary border-primary`;
-  const ON_S2  = `${BASE} text-secondary border-secondary`;
-  const ON_S3  = `${BASE} text-[#6effc0] border-[#6effc0]`;
-
-  s1.classList.add('hidden');
-  s2.classList.add('hidden');
-  if (s3) s3.classList.add('hidden');
-  t1.className = OFF; t2.className = OFF;
-  if (t3) t3.className = OFF;
-
+  const ON_PRIMARY = 'px-5 py-3 text-xs font-black uppercase tracking-[0.15em] text-primary border-b-2 border-primary flex items-center gap-2 transition-colors';
+  const OFF_PRIMARY = 'px-5 py-3 text-xs font-black uppercase tracking-[0.15em] text-on-surface-variant hover:text-on-surface border-b-2 border-transparent flex items-center gap-2 transition-colors';
+  const ON_SECONDARY = 'px-5 py-3 text-xs font-black uppercase tracking-[0.15em] text-secondary border-b-2 border-secondary flex items-center gap-2 transition-colors';
   if (n === 2) {
-    s2.classList.remove('hidden'); t2.className = ON_S2;
-  } else if (n === 3 && s3) {
-    s3.classList.remove('hidden'); if (t3) t3.className = ON_S3;
+    s1.classList.add('hidden'); s2.classList.remove('hidden');
+    t1.className = OFF_PRIMARY; t2.className = ON_SECONDARY;
   } else {
-    s1.classList.remove('hidden'); t1.className = ON_S1;
+    s2.classList.add('hidden'); s1.classList.remove('hidden');
+    t1.className = ON_PRIMARY; t2.className = OFF_PRIMARY;
   }
 }
 
@@ -2932,7 +2779,7 @@ function switchTab(tab, opts) {
     }
   });
   // Sync bottom nav active state (mobile)
-  const _bnavMoreTabs = new Set(['events','backtest','indicators','config','breakouts','practice']);
+  const _bnavMoreTabs = new Set(['events','backtest','indicators','config']);
   document.querySelectorAll('.bnav-tab').forEach(el => {
     if (el.id === 'bnav-more') {
       el.classList.toggle('bnav-active', _bnavMoreTabs.has(tab));
@@ -3003,17 +2850,6 @@ window.addEventListener('popstate', (e) => {
       setTimeout(() => { try { if (typeof openChart === 'function') openChart(symbol); } catch(e) {} }, 250);
       return;
     }
-    // Full-page chart deep-link (#chart=SYMBOL — right-click → open in new tab)
-    const chartFpMatch = raw.match(/^chart=(.+)$/);
-    if (chartFpMatch) {
-      let symbol;
-      try { symbol = decodeURIComponent(chartFpMatch[1]).toUpperCase(); }
-      catch(e) { symbol = chartFpMatch[1].toUpperCase(); }
-      document.body.classList.add('chart-fullpage');
-      switchTab('screener', {fromHistory: true});
-      setTimeout(() => { try { if (typeof openChart === 'function') openChart(symbol); } catch(e) {} }, 250);
-      return;
-    }
     // Insights deep-link → screener + insights modal
     const insightsMatch = raw.match(/^insights=(.+)$/);
     if (insightsMatch) {
@@ -3078,7 +2914,7 @@ function _pfRenderBody(rows) {
       ? `<td class="px-3 py-2.5 text-center"><button onclick="pfDelete('${r.id}')" class="text-on-surface-variant hover:text-error"><span class="material-symbols-outlined text-sm">delete</span></button></td>`
       : `<td class="px-3 py-2.5 text-center"><button onclick="pfOpenCloseModal('${r.id}','${r.symbol}')" class="text-[8px] font-bold text-on-surface-variant hover:text-error px-1.5 py-0.5 rounded bg-surface-container-highest border border-outline-variant/20" title="Close trade">CLOSE</button> <button onclick="pfDelete('${r.id}')" class="text-on-surface-variant hover:text-error"><span class="material-symbols-outlined text-sm">delete</span></button></td>`;
     return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 ${isClosed?'opacity-60':''}">
-      <td class="px-3 py-2.5 font-bold text-primary" title="View chart + insights"><a href="#chart=${encodeURIComponent(r.symbol)}" onclick="event.preventDefault();event.stopPropagation();openStockView('${r.symbol}','portfolio')" oncontextmenu="event.stopPropagation()" class="hover:underline">${r.symbol}</a>${r.notes ? `<div class="text-[8px] text-on-surface-variant/50 font-normal">${r.notes}</div>` : ''}</td>
+      <td class="px-3 py-2.5 font-bold text-primary cursor-pointer hover:underline" onclick="switchTab('screener');setTimeout(()=>openInsightsPro('${r.symbol}'),120)" title="Open chart">${r.symbol}${r.notes ? `<div class="text-[8px] text-on-surface-variant/50 font-normal">${r.notes}</div>` : ''}</td>
       <td class="px-3 py-2.5">${statusBadge}</td>
       <td class="px-3 py-2.5 text-right font-mono">${r.qty}</td>
       <td class="px-3 py-2.5 text-right font-mono text-on-surface-variant">${R}${r.buy_price}</td>
@@ -3476,9 +3312,6 @@ function renderResults(data) {
   // Update Stage tab badges + show Stage 1 by default after a fresh screen
   const s1tc = document.getElementById('s1-tab-count'); if (s1tc) s1tc.textContent = data.stage1_results.length;
   const s2tc = document.getElementById('s2-tab-count'); if (s2tc) s2tc.textContent = data.stage2_results.length;
-  const s3All = (data.stage3_results||[]);
-  const s3PassCount = s3All.filter(r=>r.stage3_passed).length;
-  const s3tc = document.getElementById('s3-tab-count'); if (s3tc) s3tc.textContent = s3PassCount;
   if (typeof switchStage === 'function') switchStage(1);
   s1.innerHTML=data.stage1_results.map((r,i)=>{
     const pe=r.fundamentals?.pe_ratio?.value||r.pe||'--';
@@ -3517,64 +3350,12 @@ function renderResults(data) {
     </tr>
   `).join('');
 
-  // ── Stage 3: Monthly confirmation ─────────────────────────────────────────
-  const s3body = document.getElementById('s3-body');
-  if (s3body) {
-    const s3rows = data.stage3_results || [];
-    document.getElementById('s3-count').textContent = s3PassCount + ' confirmed';
-    if (!s3rows.length) {
-      s3body.innerHTML = '<tr><td colspan="10" class="px-3 py-8 text-center text-on-surface-variant/50">No Stage 2 candidates to filter</td></tr>';
-    } else {
-      s3body.innerHTML = s3rows.map((r,i) => {
-        const mf = r.monthly_filter || {};
-        const conds = mf.conditions || {};
-        const passed = r.stage3_passed;
-        // Build 4 mini dot badges for monthly conditions
-        const dotClass = (ok) => ok ? 'bg-[#6effc0]' : 'bg-error/70';
-        const dot = (key, label) => {
-          const c = conds[key];
-          const ok = c && c.status === 'PASS';
-          return `<span class="inline-flex items-center gap-0.5" title="${label}: ${c ? c.value : 'N/A'}">
-            <span class="w-1.5 h-1.5 rounded-full ${dotClass(ok)} inline-block"></span>
-            <span class="text-[8px] text-on-surface-variant">${label}</span>
-          </span>`;
-        };
-        const monthlyBadge = passed
-          ? `<div class="flex flex-col gap-0.5">
-               <span class="text-[9px] font-black text-[#6effc0] uppercase">✓ Confirmed</span>
-               <div class="flex gap-1 flex-wrap">
-                 ${dot('sma10_rising','SMA')}${dot('rsi_above50','RSI')}${dot('macd_positive','MACD')}${dot('supertrend_bullish','ST')}
-               </div>
-             </div>`
-          : `<div class="flex flex-col gap-0.5">
-               <span class="text-[9px] font-black text-error uppercase">${mf.passed_count||0}/4 passed</span>
-               <div class="flex gap-1 flex-wrap">
-                 ${dot('sma10_rising','SMA')}${dot('rsi_above50','RSI')}${dot('macd_positive','MACD')}${dot('supertrend_bullish','ST')}
-               </div>
-             </div>`;
-        return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors ${passed?'':'opacity-50'}" data-sym="${r.symbol}" onclick="openInsightsPro('${r.symbol}')" oncontextmenu="event.preventDefault();showCtxMenu(event,'${r.symbol}')">
-          <td class="px-3 py-2.5 font-bold ${passed?'text-[#6effc0]':'text-on-surface-variant'}">${r.rank||i+1}</td>
-          <td class="px-3 py-2.5"><div class="font-bold text-on-surface">${_stockLink(r.symbol)}</div>${_evBadge(r)}</td>
-          <td class="px-3 py-2.5 text-right text-on-surface ltp-cell" data-sym="${r.symbol}">₹${r.price||'--'}</td>
-          <td class="px-3 py-2.5 text-right text-error font-mono">${r.stop_loss?'₹'+r.stop_loss:'--'}</td>
-          <td class="px-3 py-2.5 text-right text-primary font-mono">${r.target?'₹'+r.target:'--'}</td>
-          <td class="px-3 py-2.5 text-center font-bold text-on-surface">1:${r.risk_reward||'--'}</td>
-          <td class="px-3 py-2.5">${monthlyBadge}</td>
-          <td class="px-3 py-2.5 text-right"><span class="px-2 py-0.5 ${r.score>=60?'bg-primary/20 text-primary':'bg-surface-container-highest text-on-surface-variant'} rounded-full text-[10px] font-black">${r.score}</span></td>
-          <td class="px-3 py-2.5 text-center"><span class="${passed?'bg-[#6effc0]/10 text-[#6effc0]':'bg-error/10 text-error'} text-[10px] px-2 py-0.5 rounded-full font-black uppercase">${passed?'PASS':'FAIL'}</span></td>
-          <td class="px-3 py-2.5 text-center"><button onclick="event.stopPropagation();addToWatchlist('${r.symbol}')" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined" style="font-size:14px;">bookmark_add</span></button></td>
-        </tr>`;
-      }).join('');
-    }
-    _attachMobileLongPress(s3body);
-  }
-
   // Attach mobile long-press → context menu on both result tables
   _attachMobileLongPress(document.getElementById('s1-body'));
   _attachMobileLongPress(document.getElementById('s2-body'));
 
   // Start live price polling for visible symbols
-  const syms = [...new Set([...data.stage1_results.map(r=>r.symbol), ...data.stage2_results.map(r=>r.symbol), ...(data.stage3_results||[]).map(r=>r.symbol)])];
+  const syms = [...new Set([...data.stage1_results.map(r=>r.symbol), ...data.stage2_results.map(r=>r.symbol)])];
   startLivePrices(syms);
 
   // Async fetch MFS + MTF & populate cells
@@ -3635,14 +3416,8 @@ function startLivePrices(syms) {
       const r = await fetch(API + '/market/ltp?symbols=' + encodeURIComponent(symStr));
       const d = await r.json();
       const badge = document.getElementById('live-badge');
-      // Show LIVE badge only during market hours; keep updating prices always
-      if (badge) {
-        if (d.market_open) {
-          badge.classList.remove('hidden'); badge.classList.add('flex');
-        } else {
-          badge.classList.add('hidden'); badge.classList.remove('flex');
-        }
-      }
+      if (!d.market_open) { stopLivePrices(); return; }
+      if (badge) badge.classList.remove('hidden'), badge.classList.add('flex');
       Object.entries(d.prices || {}).forEach(([sym, p]) => {
         document.querySelectorAll(`.ltp-cell[data-sym="${sym}"]`).forEach(td => {
           const chg = p.change_pct;
@@ -3671,8 +3446,8 @@ function openChart(symbol) {
     // Hide bottom nav while chart is open so it doesn't block controls
     const bn = document.getElementById('bottom-nav');
     if (bn) bn.style.display = 'none';
-  } else if (_chartReturnTab || document.body.classList.contains('chart-fullpage')) {
-    // Opened from another tab OR full-page URL — full-width chart, no split pane
+  } else if (_chartReturnTab) {
+    // Opened from another tab — full-width chart, no split pane
     tables.style.display = 'none';
     tables.style.width   = '0';
     tables.style.minWidth = '';
@@ -3687,16 +3462,7 @@ function openChart(symbol) {
     chart.classList.remove('mob-fs');
     chart.style.display    = 'flex';
     chart.style.width      = 'calc(100% - 330px)';
-    // Apply saved sidebar collapsed preference
-    if (_sidebarCollapsed) {
-      tables.style.display = 'none';
-      tables.style.width   = '0';
-      chart.style.width    = '100%';
-    }
   }
-  // Sync sidebar toggle icon with current state
-  const _stIcon = document.querySelector('#sc-sidebar-toggle .material-symbols-outlined');
-  if (_stIcon) _stIcon.textContent = _sidebarCollapsed ? 'chevron_right' : 'chevron_left';
   document.getElementById('chart-title').textContent = symbol;
   document.getElementById('chart-container').innerHTML = '';
   document.getElementById('rsi-container').innerHTML   = '';
@@ -3724,14 +3490,10 @@ function resetScreenerTab() {
     if (s1) s1.innerHTML = '<tr><td colspan="11" class="px-3 py-8 text-center text-on-surface-variant/50">Run a screen to see results</td></tr>';
     const s2 = document.getElementById('s2-body');
     if (s2) s2.innerHTML = '<tr><td colspan="11" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 2 results appear after screening</td></tr>';
-    const s3 = document.getElementById('s3-body');
-    if (s3) s3.innerHTML = '<tr><td colspan="10" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 3 results appear after screening</td></tr>';
     const s1c = document.getElementById('s1-count'); if (s1c) s1c.textContent = '0 results';
     const s2c = document.getElementById('s2-count'); if (s2c) s2c.textContent = '0 results';
-    const s3c = document.getElementById('s3-count'); if (s3c) s3c.textContent = '0 confirmed';
     const s1tc = document.getElementById('s1-tab-count'); if (s1tc) s1tc.textContent = '0';
     const s2tc = document.getElementById('s2-tab-count'); if (s2tc) s2tc.textContent = '0';
-    const s3tc = document.getElementById('s3-tab-count'); if (s3tc) s3tc.textContent = '0';
     if (typeof switchStage === 'function') switchStage(1);
   }
   // Abort any in-flight screen
@@ -3790,57 +3552,6 @@ function openBoChart(sym) {
   _chartReturnTab = 'breakouts';
   switchTab('screener');
   setTimeout(() => openChart(sym), 100);
-}
-
-// ── Sidebar collapse toggle ────────────────────────────────────────────────
-let _sidebarCollapsed = localStorage.getItem('scSidebarCollapsed') === 'true';
-
-function toggleSidebarCollapse() {
-  _sidebarCollapsed = !_sidebarCollapsed;
-  localStorage.setItem('scSidebarCollapsed', _sidebarCollapsed);
-  const tables = document.getElementById('tables-panel');
-  const chart  = document.getElementById('chart-panel');
-  if (!tables || !chart) return;
-  const icon = document.querySelector('#sc-sidebar-toggle .material-symbols-outlined');
-  if (_sidebarCollapsed) {
-    tables.style.display = 'none';
-    tables.style.width   = '0';
-    chart.style.width    = '100%';
-    if (icon) icon.textContent = 'chevron_right';
-  } else {
-    tables.style.display   = '';
-    tables.style.width     = '320px';
-    tables.style.minWidth  = '320px';
-    chart.style.width      = 'calc(100% - 330px)';
-    if (icon) icon.textContent = 'chevron_left';
-  }
-  // Nudge lightweight-charts to recalculate rendered width
-  setTimeout(() => { try { if (window._scChart) window._scChart.timeScale().scrollToRealTime(); } catch(e) {} }, 60);
-}
-
-// ── Full-page chart (via #chart=SYMBOL URL in a new tab) ──────────────────
-function exitChartFullpage() {
-  document.body.classList.remove('chart-fullpage');
-  if (window.location.hash.startsWith('#chart=')) {
-    history.replaceState(null, '', window.location.pathname + '#screener');
-  }
-  closeChart();
-}
-
-// Open chart+insights from Portfolio or Watchlist tab.
-// Shows the stock row in Stage 1 (like search), opens insights panel + chart.
-// Does NOT set _chartReturnTab so chart stays in normal side-by-side mode
-// and the X button closes to screener (with the PORTFOLIO/WATCHLIST badge row)
-// rather than jumping back to portfolio/watchlist and breaking navigation.
-function openStockView(sym, source) {
-  switchTab('screener');
-  const badgeLabel = source === 'portfolio' ? 'PORTFOLIO'
-                   : source === 'watchlist' ? 'WATCHLIST'
-                   : 'SEARCH';
-  // Show stock row in Stage 1 (force=true so it always shows even if scan has results)
-  _showQuickLookup(sym, { badge: badgeLabel, force: true });
-  // Small delay so switchTab finishes before opening chart+insights
-  setTimeout(() => openInsightsPro(sym), 80);
 }
 
 let currentChartDays = 180;
@@ -4250,25 +3961,6 @@ function renderChart(data) {
 
   // Reset any active draw mode when a new chart opens
   setDrawMode(null);
-
-  // Auto-fetch Trade Zones (Bz/Sz) so markers appear by default without needing
-  // to click ENTRY/EXIT first.  Fire-and-forget — does NOT block chart render.
-  (async (_sym) => {
-    try {
-      const r = await fetch(API + '/stock/' + _sym + '/optimal-levels');
-      if (!r.ok) return;
-      const plan = await r.json();
-      if (!plan || _sym !== currentChartSymbol) return; // stale if user switched
-      if (!Array.isArray(scOptimalCache[_sym])) scOptimalCache[_sym] = [];
-      const arr = scOptimalCache[_sym];
-      const prev = arr[0];
-      if (!prev || !plan.entry || !prev.entry || Math.abs(plan.entry - prev.entry) > 0.5) {
-        arr.unshift(plan);
-        if (arr.length > 3) arr.pop();
-      }
-      scApplyMarkers();
-    } catch(e) {}
-  })(currentChartSymbol);
 
   // Inject resize handles between panels
   setTimeout(()=>injectResizeHandles(), 150);
@@ -6587,22 +6279,6 @@ async function populatePresetDropdowns() {
   } catch(e){console.error('Preset load error:',e);}
 }
 
-function togglePresetDropdown() {
-  const dd = document.getElementById('preset-dropdown');
-  const btn = document.getElementById('preset-btn');
-  if (!dd || !btn) return;
-  if (!dd.classList.contains('hidden')) { dd.classList.add('hidden'); return; }
-  // Position using getBoundingClientRect so it works inside overflow:hidden parents
-  const r = btn.getBoundingClientRect();
-  const ddW = 208; // w-52
-  // Align left with button, but stay within viewport
-  let left = r.left;
-  if (left + ddW > window.innerWidth - 8) left = window.innerWidth - ddW - 8;
-  dd.style.top  = (r.bottom + 4) + 'px';
-  dd.style.left = left + 'px';
-  dd.classList.remove('hidden');
-}
-
 async function deletePreset(name) {
   if(!confirm('Delete preset "'+name+'"?')) return;
   try {
@@ -6642,19 +6318,6 @@ async function loadWatchlist() {
     renderWatchlist();
     loadWatchlistSparklines();
     if(watchlistData.some(i=>i.alerts?.length>0))checkWatchlistAlerts();
-    // Live price + day change for all watchlist stocks
-    const wlSyms = watchlistData.map(i=>i.symbol).join(',');
-    if (wlSyms) {
-      fetch(API + '/market/ltp?symbols=' + encodeURIComponent(wlSyms))
-        .then(r=>r.json()).then(d => {
-          Object.entries(d.prices||{}).forEach(([sym, p]) => {
-            document.querySelectorAll(`.wl-price-cell[data-sym="${sym}"]`).forEach(el => {
-              const col = p.change_pct > 0 ? 'text-[#00e5a0]' : p.change_pct < 0 ? 'text-[#ff4757]' : 'text-on-surface';
-              el.innerHTML = `<span class="font-mono text-sm text-on-surface">₹${p.ltp.toFixed(2)}</span><br><span class="text-[10px] font-bold ${col}">${p.change_pct>=0?'+':''}${p.change_pct}%</span>`;
-            });
-          });
-        }).catch(()=>{});
-    }
   } catch(e){console.error('Watchlist error:',e);}
 }
 
@@ -6682,8 +6345,8 @@ function renderWatchlist() {
     }
 
     return `<tr class="group hover:bg-surface-container-highest/30 transition-colors cursor-pointer ${triggered>0?'bg-primary/5':''}">
-      <td class="px-6 py-4"><div class="flex flex-col"><a href="#chart=${encodeURIComponent(item.symbol)}" onclick="event.preventDefault();viewWatchlistStock('${item.symbol.replace(/'/g,"\\'")}');" oncontextmenu="event.stopPropagation()" class="text-sm font-bold text-on-surface hover:text-primary cursor-pointer transition-colors">${item.symbol}</a><span class="text-[0.65rem] text-on-surface-variant/60">${item.added_date?new Date(item.added_date).toLocaleDateString():''}</span></div></td>
-      <td class="px-6 py-4 text-right"><span class="wl-price-cell" data-sym="${item.symbol}">${price}</span></td>
+      <td class="px-6 py-4"><div class="flex flex-col"><span class="text-sm font-bold text-on-surface cursor-pointer" onclick="viewWatchlistStock('${item.symbol}')">${_stockLink(item.symbol)}</span><span class="text-[0.65rem] text-on-surface-variant/60">${item.added_date?new Date(item.added_date).toLocaleDateString():''}</span></div></td>
+      <td class="px-6 py-4 text-right"><span class="text-sm tabular-nums font-mono text-on-surface font-medium">${price}</span></td>
       <td class="px-6 py-4 text-center"><span class="wl-sparkline" data-sym="${item.symbol}"><svg width="60" height="20" viewBox="0 0 60 20"><line x1="0" y1="10" x2="60" y2="10" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="3"/></svg></span></td>
       <td class="px-6 py-4 text-right"><span class="text-xs font-bold ${scoreColor} tabular-nums">${score}</span></td>
       <td class="px-6 py-4 text-center"><span class="text-[0.65rem] font-bold px-2 py-0.5 bg-surface-variant/30 border border-outline-variant/10 rounded">${alertCount}</span></td>
@@ -6697,7 +6360,7 @@ function renderWatchlist() {
   }).join('');
 }
 
-function viewWatchlistStock(symbol) { openStockView(symbol, 'watchlist'); }
+function viewWatchlistStock(symbol) { switchTab('screener'); setTimeout(()=>openChart(symbol),100); }
 
 async function loadWatchlistSparklines() {
   const cells = document.querySelectorAll('.wl-sparkline[data-sym]');
@@ -9717,7 +9380,7 @@ function initApp() {
   // Close dropdowns on outside click
   document.addEventListener('click',e=>{
     const pd=document.getElementById('preset-dropdown');
-    if(pd&&!pd.classList.contains('hidden')&&!e.target.closest('#preset-dropdown')&&!e.target.closest('#preset-btn')) pd.classList.add('hidden');
+    if(pd&&!pd.classList.contains('hidden')&&!e.target.closest('#preset-dropdown')&&!e.target.closest('[onclick*="preset-dropdown"]')) pd.classList.add('hidden');
     const cd=document.getElementById('chart-ind-dropdown');
     if(cd&&!cd.classList.contains('hidden')&&!e.target.closest('#chart-ind-dropdown')&&!e.target.closest('[onclick*="chart-ind-dropdown"]')) cd.classList.add('hidden');
     const sd=document.getElementById('search-dropdown');
@@ -9727,36 +9390,8 @@ function initApp() {
   });
   // Init keyboard shortcuts (features 3 + 4)
   initKeyboardShortcuts();
-  // Navigate to home dashboard on startup — but respect deep-link hashes
-  const _initHash = (window.location.hash || '').replace('#', '');
-  if (_initHash.startsWith('chart=')) {
-    // Full-page chart deep-link (e.g. right-click → open in new tab)
-    let _fpSym;
-    try { _fpSym = decodeURIComponent(_initHash.slice(6)).toUpperCase(); }
-    catch(e) { _fpSym = _initHash.slice(6).toUpperCase(); }
-    document.body.classList.add('chart-fullpage');
-    switchTab('screener', {fromHistory: true});
-    setTimeout(() => { try { openChart(_fpSym); } catch(e) {} }, 350);
-  } else if (_initHash.startsWith('stock=')) {
-    let _fpSym;
-    try { _fpSym = decodeURIComponent(_initHash.slice(6)).toUpperCase(); }
-    catch(e) { _fpSym = _initHash.slice(6).toUpperCase(); }
-    switchTab('screener', {fromHistory: true});
-    setTimeout(() => { try { openChart(_fpSym); } catch(e) {} }, 350);
-  } else if (_initHash.startsWith('insights=')) {
-    let _fpSym;
-    try { _fpSym = decodeURIComponent(_initHash.slice(9)).toUpperCase(); }
-    catch(e) { _fpSym = _initHash.slice(9).toUpperCase(); }
-    switchTab('screener', {fromHistory: true});
-    setTimeout(() => { try { openInsightsPro(_fpSym); } catch(e) {} }, 350);
-  } else {
-    const _validTabs = ['screener','config','indicators','watchlist','breakouts','backtester','events','practice','portfolio'];
-    if (_validTabs.includes(_initHash)) {
-      switchTab(_initHash, {fromHistory: true});
-    } else {
-      switchTab('home');
-    }
-  }
+  // Navigate to home dashboard on startup
+  switchTab('home');
 }
 
 // Declare state vars that live below checkAuth() to avoid TDZ in WebView
@@ -9811,25 +9446,6 @@ async function loadHome() {
           if (cacheSubEl) cacheSubEl.textContent = 'Run a scan to warm';
         }
       }
-    }
-  } catch(e) {}
-
-  // Mobile index strip — N50 / N500 bull/bear status
-  try {
-    const md = await fetch(API + '/market/direction').then(r => r.json()).catch(() => null);
-    if (md) {
-      const _statusColor = s => s === 'bull' ? '#00e5a0' : s === 'bear' ? '#ff4757' : '#f5a623';
-      const _statusIcon  = s => s === 'bull' ? '▲' : s === 'bear' ? '▼' : '–';
-      const n50s  = (md.nifty50  || {}).status || '—';
-      const n500s = (md.nifty500 || {}).status || '—';
-      const n50v  = document.getElementById('home-n50-val');
-      const n50c  = document.getElementById('home-n50-chg');
-      const n500v = document.getElementById('home-n500-val');
-      const n500c = document.getElementById('home-n500-chg');
-      if (n50v)  n50v.textContent  = 'Nifty 50';
-      if (n50c)  { n50c.textContent = _statusIcon(n50s) + ' ' + n50s.toUpperCase(); n50c.style.color = _statusColor(n50s); }
-      if (n500v) n500v.textContent = 'Nifty 500';
-      if (n500c) { n500c.textContent = _statusIcon(n500s) + ' ' + n500s.toUpperCase(); n500c.style.color = _statusColor(n500s); }
     }
   } catch(e) {}
 
@@ -9897,10 +9513,32 @@ async function loadHome() {
       }
     }
 
+    // Upcoming Events for watchlist stocks
+    const evBody = document.getElementById('home-events-body');
+    if (evBody && items.length) {
+      try {
+        const wlSyms = new Set(items.map(i => i.symbol));
+        const evRes = await fetch(API + '/events/calendar').then(r => r.json()).catch(() => ({events:[]}));
+        const evts = (evRes.events || []).filter(e => wlSyms.has(e.symbol)).slice(0, 5);
+        if (evts.length) {
+          evBody.innerHTML = evts.map(e => `
+            <div class="px-4 py-2.5 hover:bg-surface-container-highest/30">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-on-surface">${e.symbol}</span>
+                <span class="text-[9px] text-on-surface-variant">${e.date || ''}</span>
+              </div>
+              <div class="text-[10px] text-on-surface-variant/70">${e.event_type || e.description || ''}</div>
+            </div>`).join('');
+        } else {
+          evBody.innerHTML = '<div class="px-4 py-6 text-center text-on-surface-variant/50 text-xs">No upcoming events for watchlist</div>';
+        }
+      } catch(e) {
+        evBody.innerHTML = '<div class="px-4 py-6 text-center text-on-surface-variant/50 text-xs">Events unavailable</div>';
+      }
+    } else if (evBody) {
+      evBody.innerHTML = '<div class="px-4 py-6 text-center text-on-surface-variant/50 text-xs">Add stocks to watchlist to see events</div>';
+    }
   } catch(e) {}
-
-  // Portfolio widget on home
-  loadHomePortfolio();
 
   // Sector Pulse — use /market/sector-heatmap (same data used by Market Pulse panel)
   try {
@@ -9993,91 +9631,6 @@ async function loadHome() {
       }
     }
   } catch(e) {}
-}
-
-async function loadHomePortfolio() {
-  const inv = document.getElementById('home-pf-inv');
-  const pnlEl = document.getElementById('home-pf-pnl');
-  const dayEl = document.getElementById('home-pf-day');
-  const body  = document.getElementById('home-pf-body');
-  if (!body) return;
-  try {
-    const d = await fetch(API + '/portfolio').then(r => r.json());
-    const positions = (d.positions || []).filter(p => p.status === 'open');
-    const t = d.totals || {};
-
-    // Summary strip
-    const fmtCr = v => {
-      const n = Math.round(Math.abs(v || 0));
-      if (n >= 10000000) return (v<0?'-':'') + '₹' + (n/10000000).toFixed(1) + 'Cr';
-      if (n >= 100000)   return (v<0?'-':'') + '₹' + (n/100000).toFixed(1) + 'L';
-      return (v<0?'-':'') + '₹' + n.toLocaleString('en-IN');
-    };
-    if (inv)  inv.textContent  = fmtCr(t.invested || 0);
-    const pnl = t.pnl || 0;
-    const pnlPct = t.pnl_pct || 0;
-    if (pnlEl) {
-      const col = pnl > 0 ? '#00e5a0' : pnl < 0 ? '#ff4757' : '#888';
-      pnlEl.innerHTML = `<span style="color:${col}">${pnl>=0?'+':''}${fmtCr(pnl)}</span><span style="color:${col};font-size:9px"> (${pnlPct>=0?'+':''}${pnlPct.toFixed(1)}%)</span>`;
-    }
-    const day = t.day_change || 0;
-    if (dayEl) {
-      const col = day > 0 ? '#00e5a0' : day < 0 ? '#ff4757' : '#888';
-      dayEl.innerHTML = `<span style="color:${col}">${day>=0?'+':''}${fmtCr(day)}</span>`;
-    }
-
-    if (!positions.length) {
-      body.innerHTML = `<div class="px-4 py-5 text-center text-on-surface-variant/50 text-xs">
-        No open positions · <button onclick="switchTab('portfolio')" class="text-primary hover:opacity-70 font-bold">Add your first trade</button>
-      </div>`;
-      return;
-    }
-
-    const visPositions = positions.slice(0, 6);
-    body.innerHTML = visPositions.map(p => {
-      const col    = p.pnl_pct > 0 ? '#00e5a0' : p.pnl_pct < 0 ? '#ff4757' : '#888';
-      const dayCol = (p.day_pct||0) > 0 ? '#00e5a0' : (p.day_pct||0) < 0 ? '#ff4757' : '#888';
-      const safe   = p.symbol.replace(/'/g, "\\'");
-      const enc    = encodeURIComponent(p.symbol);
-      return `<a href="#stock=${enc}" onclick="event.preventDefault();openStockView('${safe}','portfolio')"
-        class="px-4 py-2.5 flex items-center justify-between hover:bg-surface-container-highest/30 cursor-pointer no-underline block">
-        <div class="min-w-0">
-          <div class="text-xs font-black text-on-surface">${p.symbol}</div>
-          <div class="text-[9px] text-on-surface-variant/60">${p.qty}×₹${Number(p.buy_price).toFixed(0)}</div>
-        </div>
-        <div class="text-right flex-shrink-0 ml-3">
-          <div class="text-xs font-mono text-on-surface home-pf-ltp-cell" data-sym="${p.symbol}">₹${Number(p.ltp||p.buy_price).toFixed(2)}</div>
-          <div class="text-[9px] font-black font-mono home-pf-day-cell" data-sym="${p.symbol}" style="color:${dayCol}">${(p.day_pct||0)>=0?'+':''}${Number(p.day_pct||0).toFixed(2)}% today</div>
-          <div class="text-[9px] font-mono" style="color:${col}">${p.pnl_pct>=0?'+':''}${Number(p.pnl_pct).toFixed(2)}% overall</div>
-        </div>
-      </a>`;
-    }).join('');
-
-    if (positions.length > 6) {
-      body.insertAdjacentHTML('beforeend', `<div class="px-4 py-2 text-center text-[9px] text-primary cursor-pointer hover:opacity-70" onclick="switchTab('portfolio')">+${positions.length-6} more positions →</div>`);
-    }
-
-    // Live LTP overlay — update price + day change with Angel One data
-    const pfSyms = visPositions.map(p => p.symbol).join(',');
-    if (pfSyms) {
-      fetch(API + '/market/ltp?symbols=' + encodeURIComponent(pfSyms))
-        .then(r => r.json()).then(d => {
-          Object.entries(d.prices || {}).forEach(([sym, price]) => {
-            document.querySelectorAll(`.home-pf-ltp-cell[data-sym="${sym}"]`).forEach(el => {
-              el.textContent = '₹' + price.ltp.toFixed(2);
-            });
-            document.querySelectorAll(`.home-pf-day-cell[data-sym="${sym}"]`).forEach(el => {
-              const chg = price.change_pct || 0;
-              const col = chg > 0 ? '#00e5a0' : chg < 0 ? '#ff4757' : '#888';
-              el.style.color = col;
-              el.textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '% today';
-            });
-          });
-        }).catch(() => {});
-    }
-  } catch(e) {
-    if (body) body.innerHTML = `<div class="px-4 py-5 text-center text-on-surface-variant/50 text-xs">Portfolio unavailable</div>`;
-  }
 }
 
 // ============ FEATURE 2: CSV EXPORT ============
@@ -10345,7 +9898,6 @@ function ctxAction(action) {
   closeCtxMenu();
   if (!sym) return;
   if (action === 'chart') { switchTab('screener'); setTimeout(() => openChart(sym), 100); }
-  else if (action === 'newtab') { window.open('#chart=' + encodeURIComponent(sym), '_blank'); }
   else if (action === 'insights') { openInsightsPro(sym); }
   else if (action === 'watchlist') { addToWatchlist(sym); }
   else if (action === 'compare') { addToCompare(sym); }
@@ -10374,13 +9926,11 @@ function drawSparkline(closes, color, w=60, h=20) {
 // ============ FEATURE 7: PEER COMPARISON TRAY ============
 
 function addToCompare(sym) {
-  if (!sym) return;
-  if (_compareStocks.includes(sym)) {
-    showPracticeToast(`${sym} already in compare`, 'warn'); return;
+  if (!sym || _compareStocks.includes(sym)) return;
+  if (_compareStocks.length >= 4) {
+    _compareStocks.shift();
   }
-  if (_compareStocks.length >= 4) _compareStocks.shift();
   _compareStocks.push(sym);
-  showPracticeToast(`${sym} added to Compare (${_compareStocks.length}/4)`, 'ok');
   renderCompareTray();
 }
 
@@ -10404,87 +9954,50 @@ async function renderCompareTray() {
   const tray = document.getElementById('compare-tray');
   const grid = document.getElementById('compare-grid');
   if (!tray || !grid) return;
-  const badge = document.getElementById('compare-count-badge');
-  if (badge) badge.textContent = _compareStocks.length + '/4';
   if (!_compareStocks.length) { tray.classList.add('hidden'); return; }
   tray.classList.remove('hidden');
-  // Flash the tray border to grab attention
-  tray.style.borderTopColor = '#6effc0';
-  setTimeout(() => { tray.style.borderTopColor = 'rgba(255,140,0,0.2)'; }, 800);
-  tray.scrollIntoView && tray.scrollIntoView({behavior: 'smooth', block: 'end'});
-
-  const cols = _compareStocks.length;
-  grid.style.gridTemplateColumns = `repeat(${cols}, minmax(200px, 1fr))`;
+  grid.style.gridTemplateColumns = `repeat(${_compareStocks.length}, minmax(180px, 1fr))`;
   grid.innerHTML = _compareStocks.map(sym => `
-    <div class="p-3 bg-surface-container-low/70 relative flex flex-col gap-1 border-r border-outline-variant/10 last:border-r-0">
-      <div class="flex items-center justify-between mb-1">
-        <div class="flex items-center gap-1.5">
-          <span class="text-xs font-black text-primary">${sym}</span>
-          <button onclick="event.stopPropagation();switchTab('screener');setTimeout(()=>openChart('${sym}'),120)" class="text-[9px] text-on-surface-variant hover:text-primary flex items-center gap-0.5" title="Open chart">
-            <span class="material-symbols-outlined" style="font-size:12px">show_chart</span>
-          </button>
-        </div>
-        <button onclick="removeFromCompare('${sym}')" class="text-on-surface-variant hover:text-error text-[10px]">✕</button>
-      </div>
-      <div id="cmp-${sym}" class="text-[10px] text-on-surface-variant space-y-0.5">
-        <div class="text-[9px] text-on-surface-variant/50 italic">Loading…</div>
-      </div>
+    <div class="p-3 bg-surface-container-low/60 relative">
+      <button onclick="removeFromCompare('${sym}')" class="absolute top-2 right-2 text-on-surface-variant hover:text-error text-[10px]">✕</button>
+      <div class="text-xs font-black text-primary mb-2">${sym}</div>
+      <div id="cmp-${sym}" class="text-[10px] text-on-surface-variant space-y-1">Loading…</div>
     </div>`).join('');
 
-  // Fetch data for each stock (from _lastScreenData if available, otherwise /stock endpoint)
+  // Fetch data for each stock (from _lastScreenData if available, otherwise stock endpoint)
   await Promise.all(_compareStocks.map(async sym => {
     const cell = document.getElementById('cmp-' + sym);
     if (!cell) return;
     try {
+      // Try to get from lastScreenData first
       const s1r = (_lastScreenData?.stage1_results || []).find(r => r.symbol === sym);
       const s2r = (_lastScreenData?.stage2_results || []).find(r => r.symbol === sym);
       const row = s2r || s1r;
-
-      let price, rsi, score, pe, roe, sector, adx, sl, tgt, rr, dayPct;
       if (row) {
-        price   = row.price;
-        score   = row.score;
-        pe      = row.fundamentals?.pe_ratio?.value ?? row.pe;
-        roe     = row.fundamentals?.roe?.value ?? row.roe;
-        sector  = row.sector;
-        rsi     = row.indicators?.find(x => x.name?.toLowerCase().includes('rsi'))?.value;
-        adx     = row.indicators?.find(x => x.name?.toLowerCase().includes('adx'))?.value;
-        if (s2r) { sl = s2r.stop_loss; tgt = s2r.target; rr = s2r.risk_reward; }
+        const pe = row.fundamentals?.pe_ratio?.value ?? row.pe ?? '—';
+        const roe = row.fundamentals?.roe?.value ?? row.roe ?? '—';
+        const rsi = row.indicators?.find(x => x.name.toLowerCase().includes('rsi'))?.value ?? '—';
+        cell.innerHTML = `
+          <div>Price: <span class="text-on-surface font-mono">₹${row.price || '—'}</span></div>
+          <div>RSI: <span class="text-on-surface font-mono">${rsi}</span></div>
+          <div>Score: <span class="text-primary font-mono">${row.score || '—'}</span></div>
+          <div>PE: <span class="text-on-surface font-mono">${pe}</span></div>
+          <div>ROE: <span class="text-on-surface font-mono">${roe}%</span></div>
+          <div>Sector: <span class="text-on-surface-variant">${row.sector || '—'}</span></div>`;
       } else {
-        const d  = await fetch(API + '/stock/' + sym).then(r => r.json());
-        const t  = d.technicals || {};
-        const f  = d.fundamentals || {};
-        price   = d.price;
-        score   = d.score;
-        pe      = f.pe_ratio?.value;
-        roe     = f.roe?.value;
-        sector  = d.sector;
-        rsi     = t.rsi;
-        adx     = t.adx;
+        const d = await fetch(API + '/stock/' + sym).then(r => r.json());
+        const t = d.technicals || {};
+        const f = d.fundamentals || {};
+        cell.innerHTML = `
+          <div>Price: <span class="text-on-surface font-mono">₹${d.price || '—'}</span></div>
+          <div>RSI: <span class="text-on-surface font-mono">${t.rsi || '—'}</span></div>
+          <div>Score: <span class="text-primary font-mono">${d.score || '—'}</span></div>
+          <div>PE: <span class="text-on-surface font-mono">${f.pe_ratio?.value || '—'}</span></div>
+          <div>ROE: <span class="text-on-surface font-mono">${f.roe?.value || '—'}%</span></div>
+          <div>Sector: <span class="text-on-surface-variant">${d.sector || '—'}</span></div>`;
       }
-
-      const fmt  = v => v != null ? v : '—';
-      const fmtP = v => v != null ? `₹${Number(v).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}` : '—';
-      const scoreCol = score >= 70 ? '#6effc0' : score >= 50 ? '#f5a623' : '#ff4757';
-      const rsiCol   = rsi >= 70 ? '#ff4757' : rsi >= 50 ? '#6effc0' : '#f5a623';
-
-      cell.innerHTML = `
-        <div class="flex items-center justify-between">
-          <span class="text-[10px] text-on-surface font-mono font-bold">${fmtP(price)}</span>
-          <span style="color:${scoreCol}" class="text-[9px] font-black">Score ${fmt(score)}</span>
-        </div>
-        <div class="grid grid-cols-2 gap-x-2 gap-y-0.5 mt-1">
-          <div>RSI <span style="color:${rsiCol}" class="font-mono">${fmt(rsi != null ? Number(rsi).toFixed(1) : null)}</span></div>
-          <div>ADX <span class="text-on-surface font-mono">${fmt(adx != null ? Number(adx).toFixed(0) : null)}</span></div>
-          <div>PE  <span class="text-on-surface font-mono">${fmt(pe)}</span></div>
-          <div>ROE <span class="text-on-surface font-mono">${fmt(roe)}%</span></div>
-          ${sl  ? `<div>SL  <span class="text-[#ff4757] font-mono">${fmtP(sl)}</span></div>` : ''}
-          ${tgt ? `<div>Tgt <span class="text-[#00e5a0] font-mono">${fmtP(tgt)}</span></div>` : ''}
-          ${rr  ? `<div class="col-span-2">R:R <span class="text-[#6effc0] font-mono">${Number(rr).toFixed(2)}×</span></div>` : ''}
-        </div>
-        <div class="text-[9px] text-on-surface-variant/60 mt-1 truncate" title="${sector||''}">${fmt(sector)}</div>`;
     } catch(e) {
-      if (cell) cell.innerHTML = `<div class="text-[9px] text-error">Load error</div>`;
+      if (cell) cell.textContent = 'Load error';
     }
   }));
 }
@@ -10631,8 +10144,8 @@ function _ipHTML() {
           <span id="ip-chev" class="material-symbols-outlined" style="font-size:20px">expand_less</span>
         </button>
         <button onclick="event.stopPropagation();closeInsightsPro()"
-          class="w-9 h-9 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-highest hover:text-error active:bg-error/20 active:text-error" title="Close" style="touch-action:manipulation;-webkit-tap-highlight-color:transparent">
-          <span class="material-symbols-outlined" style="font-size:22px">close</span>
+          class="w-7 h-7 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-highest hover:text-error" title="Close">
+          <span class="material-symbols-outlined" style="font-size:20px">close</span>
         </button>
       </div>
     </div>
@@ -10651,21 +10164,12 @@ function _ipMount() {
   while (d.firstChild) document.body.appendChild(d.firstChild);
   // Touch swipe-down to close (mobile)
   const panel = document.getElementById('ip-panel');
-  let _ts = 0, _ty = 0, _tMoved = false;
-  panel.addEventListener('touchstart', e => { _ty = e.touches[0].clientY; _ts = Date.now(); _tMoved = false; }, {passive:true});
-  panel.addEventListener('touchmove', () => { _tMoved = true; }, {passive:true});
+  let _ts = 0, _ty = 0;
+  panel.addEventListener('touchstart', e => { _ty = e.touches[0].clientY; _ts = Date.now(); }, {passive:true});
   panel.addEventListener('touchend', e => {
     const dy = e.changedTouches[0].clientY - _ty;
     if (dy > 70 && Date.now() - _ts < 350) closeInsightsPro();
   }, {passive:true});
-  // Extra: direct touchend on close button so it fires even if panel touch handlers run first
-  const closeBtn = panel.querySelector('[title="Close"]');
-  if (closeBtn) {
-    closeBtn.addEventListener('touchend', e => {
-      e.stopPropagation();
-      closeInsightsPro();
-    }, {passive:false});
-  }
 }
 function toggleInsightsPro() {
   const body = document.getElementById('ip-body');
@@ -11442,7 +10946,6 @@ document.addEventListener('click', (e) => {
 <div id="ctx-menu" class="fixed z-[300] hidden bg-surface-container border border-outline-variant/20 rounded-xl shadow-2xl py-1.5" style="min-width:176px">
   <div id="ctx-sym-label" class="px-3 py-1.5 text-[10px] font-black text-primary border-b border-outline-variant/10 mb-1"></div>
   <button class="ctx-item" onclick="ctxAction('chart')"><span class="material-symbols-outlined text-sm">candlestick_chart</span> Open Chart</button>
-  <button class="ctx-item font-bold" onclick="ctxAction('newtab')" style="color:var(--primary)"><span class="material-symbols-outlined text-sm">open_in_new</span> Open in New Tab <span class="text-[8px] ml-auto opacity-60">full page</span></button>
   <button class="ctx-item" onclick="ctxAction('insights')"><span class="material-symbols-outlined text-sm">insights</span> View Insights</button>
   <button class="ctx-item" onclick="ctxAction('watchlist')"><span class="material-symbols-outlined text-sm">bookmark_add</span> Add to Watchlist</button>
   <button class="ctx-item" onclick="ctxAction('compare')"><span class="material-symbols-outlined text-sm">compare</span> Add to Compare</button>
@@ -11452,22 +10955,15 @@ document.addEventListener('click', (e) => {
 </div>
 
 <!-- ==================== PEER COMPARISON TRAY ==================== -->
-<div id="compare-tray" class="fixed bottom-0 left-0 sm:left-16 right-0 z-[150] hidden transition-all" style="background:rgba(10,14,26,0.97);backdrop-filter:blur(8px);border-top:1px solid rgba(255,140,0,0.3);box-shadow:0 -4px 24px rgba(0,0,0,0.5)">
+<div id="compare-tray" class="fixed bottom-0 left-16 right-0 z-[150] hidden" style="background:#0e0e0e;border-top:1px solid rgba(255,140,0,0.2)">
   <div class="flex items-center justify-between px-4 py-2 border-b border-outline-variant/10">
-    <div class="flex items-center gap-2">
-      <span class="material-symbols-outlined text-primary" style="font-size:14px">compare</span>
-      <span class="text-[10px] font-black text-primary uppercase tracking-wider">Compare</span>
-      <span id="compare-count-badge" class="text-[9px] bg-primary/20 text-primary px-1.5 py-0.5 rounded-full font-bold"></span>
-      <span class="text-[9px] text-on-surface-variant/60">Right-click any stock → Add to Compare</span>
-    </div>
-    <div class="flex gap-3">
-      <button onclick="clearCompareTray()" class="text-[9px] text-on-surface-variant hover:text-error flex items-center gap-0.5">
-        <span class="material-symbols-outlined" style="font-size:11px">delete_sweep</span> Clear
-      </button>
+    <span class="text-[10px] font-black text-primary uppercase tracking-wider">Compare</span>
+    <div class="flex gap-2">
+      <button onclick="clearCompareTray()" class="text-[9px] text-on-surface-variant hover:text-primary">Clear</button>
       <button onclick="closeCompareTray()" class="text-[9px] text-on-surface-variant hover:text-primary">✕</button>
     </div>
   </div>
-  <div id="compare-grid" class="grid gap-px overflow-x-auto" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr));max-height:220px;overflow-y:auto"></div>
+  <div id="compare-grid" class="grid gap-px overflow-x-auto" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));max-height:200px;overflow-y:auto"></div>
 </div>
 
 <!-- ==================== ADMIN PANEL MODAL ==================== -->
@@ -11525,11 +11021,8 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- ==================== PRESET DROPDOWN (body-level, escapes overflow clipping) ==================== -->
-<div id="preset-dropdown" class="hidden fixed w-52 max-h-60 overflow-y-auto bg-surface-container border border-outline-variant/20 rounded-xl shadow-2xl p-1.5" style="z-index:9999"></div>
-
 <!-- ==================== BOTTOM NAV (mobile only) ==================== -->
-<nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 z-[200] flex items-center justify-around border-t" style="background:var(--surface-container-lowest);border-color:rgba(255,255,255,0.06);height:60px;padding:0 8px">
+<nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 z-[200] flex items-center justify-around border-t" style="background:var(--surface-container-lowest);border-color:rgba(255,255,255,0.06);height:60px;padding:0 4px">
   <a href="#home" onclick="event.preventDefault();switchTab('home')" class="bnav-tab" data-tab="home">
     <span class="material-symbols-outlined bnav-icon">home</span>
     <span class="bnav-label">Home</span>
@@ -11542,6 +11035,14 @@ document.addEventListener('click', (e) => {
     <span class="material-symbols-outlined bnav-icon">bookmarks</span>
     <span class="bnav-label">Watch</span>
   </a>
+  <a href="#breakouts" onclick="event.preventDefault();switchTab('breakouts')" class="bnav-tab" data-tab="breakouts">
+    <span class="material-symbols-outlined bnav-icon">trending_up</span>
+    <span class="bnav-label">Breaks</span>
+  </a>
+  <a href="#practice" onclick="event.preventDefault();switchTab('practice')" class="bnav-tab" data-tab="practice">
+    <span class="material-symbols-outlined bnav-icon">sports_esports</span>
+    <span class="bnav-label">Play</span>
+  </a>
   <a href="#portfolio" onclick="event.preventDefault();switchTab('portfolio')" class="bnav-tab" data-tab="portfolio">
     <span class="material-symbols-outlined bnav-icon">account_balance_wallet</span>
     <span class="bnav-label">Portfolio</span>
@@ -11549,6 +11050,10 @@ document.addEventListener('click', (e) => {
   <a href="#" onclick="event.preventDefault();openMobileMore()" class="bnav-tab" id="bnav-more">
     <span class="material-symbols-outlined bnav-icon">apps</span>
     <span class="bnav-label">More</span>
+  </a>
+  <a href="#" onclick="event.preventDefault();openMobileAccount()" class="bnav-tab" id="bnav-account">
+    <span class="material-symbols-outlined bnav-icon">account_circle</span>
+    <span class="bnav-label">Me</span>
   </a>
 </nav>
 
@@ -11588,14 +11093,6 @@ document.addEventListener('click', (e) => {
       </button>
     </div>
     <div class="grid grid-cols-4 gap-0">
-      <button onclick="closeMobileMore();switchTab('breakouts')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors">
-        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">trending_up</span>
-        <span class="text-[9px] font-bold text-on-surface-variant uppercase">Breaks</span>
-      </button>
-      <button onclick="closeMobileMore();switchTab('practice')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors">
-        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">sports_esports</span>
-        <span class="text-[9px] font-bold text-on-surface-variant uppercase">Play</span>
-      </button>
       <button onclick="closeMobileMore();switchTab('events')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors">
         <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">event</span>
         <span class="text-[9px] font-bold text-on-surface-variant uppercase">Events</span>
@@ -11604,21 +11101,13 @@ document.addEventListener('click', (e) => {
         <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">history</span>
         <span class="text-[9px] font-bold text-on-surface-variant uppercase">Backtest</span>
       </button>
-      <button onclick="closeMobileMore();switchTab('indicators')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors border-t" style="border-color:rgba(255,255,255,0.07)">
+      <button onclick="closeMobileMore();switchTab('indicators')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors">
         <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">candlestick_chart</span>
-        <span class="text-[9px] font-bold text-on-surface-variant uppercase">Indicators</span>
+        <span class="text-[9px] font-bold text-on-surface-variant uppercase">Indic.</span>
       </button>
-      <button onclick="closeMobileMore();switchTab('config')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors border-t" style="border-color:rgba(255,255,255,0.07)">
+      <button onclick="closeMobileMore();switchTab('config')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors">
         <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">tune</span>
         <span class="text-[9px] font-bold text-on-surface-variant uppercase">Config</span>
-      </button>
-      <button onclick="closeMobileMore();openMobileAccount()" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors border-t" style="border-color:rgba(255,255,255,0.07)">
-        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">account_circle</span>
-        <span class="text-[9px] font-bold text-on-surface-variant uppercase">Me</span>
-      </button>
-      <button onclick="closeMobileMore();openCmdK()" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors border-t" style="border-color:rgba(255,255,255,0.07)">
-        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">search</span>
-        <span class="text-[9px] font-bold text-on-surface-variant uppercase">Search</span>
       </button>
     </div>
   </div>
