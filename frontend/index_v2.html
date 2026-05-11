@@ -1046,8 +1046,15 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
             <span class="stage-tab-short">S2</span>
             <span id="s2-tab-count" class="text-[10px] font-mono px-1.5 py-0.5 bg-secondary/20 rounded ml-1">0</span>
           </button>
+          <button onclick="switchStage(3)" id="stage-tab-3" class="flex-shrink-0 px-3 sm:px-5 py-3 text-xs font-black uppercase tracking-[0.15em] text-on-surface-variant hover:text-on-surface border-b-2 border-transparent flex items-center gap-2 transition-colors whitespace-nowrap">
+            <span class="w-2 h-2 rounded-full bg-[#6effc0] flex-shrink-0"></span>
+            <span class="stage-tab-long">Stage 3: Monthly Confirm</span>
+            <span class="stage-tab-short">S3</span>
+            <span id="s3-tab-count" class="text-[10px] font-mono px-1.5 py-0.5 bg-[#6effc0]/20 rounded ml-1">0</span>
+          </button>
           <span id="s1-count" class="hidden">0</span>
           <span id="s2-count" class="hidden">0</span>
+          <span id="s3-count" class="hidden">0</span>
           <span id="live-badge" class="hidden items-center gap-1 text-[10px] font-bold text-primary ml-2">
             <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse inline-block"></span>LIVE
           </span>
@@ -1105,6 +1112,39 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
               </thead>
               <tbody id="s2-body" class="text-xs">
                 <tr><td colspan="11" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 2 results appear after screening</td></tr>
+              </tbody>
+            </table>
+            </div>
+          </div>
+        </section>
+        <!-- STAGE 3: Monthly Confirmation -->
+        <section id="stage-3-section" class="hidden">
+          <div class="mb-3 flex items-center gap-2 px-1">
+            <span class="w-2 h-2 rounded-full bg-[#6effc0]"></span>
+            <span class="text-[10px] font-black uppercase tracking-widest text-[#6effc0]">Monthly Macro Filter</span>
+            <span class="text-[10px] text-on-surface-variant ml-1">— 4 conditions: 10M SMA · RSI>50 · MACD>0 · Supertrend</span>
+          </div>
+          <div class="overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-low shadow-xl shadow-black/20">
+            <div class="overflow-x-auto scrollbar-hide">
+            <table id="s3-table" class="w-full text-left tabular-nums min-w-[700px]">
+              <thead>
+                <tr class="bg-surface-container border-b border-outline-variant/20">
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">#</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">Stock</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Price</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right text-error">SL</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right text-primary">Target</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">R:R</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center" title="Monthly conditions: SMA10↑ · RSI>50 · MACD>0 · Supertrend">Monthly</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Score</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">Status</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">
+                    <span class="material-symbols-outlined text-xs">bookmark</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="s3-body" class="text-xs">
+                <tr><td colspan="10" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 3 results appear after screening</td></tr>
               </tbody>
             </table>
             </div>
@@ -2844,22 +2884,34 @@ async function submitChangePassword() {
   }
 }
 
-// ============ STAGE 1/2 TAB SWITCHING (within Screener) ============
+// ============ STAGE 1/2/3 TAB SWITCHING (within Screener) ============
 function switchStage(n) {
   const s1 = document.getElementById('stage-1-section');
   const s2 = document.getElementById('stage-2-section');
+  const s3 = document.getElementById('stage-3-section');
   const t1 = document.getElementById('stage-tab-1');
   const t2 = document.getElementById('stage-tab-2');
+  const t3 = document.getElementById('stage-tab-3');
   if (!s1 || !s2 || !t1 || !t2) return;
-  const ON_PRIMARY = 'px-5 py-3 text-xs font-black uppercase tracking-[0.15em] text-primary border-b-2 border-primary flex items-center gap-2 transition-colors';
-  const OFF_PRIMARY = 'px-5 py-3 text-xs font-black uppercase tracking-[0.15em] text-on-surface-variant hover:text-on-surface border-b-2 border-transparent flex items-center gap-2 transition-colors';
-  const ON_SECONDARY = 'px-5 py-3 text-xs font-black uppercase tracking-[0.15em] text-secondary border-b-2 border-secondary flex items-center gap-2 transition-colors';
+
+  const BASE   = 'flex-shrink-0 px-3 sm:px-5 py-3 text-xs font-black uppercase tracking-[0.15em] border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap';
+  const OFF    = `${BASE} text-on-surface-variant hover:text-on-surface border-transparent`;
+  const ON_S1  = `${BASE} text-primary border-primary`;
+  const ON_S2  = `${BASE} text-secondary border-secondary`;
+  const ON_S3  = `${BASE} text-[#6effc0] border-[#6effc0]`;
+
+  s1.classList.add('hidden');
+  s2.classList.add('hidden');
+  if (s3) s3.classList.add('hidden');
+  t1.className = OFF; t2.className = OFF;
+  if (t3) t3.className = OFF;
+
   if (n === 2) {
-    s1.classList.add('hidden'); s2.classList.remove('hidden');
-    t1.className = OFF_PRIMARY; t2.className = ON_SECONDARY;
+    s2.classList.remove('hidden'); t2.className = ON_S2;
+  } else if (n === 3 && s3) {
+    s3.classList.remove('hidden'); if (t3) t3.className = ON_S3;
   } else {
-    s2.classList.add('hidden'); s1.classList.remove('hidden');
-    t1.className = ON_PRIMARY; t2.className = OFF_PRIMARY;
+    s1.classList.remove('hidden'); t1.className = ON_S1;
   }
 }
 
@@ -3424,6 +3476,9 @@ function renderResults(data) {
   // Update Stage tab badges + show Stage 1 by default after a fresh screen
   const s1tc = document.getElementById('s1-tab-count'); if (s1tc) s1tc.textContent = data.stage1_results.length;
   const s2tc = document.getElementById('s2-tab-count'); if (s2tc) s2tc.textContent = data.stage2_results.length;
+  const s3All = (data.stage3_results||[]);
+  const s3PassCount = s3All.filter(r=>r.stage3_passed).length;
+  const s3tc = document.getElementById('s3-tab-count'); if (s3tc) s3tc.textContent = s3PassCount;
   if (typeof switchStage === 'function') switchStage(1);
   s1.innerHTML=data.stage1_results.map((r,i)=>{
     const pe=r.fundamentals?.pe_ratio?.value||r.pe||'--';
@@ -3462,12 +3517,64 @@ function renderResults(data) {
     </tr>
   `).join('');
 
+  // ── Stage 3: Monthly confirmation ─────────────────────────────────────────
+  const s3body = document.getElementById('s3-body');
+  if (s3body) {
+    const s3rows = data.stage3_results || [];
+    document.getElementById('s3-count').textContent = s3PassCount + ' confirmed';
+    if (!s3rows.length) {
+      s3body.innerHTML = '<tr><td colspan="10" class="px-3 py-8 text-center text-on-surface-variant/50">No Stage 2 candidates to filter</td></tr>';
+    } else {
+      s3body.innerHTML = s3rows.map((r,i) => {
+        const mf = r.monthly_filter || {};
+        const conds = mf.conditions || {};
+        const passed = r.stage3_passed;
+        // Build 4 mini dot badges for monthly conditions
+        const dotClass = (ok) => ok ? 'bg-[#6effc0]' : 'bg-error/70';
+        const dot = (key, label) => {
+          const c = conds[key];
+          const ok = c && c.status === 'PASS';
+          return `<span class="inline-flex items-center gap-0.5" title="${label}: ${c ? c.value : 'N/A'}">
+            <span class="w-1.5 h-1.5 rounded-full ${dotClass(ok)} inline-block"></span>
+            <span class="text-[8px] text-on-surface-variant">${label}</span>
+          </span>`;
+        };
+        const monthlyBadge = passed
+          ? `<div class="flex flex-col gap-0.5">
+               <span class="text-[9px] font-black text-[#6effc0] uppercase">✓ Confirmed</span>
+               <div class="flex gap-1 flex-wrap">
+                 ${dot('sma10_rising','SMA')}${dot('rsi_above50','RSI')}${dot('macd_positive','MACD')}${dot('supertrend_bullish','ST')}
+               </div>
+             </div>`
+          : `<div class="flex flex-col gap-0.5">
+               <span class="text-[9px] font-black text-error uppercase">${mf.passed_count||0}/4 passed</span>
+               <div class="flex gap-1 flex-wrap">
+                 ${dot('sma10_rising','SMA')}${dot('rsi_above50','RSI')}${dot('macd_positive','MACD')}${dot('supertrend_bullish','ST')}
+               </div>
+             </div>`;
+        return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors ${passed?'':'opacity-50'}" data-sym="${r.symbol}" onclick="openInsightsPro('${r.symbol}')" oncontextmenu="event.preventDefault();showCtxMenu(event,'${r.symbol}')">
+          <td class="px-3 py-2.5 font-bold ${passed?'text-[#6effc0]':'text-on-surface-variant'}">${r.rank||i+1}</td>
+          <td class="px-3 py-2.5"><div class="font-bold text-on-surface">${_stockLink(r.symbol)}</div>${_evBadge(r)}</td>
+          <td class="px-3 py-2.5 text-right text-on-surface ltp-cell" data-sym="${r.symbol}">₹${r.price||'--'}</td>
+          <td class="px-3 py-2.5 text-right text-error font-mono">${r.stop_loss?'₹'+r.stop_loss:'--'}</td>
+          <td class="px-3 py-2.5 text-right text-primary font-mono">${r.target?'₹'+r.target:'--'}</td>
+          <td class="px-3 py-2.5 text-center font-bold text-on-surface">1:${r.risk_reward||'--'}</td>
+          <td class="px-3 py-2.5">${monthlyBadge}</td>
+          <td class="px-3 py-2.5 text-right"><span class="px-2 py-0.5 ${r.score>=60?'bg-primary/20 text-primary':'bg-surface-container-highest text-on-surface-variant'} rounded-full text-[10px] font-black">${r.score}</span></td>
+          <td class="px-3 py-2.5 text-center"><span class="${passed?'bg-[#6effc0]/10 text-[#6effc0]':'bg-error/10 text-error'} text-[10px] px-2 py-0.5 rounded-full font-black uppercase">${passed?'PASS':'FAIL'}</span></td>
+          <td class="px-3 py-2.5 text-center"><button onclick="event.stopPropagation();addToWatchlist('${r.symbol}')" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined" style="font-size:14px;">bookmark_add</span></button></td>
+        </tr>`;
+      }).join('');
+    }
+    _attachMobileLongPress(s3body);
+  }
+
   // Attach mobile long-press → context menu on both result tables
   _attachMobileLongPress(document.getElementById('s1-body'));
   _attachMobileLongPress(document.getElementById('s2-body'));
 
   // Start live price polling for visible symbols
-  const syms = [...new Set([...data.stage1_results.map(r=>r.symbol), ...data.stage2_results.map(r=>r.symbol)])];
+  const syms = [...new Set([...data.stage1_results.map(r=>r.symbol), ...data.stage2_results.map(r=>r.symbol), ...(data.stage3_results||[]).map(r=>r.symbol)])];
   startLivePrices(syms);
 
   // Async fetch MFS + MTF & populate cells
@@ -3617,10 +3724,14 @@ function resetScreenerTab() {
     if (s1) s1.innerHTML = '<tr><td colspan="11" class="px-3 py-8 text-center text-on-surface-variant/50">Run a screen to see results</td></tr>';
     const s2 = document.getElementById('s2-body');
     if (s2) s2.innerHTML = '<tr><td colspan="11" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 2 results appear after screening</td></tr>';
+    const s3 = document.getElementById('s3-body');
+    if (s3) s3.innerHTML = '<tr><td colspan="10" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 3 results appear after screening</td></tr>';
     const s1c = document.getElementById('s1-count'); if (s1c) s1c.textContent = '0 results';
     const s2c = document.getElementById('s2-count'); if (s2c) s2c.textContent = '0 results';
+    const s3c = document.getElementById('s3-count'); if (s3c) s3c.textContent = '0 confirmed';
     const s1tc = document.getElementById('s1-tab-count'); if (s1tc) s1tc.textContent = '0';
     const s2tc = document.getElementById('s2-tab-count'); if (s2tc) s2tc.textContent = '0';
+    const s3tc = document.getElementById('s3-tab-count'); if (s3tc) s3tc.textContent = '0';
     if (typeof switchStage === 'function') switchStage(1);
   }
   // Abort any in-flight screen
