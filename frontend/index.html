@@ -4284,8 +4284,7 @@ function renderChart(data) {
         if (!Array.isArray(scOptimalCache[_tzSym])) scOptimalCache[_tzSym] = [];
         if (!scOptimalCache[_tzSym].length) {
           scOptimalCache[_tzSym].unshift(plan);
-          scApplyMarkers();
-          scApplyOptimalLines(plan);
+          scApplyMarkers(); // badges only — no lines on auto-fetch
         }
       } catch(e) {}
     }, 400);
