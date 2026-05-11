@@ -424,9 +424,11 @@ async def get_analyst_signal_async(symbol: str, tf: str = "1y") -> Dict[str, Any
     mc = crawl.get("moneycontrol")
     tt = crawl.get("tickertape")
     tl = crawl.get("trendlyne")
-    # Trendlyne is blocked from server IPs — fall back to GHA-fetched cache if live fetch failed
+    # TL + TT blocked from datacenter IPs — fall back to GHA-fetched cache if live fetch failed
     if not tl and existing_cache.get("trendlyne"):
         tl = existing_cache["trendlyne"]
+    if not tt and existing_cache.get("tickertape"):
+        tt = existing_cache["tickertape"]
     # Current price from local history (for target-based rating derivation)
     cur_price = None
     try:
