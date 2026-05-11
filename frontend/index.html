@@ -4253,9 +4253,28 @@ function renderChart(data) {
   // Reset any active draw mode when a new chart opens
   setDrawMode(null);
 
-  // Trade Zones (Bz/Sz) are fetched on demand when user clicks ENTRY/EXIT.
-  // Auto-fetching on every chart open was firing 8 heavy chart-pattern detectors
-  // per click — disabled for performance. Use the ENTRY/EXIT button to load.
+  // Trade Zones: background auto-fetch on chart open (only if checkbox on + no cached data).
+  // /optimal-levels is pure numpy (~350ms), safe to fire non-blocking.
+  // ENTRY/EXIT button still works as before for the full panel + re-fetch.
+  if (scTradeZonesOn && sym && (!currentInterval || currentInterval === 'D' || currentInterval === '1D')) {
+    const _tzSym = sym;
+    setTimeout(async () => {
+      if (currentChartSymbol !== _tzSym) return; // user already switched stock
+      if (scOptimalCache[_tzSym] && Array.isArray(scOptimalCache[_tzSym]) && scOptimalCache[_tzSym].length) return; // already cached
+      try {
+        const r = await fetch(API + '/stock/' + _tzSym + '/optimal-levels');
+        if (!r.ok) return;
+        const plan = await r.json();
+        if (currentChartSymbol !== _tzSym) return; // user switched while fetching
+        if (!Array.isArray(scOptimalCache[_tzSym])) scOptimalCache[_tzSym] = [];
+        if (!scOptimalCache[_tzSym].length) {
+          scOptimalCache[_tzSym].unshift(plan);
+          scApplyMarkers();
+          scApplyOptimalLines(plan);
+        }
+      } catch(e) {}
+    }, 400);
+  }
 
   // Inject resize handles between panels
   setTimeout(()=>injectResizeHandles(), 150);

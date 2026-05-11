@@ -2,6 +2,7 @@
 GET /stock/{symbol} — Indicator inspector breakdown for a single stock.
 """
 
+import time
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 
@@ -12,6 +13,10 @@ from engine.insights import generate_insights
 from api.data_helper import get_stock_bundle, prepare_stock_result
 
 router = APIRouter()
+
+# 30-min module-level cache for optimal-levels (pure computation, no live data)
+_opt_cache: dict = {}   # { symbol: (timestamp, result) }
+_OPT_TTL = 1800
 
 
 @router.get("/stock/{symbol}")
@@ -164,9 +169,13 @@ def get_optimal_levels(symbol: str):
     Returns a 0-100 confidence score with a full breakdown and rationale.
     Educational tool — not investment advice.
     """
-    from engine.optimal_levels import compute_optimal_levels
     symbol = symbol.strip().upper()
+    cached = _opt_cache.get(symbol)
+    if cached and time.time() - cached[0] < _OPT_TTL:
+        return cached[1]
+    from engine.optimal_levels import compute_optimal_levels
     plan = compute_optimal_levels(symbol)
     if plan is None:
         raise HTTPException(404, f"Insufficient history for {symbol} (need 60+ bars)")
+    _opt_cache[symbol] = (time.time(), plan)
     return plan
