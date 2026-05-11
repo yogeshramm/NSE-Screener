@@ -389,10 +389,15 @@ _TF_DAYS = {"1m": 30, "3m": 90, "6m": 180, "1y": 365}
 
 
 async def _crawl_sources(symbol: str, lookback_days: int = 365) -> Dict[str, Any]:
-    """Try crawl4ai for MC + Tickertape + Trendlyne. Returns empty dict if crawl4ai unavailable."""
+    """Try crawl4ai for MC + Tickertape + Trendlyne. Returns empty dict if unavailable or timeout."""
     try:
         from data.analyst_crawl import fetch_all_crawl_sources
-        return await fetch_all_crawl_sources(symbol, lookback_days=lookback_days)
+        # Hard 22s cap: each inner source has its own timeout (15/18s), but this
+        # guards against any edge-case hang (e.g. crawl4ai browser failing to exit).
+        return await asyncio.wait_for(
+            fetch_all_crawl_sources(symbol, lookback_days=lookback_days),
+            timeout=22,
+        )
     except Exception: return {}
 
 

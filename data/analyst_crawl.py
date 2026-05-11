@@ -489,12 +489,22 @@ def _tl_sync(tid, symbol, slug, lookback_days=365) -> Optional[Dict[str, Any]]:
 
 
 async def fetch_all_crawl_sources(symbol: str, lookback_days: int = 365) -> Dict[str, Any]:
-    """Parallel fetch MC + Tickertape + Trendlyne. Returns dict with each key present (None if failed)."""
-    try:
-        mc, tt, tl = await asyncio.gather(
-            fetch_mc(symbol), fetch_tickertape(symbol), fetch_trendlyne(symbol, lookback_days=lookback_days),
-            return_exceptions=False,
-        )
-        return {"moneycontrol": mc, "tickertape": tt, "trendlyne": tl}
-    except Exception as e:
-        return {"moneycontrol": None, "tickertape": None, "trendlyne": None, "_error": str(e)}
+    """Parallel fetch MC + Tickertape + Trendlyne with per-source timeouts.
+
+    MC uses crawl4ai (Chromium) which can hang when the browser fails to
+    launch — give it a hard 18s cap so it never blocks TT/TL.
+    TT/TL use curl_cffi + cloudscraper — typically 3-8s, capped at 15s.
+    Even if MC hangs, TT+TL return their data independently.
+    """
+    async def _safe(coro, timeout: float):
+        try:
+            return await asyncio.wait_for(coro, timeout=timeout)
+        except Exception:
+            return None
+
+    mc, tt, tl = await asyncio.gather(
+        _safe(fetch_mc(symbol), timeout=18),
+        _safe(fetch_tickertape(symbol), timeout=15),
+        _safe(fetch_trendlyne(symbol, lookback_days=lookback_days), timeout=15),
+    )
+    return {"moneycontrol": mc, "tickertape": tt, "trendlyne": tl}
