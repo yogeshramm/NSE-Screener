@@ -11,6 +11,7 @@ router = APIRouter()
 _ANGEL_MAP = {"5m": "FIVE_MINUTE", "15m": "FIFTEEN_MINUTE", "1h": "ONE_HOUR"}
 _ANGEL_DAYS = {"5m": 100, "15m": 200, "1h": 400}
 _intraday_cache: dict = {}  # key → (ts, payload); 10-min TTL
+_daily_cache: dict = {}     # key → (ts, payload); 15-min TTL (D/W/M charts)
 
 
 def _intraday_chart(symbol: str, interval: str):
@@ -147,6 +148,15 @@ def get_chart_data(symbol: str, days: int = 200, interval: str = "1D"):
     symbol = symbol.strip().upper()
     if interval in _ANGEL_MAP:
         return _intraday_chart(symbol, interval)
+
+    # Daily/weekly/monthly chart cache — 15-min TTL
+    # Keyed by symbol+interval+days so different day ranges cache separately.
+    # Cache is invalidated when new daily data arrives (after 24h at most).
+    _dcache_key = f"{symbol}:{interval}:{days}"
+    _dcached = _daily_cache.get(_dcache_key)
+    if _dcached and time.time() - _dcached[0] < 900:  # 900s = 15 min
+        return _dcached[1]
+
     try:
         bundle = get_stock_bundle(symbol)
     except Exception as e:
@@ -413,7 +423,7 @@ def get_chart_data(symbol: str, days: int = 200, interval: str = "1D"):
     def trim(arr):
         return arr[-display_bars:] if isinstance(arr, list) and len(arr) > display_bars else arr
 
-    return {
+    result = {
         "symbol": symbol,
         "candles": trim(candles),
         "volumes": trim(volumes),
@@ -459,3 +469,9 @@ def get_chart_data(symbol: str, days: int = 200, interval: str = "1D"):
         "bars": len(trim(candles)),
         "live_candle": live_candle_injected,   # True when today's candle is from Angel One LTP
     }
+
+    # Store in daily cache (don't cache live-candle responses — they change every tick)
+    if not live_candle_injected:
+        _daily_cache[_dcache_key] = (time.time(), result)
+
+    return result
