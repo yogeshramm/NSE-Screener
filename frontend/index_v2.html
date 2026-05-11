@@ -4275,7 +4275,7 @@ function renderChart(data) {
     const _tzSym = currentChartSymbol;
     setTimeout(async () => {
       if (currentChartSymbol !== _tzSym) return; // user already switched stock
-      if (scOptimalCache[_tzSym] && Array.isArray(scOptimalCache[_tzSym]) && scOptimalCache[_tzSym].length) return; // already cached
+      if (scOptimalCache[_tzSym] && Array.isArray(scOptimalCache[_tzSym]) && scOptimalCache[_tzSym].length) { scApplyMarkers(); return; } // already cached — repaint on new series
       try {
         const r = await fetch(API + '/stock/' + _tzSym + '/optimal-levels');
         if (!r.ok) return;
