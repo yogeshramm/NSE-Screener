@@ -192,6 +192,22 @@ html:not(.dark) .brand-gradient {
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 
+/* ===== LIGHT MODE — SEMANTIC COLOUR CORRECTIONS ===== */
+/* Neon mint (#00e5a0) has 1.5:1 contrast on white → use dark teal (#0d9488 = 7.3:1) */
+html:not(.dark) [class*="text-[#00e5a0]"]   { color: #0d9488 !important; }
+html:not(.dark) [class*="bg-[#00e5a0]"]     { background-color: rgba(13,148,136,0.12) !important; }
+html:not(.dark) [class*="border-[#00e5a0]"] { border-color:     rgba(13,148,136,0.35) !important; }
+/* Bright red (#ff4757) is near-AA; darken to red-600 (#dc2626 = 5.9:1) for comfort */
+html:not(.dark) [class*="text-[#ff4757]"]   { color: #dc2626 !important; }
+html:not(.dark) [class*="bg-[#ff4757]"]     { background-color: rgba(220,38,38,0.10) !important; }
+html:not(.dark) [class*="border-[#ff4757]"] { border-color:     rgba(220,38,38,0.30) !important; }
+/* Yellow-400/500 (#facc15/#eab308) → amber-700 (#b45309 = 6.7:1) */
+html:not(.dark) .text-yellow-400,
+html:not(.dark) .text-yellow-500            { color: #b45309 !important; }
+html:not(.dark) [class*="bg-yellow-"]       { background-color: rgba(180,83,9,0.10) !important; }
+html:not(.dark) [class*="border-yellow-"]   { border-color:     rgba(180,83,9,0.30) !important; }
+/* ================================================== */
+
 .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
 .tabular-nums { font-variant-numeric: tabular-nums; }
 .glass-panel { background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
@@ -787,12 +803,12 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
 <section class="tab-content flex-col w-full overflow-y-auto" id="tab-home">
   <!-- Mobile-only market index strip (Kite-style) -->
   <div id="home-index-strip" class="sm:hidden flex items-center gap-3 px-4 py-2.5 border-b border-outline-variant/10 overflow-x-auto scrollbar-hide text-[11px] font-mono font-bold" style="background:var(--surface-container-lowest)">
-    <div id="home-n50-chip" class="flex items-center gap-1.5 flex-shrink-0 px-3 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.04)">
+    <div id="home-n50-chip" class="flex items-center gap-1.5 flex-shrink-0 px-3 py-1.5 rounded-lg" style="background:var(--surface-container-high)">
       <span class="text-on-surface-variant text-[9px] font-bold uppercase">N50</span>
       <span id="home-n50-val" class="text-on-surface">—</span>
       <span id="home-n50-chg" class="text-[9px]">—</span>
     </div>
-    <div id="home-n500-chip" class="flex items-center gap-1.5 flex-shrink-0 px-3 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.04)">
+    <div id="home-n500-chip" class="flex items-center gap-1.5 flex-shrink-0 px-3 py-1.5 rounded-lg" style="background:var(--surface-container-high)">
       <span class="text-on-surface-variant text-[9px] font-bold uppercase">N500</span>
       <span id="home-n500-val" class="text-on-surface">—</span>
       <span id="home-n500-chg" class="text-[9px]">—</span>
