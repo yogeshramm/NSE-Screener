@@ -580,7 +580,7 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
 }
 </style>
 </head>
-<body class="overflow-hidden h-screen flex" style="background:#050505;color:#f1f1f1">
+<body class="overflow-hidden h-screen flex">
 
 <!-- ==================== LOGIN OVERLAY ==================== -->
 <div class="fixed inset-0 z-[100] flex items-center justify-center bg-surface-container-lowest mesh-gradient" id="login-overlay">
@@ -588,7 +588,7 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
     <div class="absolute -top-1/4 -right-1/4 w-[800px] h-[800px] rounded-full blur-[120px]" style="background:rgba(255,140,0,0.06)"></div>
     <div class="absolute -bottom-1/4 -left-1/4 w-[600px] h-[600px] rounded-full blur-[100px]" style="background:rgba(255,140,0,0.03)"></div>
   </div>
-  <div class="w-[400px] max-w-[calc(100vw-2rem)] p-8 rounded-xl glass-panel shadow-2xl relative z-10" style="border:1px solid rgba(255,255,255,0.06)">
+  <div class="w-[400px] max-w-[calc(100vw-2rem)] p-8 rounded-xl glass-panel shadow-2xl relative z-10 border border-outline-variant/30">
     <div class="top-glow"></div>
     <div class="text-center mb-8">
       <h1 class="text-3xl font-black tracking-tighter brand-gradient uppercase">MONEYSTX</h1>
@@ -638,9 +638,9 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
 </div>
 
 <!-- ==================== SIDEBAR NAVIGATION ==================== -->
-<aside id="sidebar" class="fixed left-0 top-0 bottom-0 w-16 z-50 flex flex-col" style="background:#0e0e0e;border-right:1px solid rgba(255,255,255,0.05)">
+<aside id="sidebar" class="fixed left-0 top-0 bottom-0 w-16 z-50 flex flex-col" style="background:var(--surface);border-right:1px solid var(--outline-variant)">
   <!-- Logo monogram — clicking returns to Home dashboard -->
-  <div class="h-12 flex items-center justify-center flex-shrink-0 cursor-pointer" style="border-bottom:1px solid rgba(255,255,255,0.05)" onclick="switchTab('home')" title="Home Dashboard">
+  <div class="h-12 flex items-center justify-center flex-shrink-0 cursor-pointer" style="border-bottom:1px solid var(--outline-variant)" onclick="switchTab('home')" title="Home Dashboard">
     <span class="text-base font-black" style="background:linear-gradient(135deg,#FF8C00,#e07b00);-webkit-background-clip:text;-webkit-text-fill-color:transparent">MX</span>
   </div>
   <!-- Icon nav tabs -->
@@ -707,7 +707,7 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
     </a>
   </nav>
   <!-- Bottom controls: theme + user account -->
-  <div class="flex flex-col items-center gap-1 py-3 flex-shrink-0" style="border-top:1px solid rgba(255,255,255,0.05)">
+  <div class="flex flex-col items-center gap-1 py-3 flex-shrink-0" style="border-top:1px solid var(--outline-variant)">
     <button id="theme-toggle" onclick="toggleTheme()" class="w-10 h-10 flex items-center justify-center rounded-lg transition-colors" style="hover:background:rgba(255,255,255,0.05)" title="Toggle theme">
       <span class="material-symbols-outlined text-on-surface-variant" id="theme-icon">light_mode</span>
     </button>
@@ -715,7 +715,7 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
       <button id="user-menu-btn" onclick="toggleUserMenu(event)" class="w-10 h-10 flex items-center justify-center rounded-lg transition-colors" title="Account">
         <span class="material-symbols-outlined text-on-surface-variant">account_circle</span>
       </button>
-      <div id="user-menu-dropdown" class="hidden absolute bg-surface-container rounded-lg shadow-2xl z-[100] overflow-hidden" style="bottom:0;left:calc(100% + 4px);width:13rem;border:1px solid rgba(255,255,255,0.08)">
+      <div id="user-menu-dropdown" class="hidden absolute bg-surface-container rounded-lg shadow-2xl z-[100] overflow-hidden" style="bottom:0;left:calc(100% + 4px);width:13rem;border:1px solid var(--outline-variant)">
         <div class="px-3 pt-2 pb-1 text-[9px] uppercase tracking-wider text-on-surface-variant">Signed in as</div>
         <div class="px-3 pb-2 border-b border-outline-variant/10">
           <div class="text-sm font-bold text-on-surface" id="user-menu-name">—</div>
@@ -743,7 +743,7 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
 <div id="main-wrapper" class="flex flex-col flex-1 overflow-hidden" style="margin-left:4rem">
 
 <!-- ==================== HEADER (h-12) ==================== -->
-<header class="h-12 flex-shrink-0 flex items-center justify-between px-4 z-40 relative" style="background:rgba(5,5,5,0.9);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,0.05)">
+<header class="h-12 flex-shrink-0 flex items-center justify-between px-4 z-40 relative" style="background:var(--glass-bg);backdrop-filter:blur(12px);border-bottom:1px solid var(--outline-variant)">
   <!-- Left: tab name + hidden helpers needed by JS -->
   <div class="flex items-center gap-3">
     <span id="header-tab-name" class="text-xs font-black uppercase tracking-[0.2em] text-on-surface">SCREENER</span>
@@ -753,18 +753,18 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
   <!-- Center: market tickers -->
   <div class="hidden sm:flex items-center gap-4 text-[10px] font-mono text-on-surface-variant">
     <span class="flex items-center gap-1.5">
-      <span class="font-bold tracking-wider" style="color:#f1f1f1">NIFTY 50</span>
+      <span class="font-bold tracking-wider text-on-surface">NIFTY 50</span>
       <span id="hdr-nifty">—</span>
     </span>
     <span style="opacity:0.3">·</span>
     <span class="flex items-center gap-1.5">
-      <span class="font-bold tracking-wider" style="color:#f1f1f1">SENSEX</span>
+      <span class="font-bold tracking-wider text-on-surface">SENSEX</span>
       <span id="hdr-sensex">—</span>
     </span>
   </div>
   <!-- Right: data sync ring + controls (JS appends fa-sync-badge here via .flex.items-center.gap-4) -->
   <div class="flex items-center gap-4">
-    <div class="flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1.5 rounded-full border cursor-pointer elite-btn" style="background:rgba(255,255,255,0.03);border-color:rgba(255,255,255,0.06)" onclick="triggerCatchup()" id="dl-btn">
+    <div class="flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1.5 rounded-full border cursor-pointer elite-btn" style="background:var(--surface-container);border-color:var(--outline-variant)" onclick="triggerCatchup()" id="dl-btn">
       <div class="relative w-5 h-5 shrink-0">
         <svg class="w-full h-full transform -rotate-90" viewBox="0 0 24 24">
           <circle class="text-surface-container-highest" cx="12" cy="12" fill="transparent" r="10" stroke="currentColor" stroke-width="2"></circle>
@@ -12718,7 +12718,7 @@ document.addEventListener('click', (e) => {
 </div>
 
 <!-- ==================== PEER COMPARISON TRAY ==================== -->
-<div id="compare-tray" class="fixed bottom-0 left-0 sm:left-16 right-0 z-[150] hidden transition-all" style="background:rgba(10,14,26,0.97);backdrop-filter:blur(8px);border-top:1px solid rgba(255,140,0,0.3);box-shadow:0 -4px 24px rgba(0,0,0,0.5)">
+<div id="compare-tray" class="fixed bottom-0 left-0 sm:left-16 right-0 z-[150] hidden transition-all" style="background:var(--glass-bg);backdrop-filter:blur(8px);border-top:1px solid rgba(255,140,0,0.3);box-shadow:0 -4px 24px rgba(0,0,0,0.3)">
   <div class="flex items-center justify-between px-4 py-2 border-b border-outline-variant/10">
     <div class="flex items-center gap-2">
       <span class="material-symbols-outlined text-primary" style="font-size:14px">compare</span>
@@ -12738,7 +12738,7 @@ document.addEventListener('click', (e) => {
 
 <!-- ==================== ADMIN PANEL MODAL ==================== -->
 <div id="admin-modal" class="fixed inset-0 z-[120] items-center justify-center bg-black/70 backdrop-blur-sm" style="display:none">
-  <div class="bg-surface-container rounded-2xl shadow-2xl overflow-hidden flex flex-col" style="width:min(680px,95vw);max-height:80vh;border:1px solid rgba(255,255,255,0.08)">
+  <div class="bg-surface-container rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-outline-variant/30" style="width:min(680px,95vw);max-height:80vh">
     <!-- Header -->
     <div class="flex items-center justify-between px-5 py-3.5 border-b border-outline-variant/10">
       <div class="flex items-center gap-2.5">
@@ -12795,7 +12795,7 @@ document.addEventListener('click', (e) => {
 <div id="preset-dropdown" class="hidden fixed w-52 max-h-60 overflow-y-auto bg-surface-container border border-outline-variant/20 rounded-xl shadow-2xl p-1.5" style="z-index:9999"></div>
 
 <!-- ==================== BOTTOM NAV (mobile only) ==================== -->
-<nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 z-[200] flex items-center justify-around border-t" style="background:var(--surface-container-lowest);border-color:rgba(255,255,255,0.06);height:60px;padding:0 8px">
+<nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 z-[200] flex items-center justify-around border-t" style="background:var(--surface-container-lowest);border-color:var(--outline-variant);height:60px;padding:0 8px">
   <a href="#home" onclick="event.preventDefault();switchTab('home')" class="bnav-tab" data-tab="home">
     <span class="material-symbols-outlined bnav-icon">home</span>
     <span class="bnav-label">Home</span>
@@ -12821,21 +12821,21 @@ document.addEventListener('click', (e) => {
 <!-- ==================== MOBILE ACCOUNT SHEET ==================== -->
 <div id="mobile-account-overlay" class="hidden fixed inset-0 z-[400]" onclick="closeMobileAccount()">
   <div class="absolute bottom-[68px] left-3 right-3 rounded-2xl overflow-hidden"
-       style="background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);box-shadow:0 -8px 32px rgba(0,0,0,0.6)"
+       style="background:var(--surface-container);border:1px solid var(--outline-variant);box-shadow:0 -8px 32px rgba(0,0,0,0.4)"
        onclick="event.stopPropagation()">
-    <div class="px-4 py-3 border-b" style="border-color:rgba(255,255,255,0.07)">
+    <div class="px-4 py-3 border-b border-outline-variant/30">
       <div class="text-sm font-bold text-on-surface" id="mob-acct-name">—</div>
       <div class="text-[11px] text-on-surface-variant" id="mob-acct-username">—</div>
     </div>
-    <button onclick="closeMobileAccount();openProfileModal()" class="w-full text-left px-4 py-3 text-sm flex items-center gap-3 hover:bg-white/5 transition-colors">
+    <button onclick="closeMobileAccount();openProfileModal()" class="w-full text-left px-4 py-3 text-sm flex items-center gap-3 hover:bg-surface-container-highest/60 transition-colors text-on-surface">
       <span class="material-symbols-outlined text-lg text-on-surface-variant">person</span>
       <span>Profile</span>
     </button>
-    <button onclick="closeMobileAccount();openChangePasswordModal()" class="w-full text-left px-4 py-3 text-sm flex items-center gap-3 hover:bg-white/5 transition-colors border-t" style="border-color:rgba(255,255,255,0.07)">
+    <button onclick="closeMobileAccount();openChangePasswordModal()" class="w-full text-left px-4 py-3 text-sm flex items-center gap-3 hover:bg-surface-container-highest/60 transition-colors border-t border-outline-variant/30 text-on-surface">
       <span class="material-symbols-outlined text-lg text-on-surface-variant">lock_reset</span>
       <span>Change Password</span>
     </button>
-    <button onclick="logout()" class="w-full text-left px-4 py-3 text-sm flex items-center gap-3 hover:bg-white/5 transition-colors border-t" style="border-color:rgba(255,255,255,0.07);color:#f87171">
+    <button onclick="logout()" class="w-full text-left px-4 py-3 text-sm flex items-center gap-3 hover:bg-surface-container-highest/60 transition-colors border-t border-outline-variant/30 text-error">
       <span class="material-symbols-outlined text-lg">logout</span>
       <span>Logout</span>
     </button>
@@ -12845,44 +12845,44 @@ document.addEventListener('click', (e) => {
 <!-- ==================== MOBILE MORE SHEET ==================== -->
 <div id="mobile-more-overlay" class="hidden fixed inset-0 z-[400]" onclick="closeMobileMore()">
   <div class="absolute bottom-[68px] left-3 right-3 rounded-2xl overflow-hidden"
-       style="background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);box-shadow:0 -8px 32px rgba(0,0,0,0.6)"
+       style="background:var(--surface-container);border:1px solid var(--outline-variant);box-shadow:0 -8px 32px rgba(0,0,0,0.4)"
        onclick="event.stopPropagation()">
-    <div class="px-4 py-2.5 border-b flex items-center justify-between" style="border-color:rgba(255,255,255,0.07)">
+    <div class="px-4 py-2.5 border-b border-outline-variant/30 flex items-center justify-between">
       <span class="text-[9px] font-black uppercase tracking-[0.2em] text-primary">More Tabs</span>
-      <button onclick="closeMobileMore()" class="w-6 h-6 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-white/10">
+      <button onclick="closeMobileMore()" class="w-6 h-6 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-highest/60">
         <span class="material-symbols-outlined" style="font-size:16px">close</span>
       </button>
     </div>
     <div class="grid grid-cols-4 gap-0">
-      <button onclick="closeMobileMore();switchTab('breakouts')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors">
+      <button onclick="closeMobileMore();switchTab('breakouts')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-surface-container-highest/60 transition-colors">
         <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">trending_up</span>
         <span class="text-[9px] font-bold text-on-surface-variant uppercase">Breaks</span>
       </button>
-      <button onclick="closeMobileMore();switchTab('practice')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors">
+      <button onclick="closeMobileMore();switchTab('practice')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-surface-container-highest/60 transition-colors">
         <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">sports_esports</span>
         <span class="text-[9px] font-bold text-on-surface-variant uppercase">Play</span>
       </button>
-      <button onclick="closeMobileMore();switchTab('events')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors">
+      <button onclick="closeMobileMore();switchTab('events')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-surface-container-highest/60 transition-colors">
         <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">event</span>
         <span class="text-[9px] font-bold text-on-surface-variant uppercase">Events</span>
       </button>
-      <button onclick="closeMobileMore();switchTab('backtest')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors">
+      <button onclick="closeMobileMore();switchTab('backtest')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-surface-container-highest/60 transition-colors">
         <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">history</span>
         <span class="text-[9px] font-bold text-on-surface-variant uppercase">Backtest</span>
       </button>
-      <button onclick="closeMobileMore();switchTab('indicators')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors border-t" style="border-color:rgba(255,255,255,0.07)">
+      <button onclick="closeMobileMore();switchTab('indicators')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-surface-container-highest/60 transition-colors border-t border-outline-variant/30">
         <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">candlestick_chart</span>
         <span class="text-[9px] font-bold text-on-surface-variant uppercase">Indicators</span>
       </button>
-      <button onclick="closeMobileMore();switchTab('config')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors border-t" style="border-color:rgba(255,255,255,0.07)">
+      <button onclick="closeMobileMore();switchTab('config')" class="flex flex-col items-center gap-1.5 py-4 hover:bg-surface-container-highest/60 transition-colors border-t border-outline-variant/30">
         <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">tune</span>
         <span class="text-[9px] font-bold text-on-surface-variant uppercase">Config</span>
       </button>
-      <button onclick="closeMobileMore();openMobileAccount()" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors border-t" style="border-color:rgba(255,255,255,0.07)">
+      <button onclick="closeMobileMore();openMobileAccount()" class="flex flex-col items-center gap-1.5 py-4 hover:bg-surface-container-highest/60 transition-colors border-t border-outline-variant/30">
         <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">account_circle</span>
         <span class="text-[9px] font-bold text-on-surface-variant uppercase">Me</span>
       </button>
-      <button onclick="closeMobileMore();openCmdK()" class="flex flex-col items-center gap-1.5 py-4 hover:bg-white/5 transition-colors border-t" style="border-color:rgba(255,255,255,0.07)">
+      <button onclick="closeMobileMore();openCmdK()" class="flex flex-col items-center gap-1.5 py-4 hover:bg-surface-container-highest/60 transition-colors border-t border-outline-variant/30">
         <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">search</span>
         <span class="text-[9px] font-bold text-on-surface-variant uppercase">Search</span>
       </button>
