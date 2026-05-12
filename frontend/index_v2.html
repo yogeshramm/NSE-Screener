@@ -700,6 +700,11 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
       <span class="sb-label">Forum</span>
       <span class="sb-tooltip">Community Forum</span>
     </a>
+    <a href="#tournaments" class="nav-tab text-on-surface-variant" data-tab="tournaments" onclick="event.preventDefault();switchTab('tournaments')">
+      <span class="material-symbols-outlined">trophy</span>
+      <span class="sb-label">Tournament</span>
+      <span class="sb-tooltip">Tournament Mode</span>
+    </a>
   </nav>
   <!-- Bottom controls: theme + user account -->
   <div class="flex flex-col items-center gap-1 py-3 flex-shrink-0" style="border-top:1px solid rgba(255,255,255,0.05)">
@@ -1950,6 +1955,99 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
     <div id="forum-topic-view" class="hidden space-y-3"></div>
   </div>
 </section>
+
+<!-- ==================== TAB: TOURNAMENT ==================== -->
+<section class="tab-content flex-col w-full overflow-y-auto" id="tab-tournaments">
+  <div class="px-6 pt-6 pb-20 max-w-5xl mx-auto w-full">
+    <header class="mb-6 flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <h1 class="text-3xl font-black text-on-surface tracking-tighter uppercase mb-1">Tournament <span class="text-primary">Mode</span></h1>
+        <p class="text-sm text-on-surface-variant">Same stocks, own pace, same clock. Stock names hidden until the round closes.</p>
+      </div>
+      <button onclick="openCreateTournament()" class="flex items-center gap-2 px-4 py-2 bg-primary-container text-on-primary font-bold rounded-lg text-xs uppercase tracking-wider active:scale-95 transition-transform">
+        <span class="material-symbols-outlined text-sm">add</span> New Tournament
+      </button>
+    </header>
+    <div class="flex gap-2 border-b border-outline-variant/20 mb-4 overflow-x-auto">
+      <button id="tn-tab-live" onclick="switchTournamentTab('live')" class="tn-tab px-4 py-2 text-xs font-bold uppercase border-b-2 border-primary text-primary">Live</button>
+      <button id="tn-tab-pending" onclick="switchTournamentTab('pending')" class="tn-tab px-4 py-2 text-xs font-bold uppercase border-b-2 border-transparent text-on-surface-variant hover:text-on-surface">Open for Entry</button>
+      <button id="tn-tab-closed" onclick="switchTournamentTab('closed')" class="tn-tab px-4 py-2 text-xs font-bold uppercase border-b-2 border-transparent text-on-surface-variant hover:text-on-surface">Completed</button>
+    </div>
+    <div id="tn-list" class="space-y-3"></div>
+  </div>
+</section>
+
+<div id="create-tournament-modal" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/60" style="display:none">
+  <div class="w-[480px] max-w-[calc(100vw-2rem)] glass-panel rounded-2xl border border-outline-variant/20 overflow-hidden">
+    <div class="p-4 border-b border-outline-variant/20 flex items-center justify-between">
+      <h3 class="text-sm font-black uppercase tracking-widest text-on-surface">Host a Tournament</h3>
+      <span class="material-symbols-outlined cursor-pointer hover:text-error" onclick="closeCreateTournament()">close</span>
+    </div>
+    <div class="p-5 space-y-3">
+      <div>
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Tournament name</label>
+        <input id="ct-name" type="text" maxlength="80" class="w-full bg-surface-container-highest border-none rounded-lg text-sm mt-1 px-3 py-2" placeholder="e.g. Monday 8pm Battle"/>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Stocks</label>
+          <select id="ct-nstocks" class="w-full bg-surface-container-highest border-none rounded-lg text-sm mt-1 px-3 py-2">
+            <option value="3">3 stocks</option>
+            <option value="5" selected>5 stocks</option>
+            <option value="10">10 stocks</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Window</label>
+          <select id="ct-window" class="w-full bg-surface-container-highest border-none rounded-lg text-sm mt-1 px-3 py-2">
+            <option value="20">20 minutes</option>
+            <option value="30">30 minutes</option>
+            <option value="45" selected>45 minutes</option>
+            <option value="60">60 minutes</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Days per stock</label>
+          <select id="ct-days" class="w-full bg-surface-container-highest border-none rounded-lg text-sm mt-1 px-3 py-2">
+            <option value="30">30 days</option>
+            <option value="60" selected>60 days</option>
+            <option value="90">90 days</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Min players</label>
+          <select id="ct-minplayers" class="w-full bg-surface-container-highest border-none rounded-lg text-sm mt-1 px-3 py-2">
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+            <option value="5">5</option>
+          </select>
+        </div>
+      </div>
+      <div class="text-[10px] text-on-surface-variant italic">Stock names will be hidden as "Stock A", "Stock B" etc. until the tournament closes.</div>
+    </div>
+    <div class="p-4 border-t border-outline-variant/20 flex justify-end gap-2">
+      <button onclick="closeCreateTournament()" class="px-5 py-2 text-on-surface-variant font-bold text-xs uppercase hover:text-on-surface">Cancel</button>
+      <button onclick="submitCreateTournament()" class="px-6 py-2 bg-primary-container text-on-primary font-bold rounded-lg text-xs uppercase">Create</button>
+    </div>
+  </div>
+</div>
+
+<div id="tournament-detail-modal" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/60" style="display:none">
+  <div class="w-[760px] max-w-[calc(100vw-2rem)] max-h-[85vh] glass-panel rounded-2xl border border-outline-variant/20 flex flex-col overflow-hidden">
+    <div class="p-4 border-b border-outline-variant/20 flex items-center justify-between">
+      <div>
+        <h3 id="td-name" class="text-sm font-black uppercase tracking-widest text-on-surface"></h3>
+        <span id="td-meta" class="text-xs text-on-surface-variant"></span>
+      </div>
+      <span class="material-symbols-outlined cursor-pointer hover:text-error" onclick="closeTournamentDetail()">close</span>
+    </div>
+    <div id="td-body" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
+    <div class="p-3 border-t border-outline-variant/20 flex justify-end gap-2">
+      <button id="td-join-btn" onclick="joinCurrentTournament()" class="hidden px-5 py-2 bg-primary-container text-on-primary font-bold rounded-lg text-xs uppercase">Join</button>
+      <button onclick="closeTournamentDetail()" class="px-5 py-2 bg-surface-container-highest text-on-surface font-bold rounded-lg text-xs uppercase">Close</button>
+    </div>
+  </div>
+</div>
 
 <!-- ==================== FORUM NEW TOPIC MODAL ==================== -->
 <div id="forum-new-topic-modal" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/60" style="display:none">
@@ -3204,6 +3302,7 @@ function switchTab(tab, opts) {
   if (tab === 'events' && eventsData.length === 0) loadEvents();
   if (tab === 'portfolio') loadPortfolio();
   if (tab === 'forum') loadForumTab();
+  if (tab === 'tournaments') loadTournamentsTab();
   if (tab === 'home') loadHome();
   // Hash-based back-button support: push to history unless this navigation
   // came FROM history (popstate). Skips no-op pushes if URL already matches.
@@ -7468,6 +7567,128 @@ async function submitForumReply() {
     if (!r.ok) { const j = await r.json().catch(()=>({})); throw new Error(j.detail || 'HTTP ' + r.status); }
     forumOpenTopic(_forumState.topicId);
   } catch(e) { alert('Failed: ' + e.message); }
+}
+
+// ============ TOURNAMENT ============
+function _tnFetch(url, opts = {}) {
+  const headers = Object.assign({}, opts.headers || {});
+  if (typeof authToken === 'string' && authToken) headers['Authorization'] = 'Bearer ' + authToken;
+  return fetch(url, Object.assign({}, opts, { headers }));
+}
+let _tnActiveTab = 'live';
+let _tnDetailId = null;
+
+async function loadTournamentsTab() { switchTournamentTab(_tnActiveTab || 'live'); }
+function switchTournamentTab(which) {
+  _tnActiveTab = which;
+  ['live','pending','closed'].forEach(t => {
+    const btn = document.getElementById('tn-tab-' + t);
+    if (!btn) return;
+    btn.className = (t === which)
+      ? 'tn-tab px-4 py-2 text-xs font-bold uppercase border-b-2 border-primary text-primary'
+      : 'tn-tab px-4 py-2 text-xs font-bold uppercase border-b-2 border-transparent text-on-surface-variant hover:text-on-surface';
+  });
+  loadTournamentList(which);
+}
+async function loadTournamentList(status) {
+  const list = document.getElementById('tn-list');
+  list.innerHTML = '<div class="text-center py-8 text-on-surface-variant">Loading...</div>';
+  try {
+    const r = await _tnFetch(API + '/tournaments?status=' + encodeURIComponent(status));
+    if (r.status === 503) { list.innerHTML = '<div class="text-center py-8 text-on-surface-variant/60 text-sm">Tournament mode is currently disabled.</div>'; return; }
+    const j = await r.json();
+    const rows = j.tournaments || [];
+    if (!rows.length) {
+      const msg = status === 'pending' ? 'No tournaments accepting entries.' : status === 'live' ? 'No tournaments running right now.' : 'No completed tournaments yet.';
+      list.innerHTML = `<div class="text-center py-8 text-on-surface-variant/60 text-sm">${msg}</div>`;
+      return;
+    }
+    list.innerHTML = rows.map(t => {
+      const remaining = t.status === 'live' && t.ends_at ? ` · ends in ${Math.max(0, Math.round((t.ends_at - Date.now()/1000)/60))} min` : '';
+      const statusCls = t.status === 'live' ? 'bg-primary/20 text-primary' : t.status === 'pending' ? 'bg-secondary/20 text-secondary' : 'bg-surface-variant text-on-surface-variant';
+      return `<div class="bg-surface-container-low hover:bg-surface-container-highest/40 rounded-xl p-4 cursor-pointer" onclick="openTournamentDetail(${t.id})">
+        <div class="flex items-center justify-between gap-3 mb-1">
+          <h3 class="text-sm font-bold text-on-surface">${_escapeHtml(t.name)}</h3>
+          <span class="text-[9px] font-bold uppercase px-2 py-0.5 rounded ${statusCls}">${t.status}</span>
+        </div>
+        <div class="flex items-center gap-3 text-[10px] text-on-surface-variant flex-wrap">
+          <span>by <b>${t.host || 'unknown'}</b></span>
+          <span>· ${t.n_stocks} stocks</span>
+          <span>· ${t.days_per_stock}d each</span>
+          <span>· ${t.window_minutes}m window</span>
+          <span>· ${t.players || 0} player${(t.players||0)===1?'':'s'}${remaining}</span>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = `<div class="text-center py-8 text-error">Failed: ${e.message}</div>`;
+  }
+}
+function openCreateTournament() { document.getElementById('create-tournament-modal').style.display = 'flex'; document.getElementById('ct-name').value = ''; }
+function closeCreateTournament() { document.getElementById('create-tournament-modal').style.display = 'none'; }
+async function submitCreateTournament() {
+  const body = {
+    name: document.getElementById('ct-name').value.trim(),
+    n_stocks: parseInt(document.getElementById('ct-nstocks').value),
+    window_minutes: parseInt(document.getElementById('ct-window').value),
+    days_per_stock: parseInt(document.getElementById('ct-days').value),
+    min_players: parseInt(document.getElementById('ct-minplayers').value),
+  };
+  if (!body.name) { alert('Name required'); return; }
+  try {
+    const r = await _tnFetch(API + '/tournaments', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+    if (!r.ok) { const j = await r.json().catch(()=>({})); throw new Error(j.detail || 'HTTP ' + r.status); }
+    const j = await r.json();
+    closeCreateTournament();
+    switchTournamentTab('pending');
+    setTimeout(() => openTournamentDetail(j.id), 100);
+  } catch(e) { alert('Failed: ' + e.message); }
+}
+async function openTournamentDetail(tid) {
+  _tnDetailId = tid;
+  const modal = document.getElementById('tournament-detail-modal');
+  modal.style.display = 'flex';
+  const body = document.getElementById('td-body');
+  body.innerHTML = '<div class="text-center py-8 text-on-surface-variant">Loading...</div>';
+  document.getElementById('td-join-btn').classList.add('hidden');
+  try {
+    const [tr, lr] = await Promise.all([
+      _tnFetch(API + '/tournaments/' + tid),
+      _tnFetch(API + '/tournaments/' + tid + '/leaderboard'),
+    ]);
+    const t = await tr.json();
+    const lb = lr.ok ? await lr.json() : {entries: [], revealed: false};
+    document.getElementById('td-name').textContent = t.name;
+    const remaining = t.status === 'live' && t.ends_at ? ` · ${Math.max(0, Math.round((t.ends_at - Date.now()/1000)/60))} min left` : '';
+    document.getElementById('td-meta').textContent = `by ${t.host || 'unknown'} · ${t.n_stocks} stocks · ${t.window_minutes}m window · ${t.status}${remaining}`;
+    if (t.status === 'pending' || t.status === 'live') document.getElementById('td-join-btn').classList.remove('hidden');
+    const stocksTxt = t.stocks && t.stocks.length
+      ? '<div class="bg-surface-container-highest/40 rounded-lg p-3"><div class="text-[10px] uppercase font-bold text-on-surface-variant mb-1 tracking-wider">Stocks revealed</div><div class="text-sm font-mono">' + t.stocks.join(' · ') + '</div></div>'
+      : '<div class="bg-surface-container-highest/40 rounded-lg p-3 text-[11px] text-on-surface-variant italic">Stock names hidden until the tournament closes.</div>';
+    const entries = lb.entries || [];
+    const lbHtml = entries.length ? `<div><div class="text-[10px] uppercase font-bold text-on-surface-variant mb-2 tracking-wider">Leaderboard</div>
+      <div class="bg-surface-container-low rounded-xl overflow-hidden"><table class="w-full">
+        <thead><tr class="bg-surface-container-highest text-[9px] uppercase font-black tracking-wider text-on-surface-variant"><th class="px-3 py-2 text-left">Rank</th><th class="px-3 py-2 text-left">Player</th><th class="px-3 py-2 text-right">Return</th><th class="px-3 py-2 text-right">Win Rate</th><th class="px-3 py-2 text-right">Trades</th><th class="px-3 py-2 text-center">Status</th></tr></thead>
+        <tbody>${entries.map((e, i) => {
+          const ret = e.return_pct == null ? '—' : (e.return_pct >= 0 ? '+' : '') + e.return_pct.toFixed(2) + '%';
+          const retCls = (e.return_pct||0) >= 0 ? 'text-primary' : 'text-error';
+          const submitted = e.submitted_at ? 'Submitted' : 'In progress';
+          const medal = i === 0 ? '🥇 ' : i === 1 ? '🥈 ' : i === 2 ? '🥉 ' : '';
+          return `<tr class="border-b border-outline-variant/10 text-[11px]"><td class="px-3 py-2 text-on-surface-variant">${medal}#${i+1}</td><td class="px-3 py-2 font-bold">${_escapeHtml(e.username)}</td><td class="px-3 py-2 text-right font-mono ${retCls}">${ret}</td><td class="px-3 py-2 text-right font-mono">${e.win_rate == null ? '—' : e.win_rate.toFixed(0)+'%'}</td><td class="px-3 py-2 text-right font-mono">${e.trades_count || 0}</td><td class="px-3 py-2 text-center text-[9px] text-on-surface-variant">${submitted}</td></tr>`;
+        }).join('')}</tbody></table></div></div>` : '<div class="text-[11px] text-on-surface-variant italic">No entries yet — be the first to join.</div>';
+    body.innerHTML = stocksTxt + lbHtml + (t.status === 'live' ? '<div class="text-[10px] text-on-surface-variant italic mt-2">Play UI for tournaments is being wired into the practice engine — for now you can join, watch the leaderboard, and see the reveal once the window closes.</div>' : '');
+  } catch(e) {
+    body.innerHTML = `<div class="text-center py-8 text-error">Failed: ${e.message}</div>`;
+  }
+}
+function closeTournamentDetail() { document.getElementById('tournament-detail-modal').style.display = 'none'; _tnDetailId = null; }
+async function joinCurrentTournament() {
+  if (!_tnDetailId) return;
+  try {
+    const r = await _tnFetch(API + '/tournaments/' + _tnDetailId + '/join', { method: 'POST' });
+    if (!r.ok) { const j = await r.json().catch(()=>({})); throw new Error(j.detail || 'HTTP ' + r.status); }
+    openTournamentDetail(_tnDetailId);
+  } catch(e) { alert('Join failed: ' + e.message); }
 }
 
 // ============ WATCHLIST ============
