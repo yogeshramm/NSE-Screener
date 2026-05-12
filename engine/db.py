@@ -34,7 +34,7 @@ DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 # Schema version is bumped manually when we add/alter tables. The
 # `schema_version` row tracks what's been applied.
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _init_lock = threading.Lock()
 _initialised = False
@@ -192,6 +192,43 @@ CREATE TABLE IF NOT EXISTS practice_sessions (
 );
 CREATE INDEX IF NOT EXISTS idx_sess_user   ON practice_sessions(user_id, ended_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sess_public ON practice_sessions(public, ended_at DESC) WHERE public = 1;
+
+CREATE TABLE IF NOT EXISTS tournaments (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    host_id         INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    name            TEXT NOT NULL,
+    n_stocks        INTEGER NOT NULL DEFAULT 5,        -- 3 | 5 | 10
+    days_per_stock  INTEGER NOT NULL DEFAULT 60,       -- simulation length
+    window_minutes  INTEGER NOT NULL DEFAULT 45,       -- real-time window to complete
+    min_players     INTEGER NOT NULL DEFAULT 2,
+    universe        TEXT NOT NULL DEFAULT 'nifty500',
+    -- lifecycle:
+    --   'pending'   created, waiting for min_players
+    --   'live'      started, accepting entries until ends_at
+    --   'closed'    window elapsed, reveals + leaderboard visible
+    status          TEXT NOT NULL DEFAULT 'pending',
+    stocks_json     TEXT NOT NULL DEFAULT '[]',        -- ['RELIANCE','TCS',...] — hidden from clients until closed
+    starts_at       INTEGER,                            -- ts the tournament went live (NULL until live)
+    ends_at         INTEGER,                            -- ts when window closes (NULL until live)
+    created_at      INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_tournaments_status ON tournaments(status, ends_at);
+
+CREATE TABLE IF NOT EXISTS tournament_entries (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    tournament_id   INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+    user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    joined_at       INTEGER NOT NULL,
+    submitted_at    INTEGER,                            -- when player finished all stocks
+    return_pct      REAL,
+    win_rate        REAL,
+    trades_count    INTEGER,
+    sharpe          REAL,
+    profit_factor   REAL,
+    per_stock_json  TEXT NOT NULL DEFAULT '[]',         -- [{slot:1, symbol:'RELIANCE', return_pct:...}, ...]
+    UNIQUE(tournament_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_t_entries_tid ON tournament_entries(tournament_id, return_pct DESC);
 """
 
 
