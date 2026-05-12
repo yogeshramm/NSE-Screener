@@ -21,6 +21,9 @@ config/users.json
 config/watchlist.json
 config/portfolio.json
 config/.auth_secret
+config/yointell.db
+config/yointell.db-wal
+config/yointell.db-shm
 
 # Local research / scratch — kept out of repo
 research/

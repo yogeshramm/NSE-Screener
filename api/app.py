@@ -67,6 +67,12 @@ def _warm_os_file_cache():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialise SQLite (schema + legacy-file migrations) — fast, runs once
+    try:
+        from engine.db import healthcheck as _db_healthcheck
+        _db_healthcheck()  # forces _ensure_initialised via get_conn
+    except Exception as _e:
+        print(f"[startup] DB init failed: {_e}", flush=True)
     # Ensure the site owner has admin privileges on every startup
     from engine.auth import ensure_admin
     ensure_admin("yogesh")

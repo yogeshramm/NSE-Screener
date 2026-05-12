@@ -29,7 +29,7 @@ jobs:
 
             # Preserve runtime state across reset --hard
             mkdir -p /tmp/yointell_runtime
-            for f in users.json watchlist.json portfolio.json .auth_secret; do
+            for f in users.json watchlist.json portfolio.json .auth_secret yointell.db yointell.db-wal yointell.db-shm; do
               [ -f "config/$f" ] && cp "config/$f" "/tmp/yointell_runtime/$f"
             done
 
@@ -40,7 +40,7 @@ jobs:
             rollback() {
               echo "✗ deploy failed — rolling back to $BEFORE"
               git reset --hard "$BEFORE" || true
-              for f in users.json watchlist.json portfolio.json .auth_secret; do
+              for f in users.json watchlist.json portfolio.json .auth_secret yointell.db yointell.db-wal yointell.db-shm; do
                 [ -f "/tmp/yointell_runtime/$f" ] && cp "/tmp/yointell_runtime/$f" "config/$f"
               done
               sudo systemctl restart yointell || true
@@ -57,7 +57,7 @@ jobs:
             echo "→ after:  $AFTER"
 
             # Restore runtime state immediately after reset
-            for f in users.json watchlist.json portfolio.json .auth_secret; do
+            for f in users.json watchlist.json portfolio.json .auth_secret yointell.db yointell.db-wal yointell.db-shm; do
               [ -f "/tmp/yointell_runtime/$f" ] && cp "/tmp/yointell_runtime/$f" "config/$f"
             done
 

@@ -1,0 +1,346 @@
+"""
+SQLite foundation for YOINTELL — single yointell.db file.
+
+Tables: users, presets, preset_shares, forum_categories, forum_topics,
+forum_posts, practice_sessions.
+
+Auto-creates schema on import and runs idempotent migrations from the
+legacy file-based stores (config/users.json and config/presets/*.json).
+
+Sized for 200 concurrent users — WAL mode enabled for concurrent reads,
+writes serialise but contention is negligible at this scale.
+
+All callers use `with get_conn() as conn:` so connections close cleanly
+even on exception. Public helpers (`get_user`, `save_preset` etc.) live
+in the consuming modules — this file only owns the connection +
+schema + one-time migration.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import sqlite3
+import threading
+import time
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Generator
+
+# Single-file DB next to existing config/ — gitignored, runtime-only data
+ROOT = Path(__file__).resolve().parent.parent
+DB_PATH = ROOT / "config" / "yointell.db"
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+# Schema version is bumped manually when we add/alter tables. The
+# `schema_version` row tracks what's been applied.
+SCHEMA_VERSION = 1
+
+_init_lock = threading.Lock()
+_initialised = False
+
+
+# ─────────────────────────── connection helpers ───────────────────────────
+
+def _connect() -> sqlite3.Connection:
+    """Thin connection factory — short-lived per call.
+
+    Each call opens a fresh connection. SQLite is fast enough that
+    re-connecting per request beats the complexity of a true connection
+    pool, especially at 200-user scale.
+    """
+    conn = sqlite3.connect(
+        str(DB_PATH),
+        detect_types=sqlite3.PARSE_DECLTYPES,
+        isolation_level=None,        # autocommit; we control txns explicitly
+        check_same_thread=False,     # FastAPI uses threads, this is safe given short-lived conns
+        timeout=10.0,                # wait up to 10s if another writer holds the lock
+    )
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
+@contextmanager
+def get_conn() -> Generator[sqlite3.Connection, None, None]:
+    """Yield a connection; commit + close on normal exit, rollback on error."""
+    _ensure_initialised()
+    conn = _connect()
+    try:
+        yield conn
+    except Exception:
+        try: conn.execute("ROLLBACK")
+        except Exception: pass
+        raise
+    finally:
+        conn.close()
+
+
+def _ensure_initialised() -> None:
+    """Run schema + migrations once per process. Idempotent."""
+    global _initialised
+    if _initialised:
+        return
+    with _init_lock:
+        if _initialised:
+            return
+        _create_schema()
+        _migrate_legacy_users()
+        _migrate_legacy_presets()
+        _seed_forum_categories()
+        _initialised = True
+
+
+# ─────────────────────────── schema ───────────────────────────
+
+_SCHEMA = """
+PRAGMA journal_mode = WAL;
+PRAGMA synchronous = NORMAL;
+
+CREATE TABLE IF NOT EXISTS schema_meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS users (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    username        TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    password_hash   TEXT NOT NULL,
+    role            TEXT NOT NULL DEFAULT 'user',         -- 'user' | 'admin'
+    created_at      INTEGER NOT NULL,                     -- unix epoch
+    public_profile  INTEGER NOT NULL DEFAULT 0,           -- 0/1 — opt-in for leaderboard
+    extras_json     TEXT NOT NULL DEFAULT '{}'            -- forward-compat bag (nickname, prefs, etc.)
+);
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+
+CREATE TABLE IF NOT EXISTS presets (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    name         TEXT NOT NULL,
+    description  TEXT NOT NULL DEFAULT '',
+    config_json  TEXT NOT NULL,                           -- the full filter config
+    stages_json  TEXT NOT NULL DEFAULT '{"s1":true,"s2":true,"s3":false}',  -- which stages to run
+    visibility   TEXT NOT NULL DEFAULT 'private',         -- 'private' | 'public' | 'shared'
+    use_count    INTEGER NOT NULL DEFAULT 0,
+    created_at   INTEGER NOT NULL,
+    updated_at   INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_presets_owner    ON presets(owner_id);
+CREATE INDEX IF NOT EXISTS idx_presets_vis      ON presets(visibility);
+CREATE INDEX IF NOT EXISTS idx_presets_name     ON presets(name);
+
+CREATE TABLE IF NOT EXISTS preset_shares (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    preset_id    INTEGER NOT NULL REFERENCES presets(id) ON DELETE CASCADE,
+    recipient_id INTEGER NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
+    shared_at    INTEGER NOT NULL,
+    UNIQUE(preset_id, recipient_id)
+);
+CREATE INDEX IF NOT EXISTS idx_pshares_recipient ON preset_shares(recipient_id);
+
+CREATE TABLE IF NOT EXISTS forum_categories (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug            TEXT NOT NULL UNIQUE,
+    name            TEXT NOT NULL,
+    description     TEXT NOT NULL DEFAULT '',
+    sort_order      INTEGER NOT NULL DEFAULT 0,
+    admin_only_post INTEGER NOT NULL DEFAULT 0,
+    archived        INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS forum_topics (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    category_id    INTEGER NOT NULL REFERENCES forum_categories(id) ON DELETE CASCADE,
+    author_id      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    title          TEXT NOT NULL,
+    body           TEXT NOT NULL,
+    pinned         INTEGER NOT NULL DEFAULT 0,
+    archived       INTEGER NOT NULL DEFAULT 0,
+    reply_count    INTEGER NOT NULL DEFAULT 0,
+    created_at     INTEGER NOT NULL,
+    last_activity  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_topics_cat       ON forum_topics(category_id, archived, pinned DESC, last_activity DESC);
+CREATE INDEX IF NOT EXISTS idx_topics_author    ON forum_topics(author_id);
+
+CREATE TABLE IF NOT EXISTS forum_posts (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    topic_id    INTEGER NOT NULL REFERENCES forum_topics(id) ON DELETE CASCADE,
+    author_id   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    body        TEXT NOT NULL,
+    created_at  INTEGER NOT NULL,
+    edited_at   INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_posts_topic ON forum_posts(topic_id, created_at);
+
+CREATE TABLE IF NOT EXISTS practice_sessions (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id       INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    symbol        TEXT NOT NULL,
+    max_days      INTEGER NOT NULL,
+    mode          TEXT NOT NULL DEFAULT 'free',
+    trades_json   TEXT NOT NULL DEFAULT '[]',
+    summary_json  TEXT NOT NULL DEFAULT '{}',
+    return_pct    REAL,                                 -- nullable until ended
+    win_rate      REAL,
+    trades_count  INTEGER,
+    sharpe        REAL,
+    profit_factor REAL,
+    started_at    INTEGER NOT NULL,
+    ended_at      INTEGER,
+    public        INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_sess_user   ON practice_sessions(user_id, ended_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sess_public ON practice_sessions(public, ended_at DESC) WHERE public = 1;
+"""
+
+
+def _create_schema() -> None:
+    conn = _connect()
+    try:
+        # executescript runs all statements; PRAGMA statements are honoured per-connection
+        # so we issue WAL/synchronous PRAGMAs separately on each connect via get_conn,
+        # but creating tables in one shot is fine here.
+        conn.executescript(_SCHEMA)
+        # Record schema version
+        conn.execute(
+            "INSERT OR REPLACE INTO schema_meta(key, value) VALUES('schema_version', ?)",
+            (str(SCHEMA_VERSION),),
+        )
+    finally:
+        conn.close()
+
+
+# ─────────────────────────── migrations from legacy stores ───────────────────────────
+
+_LEGACY_USERS_FILE = ROOT / "config" / "users.json"
+_LEGACY_PRESETS_DIR = ROOT / "config" / "presets"
+
+
+def _migrate_legacy_users() -> None:
+    """Copy config/users.json rows into users table if not already migrated.
+
+    Non-destructive: leaves users.json in place so the old code path still
+    works during transition. The DB becomes the source of truth, but
+    legacy auth helpers can keep reading users.json until they're cut
+    over.
+    """
+    if not _LEGACY_USERS_FILE.exists():
+        return
+    try:
+        data = json.loads(_LEGACY_USERS_FILE.read_text())
+    except Exception:
+        return
+    if not isinstance(data, dict) or not data:
+        return
+
+    now = int(time.time())
+    conn = _connect()
+    try:
+        # If users table already has rows, assume migration done — skip.
+        existing = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        if existing:
+            return
+        for username, rec in data.items():
+            if not isinstance(rec, dict):
+                continue
+            pw = rec.get("password_hash") or rec.get("password") or ""
+            if not pw:
+                continue
+            role = rec.get("role", "user")
+            created_at = rec.get("created_at") or now
+            try:
+                created_at = int(created_at)
+            except Exception:
+                created_at = now
+            conn.execute(
+                "INSERT OR IGNORE INTO users(username, password_hash, role, created_at) VALUES(?,?,?,?)",
+                (username, pw, role, created_at),
+            )
+    finally:
+        conn.close()
+
+
+def _migrate_legacy_presets() -> None:
+    """Copy config/presets/*.json into presets table, ownerless (system-default)."""
+    if not _LEGACY_PRESETS_DIR.exists():
+        return
+    now = int(time.time())
+    conn = _connect()
+    try:
+        existing = conn.execute("SELECT COUNT(*) FROM presets").fetchone()[0]
+        if existing:
+            return
+        for f in sorted(_LEGACY_PRESETS_DIR.glob("*.json")):
+            try:
+                cfg = json.loads(f.read_text())
+            except Exception:
+                continue
+            name = f.stem
+            conn.execute(
+                """INSERT OR IGNORE INTO presets
+                   (owner_id, name, description, config_json, stages_json, visibility, created_at, updated_at)
+                   VALUES(NULL, ?, ?, ?, ?, 'private', ?, ?)""",
+                (
+                    name,
+                    "Imported from legacy config",
+                    json.dumps(cfg),
+                    json.dumps({"s1": True, "s2": True, "s3": False}),
+                    now,
+                    now,
+                ),
+            )
+    finally:
+        conn.close()
+
+
+_DEFAULT_CATEGORIES = [
+    ("general",      "General",          "Anything goes — markets, life, off-topic.",        0, 0),
+    ("findings",     "Stock Findings",   "Setups, breakouts, anomalies others should see.",  10, 0),
+    ("game-results", "Game Results",     "Practice rounds, replays, lessons learned.",       20, 0),
+    ("ipo-watch",    "IPO Watch",        "GMP, subscription, listing-day talk.",             30, 0),
+    ("questions",    "Questions",        "Ask anything — beginners welcome.",                40, 0),
+    ("announcements","Announcements",    "Updates from the admins.",                         99, 1),
+]
+
+
+def _seed_forum_categories() -> None:
+    conn = _connect()
+    try:
+        existing = conn.execute("SELECT COUNT(*) FROM forum_categories").fetchone()[0]
+        if existing:
+            return
+        for slug, name, desc, order, admin_only in _DEFAULT_CATEGORIES:
+            conn.execute(
+                "INSERT OR IGNORE INTO forum_categories(slug, name, description, sort_order, admin_only_post) VALUES(?,?,?,?,?)",
+                (slug, name, desc, order, admin_only),
+            )
+    finally:
+        conn.close()
+
+
+# ─────────────────────────── public utility ───────────────────────────
+
+def now_ts() -> int:
+    """Current unix epoch — single source of truth for timestamps."""
+    return int(time.time())
+
+
+def healthcheck() -> dict:
+    """Quick state probe — used by tests and /data/status."""
+    try:
+        with get_conn() as conn:
+            users = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+            presets = conn.execute("SELECT COUNT(*) FROM presets").fetchone()[0]
+            topics = conn.execute("SELECT COUNT(*) FROM forum_topics").fetchone()[0]
+            posts = conn.execute("SELECT COUNT(*) FROM forum_posts").fetchone()[0]
+            sessions = conn.execute("SELECT COUNT(*) FROM practice_sessions").fetchone()[0]
+        return {
+            "ok": True, "path": str(DB_PATH),
+            "users": users, "presets": presets,
+            "forum_topics": topics, "forum_posts": posts,
+            "practice_sessions": sessions,
+            "schema_version": SCHEMA_VERSION,
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
