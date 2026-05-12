@@ -7,7 +7,7 @@ POST /practice/end     — End round and get summary
 GET  /practice/stocks   — List available stocks for practice
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Header
 from pydantic import BaseModel
 from typing import Optional
 
@@ -106,11 +106,56 @@ def practice_trade(req: TradeRequest):
 
 
 @router.post("/practice/end")
-def practice_end():
-    """End the round and get summary with mistake analysis."""
+def practice_end(authorization: Optional[str] = Header(None)):
+    """End the round and get summary with mistake analysis.
+
+    If the caller is signed in, the finished round is also persisted to
+    `practice_sessions` (used by personal history + leaderboard). The
+    session is recorded as `public=0` by default — the user opts in
+    later via /leaderboard/session/{id}/public, so nothing leaks
+    automatically.
+    """
     if not _active_game["state"]:
         return {"error": "No active game."}
 
-    result = end_round(_active_game["state"])
+    state = _active_game["state"]
+    result = end_round(state)
     _active_game["state"] = None
+
+    # Best-effort persistence — never break the response if logging fails
+    try:
+        from fastapi import Request  # noqa
+        # Pull authorization from FastAPI's Header injection helper
+    except Exception:
+        pass
+    try:
+        from engine.leaderboard import record_session
+        from engine.auth import verify_token
+        from engine.db import get_conn
+        user_id = None
+        if authorization:
+            tok = authorization[7:] if authorization.startswith("Bearer ") else authorization
+            try:
+                payload = verify_token(tok)
+                with get_conn() as conn:
+                    row = conn.execute(
+                        "SELECT id FROM users WHERE username = ? COLLATE NOCASE",
+                        (payload.get("username", ""),),
+                    ).fetchone()
+                if row:
+                    user_id = row["id"]
+            except Exception:
+                user_id = None
+        record_session(
+            user_id=user_id,
+            symbol=state.get("symbol", ""),
+            summary=result,
+            trades=state.get("trades", []),
+            max_days=state.get("max_days", 60),
+            mode=state.get("mode", "free"),
+            public=False,
+        )
+    except Exception as e:
+        # Logged sessions are nice-to-have; never block the response.
+        print(f"[practice/end] record_session failed: {e}", flush=True)
     return result

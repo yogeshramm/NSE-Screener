@@ -112,6 +112,7 @@ from api.routes_mtf import router as mtf_router
 from api.routes_portfolio import router as portfolio_router
 from api.routes_analyst import router as analyst_router
 from api.routes_ticks import router as ticks_router
+from api.routes_leaderboard import router as leaderboard_router
 
 app = FastAPI(
     title="NSE Screener API",
@@ -157,6 +158,7 @@ app.include_router(mtf_router, tags=["Multi-Timeframe Confluence"])
 app.include_router(portfolio_router, tags=["Portfolio"])
 app.include_router(analyst_router, tags=["Analyst Signal"])
 app.include_router(ticks_router, tags=["Live Prices"])
+app.include_router(leaderboard_router, tags=["Leaderboard"])
 
 
 # Serve frontend

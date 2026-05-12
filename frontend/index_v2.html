@@ -1673,6 +1673,9 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
         <button onclick="startPracticeRound()" class="flex items-center gap-2 px-4 py-2 bg-primary-container text-on-primary font-bold rounded-lg text-xs uppercase tracking-wider active:scale-95 transition-transform">
           <span class="material-symbols-outlined text-sm">play_arrow</span> New Round
         </button>
+        <button onclick="openLeaderboardModal()" class="flex items-center gap-2 px-3 py-2 bg-surface-container-highest hover:bg-surface-variant text-on-surface font-bold rounded-lg text-xs uppercase tracking-wider transition-colors" title="Personal history + public leaderboard">
+          <span class="material-symbols-outlined text-sm">leaderboard</span> Leaderboard
+        </button>
       </div>
       <div class="flex items-center gap-5">
         <div id="prac-difficulty-badge" class="hidden items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider">
@@ -2294,6 +2297,49 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
     <div id="cp-body" class="p-4 overflow-y-auto flex-1 space-y-2"></div>
     <div class="p-3 border-t border-outline-variant/20 flex justify-end">
       <button onclick="closeCommunityPresets()" class="px-5 py-2 bg-surface-container-highest text-on-surface font-bold rounded-lg text-xs uppercase">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== LEADERBOARD MODAL ==================== -->
+<div id="leaderboard-modal" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/60" style="display:none">
+  <div class="w-[800px] max-w-[calc(100vw-2rem)] max-h-[85vh] glass-panel rounded-2xl border border-outline-variant/20 flex flex-col overflow-hidden">
+    <div class="p-4 border-b border-outline-variant/20 flex items-center justify-between">
+      <div>
+        <h3 class="text-sm font-black uppercase tracking-widest text-on-surface">Leaderboard</h3>
+        <span class="text-xs text-on-surface-variant">Practice round history and public rankings</span>
+      </div>
+      <span class="material-symbols-outlined cursor-pointer hover:text-error" onclick="closeLeaderboardModal()">close</span>
+    </div>
+    <div class="flex gap-2 px-4 py-2 border-b border-outline-variant/20 items-center">
+      <button id="lb-tab-personal" onclick="switchLeaderboardTab('personal')" class="lb-tab px-3 py-1.5 text-[11px] font-bold uppercase rounded bg-primary-container text-on-primary">My History</button>
+      <button id="lb-tab-public" onclick="switchLeaderboardTab('public')" class="lb-tab px-3 py-1.5 text-[11px] font-bold uppercase rounded text-on-surface-variant hover:text-on-surface">Public Board</button>
+      <div class="ml-auto flex items-center gap-2 text-[10px]">
+        <label class="text-on-surface-variant">My profile is</label>
+        <select id="lb-profile-toggle" onchange="setLbProfile(this.value === 'public')" class="bg-surface-container-highest border-none rounded px-2 py-1 text-[10px]">
+          <option value="private">Private</option>
+          <option value="public">Public</option>
+        </select>
+      </div>
+    </div>
+    <div id="lb-pane-personal" class="flex-1 overflow-y-auto p-4 space-y-3">
+      <div id="lb-personal-stats" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+      <div id="lb-personal-list" class="bg-surface-container-low rounded-xl overflow-hidden"></div>
+    </div>
+    <div id="lb-pane-public" class="hidden flex-1 overflow-y-auto p-4 space-y-3">
+      <div class="flex flex-wrap items-center gap-2">
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold">Period:</label>
+        <select id="lb-period" onchange="loadPublicLeaderboard()" class="bg-surface-container-highest border-none rounded text-xs py-1 px-2"></select>
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold ml-3">Sort:</label>
+        <select id="lb-sort" onchange="loadPublicLeaderboard()" class="bg-surface-container-highest border-none rounded text-xs py-1 px-2">
+          <option value="return_pct">Return %</option>
+          <option value="win_rate">Win Rate</option>
+          <option value="profit_factor">Profit Factor</option>
+          <option value="sharpe">Sharpe</option>
+          <option value="trades_count">Trade Count</option>
+        </select>
+      </div>
+      <div id="lb-public-list" class="bg-surface-container-low rounded-xl overflow-hidden"></div>
     </div>
   </div>
 </div>
@@ -7059,6 +7105,148 @@ async function openCommunityPresets() {
 }
 function closeCommunityPresets() { const m=document.getElementById('community-presets-modal'); if(m) m.style.display='none'; }
 
+// ============ LEADERBOARD ============
+function _lbFetch(url, opts = {}) {
+  const headers = Object.assign({}, opts.headers || {});
+  if (typeof authToken === 'string' && authToken) headers['Authorization'] = 'Bearer ' + authToken;
+  return fetch(url, Object.assign({}, opts, { headers }));
+}
+async function openLeaderboardModal() {
+  const modal = document.getElementById('leaderboard-modal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  const sel = document.getElementById('lb-period');
+  if (sel && !sel.children.length) {
+    const opts = [];
+    const d = new Date();
+    for (let i = 0; i < 6; i++) {
+      const y = d.getUTCFullYear(), m = String(d.getUTCMonth() + 1).padStart(2, '0');
+      opts.push(`<option value="${y}-${m}">${d.toLocaleString('en-US',{month:'short',year:'numeric'})}</option>`);
+      d.setUTCMonth(d.getUTCMonth() - 1);
+    }
+    opts.push('<option value="all">All time</option>');
+    sel.innerHTML = opts.join('');
+  }
+  try {
+    const r = await _lbFetch(API + '/leaderboard/profile');
+    if (r.ok) {
+      const j = await r.json();
+      document.getElementById('lb-profile-toggle').value = j.public_profile ? 'public' : 'private';
+    }
+  } catch(e) {}
+  switchLeaderboardTab('personal');
+}
+function closeLeaderboardModal() { const m=document.getElementById('leaderboard-modal'); if(m) m.style.display='none'; }
+
+function switchLeaderboardTab(which) {
+  const personalBtn = document.getElementById('lb-tab-personal');
+  const publicBtn = document.getElementById('lb-tab-public');
+  const personalPane = document.getElementById('lb-pane-personal');
+  const publicPane = document.getElementById('lb-pane-public');
+  const on = 'lb-tab px-3 py-1.5 text-[11px] font-bold uppercase rounded bg-primary-container text-on-primary';
+  const off = 'lb-tab px-3 py-1.5 text-[11px] font-bold uppercase rounded text-on-surface-variant hover:text-on-surface';
+  if (which === 'public') {
+    personalPane.classList.add('hidden'); publicPane.classList.remove('hidden');
+    personalBtn.className = off; publicBtn.className = on;
+    loadPublicLeaderboard();
+  } else {
+    publicPane.classList.add('hidden'); personalPane.classList.remove('hidden');
+    publicBtn.className = off; personalBtn.className = on;
+    loadPersonalLeaderboard();
+  }
+}
+
+async function loadPersonalLeaderboard() {
+  const statsEl = document.getElementById('lb-personal-stats');
+  const listEl = document.getElementById('lb-personal-list');
+  if (!statsEl || !listEl) return;
+  statsEl.innerHTML = '<div class="col-span-full text-center py-2 text-on-surface-variant">Loading...</div>';
+  try {
+    const [sr, hr] = await Promise.all([
+      _lbFetch(API + '/leaderboard/personal/stats'),
+      _lbFetch(API + '/leaderboard/personal'),
+    ]);
+    if (sr.status === 401) {
+      statsEl.innerHTML = '<div class="col-span-full text-center py-4 text-on-surface-variant">Sign in to track your history.</div>';
+      listEl.innerHTML = '';
+      return;
+    }
+    const stats = await sr.json();
+    const hist = await hr.json();
+    const fmt = v => v == null ? '—' : (v >= 0 ? '+' : '') + Number(v).toFixed(2) + '%';
+    const cards = [
+      {label: 'Rounds', val: stats.rounds || 0, col: 'text-on-surface'},
+      {label: 'Avg Return', val: fmt(stats.avg_return), col: (stats.avg_return||0) >= 0 ? 'text-primary' : 'text-error'},
+      {label: 'Best Return', val: fmt(stats.best_return), col: 'text-primary'},
+      {label: 'Total Trades', val: stats.total_trades || 0, col: 'text-on-surface'},
+    ];
+    statsEl.innerHTML = cards.map(c => `<div class="bg-surface-container-highest/40 rounded-lg px-3 py-2"><div class="text-[8px] uppercase font-bold text-on-surface-variant tracking-wider">${c.label}</div><div class="text-base font-mono font-black ${c.col}">${c.val}</div></div>`).join('');
+    const rows = hist.rows || [];
+    if (!rows.length) { listEl.innerHTML = '<div class="text-center py-8 text-on-surface-variant/60 text-sm">No rounds completed yet.</div>'; return; }
+    listEl.innerHTML = `<div class="overflow-x-auto"><table class="w-full min-w-[600px]">
+      <thead><tr class="bg-surface-container-highest text-[9px] uppercase font-black tracking-wider text-on-surface-variant"><th class="px-3 py-2 text-left">Date</th><th class="px-3 py-2 text-left">Symbol</th><th class="px-3 py-2 text-right">Return</th><th class="px-3 py-2 text-right">Win Rate</th><th class="px-3 py-2 text-right">Trades</th><th class="px-3 py-2 text-center">Public</th></tr></thead>
+      <tbody>${rows.map(r => {
+        const dt = new Date((r.ended_at||0) * 1000).toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'});
+        const ret = r.return_pct == null ? '—' : (r.return_pct >= 0 ? '+' : '') + r.return_pct.toFixed(2) + '%';
+        const retCls = (r.return_pct||0) >= 0 ? 'text-primary' : 'text-error';
+        return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/30 text-[11px]">
+          <td class="px-3 py-2 text-on-surface-variant">${dt}</td>
+          <td class="px-3 py-2 font-bold">${r.symbol}</td>
+          <td class="px-3 py-2 text-right font-mono ${retCls}">${ret}</td>
+          <td class="px-3 py-2 text-right font-mono">${r.win_rate == null ? '—' : r.win_rate.toFixed(0) + '%'}</td>
+          <td class="px-3 py-2 text-right font-mono">${r.trades_count || 0}</td>
+          <td class="px-3 py-2 text-center"><label class="inline-flex items-center cursor-pointer"><input type="checkbox" ${r.public ? 'checked' : ''} onchange="toggleSessionPublic(${r.id}, this.checked)" class="accent-primary w-3 h-3"/></label></td>
+        </tr>`;
+      }).join('')}</tbody></table></div>`;
+  } catch(e) {
+    listEl.innerHTML = `<div class="text-center py-8 text-error text-sm">Failed: ${e.message}</div>`;
+  }
+}
+
+async function loadPublicLeaderboard() {
+  const listEl = document.getElementById('lb-public-list');
+  if (!listEl) return;
+  const period = document.getElementById('lb-period').value;
+  const sort = document.getElementById('lb-sort').value;
+  listEl.innerHTML = '<div class="text-center py-8 text-on-surface-variant">Loading...</div>';
+  try {
+    const r = await _lbFetch(API + '/leaderboard/public?period=' + encodeURIComponent(period) + '&sort=' + encodeURIComponent(sort));
+    const j = await r.json();
+    const rows = j.rows || [];
+    if (!rows.length) { listEl.innerHTML = '<div class="text-center py-8 text-on-surface-variant/60 text-sm">No public rounds for this period yet.</div>'; return; }
+    listEl.innerHTML = `<div class="overflow-x-auto"><table class="w-full min-w-[600px]">
+      <thead><tr class="bg-surface-container-highest text-[9px] uppercase font-black tracking-wider text-on-surface-variant"><th class="px-3 py-2 text-left">Rank</th><th class="px-3 py-2 text-left">Player</th><th class="px-3 py-2 text-left">Symbol</th><th class="px-3 py-2 text-right">Return</th><th class="px-3 py-2 text-right">Win Rate</th><th class="px-3 py-2 text-right">PF</th><th class="px-3 py-2 text-right">Trades</th></tr></thead>
+      <tbody>${rows.map((r, i) => {
+        const ret = r.return_pct == null ? '—' : (r.return_pct >= 0 ? '+' : '') + r.return_pct.toFixed(2) + '%';
+        const retCls = (r.return_pct||0) >= 0 ? 'text-primary' : 'text-error';
+        const medal = i === 0 ? '🥇 ' : i === 1 ? '🥈 ' : i === 2 ? '🥉 ' : '';
+        return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/30 text-[11px]">
+          <td class="px-3 py-2 text-on-surface-variant">${medal}#${i+1}</td>
+          <td class="px-3 py-2 font-bold">${r.username}</td>
+          <td class="px-3 py-2 text-on-surface-variant">${r.symbol||'—'}</td>
+          <td class="px-3 py-2 text-right font-mono ${retCls}">${ret}</td>
+          <td class="px-3 py-2 text-right font-mono">${r.win_rate == null ? '—' : r.win_rate.toFixed(0) + '%'}</td>
+          <td class="px-3 py-2 text-right font-mono">${r.profit_factor == null ? '—' : r.profit_factor.toFixed(2)}</td>
+          <td class="px-3 py-2 text-right font-mono">${r.trades_count || 0}</td>
+        </tr>`;
+      }).join('')}</tbody></table></div>`;
+  } catch(e) {
+    listEl.innerHTML = `<div class="text-center py-8 text-error text-sm">Failed: ${e.message}</div>`;
+  }
+}
+
+async function setLbProfile(enabled) {
+  try {
+    await _lbFetch(API + '/leaderboard/profile', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({enabled}) });
+    showPracticeToast?.('Profile is now ' + (enabled ? 'public' : 'private'), 'ok');
+  } catch(e) {}
+}
+async function toggleSessionPublic(id, isPublic) {
+  try {
+    await _lbFetch(API + '/leaderboard/session/' + id + '/public', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({public: isPublic}) });
+  } catch(e) {}
+}
+
 // ============ WATCHLIST ============
 async function loadWatchlist() {
   try {
@@ -9475,7 +9663,9 @@ async function practiceEnd() {
   if (!practiceState) return;
   stopAutoPlay();
   try {
-    const res = await fetch(API + '/practice/end', { method: 'POST' });
+    const _hdrs = {};
+    if (typeof authToken === 'string' && authToken) _hdrs['Authorization'] = 'Bearer ' + authToken;
+    const res = await fetch(API + '/practice/end', { method: 'POST', headers: _hdrs });
     const data = await res.json();
 
     // Capture for post-game Review modal (chart + optimal entry/exit overlays).
