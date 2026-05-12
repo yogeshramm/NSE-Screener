@@ -2118,12 +2118,43 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
     </div>
     <div class="p-4 border-t border-outline-variant/20 flex justify-between items-center gap-3">
       <button onclick="closePracticeSummary()" class="px-6 py-2.5 text-on-surface-variant font-bold text-xs uppercase hover:text-on-surface">Close</button>
-      <div class="flex gap-2">
-        <button id="prac-sum-review-btn" onclick="openReviewModal()" class="px-5 py-2.5 bg-surface-container-highest text-on-surface font-bold rounded-lg text-xs uppercase hover:bg-surface-variant active:scale-95 transition-transform flex items-center gap-1.5">
+      <div class="flex gap-2 flex-wrap justify-end">
+        <button id="prac-sum-replay-btn" onclick="openReplayModal()" class="px-4 py-2.5 bg-surface-container-highest text-on-surface font-bold rounded-lg text-xs uppercase hover:bg-surface-variant active:scale-95 transition-transform flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-sm">replay</span> Replay
+        </button>
+        <button id="prac-sum-review-btn" onclick="openReviewModal()" class="px-4 py-2.5 bg-surface-container-highest text-on-surface font-bold rounded-lg text-xs uppercase hover:bg-surface-variant active:scale-95 transition-transform flex items-center gap-1.5">
           <span class="material-symbols-outlined text-sm">insights</span> Review Trades
         </button>
-        <button onclick="closePracticeSummary();startPracticeRound()" class="px-6 py-2.5 bg-primary-container text-on-primary font-bold rounded-lg text-xs uppercase active:scale-95 transition-transform">Play Again</button>
+        <button onclick="closePracticeSummary();startPracticeRound()" class="px-5 py-2.5 bg-primary-container text-on-primary font-bold rounded-lg text-xs uppercase active:scale-95 transition-transform">Play Again</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== PRACTICE REPLAY (FULL CHART) MODAL ==================== -->
+<div id="prac-replay-modal" class="fixed inset-0 z-[85] flex items-center justify-center bg-black/70" style="display:none">
+  <div class="w-[96vw] max-w-[1400px] h-[92vh] glass-panel rounded-2xl border border-outline-variant/20 flex flex-col overflow-hidden">
+    <div class="p-4 border-b border-outline-variant/20 flex items-center justify-between">
+      <div>
+        <h3 class="text-sm font-black uppercase text-on-surface tracking-widest">Session Replay</h3>
+        <span id="prac-replay-subtitle" class="text-xs text-on-surface-variant"></span>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="text-[10px] text-on-surface-variant hidden sm:inline">Scroll / drag to explore the full price story</span>
+        <span class="material-symbols-outlined cursor-pointer hover:text-error" onclick="closeReplayModal()">close</span>
+      </div>
+    </div>
+    <div class="flex-1 flex flex-col p-3 gap-2 overflow-hidden min-h-0">
+      <div id="prac-replay-chart" class="flex-1 bg-surface-container rounded-lg border border-outline-variant/10 min-h-0 relative"></div>
+      <div id="prac-replay-stats" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+    </div>
+    <div class="p-3 border-t border-outline-variant/20 flex justify-between items-center gap-3">
+      <button onclick="closeReplayModal()" class="px-5 py-2 text-on-surface-variant font-bold text-xs uppercase hover:text-on-surface flex items-center gap-1.5">
+        <span class="material-symbols-outlined text-sm">arrow_back</span> Back to Practice
+      </button>
+      <button onclick="closeReplayModal();openReviewModal()" class="px-4 py-2 bg-surface-container-highest text-on-surface font-bold rounded-lg text-xs uppercase hover:bg-surface-variant transition-colors flex items-center gap-1.5">
+        <span class="material-symbols-outlined text-sm">insights</span> Per-Trade Review
+      </button>
     </div>
   </div>
 </div>
@@ -9452,6 +9483,125 @@ function selectReviewTrade(i) {
   });
   renderReviewChart();
 }
+
+// ==================== SESSION REPLAY — FULL CHART ====================
+let _prReplayChart = null;
+function openReplayModal() {
+  const R = window._pracLastRound;
+  if (!R || !R.candles || !R.candles.length) {
+    showPracticeToast('Nothing to replay', 'err');
+    return;
+  }
+  document.getElementById('prac-replay-modal').style.display = 'flex';
+  const totalPnl = (R.trades || []).reduce((s, t) => s + (t.pnl || 0), 0);
+  const wins = (R.trades || []).filter(t => t.pnl > 0).length;
+  document.getElementById('prac-replay-subtitle').textContent =
+    `${R.symbol} · ${R.candles.length} candles · ${(R.trades || []).length} trade(s)`;
+  const stats = [
+    {label: 'Symbol', val: R.symbol, col: 'var(--md-sys-color-on-surface)'},
+    {label: 'Candles', val: R.candles.length + 'd', col: 'var(--md-sys-color-on-surface)'},
+    {label: 'Trades', val: (R.trades || []).length + ' (' + wins + 'W)', col: 'var(--md-sys-color-on-surface)'},
+    {label: 'Total P&L', val: (totalPnl >= 0 ? '+₹' : '-₹') + Math.abs(Math.round(totalPnl)).toLocaleString('en-IN'), col: totalPnl >= 0 ? '#00e5a0' : '#ff4757'},
+  ];
+  document.getElementById('prac-replay-stats').innerHTML = stats.map(s =>
+    `<div class="bg-surface-container-highest rounded-lg px-3 py-2"><div class="text-[8px] text-on-surface-variant uppercase font-bold tracking-wider">${s.label}</div><div class="text-sm font-mono font-black" style="color:${s.col}">${s.val}</div></div>`
+  ).join('');
+  if (!window._pracInstitutional) {
+    fetch(API + '/institutional/' + encodeURIComponent(R.symbol))
+      .then(r => r.json())
+      .then(d => { window._pracInstitutional = d; renderReplayChart(); })
+      .catch(() => renderReplayChart());
+  }
+  setTimeout(renderReplayChart, 50);
+}
+function closeReplayModal() {
+  document.getElementById('prac-replay-modal').style.display = 'none';
+  if (_prReplayChart) { try { _prReplayChart.remove(); } catch(e){} _prReplayChart = null; }
+}
+function renderReplayChart() {
+  const R = window._pracLastRound;
+  if (!R || !R.candles?.length) return;
+  const candles = R.candles;
+  const vols = window._pracLastRoundVolumes || [];
+
+  const chartEl = document.getElementById('prac-replay-chart');
+  if (!chartEl) return;
+  chartEl.innerHTML = '';
+  if (_prReplayChart) { try { _prReplayChart.remove(); } catch(e){} _prReplayChart = null; }
+  const c = getChartColors();
+  _prReplayChart = LightweightCharts.createChart(chartEl, {
+    width: chartEl.clientWidth, height: chartEl.clientHeight,
+    layout: {background:{color:c.bg}, textColor:c.text, fontSize:10},
+    grid: {vertLines:{color:c.grid}, horzLines:{color:c.grid}},
+    crosshair: {mode:0},
+    timeScale: {borderColor:c.border, timeVisible:false, rightOffset:10},
+    rightPriceScale: {borderColor:c.border, minimumWidth:65, scaleMargins:{top:0.05, bottom:0.18}},
+  });
+  const cs = _prReplayChart.addCandlestickSeries({
+    upColor:'#00e5a0', downColor:'#ff4757', borderUpColor:'#00e5a0', borderDownColor:'#ff4757',
+    wickUpColor:'#00e5a0', wickDownColor:'#ff4757',
+  });
+  cs.setData(candles);
+  if (vols.length === candles.length) {
+    const vs = _prReplayChart.addHistogramSeries({priceLineVisible:false, lastValueVisible:false, priceScaleId:''});
+    vs.priceScale().applyOptions({scaleMargins:{top:0.85, bottom:0}});
+    vs.setData(vols);
+  }
+  const markers = [];
+  if (vols.length === candles.length) {
+    const surges = _volumeSurgeDays(candles, vols, 2.0, 20);
+    for (let i = 0; i < candles.length; i++) {
+      if (surges.acc.has(i)) markers.push({time:candles[i].time, position:'belowBar', color:'#22d3ee', shape:'square', text:'ACC'});
+      else if (surges.dist.has(i)) markers.push({time:candles[i].time, position:'aboveBar', color:'#f472b6', shape:'square', text:'DIST'});
+    }
+  }
+  (R.trades || []).forEach((t, idx) => {
+    const isShort = t.side === 'short';
+    const uE = (t.entry_day|0), uX = (t.exit_day|0);
+    if (uE >= 0 && uE < candles.length) markers.push({
+      time: candles[uE].time, position: isShort ? 'aboveBar' : 'belowBar',
+      color: '#facc15', shape: isShort ? 'arrowDown' : 'arrowUp',
+      text: '#' + (idx+1) + ' ' + (isShort ? 'SHORT' : 'BUY') + ' ₹' + Math.round(t.entry_price),
+    });
+    if (uX >= 0 && uX < candles.length) markers.push({
+      time: candles[uX].time, position: isShort ? 'belowBar' : 'aboveBar',
+      color: (t.pnl||0) >= 0 ? '#00e5a0' : '#ff4757',
+      shape: isShort ? 'arrowUp' : 'arrowDown',
+      text: '#' + (idx+1) + ' ' + (isShort ? 'COVER' : 'SELL') + ' ₹' + Math.round(t.exit_price) + ' (' + ((t.pnl_pct||0) >= 0 ? '+' : '') + (t.pnl_pct||0).toFixed(1) + '%)',
+    });
+  });
+  const inst = window._pracInstitutional || {};
+  const tsByDate = {};
+  for (const b of candles) {
+    const d = new Date(b.time * 1000);
+    const key = d.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'}).replace(/ /g, '-').toUpperCase();
+    tsByDate[key] = b.time;
+  }
+  (inst.bulk || []).forEach(r => {
+    const ts = tsByDate[(r.date || '').toUpperCase()];
+    if (!ts) return;
+    markers.push({time: ts, position:'aboveBar', color: r.action === 'BUY' ? '#00e5a0' : '#ff4757', shape:'arrowDown', text:'BULK ' + r.action + ' ' + (r.qty/1000).toFixed(0) + 'K'});
+  });
+  (inst.block || []).forEach(r => {
+    const ts = tsByDate[(r.date || '').toUpperCase()];
+    if (!ts) return;
+    markers.push({time: ts, position:'aboveBar', color:'#facc15', shape:'arrowDown', text:'BLOCK ' + r.action + ' ' + (r.qty/1000).toFixed(0) + 'K'});
+  });
+  markers.sort((a,b) => a.time - b.time);
+  cs.setMarkers(markers);
+  _prReplayChart.timeScale().fitContent();
+}
+window.addEventListener('resize', () => {
+  if (_prReplayChart) {
+    const el = document.getElementById('prac-replay-chart');
+    if (el) _prReplayChart.applyOptions({width: el.clientWidth, height: el.clientHeight});
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && document.getElementById('prac-replay-modal')?.style.display === 'flex') {
+    closeReplayModal();
+  }
+});
 function renderReviewChart() {
   const R = window._pracLastRound;
   const t = R.trades[_prReviewActive];
