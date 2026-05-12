@@ -111,8 +111,8 @@ tailwind.config = {
   --outline-variant: #e0e3eb; --outline-variant-alpha: rgba(0,0,0,0.06);
   --primary: #FF8C00; --primary-container: #FF8C00; --on-primary: #ffffff;
   --chart-bg: #ffffff; --chart-text: #131722; --chart-grid: #f0f3fa; --chart-border: #e0e3eb;
-  --candle-up: #6EFFC0; --candle-down: #FF1F4E;
-  --vol-up: rgba(110,255,192,0.5); --vol-down: rgba(255,31,78,0.5);
+  --candle-up: #089981; --candle-down: #ef5350;
+  --vol-up: rgba(8,153,129,0.35); --vol-down: rgba(239,83,80,0.30);
   --glass-bg: rgba(255,255,255,0.85); --glass-border: rgba(0,0,0,0.06);
   --mesh-c1: rgba(255,140,0,0.04); --mesh-c2: rgba(255,140,0,0.02);
   --scrollbar-thumb: #c4c7cc; --brand-start: #FF8C00; --brand-end: #e07b00;
@@ -197,6 +197,10 @@ html:not(.dark) .brand-gradient {
 html:not(.dark) [class*="text-[#00e5a0]"]   { color: #0d9488 !important; }
 html:not(.dark) [class*="bg-[#00e5a0]"]     { background-color: rgba(13,148,136,0.12) !important; }
 html:not(.dark) [class*="border-[#00e5a0]"] { border-color:     rgba(13,148,136,0.35) !important; }
+/* Neon mint variant #6effc0 — same treatment */
+html:not(.dark) [class*="text-[#6effc0]"]   { color: #0d9488 !important; }
+html:not(.dark) [class*="bg-[#6effc0]"]     { background-color: rgba(13,148,136,0.12) !important; }
+html:not(.dark) [class*="border-[#6effc0]"] { border-color:     rgba(13,148,136,0.35) !important; }
 /* Bright red (#ff4757) is near-AA; darken to red-600 (#dc2626 = 5.9:1) for comfort */
 html:not(.dark) [class*="text-[#ff4757]"]   { color: #dc2626 !important; }
 html:not(.dark) [class*="bg-[#ff4757]"]     { background-color: rgba(220,38,38,0.10) !important; }
@@ -206,6 +210,19 @@ html:not(.dark) .text-yellow-400,
 html:not(.dark) .text-yellow-500            { color: #b45309 !important; }
 html:not(.dark) [class*="bg-yellow-"]       { background-color: rgba(180,83,9,0.10) !important; }
 html:not(.dark) [class*="border-yellow-"]   { border-color:     rgba(180,83,9,0.30) !important; }
+
+/* ── Light mode: opacity-variant surface-container classes ──────────────────
+   Tailwind generates these as hardcoded dark hex values (from the dark config)
+   so CSS variable overrides don't reach them. Must list every variant used.  */
+html:not(.dark) .bg-surface-container\/40     { background-color: rgba(240,243,250,0.55) !important; }
+html:not(.dark) .bg-surface-container\/50     { background-color: rgba(240,243,250,0.70) !important; }
+html:not(.dark) .bg-surface-container\/95     { background-color: rgba(240,243,250,0.97) !important; }
+html:not(.dark) .bg-surface-container-low\/70 { background-color: rgba(248,249,251,0.85) !important; }
+html:not(.dark) .bg-surface-container-low\/95 { background-color: rgba(255,255,255,0.97) !important; }
+html:not(.dark) .bg-surface-container-lowest\/50 { background-color: rgba(245,247,250,0.65) !important; }
+html:not(.dark) .bg-surface-container-lowest\/60 { background-color: rgba(245,247,250,0.80) !important; }
+html:not(.dark) .bg-surface-container-highest\/20 { background-color: rgba(221,224,228,0.25) !important; }
+html:not(.dark) .bg-surface-container-highest\/50 { background-color: rgba(221,224,228,0.65) !important; }
 /* ================================================== */
 
 .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
