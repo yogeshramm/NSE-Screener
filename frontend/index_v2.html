@@ -2199,6 +2199,105 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
   </div>
 </div>
 
+<!-- ==================== PRESET SAVE MODAL ==================== -->
+<div id="preset-save-modal" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/60" style="display:none">
+  <div class="w-[460px] max-w-[calc(100vw-2rem)] glass-panel rounded-2xl border border-outline-variant/20 flex flex-col overflow-hidden">
+    <div class="p-4 border-b border-outline-variant/20 flex items-center justify-between">
+      <h3 class="text-sm font-black uppercase tracking-widest text-on-surface">Save Preset</h3>
+      <span class="material-symbols-outlined cursor-pointer hover:text-error" onclick="closePresetSaveModal()">close</span>
+    </div>
+    <div class="p-5 space-y-4">
+      <div>
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Name</label>
+        <input id="ps-name" type="text" class="w-full bg-surface-container-highest border-none rounded-lg text-sm mt-1 px-3 py-2" placeholder="e.g. my_momentum_setup" />
+      </div>
+      <div>
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Description (optional)</label>
+        <textarea id="ps-desc" rows="2" class="w-full bg-surface-container-highest border-none rounded-lg text-sm mt-1 px-3 py-2 resize-none" placeholder="What kind of setup does this find?"></textarea>
+      </div>
+      <div>
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Stages to run</label>
+        <div class="flex gap-3 mt-2">
+          <label class="flex items-center gap-1.5 text-[11px]"><input id="ps-s1" type="checkbox" checked class="accent-primary"/> S1 — Technical/Fundamental</label>
+          <label class="flex items-center gap-1.5 text-[11px]"><input id="ps-s2" type="checkbox" checked onchange="_psSyncS3()" class="accent-primary"/> S2 — Breakout</label>
+          <label class="flex items-center gap-1.5 text-[11px]"><input id="ps-s3" type="checkbox" class="accent-primary"/> S3 — Monthly Macro</label>
+        </div>
+        <div class="text-[9px] text-on-surface-variant mt-1 italic">S3 requires S2 (macro overlay only makes sense for breakout candidates)</div>
+      </div>
+      <div>
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Visibility</label>
+        <select id="ps-visibility" class="w-full bg-surface-container-highest border-none rounded-lg text-sm mt-1 px-3 py-2">
+          <option value="private">Private — only you</option>
+          <option value="public">Public — community library</option>
+          <option value="shared">Shared — pick specific users</option>
+        </select>
+      </div>
+    </div>
+    <div class="p-4 border-t border-outline-variant/20 flex justify-end gap-2">
+      <button onclick="closePresetSaveModal()" class="px-5 py-2 text-on-surface-variant font-bold text-xs uppercase hover:text-on-surface">Cancel</button>
+      <button onclick="submitPresetSave()" class="px-6 py-2 bg-primary-container text-on-primary font-bold rounded-lg text-xs uppercase">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== PRESET SHARE / PUBLISH MODAL ==================== -->
+<div id="preset-share-modal" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/60" style="display:none">
+  <div class="w-[440px] max-w-[calc(100vw-2rem)] glass-panel rounded-2xl border border-outline-variant/20 flex flex-col overflow-hidden">
+    <input type="hidden" id="psh-id" />
+    <div class="p-4 border-b border-outline-variant/20 flex items-center justify-between">
+      <div>
+        <h3 class="text-sm font-black uppercase tracking-widest text-on-surface">Share</h3>
+        <span id="psh-title" class="text-xs text-on-surface-variant"></span>
+      </div>
+      <span class="material-symbols-outlined cursor-pointer hover:text-error" onclick="closePresetShareModal()">close</span>
+    </div>
+    <div class="p-5 space-y-4">
+      <div>
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Visibility</label>
+        <div class="flex gap-2 mt-1">
+          <select id="psh-vis" class="bg-surface-container-highest border-none rounded-lg text-sm px-3 py-2 flex-1">
+            <option value="private">Private</option>
+            <option value="public">Public</option>
+            <option value="shared">Shared (private list)</option>
+          </select>
+          <button onclick="applyShareVisibility()" class="px-4 py-2 bg-surface-container-highest hover:bg-surface-variant rounded-lg text-xs font-bold uppercase">Update</button>
+        </div>
+      </div>
+      <div>
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Share with user</label>
+        <div class="flex gap-2 mt-1">
+          <input id="psh-username" type="text" placeholder="username" class="flex-1 bg-surface-container-highest border-none rounded-lg text-sm px-3 py-2" />
+          <button onclick="shareWithUser()" class="px-4 py-2 bg-primary-container text-on-primary rounded-lg text-xs font-bold uppercase">Add</button>
+        </div>
+      </div>
+      <div>
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Currently shared with</label>
+        <div id="psh-current" class="mt-1 space-y-1 max-h-40 overflow-y-auto"></div>
+      </div>
+    </div>
+    <div class="p-4 border-t border-outline-variant/20 flex justify-end">
+      <button onclick="closePresetShareModal()" class="px-5 py-2 bg-surface-container-highest text-on-surface font-bold rounded-lg text-xs uppercase">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== COMMUNITY PRESETS MODAL ==================== -->
+<div id="community-presets-modal" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/60" style="display:none">
+  <div class="w-[640px] max-w-[calc(100vw-2rem)] max-h-[80vh] glass-panel rounded-2xl border border-outline-variant/20 flex flex-col overflow-hidden">
+    <div class="p-4 border-b border-outline-variant/20 flex items-center justify-between">
+      <div>
+        <h3 class="text-sm font-black uppercase tracking-widest text-on-surface">Community Presets</h3>
+        <span class="text-xs text-on-surface-variant">Filter setups shared publicly by the YOINTELL community</span>
+      </div>
+      <span class="material-symbols-outlined cursor-pointer hover:text-error" onclick="closeCommunityPresets()">close</span>
+    </div>
+    <div id="cp-body" class="p-4 overflow-y-auto flex-1 space-y-2"></div>
+    <div class="p-3 border-t border-outline-variant/20 flex justify-end">
+      <button onclick="closeCommunityPresets()" class="px-5 py-2 bg-surface-container-highest text-on-surface font-bold rounded-lg text-xs uppercase">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- ==================== AI INSIGHTS SIDE PANEL ==================== -->
 <div id="side-panel" class="fixed top-14 right-0 w-full sm:w-[380px] h-[calc(100vh-56px)] bg-surface-container border-l border-outline-variant/20 z-40 transform translate-x-full transition-transform duration-300 overflow-y-auto" style="translate:100%">
   <div class="p-4 border-b border-outline-variant/20 flex justify-between items-center">
@@ -4880,7 +4979,7 @@ async function loadConfig() {
 
 function updateConfigParam(el) { const k=el.dataset.configKey, p=el.dataset.configParam; if(fullConfig[k]){const n=parseFloat(el.value);fullConfig[k][p]=isNaN(n)?el.value:n;} }
 function toggleConfigFilter(el) { const k=el.dataset.configToggle; if(fullConfig[k])fullConfig[k].enabled=el.checked; }
-function saveConfigPreset() { const name=prompt('Save preset as:'); if(!name||!name.trim())return; const config=getFilterConfig(); fetch(API+'/presets/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name.trim(),config})}).then(()=>{alert('Preset saved: '+name);populatePresetDropdowns();}); }
+function saveConfigPreset() { openPresetSaveModal(); }
 
 // ============ INDICATORS PAGE ============
 // ============ EVENTS ============
@@ -6728,19 +6827,45 @@ function filterIndicatorCards() {
 }
 
 // ============ PRESETS ============
+function _presetFetch(url, opts = {}) {
+  const headers = Object.assign({}, opts.headers || {});
+  if (typeof authToken === 'string' && authToken) headers['Authorization'] = 'Bearer ' + authToken;
+  return fetch(url, Object.assign({}, opts, { headers }));
+}
+
+let _presetRows = [];
+
 async function populatePresetDropdowns() {
   try {
-    const res=await fetch(API+'/presets/list');
+    const res=await _presetFetch(API+'/presets/list');
     const data=await res.json();
-    // Custom dropdown with delete buttons
+    _presetRows = data.rows || data.presets.map(n => ({name: n, source: 'system'}));
+    const srcBadge = (s) => {
+      const cls = { mine: 'bg-primary/20 text-primary',
+                    shared: 'bg-secondary/20 text-secondary',
+                    system: 'bg-surface-variant text-on-surface-variant',
+                    public: 'bg-tertiary/20 text-tertiary' }[s] || 'bg-surface-variant text-on-surface-variant';
+      return `<span class="text-[8px] font-bold uppercase px-1 py-0.5 rounded ${cls}">${s||'?'}</span>`;
+    };
     const dd=document.getElementById('preset-dropdown');
     if(dd) {
-      if(!data.presets.length) { dd.innerHTML='<div class="text-[10px] text-on-surface-variant/50 p-2 text-center">No presets saved</div>'; }
-      else { dd.innerHTML=data.presets.map(p=>`<div class="flex items-center justify-between hover:bg-surface-container-highest/60 rounded-lg px-2 py-1.5 group cursor-pointer"><span class="text-[10px] font-bold text-on-surface flex-1" onclick="loadPreset('${p}');document.getElementById('preset-dropdown').classList.add('hidden')">${p}</span><span class="material-symbols-outlined text-[12px] text-on-surface-variant/30 group-hover:text-error cursor-pointer" onclick="event.stopPropagation();deletePreset('${p}')" title="Delete preset">close</span></div>`).join(''); }
+      if(!_presetRows.length) { dd.innerHTML='<div class="text-[10px] text-on-surface-variant/50 p-2 text-center">No presets saved</div>'; }
+      else {
+        const items = _presetRows.map(r => {
+          const isOwn = r.source === 'mine';
+          return `<div class="flex items-center justify-between hover:bg-surface-container-highest/60 rounded-lg px-2 py-1.5 group cursor-pointer gap-2">
+            <span class="text-[10px] font-bold text-on-surface flex-1 truncate" onclick="loadPreset('${r.name}');document.getElementById('preset-dropdown').classList.add('hidden')">${r.name}</span>
+            ${srcBadge(r.source)}
+            ${isOwn ? `<span class="material-symbols-outlined text-[11px] text-on-surface-variant/40 hover:text-primary cursor-pointer" onclick="event.stopPropagation();openPresetShareModal(${r.id})" title="Share / publish">share</span>` : ''}
+            ${isOwn ? `<span class="material-symbols-outlined text-[11px] text-on-surface-variant/30 group-hover:text-error cursor-pointer" onclick="event.stopPropagation();deletePreset('${r.name}')" title="Delete">close</span>` : ''}
+          </div>`;
+        }).join('');
+        const browse = `<div class="border-t border-outline-variant/20 my-1.5 pt-1.5"><div class="flex items-center justify-center gap-1 hover:bg-surface-container-highest/60 rounded-lg px-2 py-1.5 cursor-pointer text-[10px] font-bold text-primary" onclick="event.stopPropagation();openCommunityPresets()"><span class="material-symbols-outlined text-[12px]">groups</span> Browse Community</div></div>`;
+        dd.innerHTML = items + browse;
+      }
     }
-    // Config tab select
     const c=document.getElementById('preset-select');
-    if(c) c.innerHTML='<option value="">Load Preset...</option>'+data.presets.map(p=>`<option value="${p}">${p}</option>`).join('');
+    if(c) c.innerHTML='<option value="">Load Preset...</option>'+_presetRows.map(r=>`<option value="${r.name}">${r.name} · ${r.source}</option>`).join('');
   } catch(e){console.error('Preset load error:',e);}
 }
 
@@ -6763,7 +6888,8 @@ function togglePresetDropdown() {
 async function deletePreset(name) {
   if(!confirm('Delete preset "'+name+'"?')) return;
   try {
-    await fetch(API+'/presets/'+name,{method:'DELETE'});
+    const r = await _presetFetch(API+'/presets/'+name,{method:'DELETE'});
+    if (!r.ok) { const j = await r.json().catch(()=>({})); throw new Error(j.detail || ('HTTP '+r.status)); }
     populatePresetDropdowns();
     if(activePresetName===name){activePresetName=null;updatePresetBadge();}
   } catch(e){alert('Delete failed: '+e.message);}
@@ -6773,27 +6899,165 @@ const _presetCache = new Map(); // JS-side cache so repeat clicks skip server ro
 async function loadPreset(name) {
   if(!name)return;
   try {
-    // Serve from JS cache if available — avoids server roundtrip for repeated clicks.
     let data = _presetCache.get(name);
     if (!data) {
-      const res=await fetch(API+'/presets/'+name);
+      const res=await _presetFetch(API+'/presets/'+name);
       data=await res.json();
       _presetCache.set(name, data);
     }
-    // First disable ALL filters, then apply preset values (so only preset filters are ON)
     for(const[k,v] of Object.entries(fullConfig)){if(typeof v==='object'&&'enabled' in v) v.enabled=false;}
     for(const[k,v] of Object.entries(data.config)){if(k in fullConfig&&typeof fullConfig[k]==='object'&&typeof v==='object')Object.assign(fullConfig[k],v);else fullConfig[k]=v;}
     activePresetName=name;
+    if (data.stages) window._activePresetStages = data.stages;
     renderFilterPanel();
     updatePresetBadge();
     const btn=document.getElementById('preset-btn-text');if(btn)btn.textContent=name;
-    document.getElementById('config-preset-name').textContent=name;
+    const cpn=document.getElementById('config-preset-name'); if(cpn) cpn.textContent=name;
   } catch(e){console.error('Preset load error:',e);}
 }
 
 function updatePresetBadge() { const b=document.getElementById('active-preset-badge'); if(activePresetName){b.textContent=activePresetName+' \u00d7';b.classList.remove('hidden');}else b.classList.add('hidden'); }
 function clearActivePreset() { activePresetName=null; updatePresetBadge(); document.querySelectorAll('select').forEach(s=>{if(s.id.includes('preset'))s.value='';}); }
-function quickSavePreset() { const n=prompt('Preset name:');if(!n||!n.trim())return; fetch(API+'/presets/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n.trim(),config:getFilterConfig()})}).then(()=>{activePresetName=n.trim().replace(/ /g,'_').toLowerCase();updatePresetBadge();populatePresetDropdowns();}); }
+function quickSavePreset() { openPresetSaveModal(); }
+function _phase3SaveConfigPreset() { openPresetSaveModal(); }
+
+function openPresetSaveModal(prefill = {}) {
+  const modal = document.getElementById('preset-save-modal');
+  if (!modal) return;
+  document.getElementById('ps-name').value = prefill.name || (activePresetName || '');
+  document.getElementById('ps-desc').value = prefill.description || '';
+  document.getElementById('ps-visibility').value = prefill.visibility || 'private';
+  document.getElementById('ps-s1').checked = prefill.stages?.s1 !== false;
+  document.getElementById('ps-s2').checked = prefill.stages?.s2 !== false;
+  document.getElementById('ps-s3').checked = !!prefill.stages?.s3;
+  _psSyncS3();
+  modal.style.display = 'flex';
+  setTimeout(() => document.getElementById('ps-name')?.focus(), 50);
+}
+function closePresetSaveModal() { const m = document.getElementById('preset-save-modal'); if (m) m.style.display = 'none'; }
+function _psSyncS3() {
+  const s2 = document.getElementById('ps-s2');
+  const s3 = document.getElementById('ps-s3');
+  if (!s2 || !s3) return;
+  s3.disabled = !s2.checked;
+  if (!s2.checked) s3.checked = false;
+}
+async function submitPresetSave() {
+  const name = document.getElementById('ps-name').value.trim();
+  if (!name) { alert('Preset name is required'); return; }
+  const body = {
+    name,
+    description: document.getElementById('ps-desc').value.trim(),
+    visibility: document.getElementById('ps-visibility').value,
+    stages: {
+      s1: document.getElementById('ps-s1').checked,
+      s2: document.getElementById('ps-s2').checked,
+      s3: document.getElementById('ps-s3').checked,
+    },
+    config: getFilterConfig(),
+  };
+  if (body.stages.s3 && !body.stages.s2) { alert('Stage 3 requires Stage 2 to be enabled'); return; }
+  try {
+    const r = await _presetFetch(API + '/presets/save', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+    });
+    if (!r.ok) { const j = await r.json().catch(()=>({})); throw new Error(j.detail || ('HTTP '+r.status)); }
+    const j = await r.json();
+    activePresetName = j.name;
+    updatePresetBadge();
+    populatePresetDropdowns();
+    closePresetSaveModal();
+  } catch (e) { alert('Save failed: ' + e.message); }
+}
+
+async function openPresetShareModal(presetId) {
+  const modal = document.getElementById('preset-share-modal');
+  if (!modal) return;
+  const row = (_presetRows || []).find(r => r.id === presetId);
+  document.getElementById('psh-title').textContent = row ? row.name : 'Preset';
+  document.getElementById('psh-id').value = presetId;
+  document.getElementById('psh-vis').value = row ? row.visibility : 'private';
+  document.getElementById('psh-username').value = '';
+  try {
+    const r = await _presetFetch(API + '/presets/' + presetId + '/shares');
+    const j = await r.json();
+    const list = document.getElementById('psh-current');
+    if (!j.shares || !j.shares.length) {
+      list.innerHTML = '<div class="text-[10px] text-on-surface-variant/60 italic">Not shared with anyone yet.</div>';
+    } else {
+      list.innerHTML = j.shares.map(s => `<div class="flex items-center justify-between text-[11px] bg-surface-container-highest/40 rounded px-2 py-1"><span>${s.username}</span><span class="material-symbols-outlined text-[12px] text-error cursor-pointer hover:scale-110" onclick="revokeShare(${presetId}, '${s.username.replace(/'/g, '&#39;')}')">close</span></div>`).join('');
+    }
+  } catch(e) {}
+  modal.style.display = 'flex';
+}
+function closePresetShareModal() { const m=document.getElementById('preset-share-modal'); if(m) m.style.display='none'; }
+
+async function applyShareVisibility() {
+  const id = +document.getElementById('psh-id').value;
+  const vis = document.getElementById('psh-vis').value;
+  try {
+    const r = await _presetFetch(API + '/presets/' + id + '/visibility', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({visibility: vis})
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    populatePresetDropdowns();
+  } catch(e) { alert('Update failed: ' + e.message); }
+}
+async function shareWithUser() {
+  const id = +document.getElementById('psh-id').value;
+  const u = document.getElementById('psh-username').value.trim();
+  if (!u) return;
+  try {
+    const r = await _presetFetch(API + '/presets/' + id + '/share', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: u})
+    });
+    if (!r.ok) { const j = await r.json().catch(()=>({})); throw new Error(j.detail || 'HTTP ' + r.status); }
+    openPresetShareModal(id);
+  } catch(e) { alert('Share failed: ' + e.message); }
+}
+async function revokeShare(id, username) {
+  try {
+    await _presetFetch(API + '/presets/' + id + '/unshare', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username})
+    });
+    openPresetShareModal(id);
+  } catch(e) {}
+}
+
+async function openCommunityPresets() {
+  const dd = document.getElementById('preset-dropdown'); if (dd) dd.classList.add('hidden');
+  const modal = document.getElementById('community-presets-modal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  const body = document.getElementById('cp-body');
+  body.innerHTML = '<div class="text-center py-8 text-on-surface-variant">Loading...</div>';
+  try {
+    const r = await _presetFetch(API + '/presets/public');
+    const j = await r.json();
+    if (!j.rows || !j.rows.length) {
+      body.innerHTML = '<div class="text-center py-8 text-on-surface-variant/60">No public presets yet — be the first to publish one!</div>';
+      return;
+    }
+    body.innerHTML = j.rows.map(p => {
+      const stagesTxt = ['s1','s2','s3'].filter(k => p.stages?.[k]).map(s => s.toUpperCase()).join(' + ') || 'S1';
+      return `<div class="bg-surface-container-highest/40 rounded-lg p-3 hover:bg-surface-container-highest cursor-pointer" onclick="loadPreset('${p.name}');closeCommunityPresets();populatePresetDropdowns()">
+        <div class="flex items-center justify-between mb-1">
+          <div class="text-sm font-bold text-on-surface">${p.name}</div>
+          <span class="text-[9px] text-on-surface-variant">used ${p.use_count}×</span>
+        </div>
+        <div class="text-[11px] text-on-surface-variant mb-1">${p.description || '<em>No description</em>'}</div>
+        <div class="flex items-center gap-2 text-[9px]">
+          <span class="text-tertiary font-bold">by ${p.author}</span>
+          <span class="text-on-surface-variant">·</span>
+          <span class="text-primary">${stagesTxt}</span>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    body.innerHTML = `<div class="text-error text-center py-8">Failed: ${e.message}</div>`;
+  }
+}
+function closeCommunityPresets() { const m=document.getElementById('community-presets-modal'); if(m) m.style.display='none'; }
 
 // ============ WATCHLIST ============
 async function loadWatchlist() {
