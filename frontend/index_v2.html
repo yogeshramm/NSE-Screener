@@ -3486,7 +3486,7 @@ window.addEventListener('popstate', (e) => {
       try { symbol = decodeURIComponent(insightsMatch[1]).toUpperCase(); }
       catch(e) { symbol = insightsMatch[1].toUpperCase(); }
       switchTab('screener', {fromHistory: true});
-      setTimeout(() => { try { if (typeof openInsightsPro === 'function') openInsightsPro(symbol); } catch(e) {} }, 250);
+      setTimeout(() => { try { if (typeof openInsightsPro === 'function') openInsightsPro(symbol, 'search'); } catch(e) {} }, 250);
       return;
     }
   };
@@ -3852,7 +3852,7 @@ function openHomeChart(sym) {
   if (inp) inp.value = '';
   document.getElementById('home-search-dd')?.classList.add('hidden');
   switchTab('screener');
-  openInsightsPro(sym);   // opens insights panel + chart
+  openInsightsPro(sym, 'search');   // opens insights panel + chart
   _showQuickLookup(sym);  // shows quick-lookup row in Stage 1
 }
 // Close home search dropdown on outside click
@@ -3882,7 +3882,7 @@ function selectSearchResult(sym) {
   hideSearchDropdown();
   document.getElementById('symbols-input').value='';
   switchTab('screener');
-  openInsightsPro(sym);
+  openInsightsPro(sym, 'search');
   _showQuickLookup(sym);
 }
 function hideSearchDropdown() { document.getElementById('search-dropdown')?.classList.add('hidden'); }
@@ -4265,7 +4265,7 @@ function closeChart() {
     switchTab(ret);
   }
 }
-function openInsightsFromChart() { if(currentChartSymbol) openInsightsPro(currentChartSymbol); }
+function openInsightsFromChart() { if(currentChartSymbol) openInsightsPro(currentChartSymbol, 'search'); }
 
 // Open chart from the Breakout tab — full-width in screener tab, back button returns here
 function openBoChart(sym) {
@@ -11051,7 +11051,7 @@ function initApp() {
     try { _fpSym = decodeURIComponent(_initHash.slice(9)).toUpperCase(); }
     catch(e) { _fpSym = _initHash.slice(9).toUpperCase(); }
     switchTab('screener', {fromHistory: true});
-    setTimeout(() => { try { openInsightsPro(_fpSym); } catch(e) {} }, 350);
+    setTimeout(() => { try { openInsightsPro(_fpSym, 'search'); } catch(e) {} }, 350);
   } else {
     const _validTabs = ['screener','config','indicators','watchlist','breakouts','backtester','events','practice','portfolio'];
     if (_validTabs.includes(_initHash)) {
@@ -11563,7 +11563,7 @@ function onCmdKInput(val) {
   document.getElementById('cmdK-results').innerHTML = combined.map((sym, i) => `
     <div class="cmdK-row px-3 py-2.5 rounded-lg hover:bg-surface-container-highest/60 cursor-pointer flex items-center gap-3 text-sm font-bold text-on-surface transition-colors"
          data-idx="${i}" data-sym="${sym}"
-         onclick="openInsightsPro('${sym}');closeCmdK();">
+         onclick="openInsightsPro('${sym}','search');closeCmdK();">
       <span class="material-symbols-outlined text-sm text-primary">analytics</span>
       ${sym}
     </div>`).join('');
@@ -11582,7 +11582,7 @@ function onCmdKKey(e) {
   } else if (e.key === 'Enter') {
     e.preventDefault();
     const target = _cmdKSelectedIndex >= 0 ? rows[_cmdKSelectedIndex] : rows[0];
-    if (target) { openInsightsPro(target.dataset.sym); closeCmdK(); }
+    if (target) { openInsightsPro(target.dataset.sym, 'search'); closeCmdK(); }
   } else if (e.key === 'Escape') {
     closeCmdK();
   }
@@ -11655,7 +11655,7 @@ function ctxAction(action) {
   if (!sym) return;
   if (action === 'chart') { switchTab('screener'); setTimeout(() => openChart(sym), 100); }
   else if (action === 'newtab') { window.open('#chart=' + encodeURIComponent(sym), '_blank'); }
-  else if (action === 'insights') { openInsightsPro(sym); }
+  else if (action === 'insights') { openInsightsPro(sym, 'search'); }
   else if (action === 'watchlist') { addToWatchlist(sym); }
   else if (action === 'compare') { addToCompare(sym); }
   else if (action === 'alert') { /* coming soon */ }
@@ -12012,7 +12012,7 @@ function _analystPrefetch(symbol) {
   window._analystPrefetched.add(symbol);
   fetch(API + '/analyst/' + symbol + '?tf=1y').catch(() => {});
 }
-async function openInsightsPro(symbol) {
+async function openInsightsPro(symbol, source = 'screener') {
   _selectRowBySym(symbol);  // keep j/k nav in sync with click/search opens
   _analystPrefetch(symbol);
   _ipMount();
@@ -12072,7 +12072,7 @@ async function openInsightsPro(symbol) {
     const _inspSym = symbol;
     fetch(API + '/stock/' + symbol)
       .then(r => r.ok ? r.json() : null).catch(() => null)
-      .then(d => { if (d) _ipPopulateInspector(d, _inspSym); });
+      .then(d => { if (d) _ipPopulateInspector(d, _inspSym, source); });
   } catch (e) {
     body.innerHTML = `<div class="text-error text-sm">Failed: ${e.message || e}</div>`;
   }
@@ -12395,7 +12395,7 @@ function _ipRender(d) {
       </div>
       <div id="ip-inspector-card" class="bg-surface-container/40 rounded-lg p-4 md:col-span-2 lg:col-span-3" data-symbol="${d.symbol}">
         <div class="flex items-center justify-between mb-3">
-          <div class="text-[10px] font-black uppercase tracking-wider text-primary">AI Summary & Filter Inspector</div>
+          <div id="ip-inspector-title" class="text-[10px] font-black uppercase tracking-wider text-primary">AI Summary & Filter Inspector</div>
           <span id="ip-inspector-counts" class="text-[9px] font-mono text-on-surface-variant"></span>
         </div>
         <div id="ip-inspector-body" class="text-center py-4 text-xs text-on-surface-variant">
@@ -12406,8 +12406,8 @@ function _ipRender(d) {
     </div>`;
 }
 
-// Populate the Filter Inspector + AI Summary card after background fetch resolves.
-function _ipPopulateInspector(d, sym) {
+// Populate the AI Summary (always) + Filter Inspector (search-only, collapsible).
+function _ipPopulateInspector(d, sym, source = 'screener') {
   const card = document.getElementById('ip-inspector-card');
   const body = document.getElementById('ip-inspector-body');
   if (!card || !body) return;
@@ -12415,6 +12415,9 @@ function _ipPopulateInspector(d, sym) {
   const ins = d.insights || {};
   const inspector = d.inspector || [];
   const sCls = s => s === 'PASS' ? 'bg-primary/10 text-primary' : s === 'FAIL' ? 'bg-error/10 text-error' : s === 'BORDERLINE' ? 'bg-yellow-400/10 text-yellow-400' : 'bg-surface-variant text-on-surface-variant';
+  // Update card title based on source
+  const titleEl = document.getElementById('ip-inspector-title');
+  if (titleEl) titleEl.textContent = source === 'screener' ? 'AI Summary' : 'AI Summary & Filter Inspector';
   let html = '';
   // ── AI Summary ────────────────────────────────────────────────────────────
   if (ins.summary || ins.overall_outlook) {
@@ -12434,20 +12437,20 @@ function _ipPopulateInspector(d, sym) {
     }
     html += '</div>';
   }
-  // ── Filter Inspector ──────────────────────────────────────────────────────
-  if (inspector.length) {
+  // ── Filter Inspector (search/explicit lookup only, collapsed by default) ──
+  if (inspector.length && source !== 'screener') {
     const passes = inspector.filter(f => f.status === 'PASS').length;
     const fails = inspector.filter(f => f.status === 'FAIL').length;
     const blines = inspector.filter(f => f.status === 'BORDERLINE').length;
     const skip = inspector.filter(f => f.status === 'SKIPPED').length;
-    // Update header counts
     const countEl = document.getElementById('ip-inspector-counts');
     if (countEl) countEl.textContent = `${passes} pass · ${fails} fail${blines ? ` · ${blines} borderline` : ''}${skip ? ` · ${skip} skipped` : ''}`;
-    // Group by category
+    // Build filter rows
     const cats = {};
     for (const f of inspector) { if (!cats[f.category]) cats[f.category] = []; cats[f.category].push(f); }
+    let filterRows = '';
     for (const [cat, filters] of Object.entries(cats)) {
-      html += `<div class="mb-3">
+      filterRows += `<div class="mb-3">
         <div class="text-[8px] font-bold uppercase text-on-surface-variant/60 tracking-widest mb-1 pb-1 border-b border-outline-variant/10">${cat}</div>
         ${filters.map(f => `<div class="flex items-center justify-between py-1 px-1 rounded hover:bg-surface-container-highest/20 text-[10px]">
           <span class="flex-1 truncate text-on-surface-variant pr-2" title="${f.filter_name}">${f.filter_name}</span>
@@ -12456,8 +12459,23 @@ function _ipPopulateInspector(d, sym) {
         </div>`).join('')}
       </div>`;
     }
+    html += `<div class="mt-1">
+      <button onclick="(function(btn){var c=btn.nextElementSibling;c.classList.toggle('hidden');btn.querySelector('.fi-chev').textContent=c.classList.contains('hidden')?'expand_more':'expand_less';})(this)"
+              class="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-surface-container-highest/30 hover:bg-surface-container-highest/50 transition-colors cursor-pointer">
+        <span class="text-[10px] font-black uppercase tracking-wider text-on-surface-variant">
+          Filter Inspector
+          <span class="text-primary ml-2 font-mono font-normal normal-case tracking-normal">${passes}p · ${fails}f${blines ? ` · ${blines}b` : ''}</span>
+        </span>
+        <span class="material-symbols-outlined fi-chev text-on-surface-variant" style="font-size:16px">expand_more</span>
+      </button>
+      <div class="hidden mt-2">${filterRows}</div>
+    </div>`;
+  } else if (source === 'screener') {
+    // Screener mode: clear counts span since no filter table is shown
+    const countEl = document.getElementById('ip-inspector-counts');
+    if (countEl) countEl.textContent = '';
   }
-  body.innerHTML = html || '<div class="text-[10px] text-on-surface-variant">No filter data available</div>';
+  body.innerHTML = html || '<div class="text-[10px] text-on-surface-variant">No summary available</div>';
 }
 
 // ============ ADMIN PANEL ============
