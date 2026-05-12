@@ -9506,13 +9506,16 @@ function openReplayModal() {
   document.getElementById('prac-replay-stats').innerHTML = stats.map(s =>
     `<div class="bg-surface-container-highest rounded-lg px-3 py-2"><div class="text-[8px] text-on-surface-variant uppercase font-bold tracking-wider">${s.label}</div><div class="text-sm font-mono font-black" style="color:${s.col}">${s.val}</div></div>`
   ).join('');
+  requestAnimationFrame(() => requestAnimationFrame(renderReplayChart));
   if (!window._pracInstitutional) {
     fetch(API + '/institutional/' + encodeURIComponent(R.symbol))
-      .then(r => r.json())
-      .then(d => { window._pracInstitutional = d; renderReplayChart(); })
-      .catch(() => renderReplayChart());
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        window._pracInstitutional = d || {};
+        if (d && ((d.bulk && d.bulk.length) || (d.block && d.block.length))) renderReplayChart();
+      })
+      .catch(() => { window._pracInstitutional = {}; });
   }
-  setTimeout(renderReplayChart, 50);
 }
 function closeReplayModal() {
   document.getElementById('prac-replay-modal').style.display = 'none';
