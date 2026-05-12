@@ -695,6 +695,11 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
       <span class="sb-label">Portfolio</span>
       <span class="sb-tooltip">Portfolio</span>
     </a>
+    <a href="#forum" class="nav-tab text-on-surface-variant" data-tab="forum" onclick="event.preventDefault();switchTab('forum')">
+      <span class="material-symbols-outlined">forum</span>
+      <span class="sb-label">Forum</span>
+      <span class="sb-tooltip">Community Forum</span>
+    </a>
   </nav>
   <!-- Bottom controls: theme + user account -->
   <div class="flex flex-col items-center gap-1 py-3 flex-shrink-0" style="border-top:1px solid rgba(255,255,255,0.05)">
@@ -1927,6 +1932,59 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
   </div>
 </section>
 
+<!-- ==================== TAB: FORUM ==================== -->
+<section class="tab-content flex-col w-full overflow-y-auto" id="tab-forum">
+  <div class="px-6 pt-6 pb-20 max-w-5xl mx-auto w-full">
+    <header class="mb-6 flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <h1 class="text-3xl font-black text-on-surface tracking-tighter uppercase mb-1">Community <span class="text-primary">Forum</span></h1>
+        <p id="forum-subtitle" class="text-sm text-on-surface-variant">Discuss setups, IPOs, game results — keep it civil.</p>
+      </div>
+      <button id="forum-new-topic-btn" onclick="openForumNewTopic()" class="hidden flex items-center gap-2 px-4 py-2 bg-primary-container text-on-primary font-bold rounded-lg text-xs uppercase tracking-wider active:scale-95 transition-transform">
+        <span class="material-symbols-outlined text-sm">add</span> New Topic
+      </button>
+    </header>
+    <!-- breadcrumb -->
+    <div id="forum-breadcrumb" class="mb-4 text-[11px] text-on-surface-variant hidden">
+      <a href="#" onclick="event.preventDefault();forumShowCategories()" class="text-primary hover:underline">← All categories</a>
+      <span id="forum-bc-cat" class="ml-2"></span>
+    </div>
+    <!-- categories view -->
+    <div id="forum-categories-view" class="grid sm:grid-cols-2 gap-3"></div>
+    <!-- topics view -->
+    <div id="forum-topics-view" class="hidden bg-surface-container-low rounded-xl overflow-hidden"></div>
+    <!-- topic detail view -->
+    <div id="forum-topic-view" class="hidden space-y-3"></div>
+  </div>
+</section>
+
+<!-- ==================== FORUM NEW TOPIC MODAL ==================== -->
+<div id="forum-new-topic-modal" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/60" style="display:none">
+  <div class="w-[560px] max-w-[calc(100vw-2rem)] glass-panel rounded-2xl border border-outline-variant/20 flex flex-col overflow-hidden">
+    <div class="p-4 border-b border-outline-variant/20 flex items-center justify-between">
+      <div>
+        <h3 class="text-sm font-black uppercase tracking-widest text-on-surface">New Topic</h3>
+        <span id="fnt-cat" class="text-xs text-on-surface-variant"></span>
+      </div>
+      <span class="material-symbols-outlined cursor-pointer hover:text-error" onclick="closeForumNewTopic()">close</span>
+    </div>
+    <div class="p-5 space-y-3">
+      <div>
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Title</label>
+        <input id="fnt-title" type="text" maxlength="200" class="w-full bg-surface-container-highest border-none rounded-lg text-sm mt-1 px-3 py-2" placeholder="What's the topic?" />
+      </div>
+      <div>
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Body</label>
+        <textarea id="fnt-body" rows="6" class="w-full bg-surface-container-highest border-none rounded-lg text-sm mt-1 px-3 py-2 resize-y" placeholder="Start the discussion..."></textarea>
+      </div>
+    </div>
+    <div class="p-4 border-t border-outline-variant/20 flex justify-end gap-2">
+      <button onclick="closeForumNewTopic()" class="px-5 py-2 text-on-surface-variant font-bold text-xs uppercase hover:text-on-surface">Cancel</button>
+      <button onclick="submitForumNewTopic()" class="px-6 py-2 bg-primary-container text-on-primary font-bold rounded-lg text-xs uppercase">Post</button>
+    </div>
+  </div>
+</div>
+
 <!-- Trade Mark Modal (click candle on chart → mark BUY) -->
 <div id="pf-mark-modal" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/60" style="display:none">
   <div class="w-[360px] max-w-[calc(100vw-2rem)] glass-panel rounded-2xl border border-outline-variant/20 bg-surface-container-low overflow-hidden">
@@ -3155,6 +3213,7 @@ function switchTab(tab, opts) {
   }
   if (tab === 'events' && eventsData.length === 0) loadEvents();
   if (tab === 'portfolio') loadPortfolio();
+  if (tab === 'forum') loadForumTab();
   if (tab === 'home') loadHome();
   // Hash-based back-button support: push to history unless this navigation
   // came FROM history (popstate). Skips no-op pushes if URL already matches.
@@ -7264,6 +7323,179 @@ async function toggleSessionPublic(id, isPublic) {
   try {
     await _lbFetch(API + '/leaderboard/session/' + id + '/public', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({public: isPublic}) });
   } catch(e) {}
+}
+
+// ============ FORUM ============
+function _fForumFetch(url, opts = {}) {
+  const headers = Object.assign({}, opts.headers || {});
+  if (typeof authToken === 'string' && authToken) headers['Authorization'] = 'Bearer ' + authToken;
+  return fetch(url, Object.assign({}, opts, { headers }));
+}
+
+let _forumState = { view: 'categories', categorySlug: null, topicId: null, category: null };
+
+async function loadForumTab() {
+  // Always start at the categories view when entering the tab
+  if (!_forumState.view || _forumState.view === 'categories') {
+    forumShowCategories();
+  } else if (_forumState.view === 'topics' && _forumState.categorySlug) {
+    forumOpenCategory(_forumState.categorySlug);
+  }
+}
+
+async function forumShowCategories() {
+  _forumState = { view: 'categories', categorySlug: null, topicId: null, category: null };
+  document.getElementById('forum-categories-view').classList.remove('hidden');
+  document.getElementById('forum-topics-view').classList.add('hidden');
+  document.getElementById('forum-topic-view').classList.add('hidden');
+  document.getElementById('forum-breadcrumb').classList.add('hidden');
+  document.getElementById('forum-new-topic-btn').classList.add('hidden');
+  const grid = document.getElementById('forum-categories-view');
+  grid.innerHTML = '<div class="col-span-full text-center py-8 text-on-surface-variant">Loading...</div>';
+  try {
+    const r = await _fForumFetch(API + '/forum/categories');
+    if (r.status === 503) { grid.innerHTML = '<div class="col-span-full text-center py-8 text-on-surface-variant/60 text-sm">Forum is currently disabled.</div>'; return; }
+    const j = await r.json();
+    grid.innerHTML = j.categories.map(c => `<div class="bg-surface-container-low hover:bg-surface-container-highest/40 rounded-xl p-4 cursor-pointer" onclick="forumOpenCategory('${c.slug}')">
+      <div class="flex items-center justify-between mb-1">
+        <h3 class="text-sm font-bold text-on-surface">${c.name}</h3>
+        <span class="text-[9px] font-mono text-on-surface-variant">${c.topic_count} topic${c.topic_count===1?'':'s'}</span>
+      </div>
+      <p class="text-[11px] text-on-surface-variant">${c.description}</p>
+      ${c.admin_only_post ? '<div class="mt-2 text-[8px] uppercase font-bold text-secondary tracking-wider">Admin Posts Only</div>' : ''}
+    </div>`).join('');
+  } catch(e) {
+    grid.innerHTML = `<div class="col-span-full text-center py-8 text-error">Failed: ${e.message}</div>`;
+  }
+}
+
+async function forumOpenCategory(slug) {
+  _forumState = { view: 'topics', categorySlug: slug, topicId: null, category: null };
+  document.getElementById('forum-categories-view').classList.add('hidden');
+  document.getElementById('forum-topic-view').classList.add('hidden');
+  const topicsView = document.getElementById('forum-topics-view');
+  topicsView.classList.remove('hidden');
+  document.getElementById('forum-breadcrumb').classList.remove('hidden');
+  document.getElementById('forum-new-topic-btn').classList.remove('hidden');
+  topicsView.innerHTML = '<div class="text-center py-8 text-on-surface-variant">Loading...</div>';
+  try {
+    const r = await _fForumFetch(API + '/forum/topics/' + encodeURIComponent(slug));
+    const j = await r.json();
+    _forumState.category = j.category;
+    document.getElementById('forum-bc-cat').textContent = '· ' + j.category.name;
+    // Hide new-topic for admin-only categories unless user is admin (we can't easily check role from here)
+    if (j.category.admin_only_post) {
+      // Backend will reject if not admin — leave the button visible; user gets feedback if they try.
+    }
+    const topics = j.topics || [];
+    if (!topics.length) {
+      topicsView.innerHTML = '<div class="text-center py-8 text-on-surface-variant/60 text-sm">No topics yet — be the first to post.</div>';
+      return;
+    }
+    topicsView.innerHTML = topics.map(t => {
+      const dt = new Date((t.last_activity||0) * 1000).toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'});
+      return `<div class="border-b border-outline-variant/10 hover:bg-surface-container-highest/30 cursor-pointer px-4 py-3" onclick="forumOpenTopic(${t.id})">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              ${t.pinned ? '<span class="material-symbols-outlined text-[14px] text-secondary" title="Pinned">push_pin</span>' : ''}
+              <span class="text-sm font-bold text-on-surface truncate">${_escapeHtml(t.title)}</span>
+            </div>
+            <div class="text-[10px] text-on-surface-variant mt-0.5">by ${t.author || 'deleted'} · ${dt}</div>
+          </div>
+          <div class="text-[10px] font-mono text-on-surface-variant whitespace-nowrap">${t.reply_count} repl${t.reply_count===1?'y':'ies'}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    topicsView.innerHTML = `<div class="text-center py-8 text-error">Failed: ${e.message}</div>`;
+  }
+}
+
+async function forumOpenTopic(topicId) {
+  _forumState.view = 'topic'; _forumState.topicId = topicId;
+  document.getElementById('forum-categories-view').classList.add('hidden');
+  document.getElementById('forum-topics-view').classList.add('hidden');
+  document.getElementById('forum-breadcrumb').classList.remove('hidden');
+  document.getElementById('forum-new-topic-btn').classList.add('hidden');
+  const view = document.getElementById('forum-topic-view');
+  view.classList.remove('hidden');
+  view.innerHTML = '<div class="text-center py-8 text-on-surface-variant">Loading...</div>';
+  try {
+    const r = await _fForumFetch(API + '/forum/topic/' + topicId);
+    const j = await r.json();
+    const t = j.topic, posts = j.posts || [];
+    _forumState.categorySlug = t.category_slug;
+    document.getElementById('forum-bc-cat').innerHTML = `<a href="#" onclick="event.preventDefault();forumOpenCategory('${t.category_slug}')" class="text-primary hover:underline">${t.category_name}</a> <span class="text-on-surface-variant">·</span> <span>${_escapeHtml(t.title)}</span>`;
+    const dt = new Date((t.created_at||0) * 1000).toLocaleString('en-IN');
+    const opPost = `<div class="bg-surface-container-low rounded-xl p-4">
+      <div class="flex items-center justify-between mb-2">
+        <div class="text-xs"><span class="font-bold text-on-surface">${t.author || 'deleted'}</span> <span class="text-on-surface-variant">· ${dt}${t.pinned ? ' · <span class=\"text-secondary\">pinned</span>' : ''}</span></div>
+      </div>
+      <div class="text-sm text-on-surface whitespace-pre-wrap">${_escapeHtml(t.body)}</div>
+    </div>`;
+    const replyList = posts.map(p => {
+      const pdt = new Date((p.created_at||0) * 1000).toLocaleString('en-IN');
+      const edit = p.edited_at ? ' <span class="italic">(edited)</span>' : '';
+      return `<div class="bg-surface-container-low rounded-xl p-4">
+        <div class="flex items-center justify-between mb-1">
+          <div class="text-xs"><span class="font-bold text-on-surface">${p.author || 'deleted'}</span> <span class="text-on-surface-variant">· ${pdt}${edit}</span></div>
+        </div>
+        <div class="text-sm text-on-surface whitespace-pre-wrap">${_escapeHtml(p.body)}</div>
+      </div>`;
+    }).join('');
+    const replyBox = t.archived
+      ? '<div class="bg-surface-container-low rounded-xl p-4 text-center text-on-surface-variant text-sm">Topic is archived — no new replies.</div>'
+      : `<div class="bg-surface-container-low rounded-xl p-3">
+          <textarea id="forum-reply-body" rows="3" class="w-full bg-surface-container-highest border-none rounded-lg text-sm px-3 py-2 resize-y" placeholder="Write a reply..."></textarea>
+          <div class="flex justify-end mt-2"><button onclick="submitForumReply()" class="px-4 py-1.5 bg-primary-container text-on-primary rounded-lg text-xs font-bold uppercase">Reply</button></div>
+        </div>`;
+    view.innerHTML = opPost + replyList + replyBox;
+  } catch(e) {
+    view.innerHTML = `<div class="text-center py-8 text-error">Failed: ${e.message}</div>`;
+  }
+}
+
+function _escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function openForumNewTopic() {
+  if (!_forumState.category) return;
+  document.getElementById('forum-new-topic-modal').style.display = 'flex';
+  document.getElementById('fnt-cat').textContent = 'in ' + _forumState.category.name;
+  document.getElementById('fnt-title').value = '';
+  document.getElementById('fnt-body').value = '';
+  setTimeout(() => document.getElementById('fnt-title')?.focus(), 50);
+}
+function closeForumNewTopic() { const m=document.getElementById('forum-new-topic-modal'); if(m) m.style.display='none'; }
+
+async function submitForumNewTopic() {
+  const title = document.getElementById('fnt-title').value.trim();
+  const body = document.getElementById('fnt-body').value.trim();
+  if (!title || !body) { alert('Title and body are required'); return; }
+  try {
+    const r = await _fForumFetch(API + '/forum/topics/' + encodeURIComponent(_forumState.categorySlug), {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({title, body})
+    });
+    if (!r.ok) { const j = await r.json().catch(()=>({})); throw new Error(j.detail || 'HTTP ' + r.status); }
+    const j = await r.json();
+    closeForumNewTopic();
+    forumOpenTopic(j.topic.id);
+  } catch(e) { alert('Failed: ' + e.message); }
+}
+
+async function submitForumReply() {
+  const ta = document.getElementById('forum-reply-body');
+  const body = (ta?.value || '').trim();
+  if (!body) return;
+  try {
+    const r = await _fForumFetch(API + '/forum/topic/' + _forumState.topicId + '/reply', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({body})
+    });
+    if (!r.ok) { const j = await r.json().catch(()=>({})); throw new Error(j.detail || 'HTTP ' + r.status); }
+    forumOpenTopic(_forumState.topicId);
+  } catch(e) { alert('Failed: ' + e.message); }
 }
 
 // ============ WATCHLIST ============
