@@ -335,6 +335,66 @@ aside#sidebar .nav-tab .sb-tooltip {
 }
 aside#sidebar .nav-tab:hover .sb-tooltip { display: block; }
 
+/* Sidebar group dividers */
+.sb-divider {
+  width: 28px;
+  height: 1px;
+  margin: 2px auto;
+  background: var(--outline-variant);
+  opacity: 0.5;
+}
+
+/* =========================================================================
+   HEADER SECONDARY NAV ICONS (Portfolio · Forum · Tournament)
+   ========================================================================= */
+.hdr-nav-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  color: var(--on-surface-variant);
+  transition: background 150ms, color 150ms;
+  cursor: pointer;
+  position: relative;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.hdr-nav-tab:hover {
+  background: rgba(255,140,0,0.07);
+  color: var(--on-surface);
+}
+.hdr-nav-tab.hdr-active {
+  background: rgba(255,140,0,0.12);
+  color: #FF8C00;
+}
+.hdr-nav-tab .material-symbols-outlined {
+  font-size: 20px;
+  line-height: 1;
+}
+/* Down-opening tooltip for header icons */
+.hdr-nav-tab .hdr-tip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #1c1b1b;
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #f1f1f1;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 5px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+  z-index: 200;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.hdr-nav-tab:hover .hdr-tip { display: block; }
+
 /* Config footer — offset by sidebar (4rem) */
 #config-footer { left: 4rem !important; }
 /* Legal footer — offset by sidebar */
@@ -659,13 +719,16 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
   <div class="h-12 flex items-center justify-center flex-shrink-0 cursor-pointer" style="border-bottom:1px solid var(--outline-variant)" onclick="switchTab('home')" title="Home Dashboard">
     <span class="text-base font-black" style="background:linear-gradient(135deg,#FF8C00,#e07b00);-webkit-background-clip:text;-webkit-text-fill-color:transparent">MX</span>
   </div>
-  <!-- Icon nav tabs -->
+  <!-- Icon nav tabs — 9 core analysis tabs with group dividers -->
   <nav id="main-nav" class="flex-1 flex flex-col py-1 overflow-y-auto scrollbar-hide">
+    <!-- Dashboard -->
     <a href="#home" class="nav-tab text-on-surface-variant" data-tab="home" onclick="event.preventDefault();switchTab('home')">
       <span class="material-symbols-outlined">home</span>
       <span class="sb-label">Home</span>
       <span class="sb-tooltip">Dashboard</span>
     </a>
+    <div class="sb-divider"></div>
+    <!-- Analysis group -->
     <a href="#screener" class="nav-tab text-on-surface-variant" data-tab="screener" onclick="event.preventDefault();switchTab('screener')">
       <span class="material-symbols-outlined">analytics</span>
       <span class="sb-label">Screen</span>
@@ -681,6 +744,8 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
       <span class="sb-label">Indic.</span>
       <span class="sb-tooltip">Indicators</span>
     </a>
+    <div class="sb-divider"></div>
+    <!-- Market tools group -->
     <a href="#watchlist" class="nav-tab text-on-surface-variant" data-tab="watchlist" onclick="event.preventDefault();switchTab('watchlist')">
       <span class="material-symbols-outlined">bookmarks</span>
       <span class="sb-label">Watch</span>
@@ -690,11 +755,6 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
       <span class="material-symbols-outlined">event</span>
       <span class="sb-label">Events</span>
       <span class="sb-tooltip">Events</span>
-    </a>
-    <a href="#practice" class="nav-tab text-on-surface-variant" data-tab="practice" onclick="event.preventDefault();switchTab('practice')">
-      <span class="material-symbols-outlined">sports_esports</span>
-      <span class="sb-label">Practice</span>
-      <span class="sb-tooltip">Practice</span>
     </a>
     <a href="#breakouts" class="nav-tab text-on-surface-variant" data-tab="breakouts" onclick="event.preventDefault();switchTab('breakouts')">
       <span class="material-symbols-outlined">trending_up</span>
@@ -706,53 +766,14 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
       <span class="sb-label">Backtest</span>
       <span class="sb-tooltip">Backtester</span>
     </a>
-    <a href="#portfolio" class="nav-tab text-on-surface-variant" data-tab="portfolio" onclick="event.preventDefault();switchTab('portfolio')">
-      <span class="material-symbols-outlined">account_balance_wallet</span>
-      <span class="sb-label">Portfolio</span>
-      <span class="sb-tooltip">Portfolio</span>
-    </a>
-    <a href="#forum" class="nav-tab text-on-surface-variant" data-tab="forum" onclick="event.preventDefault();switchTab('forum')">
-      <span class="material-symbols-outlined">forum</span>
-      <span class="sb-label">Forum</span>
-      <span class="sb-tooltip">Community Forum</span>
-    </a>
-    <a href="#tournaments" class="nav-tab text-on-surface-variant" data-tab="tournaments" onclick="event.preventDefault();switchTab('tournaments')">
-      <span class="material-symbols-outlined">trophy</span>
-      <span class="sb-label">Tournament</span>
-      <span class="sb-tooltip">Tournament Mode</span>
+    <div class="sb-divider"></div>
+    <!-- Game group -->
+    <a href="#practice" class="nav-tab text-on-surface-variant" data-tab="practice" onclick="event.preventDefault();switchTab('practice')">
+      <span class="material-symbols-outlined">sports_esports</span>
+      <span class="sb-label">Practice</span>
+      <span class="sb-tooltip">Practice</span>
     </a>
   </nav>
-  <!-- Bottom controls: theme + user account -->
-  <div class="flex flex-col items-center gap-1 py-3 flex-shrink-0" style="border-top:1px solid var(--outline-variant)">
-    <button id="theme-toggle" onclick="toggleTheme()" class="w-10 h-10 flex items-center justify-center rounded-lg transition-colors" style="hover:background:rgba(255,255,255,0.05)" title="Toggle theme">
-      <span class="material-symbols-outlined text-on-surface-variant" id="theme-icon">light_mode</span>
-    </button>
-    <div class="relative" id="user-menu-wrap">
-      <button id="user-menu-btn" onclick="toggleUserMenu(event)" class="w-10 h-10 flex items-center justify-center rounded-lg transition-colors" title="Account">
-        <span class="material-symbols-outlined text-on-surface-variant">account_circle</span>
-      </button>
-      <div id="user-menu-dropdown" class="hidden absolute bg-surface-container rounded-lg shadow-2xl z-[100] overflow-hidden" style="bottom:0;left:calc(100% + 4px);width:13rem;border:1px solid var(--outline-variant)">
-        <div class="px-3 pt-2 pb-1 text-[9px] uppercase tracking-wider text-on-surface-variant">Signed in as</div>
-        <div class="px-3 pb-2 border-b border-outline-variant/10">
-          <div class="text-sm font-bold text-on-surface" id="user-menu-name">—</div>
-          <div class="text-[10px] text-on-surface-variant" id="user-menu-username">—</div>
-        </div>
-        <button onclick="openProfileModal()" class="w-full text-left px-3 py-2 text-xs hover:bg-surface-container-highest flex items-center gap-2">
-          <span class="material-symbols-outlined text-base">person</span>Profile
-        </button>
-        <button onclick="openChangePasswordModal()" class="w-full text-left px-3 py-2 text-xs hover:bg-surface-container-highest flex items-center gap-2">
-          <span class="material-symbols-outlined text-base">lock_reset</span>Change Password
-        </button>
-        <button id="admin-panel-btn" onclick="openAdminPanel()" class="hidden w-full text-left px-3 py-2 text-xs hover:bg-surface-container-highest flex items-center gap-2 border-t border-outline-variant/10" style="color:#f59e0b">
-          <span class="material-symbols-outlined text-base">admin_panel_settings</span>Admin Panel
-          <span id="admin-pending-badge" class="hidden ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-full" style="background:#ef4444;color:#fff"></span>
-        </button>
-        <button onclick="logout()" class="w-full text-left px-3 py-2 text-xs hover:bg-surface-container-highest flex items-center gap-2 text-error border-t border-outline-variant/10">
-          <span class="material-symbols-outlined text-base">logout</span>Logout
-        </button>
-      </div>
-    </div>
-  </div>
 </aside>
 
 <!-- ==================== MAIN WRAPPER (sidebar-offset) ==================== -->
@@ -778,8 +799,58 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
       <span id="hdr-sensex">—</span>
     </span>
   </div>
-  <!-- Right: data sync ring + controls (JS appends fa-sync-badge here via .flex.items-center.gap-4) -->
-  <div class="flex items-center gap-4">
+  <!-- Right: secondary tabs · theme · user · sync ring -->
+  <div class="flex items-center gap-1.5">
+    <!-- Secondary nav: Portfolio, Forum, Tournament -->
+    <a href="#portfolio" class="hdr-nav-tab" data-tab="portfolio" onclick="event.preventDefault();switchTab('portfolio')" title="Portfolio">
+      <span class="material-symbols-outlined">account_balance_wallet</span>
+      <span class="hdr-tip">Portfolio</span>
+    </a>
+    <a href="#forum" class="hdr-nav-tab" data-tab="forum" onclick="event.preventDefault();switchTab('forum')" title="Forum">
+      <span class="material-symbols-outlined">forum</span>
+      <span class="hdr-tip">Community Forum</span>
+    </a>
+    <a href="#tournaments" class="hdr-nav-tab" data-tab="tournaments" onclick="event.preventDefault();switchTab('tournaments')" title="Tournaments">
+      <span class="material-symbols-outlined">trophy</span>
+      <span class="hdr-tip">Tournaments</span>
+    </a>
+    <!-- Divider -->
+    <div class="w-px h-4 bg-outline-variant/40 mx-0.5 flex-shrink-0"></div>
+    <!-- Theme toggle -->
+    <button id="theme-toggle" onclick="toggleTheme()" class="hdr-nav-tab" title="Toggle theme">
+      <span class="material-symbols-outlined" id="theme-icon">light_mode</span>
+      <span class="hdr-tip">Toggle Theme</span>
+    </button>
+    <!-- User account -->
+    <div class="relative" id="user-menu-wrap">
+      <button id="user-menu-btn" onclick="toggleUserMenu(event)" class="hdr-nav-tab" title="Account">
+        <span class="material-symbols-outlined">account_circle</span>
+        <span class="hdr-tip">Account</span>
+      </button>
+      <div id="user-menu-dropdown" class="hidden absolute bg-surface-container rounded-lg shadow-2xl z-[100] overflow-hidden" style="top:calc(100% + 6px);right:0;width:13rem;border:1px solid var(--outline-variant)">
+        <div class="px-3 pt-2 pb-1 text-[9px] uppercase tracking-wider text-on-surface-variant">Signed in as</div>
+        <div class="px-3 pb-2 border-b border-outline-variant/10">
+          <div class="text-sm font-bold text-on-surface" id="user-menu-name">—</div>
+          <div class="text-[10px] text-on-surface-variant" id="user-menu-username">—</div>
+        </div>
+        <button onclick="openProfileModal()" class="w-full text-left px-3 py-2 text-xs hover:bg-surface-container-highest flex items-center gap-2">
+          <span class="material-symbols-outlined text-base">person</span>Profile
+        </button>
+        <button onclick="openChangePasswordModal()" class="w-full text-left px-3 py-2 text-xs hover:bg-surface-container-highest flex items-center gap-2">
+          <span class="material-symbols-outlined text-base">lock_reset</span>Change Password
+        </button>
+        <button id="admin-panel-btn" onclick="openAdminPanel()" class="hidden w-full text-left px-3 py-2 text-xs hover:bg-surface-container-highest flex items-center gap-2 border-t border-outline-variant/10" style="color:#f59e0b">
+          <span class="material-symbols-outlined text-base">admin_panel_settings</span>Admin Panel
+          <span id="admin-pending-badge" class="hidden ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-full" style="background:#ef4444;color:#fff"></span>
+        </button>
+        <button onclick="logout()" class="w-full text-left px-3 py-2 text-xs hover:bg-surface-container-highest flex items-center gap-2 text-error border-t border-outline-variant/10">
+          <span class="material-symbols-outlined text-base">logout</span>Logout
+        </button>
+      </div>
+    </div>
+    <!-- Divider -->
+    <div class="w-px h-4 bg-outline-variant/40 mx-0.5 flex-shrink-0"></div>
+    <!-- Data sync ring -->
     <div class="flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1.5 rounded-full border cursor-pointer elite-btn" style="background:var(--surface-container);border-color:var(--outline-variant)" onclick="triggerCatchup()" id="dl-btn">
       <div class="relative w-5 h-5 shrink-0">
         <svg class="w-full h-full transform -rotate-90" viewBox="0 0 24 24">
@@ -3296,6 +3367,10 @@ function switchTab(tab, opts) {
       el.className = 'nav-tab text-on-surface-variant hover:text-on-surface transition-colors h-14 flex items-center cursor-pointer';
     }
   });
+  // Sync header secondary nav active state
+  document.querySelectorAll('.hdr-nav-tab[data-tab]').forEach(el => {
+    el.classList.toggle('hdr-active', el.dataset.tab === tab);
+  });
   // Sync bottom nav active state (mobile)
   const _bnavMoreTabs = new Set(['events','backtest','indicators','config','breakouts','practice']);
   document.querySelectorAll('.bnav-tab').forEach(el => {
@@ -3330,9 +3405,15 @@ function switchTab(tab, opts) {
   }
   // Update document title to reflect current tab (clearer browser-back UX)
   try {
-    const titles = {home:'Dashboard',screener:'Screener',config:'Configuration',indicators:'Indicators',watchlist:'Watchlist',breakouts:'Breakouts',backtest:'Backtester',events:'Events',practice:'Practice',portfolio:'Portfolio'};
+    const titles = {home:'Dashboard',screener:'Screener',config:'Configuration',indicators:'Indicators',watchlist:'Watchlist',breakouts:'Breakouts',backtest:'Backtester',events:'Events',practice:'Practice',portfolio:'Portfolio',forum:'Forum',tournaments:'Tournaments'};
     if (titles[tab]) document.title = `MONEYSTX · ${titles[tab]}`;
   } catch(e) {}
+}
+
+// Helper: all navigable tab IDs (sidebar + header secondary)
+function _allNavTabs() {
+  const from = sel => Array.from(document.querySelectorAll(sel)).map(el => el.dataset.tab);
+  return [...new Set([...from('.nav-tab[data-tab]'), ...from('.hdr-nav-tab[data-tab]')])];
 }
 
 // Browser back/forward → restore tab from URL hash
@@ -3340,7 +3421,7 @@ window.addEventListener('popstate', (e) => {
   const fromState = (e.state && e.state.tab);
   const fromHash = window.location.hash.replace('#','');
   const tab = fromState || fromHash || 'home';
-  const validTabs = Array.from(document.querySelectorAll('.nav-tab[data-tab]')).map(el => el.dataset.tab);
+  const validTabs = _allNavTabs();
   if (validTabs.includes(tab) && tab !== currentTab && document.getElementById('tab-' + tab)) {
     switchTab(tab, {fromHistory: true});
   }
@@ -3355,7 +3436,7 @@ window.addEventListener('popstate', (e) => {
   if (!raw) return;
   const apply = () => {
     // Tab navigation
-    const validTabs = Array.from(document.querySelectorAll('.nav-tab[data-tab]')).map(el => el.dataset.tab);
+    const validTabs = _allNavTabs();
     if (validTabs.includes(raw) && raw !== 'screener' && document.getElementById('tab-' + raw)) {
       switchTab(raw, {fromHistory: true});
       return;
