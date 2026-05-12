@@ -1482,12 +1482,21 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
 <!-- ==================== TAB: EVENTS ==================== -->
 <section class="tab-content flex-col w-full overflow-y-auto" id="tab-events">
   <div class="px-6 pt-6 pb-20">
-    <header class="mb-6 flex items-center justify-between flex-wrap gap-3">
+    <header class="mb-4 flex items-center justify-between flex-wrap gap-3">
       <div>
-        <h1 class="text-3xl font-black text-on-surface tracking-tighter uppercase mb-1">Corporate <span class="text-primary">Events</span></h1>
-        <p class="text-sm text-on-surface-variant">Upcoming earnings, dividends, splits, bonuses from NSE.</p>
+        <h1 class="text-3xl font-black text-on-surface tracking-tighter uppercase mb-1">Market <span class="text-primary">Events</span></h1>
+        <p class="text-sm text-on-surface-variant">Corporate actions and IPO calendar from NSE.</p>
       </div>
-      <div class="flex flex-wrap items-center gap-2">
+    </header>
+    <!-- Sub-tab bar -->
+    <div class="flex gap-2 border-b border-outline-variant/20 mb-5 overflow-x-auto">
+      <button id="ev-subtab-corp" onclick="switchEventsSubtab('corp')" class="ev-subtab px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 border-primary text-primary whitespace-nowrap">Corporate Actions</button>
+      <button id="ev-subtab-ipo" onclick="switchEventsSubtab('ipo')" class="ev-subtab px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 border-transparent text-on-surface-variant hover:text-on-surface whitespace-nowrap">IPOs</button>
+    </div>
+
+    <!-- Corporate Actions sub-pane -->
+    <div id="ev-pane-corp">
+      <div class="mb-4 flex flex-wrap items-center gap-2">
         <label class="text-[10px] text-on-surface-variant uppercase font-bold">Window:</label>
         <select id="ev-days" onchange="loadEvents()" class="bg-surface-container-highest border-none rounded text-xs py-2 px-3">
           <option value="7">Next 7 days</option>
@@ -1497,10 +1506,25 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
         </select>
         <input id="ev-search" type="text" placeholder="Filter by symbol..." oninput="renderEvents()" class="bg-surface-container-highest border-none rounded text-xs py-2 px-3 flex-1 min-w-[120px]"/>
       </div>
-    </header>
-    <div id="ev-summary" class="mb-4 text-[11px] text-on-surface-variant"></div>
-    <div id="ev-list" class="bg-surface-container-low rounded-xl overflow-hidden">
-      <div class="text-center py-12 text-on-surface-variant/50 text-sm">Loading events…</div>
+      <div id="ev-summary" class="mb-4 text-[11px] text-on-surface-variant"></div>
+      <div id="ev-list" class="bg-surface-container-low rounded-xl overflow-hidden">
+        <div class="text-center py-12 text-on-surface-variant/50 text-sm">Loading events…</div>
+      </div>
+    </div>
+
+    <!-- IPO sub-pane -->
+    <div id="ev-pane-ipo" class="hidden">
+      <div class="mb-4 flex items-center justify-between flex-wrap gap-2">
+        <div class="flex gap-1 bg-surface-container-highest rounded-lg p-1">
+          <button id="ipo-tab-open" onclick="switchIpoBucket('open')" class="ipo-tab px-3 py-1.5 text-[11px] font-bold uppercase rounded bg-primary-container text-on-primary">Open Now</button>
+          <button id="ipo-tab-upcoming" onclick="switchIpoBucket('upcoming')" class="ipo-tab px-3 py-1.5 text-[11px] font-bold uppercase rounded text-on-surface-variant hover:text-on-surface">Upcoming</button>
+          <button id="ipo-tab-recent" onclick="switchIpoBucket('recent')" class="ipo-tab px-3 py-1.5 text-[11px] font-bold uppercase rounded text-on-surface-variant hover:text-on-surface">Recently Listed</button>
+        </div>
+        <span id="ipo-meta" class="text-[10px] text-on-surface-variant"></span>
+      </div>
+      <div id="ipo-list" class="bg-surface-container-low rounded-xl overflow-hidden">
+        <div class="text-center py-12 text-on-surface-variant/50 text-sm">Loading IPOs…</div>
+      </div>
     </div>
   </div>
 </section>
@@ -4937,6 +4961,91 @@ function renderEvents() {
     </div>`).join('');
 
   document.getElementById('ev-summary').textContent = `${eventsData.length} total events · ${filtered.length} matching${search ? ' "' + search + '"' : ''}`;
+}
+
+// ============ IPO SUB-TAB ============
+let _ipoData = null;          // {open:[], upcoming:[], recent:[], cached, age_hours, stale}
+let _ipoBucket = 'open';
+
+function switchEventsSubtab(which) {
+  const corpBtn = document.getElementById('ev-subtab-corp');
+  const ipoBtn  = document.getElementById('ev-subtab-ipo');
+  const corpPane = document.getElementById('ev-pane-corp');
+  const ipoPane  = document.getElementById('ev-pane-ipo');
+  const active   = 'border-primary text-primary';
+  const idle     = 'border-transparent text-on-surface-variant hover:text-on-surface';
+  if (which === 'ipo') {
+    corpPane.classList.add('hidden');
+    ipoPane.classList.remove('hidden');
+    corpBtn.className = 'ev-subtab px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 ' + idle + ' whitespace-nowrap';
+    ipoBtn.className  = 'ev-subtab px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 ' + active + ' whitespace-nowrap';
+    if (!_ipoData) loadIpos();
+  } else {
+    ipoPane.classList.add('hidden');
+    corpPane.classList.remove('hidden');
+    ipoBtn.className  = 'ev-subtab px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 ' + idle + ' whitespace-nowrap';
+    corpBtn.className = 'ev-subtab px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 ' + active + ' whitespace-nowrap';
+  }
+}
+
+async function loadIpos() {
+  const list = document.getElementById('ipo-list');
+  list.innerHTML = '<div class="text-center py-12 text-on-surface-variant">Loading IPOs from NSE…</div>';
+  try {
+    const r = await fetch(API + '/events/ipos');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    _ipoData = await r.json();
+    renderIpos();
+  } catch(e) {
+    list.innerHTML = `<div class="text-error text-center py-12">Failed: ${e.message}</div>`;
+  }
+}
+
+function switchIpoBucket(bucket) {
+  _ipoBucket = bucket;
+  ['open', 'upcoming', 'recent'].forEach(k => {
+    const btn = document.getElementById('ipo-tab-' + k);
+    if (!btn) return;
+    const on = k === bucket;
+    btn.className = 'ipo-tab px-3 py-1.5 text-[11px] font-bold uppercase rounded ' +
+      (on ? 'bg-primary-container text-on-primary' : 'text-on-surface-variant hover:text-on-surface');
+  });
+  renderIpos();
+}
+
+function renderIpos() {
+  const list = document.getElementById('ipo-list');
+  const meta = document.getElementById('ipo-meta');
+  if (!_ipoData) { list.innerHTML = '<div class="text-center py-12 text-on-surface-variant">Loading…</div>'; return; }
+  const rows = _ipoData[_ipoBucket] || [];
+  const totals = `Open: ${(_ipoData.open||[]).length} · Upcoming: ${(_ipoData.upcoming||[]).length} · Recent: ${(_ipoData.recent||[]).length}`;
+  const fresh = _ipoData.cached ? `cached ${_ipoData.age_hours}h ago${_ipoData.stale ? ' (stale)' : ''}` : 'live';
+  meta.textContent = `${totals} · ${fresh}`;
+  if (!rows.length) {
+    list.innerHTML = `<div class="text-center py-12 text-on-surface-variant/60 text-sm">No ${_ipoBucket === 'open' ? 'open' : _ipoBucket} IPOs right now.</div>`;
+    return;
+  }
+  const fmt = (s) => {
+    if (!s) return '—';
+    try { return new Date(s).toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'}); } catch(e) { return s; }
+  };
+  const fmtMoney = (n) => (n == null ? '—' : '₹' + Math.round(n).toLocaleString('en-IN'));
+  const colsByBucket = {
+    open:     ['Symbol', 'Company', 'Price Band', 'Lot', 'Open', 'Close', 'Min Invest', 'Subs (×)'],
+    upcoming: ['Symbol', 'Company', 'Price Band', 'Lot', 'Open', 'Close', 'Min Invest', 'Listing'],
+    recent:   ['Symbol', 'Company', 'Issue Price', 'Lot', 'Listing', 'Issue Size', 'Series', 'Status'],
+  };
+  const cols = colsByBucket[_ipoBucket];
+  const head = `<thead><tr class="bg-surface-container-highest text-[9px] uppercase font-black tracking-wider text-on-surface-variant">${cols.map(c => `<th class="px-3 py-2.5 text-left">${c}</th>`).join('')}</tr></thead>`;
+  const body = rows.map(r => {
+    const cells = _ipoBucket === 'recent'
+      ? [r.symbol || '—', r.company || '—', r.price_band || '—', r.lot_size != null ? r.lot_size : '—', fmt(r.listing_date), r.issue_size || '—', r.series || 'EQ', r.status || '—']
+      : (_ipoBucket === 'open'
+          ? [r.symbol || '—', r.company || '—', r.price_band || '—', r.lot_size != null ? r.lot_size : '—', fmt(r.open_date), fmt(r.close_date), fmtMoney(r.min_invest), r.subscription != null ? r.subscription.toFixed(2) + '×' : '—']
+          : [r.symbol || '—', r.company || '—', r.price_band || '—', r.lot_size != null ? r.lot_size : '—', fmt(r.open_date), fmt(r.close_date), fmtMoney(r.min_invest), fmt(r.listing_date)]);
+    return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/30 text-[11px]">${cells.map((c, i) => `<td class="px-3 py-2.5 ${i === 0 ? 'font-bold text-on-surface' : 'text-on-surface-variant'}">${c}</td>`).join('')}</tr>`;
+  }).join('');
+  list.innerHTML = `<div class="overflow-x-auto"><table class="w-full min-w-[800px]">${head}<tbody>${body}</tbody></table></div>`;
 }
 
 // ============ BACKTESTER ============
