@@ -8574,9 +8574,15 @@ function updatePracticeOhlc(candle) {
 async function practiceNextDay() {
   if (!practiceState) return;
   try {
-    const res = await fetch(API + '/practice/next', { method: 'POST' });
+    let res;
+    try {
+      res = await fetch(API + '/practice/next', { method: 'POST' });
+    } catch (netErr) {
+      // iOS Safari kills fetch when tab is idle — retry once silently
+      res = await fetch(API + '/practice/next', { method: 'POST' });
+    }
     const data = await res.json();
-    if (data.error) { alert(data.error); return; }
+    if (data.error) { showPracticeToast(data.error, 'err'); return; }
 
     // Append new candle
     pracVisibleCandles.push(data.candle);
@@ -8656,7 +8662,7 @@ async function practiceNextDay() {
 
     // Scroll chart to show latest
     pracChart?.timeScale().scrollToRealTime();
-  } catch(e) { alert('Error: ' + e.message); }
+  } catch(e) { showPracticeToast('Connection lost — tap Next Day again', 'err'); }
 }
 
 // Open BUY modal with defaults from current state
