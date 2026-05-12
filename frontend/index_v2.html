@@ -3389,7 +3389,7 @@ function switchTab(tab, opts) {
     el.classList.toggle('hdr-active', el.dataset.tab === tab);
   });
   // Sync bottom nav active state (mobile)
-  const _bnavMoreTabs = new Set(['events','backtest','indicators','config','breakouts','practice']);
+  const _bnavMoreTabs = new Set(['events','backtest','indicators','config','breakouts','practice','forum','tournaments']);
   document.querySelectorAll('.bnav-tab').forEach(el => {
     if (el.id === 'bnav-more') {
       el.classList.toggle('bnav-active', _bnavMoreTabs.has(tab));
@@ -13017,6 +13017,14 @@ document.addEventListener('click', (e) => {
       <button onclick="closeMobileMore();openCmdK()" class="flex flex-col items-center gap-1.5 py-4 hover:bg-surface-container-highest/60 transition-colors border-t border-outline-variant/30">
         <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">search</span>
         <span class="text-[9px] font-bold text-on-surface-variant uppercase">Search</span>
+      </button>
+      <button onclick="closeMobileMore();switchTab('forum')" class="col-span-2 flex flex-col items-center gap-1.5 py-4 hover:bg-surface-container-highest/60 transition-colors border-t border-outline-variant/30">
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">forum</span>
+        <span class="text-[9px] font-bold text-on-surface-variant uppercase">Forum</span>
+      </button>
+      <button onclick="closeMobileMore();switchTab('tournaments')" class="col-span-2 flex flex-col items-center gap-1.5 py-4 hover:bg-surface-container-highest/60 transition-colors border-t border-outline-variant/30">
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:24px">emoji_events</span>
+        <span class="text-[9px] font-bold text-on-surface-variant uppercase">Tournaments</span>
       </button>
     </div>
   </div>
