@@ -2514,16 +2514,17 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
       <div>
         <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Visibility</label>
         <div class="flex gap-2 mt-1">
-          <select id="psh-vis" class="bg-surface-container-highest border-none rounded-lg text-sm px-3 py-2 flex-1">
-            <option value="private">Private</option>
-            <option value="public">Public</option>
-            <option value="shared">Shared (private list)</option>
+          <select id="psh-vis" onchange="_pshToggleUserSection()" class="bg-surface-container-highest border-none rounded-lg text-sm px-3 py-2 flex-1">
+            <option value="private">Private — only you</option>
+            <option value="public">Public — everyone</option>
+            <option value="shared">Shared — specific users ↓</option>
           </select>
-          <button onclick="applyShareVisibility()" class="px-4 py-2 bg-surface-container-highest hover:bg-surface-variant rounded-lg text-xs font-bold uppercase">Update</button>
+          <button onclick="applyShareVisibility()" class="px-4 py-2 bg-primary-container text-on-primary rounded-lg text-xs font-bold uppercase">Save</button>
         </div>
       </div>
-      <div>
-        <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Share with user</label>
+      <!-- User search — only shown when visibility = shared -->
+      <div id="psh-user-section" class="hidden">
+        <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Add people</label>
         <div class="flex gap-2 mt-1">
           <div class="relative flex-1">
             <input id="psh-username" type="text" placeholder="Search username…" autocomplete="off"
@@ -7320,6 +7321,7 @@ async function openPresetShareModal(presetId) {
   document.getElementById('psh-id').value = presetId;
   document.getElementById('psh-vis').value = row ? row.visibility : 'private';
   document.getElementById('psh-username').value = '';
+  _pshToggleUserSection();
   _pshHide();
 
   // Fetch shares + user list in parallel
@@ -7341,6 +7343,18 @@ async function openPresetShareModal(presetId) {
     list.innerHTML = (sharesJ.shares || []).map(s => `<div class="flex items-center justify-between text-[11px] bg-surface-container-highest/40 rounded px-2 py-1"><span>${s.username}</span><span class="material-symbols-outlined text-[12px] text-error cursor-pointer hover:scale-110" onclick="revokeShare(${presetId}, '${s.username.replace(/'/g, '&#39;')}')">close</span></div>`).join('');
   }
   modal.style.display = 'flex';
+}
+function _pshToggleUserSection() {
+  const vis = document.getElementById('psh-vis')?.value;
+  const sec = document.getElementById('psh-user-section');
+  if (!sec) return;
+  if (vis === 'shared') {
+    sec.classList.remove('hidden');
+    setTimeout(() => document.getElementById('psh-username')?.focus(), 50);
+  } else {
+    sec.classList.add('hidden');
+    _pshHide();
+  }
 }
 function _pshFilter(q) {
   const ul = document.getElementById('psh-suggestions');
