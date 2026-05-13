@@ -7178,9 +7178,11 @@ async function populatePresetDropdowns() {
       else {
         const items = _presetRows.map(r => {
           const isOwn = r.source === 'mine';
+          const stagesArg = isOwn ? encodeURIComponent(JSON.stringify(r.stages||{})) : '';
           return `<div class="flex items-center justify-between hover:bg-surface-container-highest/60 rounded-lg px-2 py-1.5 group cursor-pointer gap-2">
             <span class="text-[10px] font-bold text-on-surface flex-1 truncate" onclick="loadPreset('${r.name}');document.getElementById('preset-dropdown').classList.add('hidden')">${r.name}</span>
             ${srcBadge(r.source)}
+            ${isOwn ? `<span class="material-symbols-outlined text-[11px] text-on-surface-variant/40 hover:text-secondary cursor-pointer" onclick="event.stopPropagation();document.getElementById('preset-dropdown').classList.add('hidden');openPresetSaveModal({name:'${r.name.replace(/'/g,"\\'")}})" title="Edit preset">edit</span>` : ''}
             ${isOwn ? `<span class="material-symbols-outlined text-[11px] text-on-surface-variant/40 hover:text-primary cursor-pointer" onclick="event.stopPropagation();openPresetShareModal(${r.id})" title="Share / publish">share</span>` : ''}
             ${isOwn ? `<span class="material-symbols-outlined text-[11px] text-on-surface-variant/30 group-hover:text-error cursor-pointer" onclick="event.stopPropagation();deletePreset('${r.name}')" title="Delete">close</span>` : ''}
           </div>`;
@@ -7249,12 +7251,20 @@ function _phase3SaveConfigPreset() { openPresetSaveModal(); }
 function openPresetSaveModal(prefill = {}) {
   const modal = document.getElementById('preset-save-modal');
   if (!modal) return;
-  document.getElementById('ps-name').value = prefill.name || (activePresetName || '');
+  const name = prefill.name || (activePresetName || '');
+  document.getElementById('ps-name').value = name;
+  // Resolve stages: explicit prefill → active preset's saved stages → row in list → defaults
+  let stages = prefill.stages;
+  if (!stages && name) {
+    const activeRow = (_presetRows || []).find(r => r.name === name);
+    stages = activeRow?.stages || window._activePresetStages || null;
+  }
+  stages = stages || {};
   document.getElementById('ps-desc').value = prefill.description || '';
   document.getElementById('ps-visibility').value = prefill.visibility || 'private';
-  document.getElementById('ps-s1').checked = prefill.stages?.s1 !== false;
-  document.getElementById('ps-s2').checked = prefill.stages?.s2 !== false;
-  document.getElementById('ps-s3').checked = !!prefill.stages?.s3;
+  document.getElementById('ps-s1').checked = stages.s1 !== false;
+  document.getElementById('ps-s2').checked = stages.s2 !== false;
+  document.getElementById('ps-s3').checked = !!stages.s3;
   _psSyncS3();
   modal.style.display = 'flex';
   setTimeout(() => document.getElementById('ps-name')?.focus(), 50);
@@ -7289,6 +7299,8 @@ async function submitPresetSave() {
     if (!r.ok) { const j = await r.json().catch(()=>({})); throw new Error(j.detail || ('HTTP '+r.status)); }
     const j = await r.json();
     activePresetName = j.name;
+    window._activePresetStages = body.stages;   // keep in sync so next Save re-opens correctly
+    _presetCache.delete(j.name);                // bust stale cache so next load re-fetches
     updatePresetBadge();
     populatePresetDropdowns();
     closePresetSaveModal();
