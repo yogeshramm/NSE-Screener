@@ -1118,9 +1118,6 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
         </button>
       </div>
       <span id="active-preset-badge" class="hidden text-[10px] bg-primary/20 text-primary px-2 py-1 rounded-full font-bold cursor-pointer" onclick="clearActivePreset()" style="display:none !important"></span>
-      <button onclick="quickSavePreset()" class="text-[10px] text-on-surface-variant hover:text-primary font-bold uppercase" title="Save current filters as preset">
-        <span class="material-symbols-outlined text-sm">save</span>
-      </button>
     </div>
     <div id="screener-action-right" class="flex items-center gap-3">
       <button id="scan-all-btn" onclick="runScreenAll()" class="flex items-center gap-2 h-10 px-4 bg-surface-container-high border border-outline-variant/20 rounded-lg text-[11px] font-black uppercase tracking-wider hover:bg-surface-container-highest">
@@ -7175,7 +7172,7 @@ async function populatePresetDropdowns() {
     };
     const dd=document.getElementById('preset-dropdown');
     if(dd) {
-      if(!_presetRows.length) { dd.innerHTML='<div class="text-[10px] text-on-surface-variant/50 p-2 text-center">No presets saved</div>'; }
+      if(!_presetRows.length) { dd.innerHTML='<div class="border-b border-outline-variant/20 mb-1.5 pb-1.5"><div class="flex items-center gap-1 hover:bg-surface-container-highest/60 rounded-lg px-2 py-1.5 cursor-pointer text-[10px] font-bold text-secondary" onclick="event.stopPropagation();document.getElementById(\'preset-dropdown\').classList.add(\'hidden\');setTimeout(()=>openPresetSaveModal(),80)"><span class="material-symbols-outlined text-[12px]">add</span> Save current as new preset</div></div><div class="text-[10px] text-on-surface-variant/50 p-2 text-center">No presets saved yet</div>'; }
       else {
         const items = _presetRows.map(r => {
           const isOwn = r.source === 'mine';
@@ -7183,13 +7180,14 @@ async function populatePresetDropdowns() {
           return `<div class="flex items-center justify-between hover:bg-surface-container-highest/60 rounded-lg px-2 py-1.5 group cursor-pointer gap-2">
             <span class="text-[10px] font-bold text-on-surface flex-1 truncate" onclick="loadPreset('${r.name}');document.getElementById('preset-dropdown').classList.add('hidden')">${r.name}</span>
             ${srcBadge(r.source)}
-            ${isOwn ? `<span class="material-symbols-outlined text-[11px] text-on-surface-variant/40 hover:text-secondary cursor-pointer" onclick="event.stopPropagation();document.getElementById('preset-dropdown').classList.add('hidden');openPresetSaveModal({name:'${r.name.replace(/'/g,"\\'")}})" title="Edit preset">edit</span>` : ''}
+            ${isOwn ? `<span class="material-symbols-outlined text-[11px] text-on-surface-variant/40 hover:text-secondary cursor-pointer" onclick="event.stopPropagation();event.preventDefault();document.getElementById('preset-dropdown').classList.add('hidden');setTimeout(()=>openPresetSaveModal({name:'${r.name.replace(/'/g,"\\'")}}),80)" title="Edit preset">edit</span>` : ''}
             ${isOwn ? `<span class="material-symbols-outlined text-[11px] text-on-surface-variant/40 hover:text-primary cursor-pointer" onclick="event.stopPropagation();openPresetShareModal(${r.id})" title="Share / publish">share</span>` : ''}
             ${isOwn ? `<span class="material-symbols-outlined text-[11px] text-on-surface-variant/30 group-hover:text-error cursor-pointer" onclick="event.stopPropagation();deletePreset('${r.name}')" title="Delete">close</span>` : ''}
           </div>`;
         }).join('');
         const browse = `<div class="border-t border-outline-variant/20 my-1.5 pt-1.5"><div class="flex items-center justify-center gap-1 hover:bg-surface-container-highest/60 rounded-lg px-2 py-1.5 cursor-pointer text-[10px] font-bold text-primary" onclick="event.stopPropagation();openCommunityPresets()"><span class="material-symbols-outlined text-[12px]">groups</span> Browse Community</div></div>`;
-        dd.innerHTML = items + browse;
+        const saveNew = `<div class="border-b border-outline-variant/20 mb-1.5 pb-1.5"><div class="flex items-center gap-1 hover:bg-surface-container-highest/60 rounded-lg px-2 py-1.5 cursor-pointer text-[10px] font-bold text-secondary" onclick="event.stopPropagation();document.getElementById('preset-dropdown').classList.add('hidden');setTimeout(()=>openPresetSaveModal(),80)"><span class="material-symbols-outlined text-[12px]">add</span> Save current as new preset</div></div>`;
+        dd.innerHTML = saveNew + items + browse;
       }
     }
     const c=document.getElementById('preset-select');
