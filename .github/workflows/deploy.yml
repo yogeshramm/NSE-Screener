@@ -32,6 +32,10 @@ jobs:
             for f in users.json watchlist.json portfolio.json .auth_secret yointell.db yointell.db-wal yointell.db-shm; do
               [ -f "config/$f" ] && cp "config/$f" "/tmp/yointell_runtime/$f"
             done
+            # Preserve per-user portfolio and watchlist files
+            for f in config/portfolio_*.json config/watchlist_*.json; do
+              [ -f "$f" ] && cp "$f" "/tmp/yointell_runtime/$(basename $f)"
+            done
 
             BEFORE=$(git rev-parse HEAD)
             echo "→ before: $BEFORE"
@@ -42,6 +46,9 @@ jobs:
               git reset --hard "$BEFORE" || true
               for f in users.json watchlist.json portfolio.json .auth_secret yointell.db yointell.db-wal yointell.db-shm; do
                 [ -f "/tmp/yointell_runtime/$f" ] && cp "/tmp/yointell_runtime/$f" "config/$f"
+              done
+              for f in /tmp/yointell_runtime/portfolio_*.json /tmp/yointell_runtime/watchlist_*.json; do
+                [ -f "$f" ] && cp "$f" "config/$(basename $f)"
               done
               sudo systemctl restart yointell || true
               sleep 3
@@ -59,6 +66,10 @@ jobs:
             # Restore runtime state immediately after reset
             for f in users.json watchlist.json portfolio.json .auth_secret yointell.db yointell.db-wal yointell.db-shm; do
               [ -f "/tmp/yointell_runtime/$f" ] && cp "/tmp/yointell_runtime/$f" "config/$f"
+            done
+            # Restore per-user portfolio and watchlist files
+            for f in /tmp/yointell_runtime/portfolio_*.json /tmp/yointell_runtime/watchlist_*.json; do
+              [ -f "$f" ] && cp "$f" "config/$(basename $f)"
             done
 
             if [ "$BEFORE" = "$AFTER" ]; then

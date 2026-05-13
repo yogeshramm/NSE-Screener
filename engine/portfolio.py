@@ -1,22 +1,37 @@
-"""Portfolio tracker: local-file positions + live P&L from history pickles."""
+"""Portfolio tracker: local-file positions + live P&L from history pickles.
+
+Each user gets their own file: config/portfolio_{username}.json
+Falls back to the legacy config/portfolio.json for unauthenticated access.
+"""
 import os, json, pickle, time
 from typing import List, Dict, Any, Optional
 
 ROOT = os.path.dirname(os.path.dirname(__file__))
 PORT_DIR = os.path.join(ROOT, "config")
-PORT_F = os.path.join(PORT_DIR, "portfolio.json")
+PORT_F = os.path.join(PORT_DIR, "portfolio.json")  # legacy global file
 HIST = os.path.join(ROOT, "data_store", "history")
 os.makedirs(PORT_DIR, exist_ok=True)
 
 
-def _load_positions() -> List[Dict[str, Any]]:
-    if not os.path.exists(PORT_F): return []
-    try: return json.load(open(PORT_F))
-    except Exception: return []
+def _port_file(username: Optional[str] = None) -> str:
+    """Return the portfolio file path for a user (or legacy global file)."""
+    if username:
+        return os.path.join(PORT_DIR, f"portfolio_{username}.json")
+    return PORT_F
 
 
-def _save_positions(positions: List[Dict[str, Any]]):
-    json.dump(positions, open(PORT_F, "w"), indent=2)
+def _load_positions(username: Optional[str] = None) -> List[Dict[str, Any]]:
+    f = _port_file(username)
+    if not os.path.exists(f):
+        return []
+    try:
+        return json.load(open(f))
+    except Exception:
+        return []
+
+
+def _save_positions(positions: List[Dict[str, Any]], username: Optional[str] = None):
+    json.dump(positions, open(_port_file(username), "w"), indent=2)
 
 
 def _last_two(sym):
@@ -30,8 +45,8 @@ def _last_two(sym):
     except Exception: return None, None
 
 
-def list_positions() -> Dict[str, Any]:
-    positions = _load_positions()
+def list_positions(username: Optional[str] = None) -> Dict[str, Any]:
+    positions = _load_positions(username)
     enriched = []
     open_inv = open_cur = open_day = 0.0
     realized_pnl = 0.0
@@ -95,9 +110,10 @@ def list_positions() -> Dict[str, Any]:
 def add_position(symbol: str, qty: float, buy_price: float,
                  buy_date: str = "", notes: str = "",
                  stop_loss: Optional[float] = None,
-                 target: Optional[float] = None):
+                 target: Optional[float] = None,
+                 username: Optional[str] = None):
     symbol = symbol.strip().upper()
-    positions = _load_positions()
+    positions = _load_positions(username)
     pos: Dict[str, Any] = {
         "id": f"{symbol}-{int(time.time())}",
         "symbol": symbol, "qty": qty, "buy_price": buy_price,
@@ -107,12 +123,13 @@ def add_position(symbol: str, qty: float, buy_price: float,
     if stop_loss is not None: pos["stop_loss"] = stop_loss
     if target is not None:    pos["target"] = target
     positions.append(pos)
-    _save_positions(positions)
+    _save_positions(positions, username)
     return {"ok": True, "count": len(positions)}
 
 
-def close_position(pos_id: str, sell_price: float, sell_date: str = ""):
-    positions = _load_positions()
+def close_position(pos_id: str, sell_price: float, sell_date: str = "",
+                   username: Optional[str] = None):
+    positions = _load_positions(username)
     found = False
     for p in positions:
         if p.get("id") == pos_id:
@@ -123,14 +140,14 @@ def close_position(pos_id: str, sell_price: float, sell_date: str = ""):
             break
     if not found:
         return {"ok": False, "error": "Position not found"}
-    _save_positions(positions)
+    _save_positions(positions, username)
     return {"ok": True}
 
 
-def update_position(pos_id: str, **kwargs):
+def update_position(pos_id: str, username: Optional[str] = None, **kwargs):
     """Update any fields on a position (notes, stop_loss, target, qty, etc.)."""
     allowed = {"notes", "stop_loss", "target", "qty", "buy_price", "buy_date"}
-    positions = _load_positions()
+    positions = _load_positions(username)
     found = False
     for p in positions:
         if p.get("id") == pos_id:
@@ -141,13 +158,13 @@ def update_position(pos_id: str, **kwargs):
             break
     if not found:
         return {"ok": False, "error": "Position not found"}
-    _save_positions(positions)
+    _save_positions(positions, username)
     return {"ok": True}
 
 
-def delete_position(pos_id: str):
-    positions = _load_positions()
+def delete_position(pos_id: str, username: Optional[str] = None):
+    positions = _load_positions(username)
     before = len(positions)
     positions = [p for p in positions if p.get("id") != pos_id]
-    _save_positions(positions)
+    _save_positions(positions, username)
     return {"ok": True, "removed": before - len(positions)}

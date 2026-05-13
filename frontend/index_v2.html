@@ -2733,6 +2733,12 @@ function _clearToken() {
     document.cookie = 'yointell_token=;path=/;max-age=0;SameSite=Lax';
 }
 let authToken = _getToken();
+// Auth-aware fetch: automatically injects Authorization header when logged in.
+function _aFetch(url, opts = {}) {
+  const tok = authToken || _getToken();
+  if (tok) opts.headers = { ...opts.headers, 'Authorization': 'Bearer ' + tok };
+  return fetch(url, opts);
+}
 // If a session token exists, immediately hide the login overlay before the async
 // checkAuth() fetch completes — prevents the "flash-of-login-wall → auto-dismiss"
 // visual glitch. checkAuth() restores it via _showLoginWall() if the token is stale.
@@ -3500,7 +3506,7 @@ window.addEventListener('popstate', (e) => {
 // ============ PORTFOLIO TRACKER (Phase 2-3) ============
 async function loadPortfolio() {
   try {
-    const r = await fetch(API + '/portfolio'); const d = await r.json();
+    const r = await _aFetch(API + '/portfolio');const d = await r.json();
     // Sync the chart-marker cache with fresh data
     _pfTradesCache = d.positions || [];
     _pfTradesCacheTs = Date.now();
@@ -3567,7 +3573,7 @@ async function pfSubmitAdd() {
   const tgt = parseFloat(document.getElementById('pf-tgt').value) || null;
   const body = { symbol: sym, qty, buy_price: price, buy_date: document.getElementById('pf-date').value, notes: document.getElementById('pf-notes').value, ...(sl  ? {stop_loss: sl}  : {}), ...(tgt ? {target: tgt} : {}) };
   try {
-    const r = await fetch(API + '/portfolio/add', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const r = await _aFetch(API + '/portfolio/add', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if (!r.ok) throw new Error('HTTP ' + r.status);
     pfHideAdd();
     await _pfLoadTradesCache(true);
@@ -3578,7 +3584,7 @@ async function pfSubmitAdd() {
 async function pfDelete(id) {
   // No confirm() — blocks Chrome extension; trash icon is sufficient intent signal
   try {
-    await fetch(API + '/portfolio/' + encodeURIComponent(id), {method:'DELETE'});
+    await _aFetch(API + '/portfolio/' + encodeURIComponent(id), {method:'DELETE'});
     await _pfLoadTradesCache(true);
     scApplyMarkers();
     loadPortfolio();
@@ -3600,7 +3606,7 @@ async function pfSubmitClose() {
   const date  = document.getElementById('pf-close-date').value;
   if (!price) { showPracticeToast?.('Enter sell price', 'err'); return; }
   try {
-    const r = await fetch(API + '/portfolio/' + encodeURIComponent(id) + '/close', {
+    const r = await _aFetch(API + '/portfolio/' + encodeURIComponent(id) + '/close', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({sell_price: price, sell_date: date})
     });
@@ -5642,7 +5648,7 @@ async function pfSubmitMark() {
     ...(sl  ? {stop_loss: sl}  : {}),
     ...(tgt ? {target: tgt}    : {}) };
   try {
-    const r = await fetch(API + '/portfolio/add', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const r = await _aFetch(API + '/portfolio/add', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if (!r.ok) throw new Error('HTTP ' + r.status);
     pfHideMarkModal();
     await _pfLoadTradesCache(true);
@@ -7808,7 +7814,7 @@ async function joinCurrentTournament() {
 // ============ WATCHLIST ============
 async function loadWatchlist() {
   try {
-    const res=await fetch(API+'/watchlist');
+    const res=await _aFetch(API+'/watchlist');
     const data=await res.json();
     watchlistData=data.items||[];
     document.getElementById('wl-count').textContent=watchlistData.length;
@@ -7894,10 +7900,10 @@ async function addToWatchlist(symbolOverride) {
   let symbols;
   if(symbolOverride){symbols=[symbolOverride];}
   else{const input=document.getElementById('wl-add-input').value.trim();if(!input)return;symbols=input.split(',').map(s=>s.trim().toUpperCase()).filter(s=>s);document.getElementById('wl-add-input').value='';}
-  try{await fetch(API+'/watchlist/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbols})});if(currentTab==='watchlist')await loadWatchlist();}catch(e){console.error('Add watchlist error:',e);}
+  try{await _aFetch(API+'/watchlist/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbols})});if(currentTab==='watchlist')await loadWatchlist();}catch(e){console.error('Add watchlist error:',e);}
 }
 
-async function removeFromWatchlist(symbol) { try{await fetch(API+'/watchlist/'+symbol,{method:'DELETE'});await loadWatchlist();}catch(e){console.error(e);} }
+async function removeFromWatchlist(symbol) { try{await _aFetch(API+'/watchlist/'+symbol,{method:'DELETE'});await loadWatchlist();}catch(e){console.error(e);} }
 
 function openAlertModal(symbol) {
   alertModalSymbol=symbol;
@@ -7926,14 +7932,14 @@ async function submitAlert() {
   if(type==='indicator'){alertData.indicator=document.getElementById('wl-alert-indicator').value;alertData.condition=document.getElementById('wl-alert-condition').value;const v=parseFloat(document.getElementById('wl-alert-value').value);if(!isNaN(v))alertData.value=v;}
   else if(type==='price'){alertData.condition=document.getElementById('wl-alert-price-condition').value;alertData.value=parseFloat(document.getElementById('wl-alert-price-value').value)||0;}
   else if(type==='preset'){alertData.preset_name=document.getElementById('wl-alert-preset-select').value;if(!alertData.preset_name)return;}
-  try{await fetch(API+'/watchlist/'+alertModalSymbol+'/alert',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(alertData)});closeAlertModal();await loadWatchlist();}catch(e){console.error(e);}
+  try{await _aFetch(API+'/watchlist/'+alertModalSymbol+'/alert',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(alertData)});closeAlertModal();await loadWatchlist();}catch(e){console.error(e);}
 }
 
 async function checkWatchlistAlerts() {
   const btn=document.getElementById('wl-check-btn');
   btn.disabled=true;btn.innerHTML='<span class="material-symbols-outlined text-lg animate-spin">sync</span><span class="text-sm uppercase tracking-tighter">Checking...</span>';
   try {
-    const res=await fetch(API+'/watchlist/check');
+    const res=await _aFetch(API+'/watchlist/check');
     const data=await res.json();
     for(const result of data.results){const item=watchlistData.find(i=>i.symbol===result.symbol);if(item){item._price=result.price;item._score=result.score;item._triggered=result.alerts_triggered;item._alert_results=result.alert_results||[];}}
     watchlistData.sort((a,b)=>(b._triggered||0)-(a._triggered||0)||(b._score||0)-(a._score||0));
@@ -7945,7 +7951,7 @@ async function checkWatchlistAlerts() {
   finally{btn.disabled=false;btn.innerHTML='<span class="material-symbols-outlined text-lg">notifications_active</span><span class="text-sm uppercase tracking-tighter">Check Alerts</span>';}
 }
 
-async function removeAlertFromWatchlist(symbol,index) { try{await fetch(API+'/watchlist/'+symbol+'/alert/'+index,{method:'DELETE'});await loadWatchlist();}catch(e){console.error(e);} }
+async function removeAlertFromWatchlist(symbol,index) { try{await _aFetch(API+'/watchlist/'+symbol+'/alert/'+index,{method:'DELETE'});await loadWatchlist();}catch(e){console.error(e);} }
 
 // ============ DATA SYNC ============
 function updateRing(percent) {
@@ -10877,6 +10883,62 @@ function renderReviewChart() {
 
 const PRAC_HISTORY_KEY = 'yointell_practice_history_v2';
 
+// Sync practice history FROM server into localStorage so history shows on any device.
+// Non-blocking: renders immediately from localStorage, then merges server data and re-renders.
+async function _syncPracticeHistoryFromServer() {
+  if (!authToken) return;
+  try {
+    const res = await _aFetch(API + '/leaderboard/personal?limit=200');
+    if (!res.ok) return;
+    const data = await res.json();
+    const rows = data.rows || [];
+    if (!rows.length) return;
+    const existing = getAllPracticeSessions();
+    // Index existing entries by srv_id to avoid duplicates
+    const srvIds = new Set(existing.map(s => s._srv_id).filter(Boolean));
+    // Also dedup by started_at timestamp as fallback
+    const startedAts = new Set(existing.map(s => s._started_at).filter(Boolean));
+    const nickname = getPracticeProfile() || 'Guest';
+    let added = 0;
+    for (const row of rows) {
+      if (srvIds.has(row.id)) continue;
+      if (startedAts.has(row.started_at)) continue;
+      const d = new Date(row.ended_at * 1000);
+      const dateStr = d.toISOString().slice(0, 10);
+      const diff = row.max_days === 30 ? 'Easy' : row.max_days === 60 ? 'Medium' : 'Hard';
+      existing.push({
+        id: 'srv-' + row.id,
+        _srv_id: row.id,
+        _started_at: row.started_at,
+        date: dateStr,
+        nickname,
+        symbol: row.symbol || '—',
+        difficulty: diff,
+        trades_count: row.trades_count || 0,
+        trades: [],
+        mistakes: [],
+        pnl: null,
+        pnl_pct: row.return_pct || 0,
+        win_rate: row.win_rate || 0,
+        winning_trades: 0,
+        losing_trades: 0,
+        final_purse: 100000,
+        avg_holding: 0,
+        sharpe: row.sharpe,
+        profit_factor: row.profit_factor,
+      });
+      added++;
+    }
+    if (added > 0) {
+      // Sort newest first by date
+      existing.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      if (existing.length > 200) existing.length = 200;
+      localStorage.setItem(PRAC_HISTORY_KEY, JSON.stringify(existing));
+      loadPracticeHistory(); // re-render with merged data
+    }
+  } catch (e) { /* silent — server unavailable */ }
+}
+
 function getAllPracticeSessions() {
   return JSON.parse(localStorage.getItem(PRAC_HISTORY_KEY) || '[]');
 }
@@ -10905,6 +10967,8 @@ function savePracticeSession(data) {
 }
 
 function loadPracticeHistory() {
+  // Kick off background server sync — fires async, re-renders after if new data found
+  _syncPracticeHistoryFromServer();
   // Header profile chip
   setPracticeProfile(getPracticeProfile());
 
@@ -11162,7 +11226,7 @@ async function loadHome() {
 
   // Watchlist with LTP
   try {
-    const wlRes = await fetch(API + '/watchlist').then(r => r.json()).catch(() => ({items:[]}));
+    const wlRes = await _aFetch(API + '/watchlist').then(r => r.json()).catch(() => ({items:[]}));
     const items = wlRes.items || [];
     const wlBody = document.getElementById('home-wl-body');
     if (wlBody) {
@@ -11311,7 +11375,7 @@ async function loadHomePortfolio() {
   const body  = document.getElementById('home-pf-body');
   if (!body) return;
   try {
-    const d = await fetch(API + '/portfolio').then(r => r.json());
+    const d = await _aFetch(API + '/portfolio').then(r => r.json());
     const positions = (d.positions || []).filter(p => p.status === 'open');
     const t = d.totals || {};
 

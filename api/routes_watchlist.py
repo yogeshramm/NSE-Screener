@@ -10,7 +10,7 @@ GET    /watchlist/check                — Check all alerts against latest data
 import json
 import numpy as np
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
@@ -19,6 +19,19 @@ from engine.watchlist import (
     load_watchlist, add_to_watchlist, remove_from_watchlist,
     add_alert, remove_alert, check_single_alert,
 )
+
+
+def _username(authorization: Optional[str]) -> Optional[str]:
+    """Extract username from Bearer token; return None if absent or invalid."""
+    if not authorization:
+        return None
+    tok = authorization[7:] if authorization.startswith("Bearer ") else authorization
+    try:
+        from engine.auth import verify_token
+        payload = verify_token(tok)
+        return payload.get("username") or payload.get("sub") or None
+    except Exception:
+        return None
 from engine.presets import load_preset
 from engine.default_config import get_default_config
 from engine.screener import screen_stock_stage1, screen_stock_stage2
@@ -59,49 +72,52 @@ class AddAlertRequest(BaseModel):
 
 
 @router.get("/watchlist")
-def list_watchlist():
-    items = load_watchlist()
+def list_watchlist(authorization: Optional[str] = Header(None)):
+    u = _username(authorization)
+    items = load_watchlist(u)
     return {"total": len(items), "items": items}
 
 
 @router.post("/watchlist/add")
-def add_symbols(request: AddWatchlistRequest):
+def add_symbols(request: AddWatchlistRequest, authorization: Optional[str] = Header(None)):
+    u = _username(authorization)
     added = []
     for sym in request.symbols:
-        item = add_to_watchlist(sym.strip().upper(), request.alerts)
+        item = add_to_watchlist(sym.strip().upper(), request.alerts, u)
         added.append(item)
     return {"added": len(added), "items": added}
 
 
 @router.delete("/watchlist/{symbol}")
-def remove_symbol(symbol: str):
-    removed = remove_from_watchlist(symbol)
+def remove_symbol(symbol: str, authorization: Optional[str] = Header(None)):
+    removed = remove_from_watchlist(symbol, _username(authorization))
     if not removed:
         raise HTTPException(404, f"{symbol} not in watchlist")
     return {"status": "removed", "symbol": symbol.upper()}
 
 
 @router.post("/watchlist/{symbol}/alert")
-def add_stock_alert(symbol: str, request: AddAlertRequest):
+def add_stock_alert(symbol: str, request: AddAlertRequest, authorization: Optional[str] = Header(None)):
+    u = _username(authorization)
     alert_dict = request.model_dump(exclude_none=True)
-    result = add_alert(symbol, alert_dict)
+    result = add_alert(symbol, alert_dict, u)
     if result is None:
         raise HTTPException(404, f"{symbol} not in watchlist")
     return {"status": "alert_added", "item": result}
 
 
 @router.delete("/watchlist/{symbol}/alert/{idx}")
-def remove_stock_alert(symbol: str, idx: int):
-    result = remove_alert(symbol, idx)
+def remove_stock_alert(symbol: str, idx: int, authorization: Optional[str] = Header(None)):
+    result = remove_alert(symbol, idx, _username(authorization))
     if result is None:
         raise HTTPException(404, f"{symbol} not in watchlist or alert index invalid")
     return {"status": "alert_removed", "item": result}
 
 
 @router.get("/watchlist/check")
-def check_alerts():
+def check_alerts(authorization: Optional[str] = Header(None)):
     """Check all watchlist alerts against latest data."""
-    items = load_watchlist()
+    items = load_watchlist(_username(authorization))
     if not items:
         return {"total": 0, "total_triggered": 0, "results": []}
 

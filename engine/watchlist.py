@@ -1,35 +1,47 @@
 """
 Watchlist Engine
 Persist and evaluate per-stock watchlist with configurable alerts.
-Storage: config/watchlist.json (single JSON file).
+Storage: config/watchlist_{username}.json per user;
+         config/watchlist.json as legacy fallback.
 """
 
 import json
 from pathlib import Path
 from datetime import datetime
+from typing import Optional
 
-WATCHLIST_FILE = Path(__file__).parent.parent / "config" / "watchlist.json"
+_CONFIG_DIR = Path(__file__).parent.parent / "config"
+WATCHLIST_FILE = _CONFIG_DIR / "watchlist.json"  # legacy global file
 
 
-def _load_raw() -> list[dict]:
-    if not WATCHLIST_FILE.exists():
+def _watchlist_file(username: Optional[str] = None) -> Path:
+    if username:
+        return _CONFIG_DIR / f"watchlist_{username}.json"
+    return WATCHLIST_FILE
+
+
+def _load_raw(username: Optional[str] = None) -> list[dict]:
+    f = _watchlist_file(username)
+    if not f.exists():
         return []
-    with open(WATCHLIST_FILE) as f:
-        return json.load(f)
+    with open(f) as fp:
+        return json.load(fp)
 
 
-def _save_raw(items: list[dict]):
-    WATCHLIST_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with open(WATCHLIST_FILE, "w") as f:
-        json.dump(items, f, indent=2, default=str)
+def _save_raw(items: list[dict], username: Optional[str] = None):
+    f = _watchlist_file(username)
+    f.parent.mkdir(parents=True, exist_ok=True)
+    with open(f, "w") as fp:
+        json.dump(items, fp, indent=2, default=str)
 
 
-def load_watchlist() -> list[dict]:
-    return _load_raw()
+def load_watchlist(username: Optional[str] = None) -> list[dict]:
+    return _load_raw(username)
 
 
-def add_to_watchlist(symbol: str, alerts: list[dict] | None = None) -> dict:
-    items = _load_raw()
+def add_to_watchlist(symbol: str, alerts: list[dict] | None = None,
+                     username: Optional[str] = None) -> dict:
+    items = _load_raw(username)
     symbol = symbol.strip().upper()
     for item in items:
         if item["symbol"] == symbol:
@@ -41,23 +53,23 @@ def add_to_watchlist(symbol: str, alerts: list[dict] | None = None) -> dict:
         "notes": "",
     }
     items.append(new_item)
-    _save_raw(items)
+    _save_raw(items, username)
     return new_item
 
 
-def remove_from_watchlist(symbol: str) -> bool:
-    items = _load_raw()
+def remove_from_watchlist(symbol: str, username: Optional[str] = None) -> bool:
+    items = _load_raw(username)
     symbol = symbol.strip().upper()
     before = len(items)
     items = [i for i in items if i["symbol"] != symbol]
     if len(items) < before:
-        _save_raw(items)
+        _save_raw(items, username)
         return True
     return False
 
 
-def add_alert(symbol: str, alert: dict) -> dict | None:
-    items = _load_raw()
+def add_alert(symbol: str, alert: dict, username: Optional[str] = None) -> dict | None:
+    items = _load_raw(username)
     symbol = symbol.strip().upper()
     for item in items:
         if item["symbol"] == symbol:
@@ -66,19 +78,19 @@ def add_alert(symbol: str, alert: dict) -> dict | None:
                 "enabled": True,
                 "created": datetime.now().isoformat(),
             })
-            _save_raw(items)
+            _save_raw(items, username)
             return item
     return None
 
 
-def remove_alert(symbol: str, alert_index: int) -> dict | None:
-    items = _load_raw()
+def remove_alert(symbol: str, alert_index: int, username: Optional[str] = None) -> dict | None:
+    items = _load_raw(username)
     symbol = symbol.strip().upper()
     for item in items:
         if item["symbol"] == symbol:
             if 0 <= alert_index < len(item["alerts"]):
                 item["alerts"].pop(alert_index)
-                _save_raw(items)
+                _save_raw(items, username)
                 return item
     return None
 
