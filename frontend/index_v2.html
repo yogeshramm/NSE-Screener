@@ -7403,6 +7403,14 @@ async function shareWithUser() {
       method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: u})
     });
     if (!r.ok) { const j = await r.json().catch(()=>({})); throw new Error(j.detail || 'HTTP ' + r.status); }
+    // Auto-promote visibility to "shared" so the recipient can actually see it
+    const curVis = document.getElementById('psh-vis')?.value;
+    if (curVis !== 'shared') {
+      await _presetFetch(API + '/presets/' + id + '/visibility', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({visibility: 'shared'})
+      }).catch(()=>{});
+      populatePresetDropdowns();
+    }
     openPresetShareModal(id);
   } catch(e) { alert('Share failed: ' + e.message); }
 }
