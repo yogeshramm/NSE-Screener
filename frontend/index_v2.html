@@ -7253,11 +7253,13 @@ function openPresetSaveModal(prefill = {}) {
   if (!modal) return;
   const name = prefill.name || (activePresetName || '');
   document.getElementById('ps-name').value = name;
-  // Resolve stages: explicit prefill → active preset's saved stages → row in list → defaults
+  // Resolve stages: explicit prefill → _activePresetStages (most recent, updated on save/load)
+  // → _presetRows entry (server list, may lag by one async fetch) → defaults
   let stages = prefill.stages;
   if (!stages && name) {
-    const activeRow = (_presetRows || []).find(r => r.name === name);
-    stages = activeRow?.stages || window._activePresetStages || null;
+    stages = window._activePresetStages
+          || (_presetRows || []).find(r => r.name === name)?.stages
+          || null;
   }
   stages = stages || {};
   document.getElementById('ps-desc').value = prefill.description || '';
