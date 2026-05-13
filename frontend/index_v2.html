@@ -2523,14 +2523,13 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
       <div id="psh-user-section" class="hidden">
         <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Add people</label>
         <div class="flex gap-2 mt-1">
-          <div class="relative flex-1">
-            <input id="psh-username" type="text" placeholder="Search username…" autocomplete="off"
-              class="w-full bg-surface-container-highest border-none rounded-lg text-sm px-3 py-2"
-              oninput="_pshFilter(this.value)" onfocus="_pshFilter(this.value)" onblur="setTimeout(()=>_pshHide(),180)" />
-            <ul id="psh-suggestions" class="absolute z-50 left-0 right-0 top-full mt-1 bg-surface-container-highest rounded-lg shadow-xl border border-outline-variant/20 max-h-44 overflow-y-auto hidden text-sm"></ul>
-          </div>
+          <input id="psh-username" type="text" placeholder="Search username…" autocomplete="off"
+            class="flex-1 bg-surface-container-highest border-none rounded-lg text-sm px-3 py-2"
+            oninput="_pshFilter(this.value)" />
           <button onclick="shareWithUser()" class="px-4 py-2 bg-primary-container text-on-primary rounded-lg text-xs font-bold uppercase">Add</button>
         </div>
+        <!-- Inline list — no absolute positioning so modal overflow-hidden can't clip it -->
+        <ul id="psh-suggestions" class="mt-2 bg-surface-container-highest rounded-lg border border-outline-variant/20 max-h-44 overflow-y-auto hidden text-sm"></ul>
       </div>
       <div>
         <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Currently shared with</label>
@@ -7402,8 +7401,25 @@ async function applyShareVisibility() {
 }
 async function shareWithUser() {
   const id = +document.getElementById('psh-id').value;
-  const u = document.getElementById('psh-username').value.trim();
+  let u = document.getElementById('psh-username').value.trim();
   if (!u) return;
+  // Fuzzy-resolve: if not an exact username, find a unique match from the loaded list
+  const exactMatch = _pshAllUsers.find(x => x.username === u);
+  if (!exactMatch) {
+    const q = u.toLowerCase();
+    const fuzzy = _pshAllUsers.filter(x =>
+      x.username.toLowerCase().includes(q) || (x.display_name||'').toLowerCase().includes(q)
+    );
+    if (fuzzy.length === 1) {
+      u = fuzzy[0].username;
+      document.getElementById('psh-username').value = u;
+    } else if (fuzzy.length > 1) {
+      alert(`Multiple users match "${u}". Please click the correct name from the list.`);
+      _pshFilter(u); // re-show the list
+      return;
+    }
+    // length === 0 → fall through, server returns a clear error
+  }
   try {
     const r = await _presetFetch(API + '/presets/' + id + '/share', {
       method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: u})
