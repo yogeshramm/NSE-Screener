@@ -2525,7 +2525,12 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
       <div>
         <label class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Share with user</label>
         <div class="flex gap-2 mt-1">
-          <input id="psh-username" type="text" placeholder="username" class="flex-1 bg-surface-container-highest border-none rounded-lg text-sm px-3 py-2" />
+          <div class="relative flex-1">
+            <input id="psh-username" type="text" placeholder="Search username…" autocomplete="off"
+              class="w-full bg-surface-container-highest border-none rounded-lg text-sm px-3 py-2"
+              oninput="_pshFilter(this.value)" onfocus="_pshFilter(this.value)" onblur="setTimeout(()=>_pshHide(),180)" />
+            <ul id="psh-suggestions" class="absolute z-50 left-0 right-0 top-full mt-1 bg-surface-container-highest rounded-lg shadow-xl border border-outline-variant/20 max-h-44 overflow-y-auto hidden text-sm"></ul>
+          </div>
           <button onclick="shareWithUser()" class="px-4 py-2 bg-primary-container text-on-primary rounded-lg text-xs font-bold uppercase">Add</button>
         </div>
       </div>
@@ -7290,6 +7295,9 @@ async function submitPresetSave() {
   } catch (e) { alert('Save failed: ' + e.message); }
 }
 
+let _pshAllUsers = [];   // cached user list for the share modal
+let _pshShared  = [];   // usernames already shared with this preset
+
 async function openPresetShareModal(presetId) {
   const modal = document.getElementById('preset-share-modal');
   if (!modal) return;
@@ -7298,17 +7306,52 @@ async function openPresetShareModal(presetId) {
   document.getElementById('psh-id').value = presetId;
   document.getElementById('psh-vis').value = row ? row.visibility : 'private';
   document.getElementById('psh-username').value = '';
-  try {
-    const r = await _presetFetch(API + '/presets/' + presetId + '/shares');
-    const j = await r.json();
-    const list = document.getElementById('psh-current');
-    if (!j.shares || !j.shares.length) {
-      list.innerHTML = '<div class="text-[10px] text-on-surface-variant/60 italic">Not shared with anyone yet.</div>';
-    } else {
-      list.innerHTML = j.shares.map(s => `<div class="flex items-center justify-between text-[11px] bg-surface-container-highest/40 rounded px-2 py-1"><span>${s.username}</span><span class="material-symbols-outlined text-[12px] text-error cursor-pointer hover:scale-110" onclick="revokeShare(${presetId}, '${s.username.replace(/'/g, '&#39;')}')">close</span></div>`).join('');
-    }
-  } catch(e) {}
+  _pshHide();
+
+  // Fetch shares + user list in parallel
+  const [sharesR, usersR] = await Promise.allSettled([
+    _presetFetch(API + '/presets/' + presetId + '/shares').then(r => r.json()).catch(() => ({})),
+    _aFetch(API + '/auth/users/list').then(r => r.json()).catch(() => ({users:[]})),
+  ]);
+
+  const sharesJ = sharesR.value || {};
+  const usersJ  = usersR.value  || {};
+
+  _pshShared = (sharesJ.shares || []).map(s => s.username);
+  _pshAllUsers = (usersJ.users || []).filter(u => !_pshShared.includes(u.username));
+
+  const list = document.getElementById('psh-current');
+  if (!_pshShared.length) {
+    list.innerHTML = '<div class="text-[10px] text-on-surface-variant/60 italic">Not shared with anyone yet.</div>';
+  } else {
+    list.innerHTML = (sharesJ.shares || []).map(s => `<div class="flex items-center justify-between text-[11px] bg-surface-container-highest/40 rounded px-2 py-1"><span>${s.username}</span><span class="material-symbols-outlined text-[12px] text-error cursor-pointer hover:scale-110" onclick="revokeShare(${presetId}, '${s.username.replace(/'/g, '&#39;')}')">close</span></div>`).join('');
+  }
   modal.style.display = 'flex';
+}
+function _pshFilter(q) {
+  const ul = document.getElementById('psh-suggestions');
+  if (!ul) return;
+  const term = (q || '').toLowerCase().trim();
+  const matches = _pshAllUsers.filter(u =>
+    !term || u.username.toLowerCase().includes(term) || (u.display_name||'').toLowerCase().includes(term)
+  ).slice(0, 10);
+  if (!matches.length) { ul.classList.add('hidden'); return; }
+  ul.innerHTML = matches.map(u => {
+    const label = u.display_name && u.display_name !== u.username
+      ? `<span class="font-semibold">${u.username}</span> <span class="text-on-surface-variant text-[10px]">${u.display_name}</span>`
+      : `<span class="font-semibold">${u.username}</span>`;
+    return `<li class="px-3 py-2 hover:bg-surface-variant cursor-pointer flex items-center gap-2" onmousedown="_pshPick('${u.username.replace(/'/g,"\\'")}')"><span class="material-symbols-outlined text-[14px] text-primary">person</span>${label}</li>`;
+  }).join('');
+  ul.classList.remove('hidden');
+}
+function _pshPick(username) {
+  const inp = document.getElementById('psh-username');
+  if (inp) inp.value = username;
+  _pshHide();
+}
+function _pshHide() {
+  const ul = document.getElementById('psh-suggestions');
+  if (ul) ul.classList.add('hidden');
 }
 function closePresetShareModal() { const m=document.getElementById('preset-share-modal'); if(m) m.style.display='none'; }
 
@@ -7340,6 +7383,7 @@ async function revokeShare(id, username) {
     await _presetFetch(API + '/presets/' + id + '/unshare', {
       method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username})
     });
+    _pshAllUsers = [];  // force refresh on reopen
     openPresetShareModal(id);
   } catch(e) {}
 }

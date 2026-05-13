@@ -118,6 +118,21 @@ def logout_user():
     return {"status": "logged_out", "message": "Token discarded. Clear it from localStorage."}
 
 
+@router.get("/auth/users/list")
+def list_approved_users(authorization: Optional[str] = Header(None)):
+    """Return usernames of all approved users. Requires valid JWT (not admin)."""
+    payload = _require_auth(authorization)
+    caller = payload.get("username", "")
+    all_users = list_users()
+    return {
+        "users": [
+            {"username": u["username"], "display_name": u.get("display_name") or u["username"]}
+            for u in all_users
+            if u.get("status", "approved") == "approved" and u["username"] != caller
+        ]
+    }
+
+
 # ── Admin endpoints ───────────────────────────────────────────────────────────
 
 @router.get("/auth/admin/users")
