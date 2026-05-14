@@ -330,23 +330,31 @@ def _migrate_legacy_users() -> None:
 
 
 def _migrate_legacy_presets() -> None:
-    """Copy config/presets/*.json into presets table, ownerless (system-default)."""
+    """Sync config/presets/*.json into the presets table as ownerless system rows.
+
+    Idempotent: on every startup, insert any JSON files not yet present in the
+    DB as ownerless legacy presets. Existing rows are left untouched (so user
+    edits via the API survive a restart).
+    """
     if not _LEGACY_PRESETS_DIR.exists():
         return
     now = int(time.time())
     conn = _connect()
     try:
-        existing = conn.execute("SELECT COUNT(*) FROM presets").fetchone()[0]
-        if existing:
-            return
+        rows = conn.execute(
+            "SELECT name FROM presets WHERE owner_id IS NULL"
+        ).fetchall()
+        existing = {r["name"] for r in rows}
         for f in sorted(_LEGACY_PRESETS_DIR.glob("*.json")):
+            name = f.stem
+            if name in existing:
+                continue
             try:
                 cfg = json.loads(f.read_text())
             except Exception:
                 continue
-            name = f.stem
             conn.execute(
-                """INSERT OR IGNORE INTO presets
+                """INSERT INTO presets
                    (owner_id, name, description, config_json, stages_json, visibility, created_at, updated_at)
                    VALUES(NULL, ?, ?, ?, ?, 'private', ?, ?)""",
                 (

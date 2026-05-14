@@ -234,17 +234,31 @@ def neo_score(
 
     score   = sum(1 for ok, _ in checks if ok)
     missing = [lbl for ok, lbl in checks if not ok]
+    conditions = {
+        "macd":       checks[0][0],
+        "ao":         checks[1][0],
+        "rsi":        checks[2][0],
+        "vortex":     checks[3][0],
+        "supertrend": checks[4][0],
+    }
+
+    # Tier classification — Supertrend is the anchor and must be present.
+    # Within 4/5 hits we separate "strong" (MACD/AO/Vortex missing — peers
+    # cross-confirm) from "watch" (RSI missing — out of [45,60] sweet spot).
+    if not conditions["supertrend"]:
+        tier = "below"
+    elif score >= 5:
+        tier = "perfect"
+    elif score == 4:
+        tier = "watch" if "RSI" in missing else "strong"
+    else:
+        tier = "below"
 
     return {
-        "score":   score,
-        "label":   f"{score}/5",
-        "is_neo":  score >= NEO_MIN_SCORE,
-        "conditions": {
-            "macd":       checks[0][0],
-            "ao":         checks[1][0],
-            "rsi":        checks[2][0],
-            "vortex":     checks[3][0],
-            "supertrend": checks[4][0],
-        },
-        "missing": missing,
+        "score":      score,
+        "label":      f"{score}/5",
+        "is_neo":     tier in ("perfect", "strong", "watch"),
+        "tier":       tier,
+        "conditions": conditions,
+        "missing":    missing,
     }

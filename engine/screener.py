@@ -342,6 +342,15 @@ def screen_stock_stage2(symbol: str, daily_df: pd.DataFrame, stock_data: dict,
     # ── Neo v1 signal ────────────────────────────────────────────────────
     neo = neo_score(stage1_result["indicator_results"], daily_df)
 
+    # Optional Stage 2 gate: presets can set "stage2_gate": "neo" to require
+    # Neo's tier (4/5 or 5/5 with Supertrend anchor) instead of the default
+    # breakout-count majority.
+    if config.get("stage2_gate") == "neo":
+        min_score = int(config.get("neo_min_score", 4))
+        stage2_pass = (neo["score"] >= min_score
+                       and neo["conditions"]["supertrend"]
+                       and late_entry["status"] != "FAIL")
+
     return {
         "symbol": symbol,
         "stage": 2,
