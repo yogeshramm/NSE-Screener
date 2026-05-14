@@ -339,27 +339,27 @@ def screen_stock_stage2(symbol: str, daily_df: pd.DataFrame, stock_data: dict,
     rr_ratio = atr_result["computed"].get("risk_reward_ratio") if atr_result else None
     atr_val = atr_result["computed"].get("atr") if atr_result else None
 
-    # ── Neo Radar (dual-window scoring) ──────────────────────────────────
-    # Every Stage 2 row carries BOTH the strict (lookback=3) and flex
-    # (lookback=5) Neo scores, plus a `fresh_count` tiebreaker for
-    # same-day-priority sorting within a tier. Legacy `neo` field continues
-    # to hold the strict score so existing call sites still work.
+    # ── Neo Radar (Inflection + Pending) ─────────────────────────────────
+    # Every Stage 2 row carries:
+    #   neo            = inflection score (post-flip; ST already flipped)
+    #   neo_pending    = pending score    (pre-flip; ST still bearish)
+    #   bars_since_flip = how many bars since ST flip (1 = today's flip)
+    #   fresh_count    = how many of the 5 fired specifically on today's bar
     radar = neo_radar_score(stage1_result["indicator_results"], daily_df)
-    neo      = radar["strict"]
-    neo_flex = radar["flex"]
-    fresh_count = radar["fresh_count"]
+    neo            = radar["inflection"]
+    neo_pending    = radar["pending"]
+    bars_since_flip = radar["bars_since_flip"]
+    fresh_count    = radar["fresh_count"]
 
-    # Stage 2 gate: presets set "stage2_gate": "neo_radar" (also accepts the
-    # legacy "neo_pulse" / "neo3" aliases). A stock passes if EITHER the
-    # strict OR the flex tier qualifies — the frontend separates them into
-    # two sub-sections in the result table.
+    # Stage 2 gate: presets set "stage2_gate": "neo_radar" (legacy aliases
+    # "neo_pulse"/"neo3" still accepted). A row passes if EITHER the
+    # post-flip Inflection tier OR the pre-flip Pending tier qualifies —
+    # the frontend separates them into two sub-sections.
     if config.get("stage2_gate") in ("neo_radar", "neo_pulse", "neo3"):
         min_score = int(config.get("neo_min_score", 4))
-        passes_strict = (neo["score"]      >= min_score
-                         and neo["conditions"]["supertrend"])
-        passes_flex   = (neo_flex["score"] >= min_score
-                         and neo_flex["conditions"]["supertrend"])
-        stage2_pass = ((passes_strict or passes_flex)
+        passes_inflection = neo["is_neo"]    and neo["score"] >= min_score
+        passes_pending    = neo_pending.get("is_pending", False)
+        stage2_pass = ((passes_inflection or passes_pending)
                        and late_entry["status"] != "FAIL")
 
     return {
@@ -378,9 +378,10 @@ def screen_stock_stage2(symbol: str, daily_df: pd.DataFrame, stock_data: dict,
         "late_entry": late_entry,
         "brk_pass": brk_pass,
         "brk_fail": brk_fail,
-        "neo":         neo,          # strict (LOOKBACK=3) — back-compat
-        "neo_flex":    neo_flex,     # flex   (LOOKBACK=5)
-        "fresh_count": fresh_count,  # # of indicators firing on today's bar
+        "neo":             neo,             # inflection (post-flip)
+        "neo_pending":     neo_pending,     # pending (pre-flip; ST still red)
+        "bars_since_flip": bars_since_flip, # 1 = ST flipped today
+        "fresh_count":     fresh_count,     # # of indicators firing on today's bar
     }
 
 

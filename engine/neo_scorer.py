@@ -1,33 +1,23 @@
 """
 Neo Radar — multi-indicator inflection detector for Stage 2.
 
-Two windows from the same scoring logic:
-  STRICT  (lookback = 3) — today + 2 prior bars. The "exact moment" view.
-                            Preferably the indicators all synced on today
-                            itself; the 3-bar window allows for the typical
-                            1-2 bar spread between oscillator turns.
-  FLEX    (lookback = 5) — today + 4 prior bars. The "still recent" view.
-                            Catches stocks where the sync happened earlier
-                            in the past week and is still actionable.
+TWO distinct outputs per stock, with Supertrend (period=7, mult=3 —
+matching the chart's overlay exactly) as the anchor:
 
-A stock's Stage 2 row carries both `neo` (strict) and `neo_flex` (flex).
-Frontend renders two sub-sections — Inflection (strict tier) on top,
-Extended (flex-only tier) below — so the result list is always
-moment-anchored to today, never to old setups.
+  INFLECTION  ("post-flip" — primary):
+    ST has flipped to bullish within the last 4 bars (today + 3 prior).
+    All 5 indicator events must land inside that 4-bar window.
+    Sorted in the UI by bars-since-flip ascending (today's flip first,
+    then yesterday's, then 2 / 3 days ago).
 
-5 conditions (Supertrend is the anchor):
-  1. MACD       histogram crossed red→green within last LOOKBACK bars
-                AND line still below MACD_LINE_MAX.
-  2. AO         crossed zero within last LOOKBACK bars  OR  slim-red rising.
-  3. RSI        currently in [RSI_MIN, RSI_MAX].
-  4. Vortex     VI+ crossed above VI- within last LOOKBACK bars.
-  5. Supertrend direction flipped -1 → +1 within last LOOKBACK bars.
+  PENDING     ("pre-flip" — secondary watchlist):
+    ST has NOT flipped yet (current direction = -1).
+    But MACD + AO + RSI + Vortex have all aligned within the last 3 bars
+    (today + 2 prior). Read: "everything's lined up, just waiting for
+    Supertrend to confirm tomorrow or the day after."
 
-Tier classification (per profile):
-  perfect — 5/5
-  strong  — 4/5 with MACD/AO/Vortex missing
-  watch   — 4/5 with RSI missing
-  below   — anything else (or Supertrend anchor missing)
+Indicator parameters match indicators/*.py defaults — the same code that
+draws the chart overlay.
 """
 
 from __future__ import annotations
@@ -39,27 +29,29 @@ import numpy as np
 import pandas as pd
 
 # ── tunable constants ─────────────────────────────────────────────────────
-STRICT_LOOKBACK  = 3       # today + 2 prior — "exact moment"
-FLEX_LOOKBACK    = 5       # today + 4 prior — "still recent within a week"
+INFLECTION_LOOKBACK = 4   # today + 3 prior bars — "ST flipped within 3 days"
+PENDING_LOOKBACK    = 3   # today + 2 prior bars — "4 of 4 non-ST aligned in last 3 days"
 RSI_MIN          = 45
 RSI_MAX          = 65
 AO_SLIM_RATIO    = 0.40
 MACD_LINE_MAX    = 5.0
 NEO_MIN_SCORE    = 4
-# Back-compat constant — pre-existing callers that imported LOOKBACK keep working
-LOOKBACK         = STRICT_LOOKBACK
+# Back-compat constants
+LOOKBACK         = INFLECTION_LOOKBACK
+STRICT_LOOKBACK  = INFLECTION_LOOKBACK
+FLEX_LOOKBACK    = INFLECTION_LOOKBACK
 
 
-# ── series computers (self-contained — no reliance on registry output) ────
+# ── series computers (self-contained — match indicators/*.py defaults) ────
 
 def _ao_series(h: pd.Series, l: pd.Series) -> pd.Series:
-    """Bill Williams Awesome Oscillator: SMA5 − SMA34 of median price."""
+    """Bill Williams AO: SMA5 - SMA34 of median price (matches indicators/awesome_oscillator.py)."""
     median = (h + l) / 2
     return median.rolling(5).mean() - median.rolling(34).mean()
 
 
 def _vortex_series(h: pd.Series, l: pd.Series, c: pd.Series, period: int = 14):
-    """Standard Vortex (VI+ and VI-, 14-period)."""
+    """Standard Vortex VI+/VI- (matches indicators/vortex.py)."""
     h_prev = h.shift(1); l_prev = l.shift(1); c_prev = c.shift(1)
     tr = pd.concat([(h - l).abs(), (h - c_prev).abs(), (l - c_prev).abs()], axis=1).max(axis=1)
     vm_p = (h - l_prev).abs()
@@ -70,9 +62,8 @@ def _vortex_series(h: pd.Series, l: pd.Series, c: pd.Series, period: int = 14):
 
 def _supertrend_dir(h: pd.Series, l: pd.Series, c: pd.Series,
                     period: int = 7, mult: float = 3.0) -> pd.Series:
-    # period/mult MUST match indicators/supertrend.py's default_params so that
-    # what Neo Radar reports aligns with what the chart Supertrend overlay shows.
-    """Return supertrend direction series (+1 bullish, -1 bearish)."""
+    """Supertrend direction series (+1 / -1). Params match indicators/supertrend.py
+    so the scanner agrees with what's drawn on the chart."""
     h_prev = h.shift(1); l_prev = l.shift(1); c_prev = c.shift(1)
     tr = pd.concat([(h - l).abs(), (h - c_prev).abs(), (l - c_prev).abs()], axis=1).max(axis=1)
     atr = tr.ewm(alpha=1/period, min_periods=period, adjust=False).mean()
@@ -109,10 +100,7 @@ def _find(indicator_results: list, name: str) -> Optional[dict]:
 
 def _series_recently_crossed_up(s: pd.Series, threshold: float, lookback: int) -> bool:
     """True iff series[-1] > threshold AND any of the `lookback` prior bars
-    were ≤ threshold. The cross event must have happened on one of the last
-    `lookback` bars inclusive (today, yesterday, …). To detect a cross
-    landing on bar -k, we need bar -(k+1) to have been below threshold,
-    so we look at `lookback` prior bars (positions -[lookback+1] .. -2)."""
+    were ≤ threshold (cross happened within the last `lookback` bars inclusive)."""
     if s is None or len(s) < lookback + 1:
         return False
     vals = s.values
@@ -122,111 +110,104 @@ def _series_recently_crossed_up(s: pd.Series, threshold: float, lookback: int) -
     return any(not math.isnan(v) and v <= threshold for v in prior)
 
 
-# ── 5 condition checks (parametrised on lookback) ─────────────────────────
+# ── per-condition checks (parametrised on lookback) ───────────────────────
 
-def _c_macd(ind: Optional[dict], lookback: int) -> Tuple[bool, str]:
-    label = "MACD"
+def _c_macd(ind: Optional[dict], lookback: int) -> bool:
     if not ind:
-        return False, label
+        return False
     c = ind.get("computed", {})
     hist_s = c.get("histogram_series")
     macd_s = c.get("macd_series")
     if hist_s is None or macd_s is None:
-        return False, label
+        return False
     if not _series_recently_crossed_up(hist_s, 0.0, lookback):
-        return False, label
+        return False
     if macd_s.values[-1] >= MACD_LINE_MAX:
-        return False, label
-    return True, label
+        return False
+    return True
 
 
-def _c_ao(daily_df: Optional[pd.DataFrame], lookback: int) -> Tuple[bool, str]:
-    label = "AO"
+def _c_ao(daily_df: Optional[pd.DataFrame], lookback: int) -> bool:
     if daily_df is None or len(daily_df) < 35:
-        return False, label
+        return False
     ao = _ao_series(daily_df["High"], daily_df["Low"])
     if _series_recently_crossed_up(ao, 0.0, lookback):
-        return True, label
+        return True
+    # slim-red rising fallback
     vals = ao.values
     if len(vals) >= 2 and not math.isnan(vals[-1]) and not math.isnan(vals[-2]):
         curr, prev = vals[-1], vals[-2]
         if curr < 0 and prev < 0 and curr > prev:
             if abs(curr) / max(abs(prev), 1e-9) <= AO_SLIM_RATIO:
-                return True, label
-    return False, label
+                return True
+    return False
 
 
-def _c_rsi(ind: Optional[dict]) -> Tuple[bool, str]:
-    """RSI currently in [RSI_MIN, RSI_MAX] — band itself is the decay gate."""
-    label = "RSI"
+def _c_rsi(ind: Optional[dict]) -> bool:
     if not ind:
-        return False, label
+        return False
     rsi = ind.get("computed", {}).get("rsi")
     if rsi is None:
-        return False, label
-    return RSI_MIN <= float(rsi) <= RSI_MAX, label
+        return False
+    return RSI_MIN <= float(rsi) <= RSI_MAX
 
 
-def _c_vortex(daily_df: Optional[pd.DataFrame], lookback: int) -> Tuple[bool, str]:
-    """VI+ crossed above VI- within last `lookback` bars (inclusive of today).
-       Currently bullish AND any of `lookback` prior bars had VI+ ≤ VI-.
-       A cross on bar -k requires bar -(k+1) to have been bearish, so we
-       check `lookback` prior bars: positions -[lookback+1] .. -2."""
-    label = "Vortex"
+def _c_vortex(daily_df: Optional[pd.DataFrame], lookback: int) -> bool:
     if daily_df is None or len(daily_df) < 20:
-        return False, label
+        return False
     vi_p, vi_m = _vortex_series(daily_df["High"], daily_df["Low"], daily_df["Close"])
     if len(vi_p) < lookback + 1:
-        return False, label
+        return False
     p = vi_p.values; m = vi_m.values
     if math.isnan(p[-1]) or math.isnan(m[-1]) or p[-1] <= m[-1]:
-        return False, label
+        return False
     for i in range(-(lookback + 1), -1):
         if not math.isnan(p[i]) and not math.isnan(m[i]) and p[i] <= m[i]:
-            return True, label
-    return False, label
+            return True
+    return False
 
 
-def _c_supertrend(daily_df: Optional[pd.DataFrame], lookback: int) -> Tuple[bool, str]:
-    """ANCHOR: Supertrend direction flipped -1 → +1 within last `lookback` bars
-       (inclusive of today). A flip on bar -k requires bar -(k+1) to have been
-       bearish, so we check `lookback` prior bars: positions -[lookback+1] .. -2."""
-    label = "Supertrend"
+# ── supertrend helpers ────────────────────────────────────────────────────
+
+def _st_currently_bullish_and_flip_age(daily_df: Optional[pd.DataFrame]) -> Tuple[bool, Optional[int]]:
+    """Return (currently_bullish, bars_since_last_flip).
+    bars_since_last_flip counts current bar as 1 (flip on most recent bar = 1).
+    If currently bearish, returns (False, None)."""
     if daily_df is None or len(daily_df) < 20:
-        return False, label
+        return False, None
     dir_ = _supertrend_dir(daily_df["High"], daily_df["Low"], daily_df["Close"])
-    if len(dir_) < lookback + 1:
-        return False, label
     vals = dir_.values
     if vals[-1] != 1:
-        return False, label
-    for i in range(-(lookback + 1), -1):
+        return False, None
+    # find most recent bar where dir was -1 (the bar BEFORE the flip)
+    for i in range(len(vals) - 1, -1, -1):
         if vals[i] == -1:
-            return True, label
-    return False, label
+            # flip happened at i+1; bars from i+1 to last (= len-1) = len - (i+1) bars
+            return True, len(vals) - 1 - i   # i+1 → len-1 inclusive distance
+    return True, None   # entirely bullish history — degenerate
 
 
-# ── scoring core ──────────────────────────────────────────────────────────
+# ── scoring ───────────────────────────────────────────────────────────────
 
-def _score_one(indicator_results: list, daily_df: Optional[pd.DataFrame],
-               lookback: int, profile_name: str) -> Dict:
-    """Run the 5-condition scoring with the given lookback window."""
-    checks: List[Tuple[bool, str]] = [
-        _c_macd(_find(indicator_results, "MACD"), lookback),
-        _c_ao(daily_df, lookback),
-        _c_rsi(_find(indicator_results, "RSI")),
-        _c_vortex(daily_df, lookback),
-        _c_supertrend(daily_df, lookback),
-    ]
-    score   = sum(1 for ok, _ in checks if ok)
-    missing = [lbl for ok, lbl in checks if not ok]
+def _score_inflection(indicator_results: list,
+                      daily_df: Optional[pd.DataFrame]) -> Dict:
+    """Post-flip Inflection: ST currently +1 AND flipped within INFLECTION_LOOKBACK
+    bars, with the other 4 indicators also firing in the same window."""
+    st_bull, bars_since = _st_currently_bullish_and_flip_age(daily_df)
+    # ST has to be bullish + flip within 0..(INFLECTION_LOOKBACK-1) bars-since
+    # (bars_since=1 means flip happened on today's bar)
+    st_ok = st_bull and bars_since is not None and bars_since <= INFLECTION_LOOKBACK
+
+    lb = INFLECTION_LOOKBACK
     conditions = {
-        "macd":       bool(checks[0][0]),
-        "ao":         bool(checks[1][0]),
-        "rsi":        bool(checks[2][0]),
-        "vortex":     bool(checks[3][0]),
-        "supertrend": bool(checks[4][0]),
+        "macd":       bool(_c_macd(_find(indicator_results, "MACD"), lb)),
+        "ao":         bool(_c_ao(daily_df, lb)),
+        "rsi":        bool(_c_rsi(_find(indicator_results, "RSI"))),
+        "vortex":     bool(_c_vortex(daily_df, lb)),
+        "supertrend": bool(st_ok),
     }
+    score = sum(1 for v in conditions.values() if v)
+    missing = [k.upper() for k, v in conditions.items() if not v]
     if not conditions["supertrend"]:
         tier = "below"
     elif score >= 5:
@@ -236,51 +217,93 @@ def _score_one(indicator_results: list, daily_df: Optional[pd.DataFrame],
     else:
         tier = "below"
     return {
+        "score":            score,
+        "label":            f"{score}/5",
+        "is_neo":           tier in ("perfect", "strong", "watch"),
+        "tier":             tier,
+        "profile":          "inflection",
+        "conditions":       conditions,
+        "missing":          missing,
+        "bars_since_flip":  bars_since if st_bull else None,
+    }
+
+
+def _score_pending(indicator_results: list,
+                   daily_df: Optional[pd.DataFrame]) -> Dict:
+    """Pre-flip Pending: ST currently -1 (NOT yet flipped) but the other 4
+    indicators (MACD, AO, RSI, Vortex) have all aligned within the last
+    PENDING_LOOKBACK bars. Watchlist for an imminent flip."""
+    st_bull, _ = _st_currently_bullish_and_flip_age(daily_df)
+    if st_bull:
+        # Pending only applies when ST is still bearish
+        return {
+            "score":      0,
+            "label":      "0/4",
+            "is_pending": False,
+            "tier":       "below",
+            "profile":    "pending",
+            "conditions": {},
+            "missing":    [],
+        }
+
+    lb = PENDING_LOOKBACK
+    conditions = {
+        "macd":   bool(_c_macd(_find(indicator_results, "MACD"), lb)),
+        "ao":     bool(_c_ao(daily_df, lb)),
+        "rsi":    bool(_c_rsi(_find(indicator_results, "RSI"))),
+        "vortex": bool(_c_vortex(daily_df, lb)),
+    }
+    score = sum(1 for v in conditions.values() if v)
+    missing = [k.upper() for k, v in conditions.items() if not v]
+    tier = "pending" if score >= 4 else "below"
+    return {
         "score":      score,
-        "label":      f"{score}/5",
-        "is_neo":     tier in ("perfect", "strong", "watch"),
+        "label":      f"{score}/4",
+        "is_pending": tier == "pending",
         "tier":       tier,
-        "profile":    profile_name,
-        "lookback":   lookback,
+        "profile":    "pending",
         "conditions": conditions,
         "missing":    missing,
     }
 
 
-# ── main public function ──────────────────────────────────────────────────
+def _fresh_count(indicator_results: list, daily_df: Optional[pd.DataFrame]) -> int:
+    """How many of the 5 conditions fired specifically on TODAY (lookback=1)."""
+    return sum(1 for v in [
+        _c_macd(_find(indicator_results, "MACD"), 1),
+        _c_ao(daily_df, 1),
+        _c_rsi(_find(indicator_results, "RSI")),
+        _c_vortex(daily_df, 1),
+        _st_currently_bullish_and_flip_age(daily_df)[1] == 1,   # ST flipped today
+    ] if v)
 
-def neo_score(indicator_results: list,
-              daily_df: Optional[pd.DataFrame] = None,
-              lookback: int = STRICT_LOOKBACK) -> Dict:
-    """Default neo_score keeps backward-compat: single-profile result with
-    the STRICT lookback. For Neo Radar's dual-window output, callers should
-    use `neo_radar_score()` which returns both strict and flex tiers."""
-    return _score_one(indicator_results, daily_df, lookback, f"strict_lb{lookback}")
 
+# ── public API ────────────────────────────────────────────────────────────
 
 def neo_radar_score(indicator_results: list,
                     daily_df: Optional[pd.DataFrame] = None) -> Dict:
     """
-    Compute BOTH the strict (lookback=3) and flex (lookback=5) Neo scores
-    for a Stage 2 stock.
-
     Returns:
-        {
-          "strict": { score, label, is_neo, tier, profile="strict", lookback=3, ... },
-          "flex":   { score, label, is_neo, tier, profile="flex",   lookback=5, ... },
-          "fresh_count": int  # how many indicators fired specifically on today's bar
-        }
-
-    fresh_count is the count of conditions passing with lookback=1 — i.e.
-    the cross literally happened on the most recent bar. Used as a
-    same-day-priority tiebreaker when sorting within a tier.
+      {
+        "inflection":     { score, tier, is_neo, conditions, missing,
+                            bars_since_flip, ... },
+        "pending":        { score, tier, is_pending, conditions, missing, ... },
+        "bars_since_flip": int | None,
+        "fresh_count":    int (0–5),
+      }
     """
-    strict = _score_one(indicator_results, daily_df, STRICT_LOOKBACK, "strict")
-    flex   = _score_one(indicator_results, daily_df, FLEX_LOOKBACK,   "flex")
-    # fresh_count: how many fire when window collapses to today only
-    today  = _score_one(indicator_results, daily_df, 1, "today")
+    infl = _score_inflection(indicator_results, daily_df)
+    pend = _score_pending(indicator_results, daily_df)
     return {
-        "strict":      strict,
-        "flex":        flex,
-        "fresh_count": today["score"],
+        "inflection":      infl,
+        "pending":         pend,
+        "bars_since_flip": infl["bars_since_flip"],
+        "fresh_count":     _fresh_count(indicator_results, daily_df),
     }
+
+
+def neo_score(indicator_results: list,
+              daily_df: Optional[pd.DataFrame] = None,
+              lookback: int = INFLECTION_LOOKBACK) -> Dict:
+    """Back-compat shim — returns the inflection score in the legacy shape."""
+    return _score_inflection(indicator_results, daily_df)

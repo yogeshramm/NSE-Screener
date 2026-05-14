@@ -3062,28 +3062,31 @@ function _evBadge(r) {
 }
 
 function _neoBadge(row) {
-  /* Neo Radar badge. Picks the visible tier as follows:
-       - if row.neo (strict, 3-bar) is_neo → render strict tier
-       - else if row.neo_flex (flex, 5-bar) is_neo → render flex tier
-       - else → dash (the gate already rejected this row, badge is informational)
-     Tooltip carries which window the score came from + fresh_count tiebreaker. */
+  /* Neo Radar badge. Picks the visible band:
+       - Inflection (post-flip): row.neo.is_neo → render with bars-since-flip chip
+       - Pending (pre-flip):     row.neo_pending.is_pending → amber "PENDING" pill
+       - Below:                  dash */
   if (!row) return '<span class="text-on-surface-variant/30 text-xs">—</span>';
-  let neo, window_label;
-  if (row.neo && row.neo.is_neo) { neo = row.neo; window_label = 'last 3 bars'; }
-  else if (row.neo_flex && row.neo_flex.is_neo) { neo = row.neo_flex; window_label = 'last 5 bars'; }
-  else { neo = row.neo || row.neo_flex || row; }
+  if (row.neo_pending && row.neo_pending.is_pending) {
+    const missing = (row.neo_pending.missing || []).join(', ');
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 text-[10px] font-black" title="Neo Pending — all 4 non-ST conditions aligned in last 3 bars, Supertrend not yet flipped${missing ? '; partial: ' + missing : ''}">PENDING 4/4</span>`;
+  }
+  const neo = row.neo;
   if (!neo || typeof neo.score === 'undefined') return '<span class="text-on-surface-variant/30 text-xs">—</span>';
   const tier = neo.tier || (neo.is_neo ? (neo.score >= 5 ? 'perfect' : 'strong') : 'below');
   if (tier === 'below') return '<span class="text-on-surface-variant/30 text-xs">—</span>';
   const missing = (neo.missing || []).join(', ');
+  const bsf = (row.bars_since_flip != null) ? row.bars_since_flip : null;
+  const ageChip = bsf != null ? ` <span class="font-normal text-[8px] opacity-70">${bsf}b</span>` : '';
   const fc = (row.fresh_count != null) ? ` · ${row.fresh_count}/5 today` : '';
+  const ageTitle = bsf != null ? `; ST flipped ${bsf}-bar${bsf === 1 ? '' : 's'} ago` : '';
   if (tier === 'perfect') {
-    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-black" title="Neo Radar perfect — all 5 conditions synced within ${window_label}${fc}">★ 5/5</span>`;
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-black" title="Neo Inflection perfect — all 5 conditions synced post-flip${ageTitle}${fc}">★ 5/5${ageChip}</span>`;
   }
   if (tier === 'watch') {
-    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-400/15 text-sky-300 text-[10px] font-black" title="Neo Radar watch — 4/5 within ${window_label}; RSI outside [45, 65] but Supertrend anchored${fc}">${neo.score}/5 <span class="font-normal text-[8px] text-sky-300/70">-RSI</span></span>`;
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-400/15 text-sky-300 text-[10px] font-black" title="Neo Inflection watch — 4/5 post-flip; RSI outside [45, 65]${ageTitle}${fc}">${neo.score}/5 <span class="font-normal text-[8px] text-sky-300/70">-RSI</span>${ageChip}</span>`;
   }
-  return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-black" title="Neo Radar strong — 4/5 within ${window_label}; missing: ${missing}${fc}">${neo.score}/5 <span class="font-normal text-[8px] text-primary/70">-${missing}</span></span>`;
+  return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-black" title="Neo Inflection strong — 4/5 post-flip; missing: ${missing}${ageTitle}${fc}">${neo.score}/5 <span class="font-normal text-[8px] text-primary/70">-${missing}</span>${ageChip}</span>`;
 }
 
 // ============ QUICK LOOKUP (search bar → single row in Stage 1) ============
@@ -4368,33 +4371,40 @@ function renderResults(data) {
 
   const _isRadar = (typeof activePresetName !== 'undefined' && activePresetName === 'neo_radar');
   if (_isRadar) {
-    // Neo Radar: split Stage 2 into INFLECTION (strict 3-bar) + EXTENDED (5-bar
-    // passers not already in strict). Sort each band by (Neo score desc,
-    // fresh_count desc, composite score desc) — same-day synced signals bubble
-    // to the top of their tier.
-    const _rank = (a, b) => {
-      const sa = a.neo?.is_neo ? a.neo.score : (a.neo_flex?.score || 0);
-      const sb = b.neo?.is_neo ? b.neo.score : (b.neo_flex?.score || 0);
-      if (sb !== sa) return sb - sa;
+    // Neo Radar:
+    //   Inflection = post-flip stocks (ST already flipped). Sorted ASCENDING
+    //                by bars-since-flip — 1-bar flips on top (freshest), then
+    //                2-bar, then 3-bar. Sub-sort by score desc + fresh_count desc.
+    //   Pending    = pre-flip watchlist (ST still bearish; 4/4 non-ST aligned).
+    //                Sorted by composite score desc.
+    const _rankInflection = (a, b) => {
+      const ba = a.bars_since_flip ?? 99;
+      const bb = b.bars_since_flip ?? 99;
+      if (ba !== bb) return ba - bb;                          // 1-bar before 2-bar before 3-bar
+      const sa = a.neo?.score || 0, sb = b.neo?.score || 0;
+      if (sb !== sa) return sb - sa;                          // higher score
       const fa = a.fresh_count || 0, fb = b.fresh_count || 0;
-      if (fb !== fa) return fb - fa;
+      if (fb !== fa) return fb - fa;                          // more of today's bar
       return (b.score || 0) - (a.score || 0);
     };
+    const _rankPending = (a, b) => (b.score || 0) - (a.score || 0);
+
     const passers = (data.stage2_results || []).filter(r => r.passed);
-    const inflection = passers.filter(r => r.neo?.is_neo).sort(_rank);
-    const extended   = passers.filter(r => !r.neo?.is_neo && r.neo_flex?.is_neo).sort(_rank);
-    document.getElementById('s2-count').textContent = (inflection.length + extended.length) + ' moment';
+    const inflection = passers.filter(r => r.neo?.is_neo).sort(_rankInflection);
+    const pending    = passers.filter(r => r.neo_pending?.is_pending).sort(_rankPending);
+    document.getElementById('s2-count').textContent = (inflection.length + pending.length) + ' moment';
+
     let html = '';
     if (inflection.length) {
-      html += `<tr class="bg-primary/5"><td colspan="12" class="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-primary border-y border-primary/30"><span class="material-symbols-outlined align-middle text-[12px] mr-1">my_location</span>Inflection · last 3 bars · ${inflection.length}</td></tr>`;
+      html += `<tr class="bg-primary/5"><td colspan="12" class="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-primary border-y border-primary/30"><span class="material-symbols-outlined align-middle text-[12px] mr-1">my_location</span>Inflection · post-flip · ${inflection.length}</td></tr>`;
       html += inflection.map((r, i) => _s2RowHtml(r, i + 1)).join('');
     }
-    if (extended.length) {
-      html += `<tr class="bg-sky-500/5"><td colspan="12" class="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-sky-300 border-y border-sky-500/30"><span class="material-symbols-outlined align-middle text-[12px] mr-1">radar</span>Extended · last 5 bars · ${extended.length}</td></tr>`;
-      html += extended.map((r, i) => _s2RowHtml(r, inflection.length + i + 1)).join('');
+    if (pending.length) {
+      html += `<tr class="bg-amber-500/5"><td colspan="12" class="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-amber-300 border-y border-amber-500/30"><span class="material-symbols-outlined align-middle text-[12px] mr-1">schedule</span>Pending · pre-flip watchlist · ${pending.length}</td></tr>`;
+      html += pending.map((r, i) => _s2RowHtml(r, inflection.length + i + 1)).join('');
     }
-    if (!inflection.length && !extended.length) {
-      html = '<tr><td colspan="12" class="px-3 py-8 text-center text-on-surface-variant/50">No stocks at the Neo moment today — nothing within the 5-bar window</td></tr>';
+    if (!inflection.length && !pending.length) {
+      html = '<tr><td colspan="12" class="px-3 py-8 text-center text-on-surface-variant/50">No Neo Radar hits today — no post-flip Inflection and no pre-flip Pending alignment</td></tr>';
     }
     s2.innerHTML = html;
   } else {
