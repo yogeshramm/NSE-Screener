@@ -3062,34 +3062,26 @@ function _evBadge(r) {
 }
 
 function _neoBadge(row) {
-  /* Renders the Neo multi-indicator inflection badge for Stage 2.
-     - Picks v2 if `neo_v2` preset is active and the row carries neo_v2,
-       otherwise uses the row's neo (v1) field.
-     - Accepts either a full row {neo, neo_v2} or a raw neo dict (legacy).
-     Tier rendering:
+  /* Renders the Neo3 multi-indicator early-trend badge for Stage 2.
        perfect (5/5)                       → amber ★ pill
        strong  (4/5, MACD/AO/Vortex out)   → green pill (peers cross-confirm)
-       watch   (4/5, RSI out of band)      → blue pill (sub-optimal inflection)
-       below   (<4 or Supertrend anchor X) → dash */
+       watch   (4/5, RSI out of band)      → blue pill (sub-optimal but anchored)
+       below   (<4 or Supertrend anchor X) → dash
+     Accepts a Stage 2 row OR a raw neo dict (for back-compat with callers
+     that pass r.neo directly). */
   if (!row) return '<span class="text-on-surface-variant/30 text-xs">—</span>';
-  // Backward-compat: caller may have passed a raw neo dict
-  let neo = (row && (row.neo || row.neo_v2)) ? null : row;
-  if (!neo) {
-    const useV2 = (typeof activePresetName !== 'undefined' && activePresetName === 'neo_v2');
-    neo = (useV2 && row.neo_v2) ? row.neo_v2 : (row.neo || row.neo_v2);
-  }
-  if (!neo) return '<span class="text-on-surface-variant/30 text-xs">—</span>';
+  const neo = (row && row.neo) ? row.neo : row;
+  if (!neo || typeof neo.score === 'undefined') return '<span class="text-on-surface-variant/30 text-xs">—</span>';
   const tier = neo.tier || (neo.is_neo ? (neo.score >= 5 ? 'perfect' : 'strong') : 'below');
   if (tier === 'below') return '<span class="text-on-surface-variant/30 text-xs">—</span>';
-  const profile = neo.profile === 'v2' ? 'v2' : 'v1';
   const missing = (neo.missing || []).join(', ');
   if (tier === 'perfect') {
-    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-black" title="Neo ${profile} perfect — all 5 indicators simultaneously at inflection">★ 5/5</span>`;
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-black" title="Neo3 perfect — all 5 conditions met (MACD · AO · RSI · Vortex · Supertrend anchor)">★ 5/5</span>`;
   }
   if (tier === 'watch') {
-    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-400/15 text-sky-300 text-[10px] font-black" title="Neo ${profile} watch — 4/5 with RSI outside the band: sub-optimal inflection but anchored by Supertrend">${neo.score}/5 <span class="font-normal text-[8px] text-sky-300/70">-RSI</span></span>`;
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-400/15 text-sky-300 text-[10px] font-black" title="Neo3 watch — 4/5 with RSI outside [${45}, ${70}]; sub-optimal but Supertrend anchored">${neo.score}/5 <span class="font-normal text-[8px] text-sky-300/70">-RSI</span></span>`;
   }
-  return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-black" title="Neo ${profile} strong — 4/5 with peer-confirming indicators; missing: ${missing}">${neo.score}/5 <span class="font-normal text-[8px] text-primary/70">-${missing}</span></span>`;
+  return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-black" title="Neo3 strong — 4/5 with peer-confirming indicators; missing: ${missing}">${neo.score}/5 <span class="font-normal text-[8px] text-primary/70">-${missing}</span></span>`;
 }
 
 // ============ QUICK LOOKUP (search bar → single row in Stage 1) ============

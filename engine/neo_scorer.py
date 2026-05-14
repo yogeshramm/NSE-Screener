@@ -1,26 +1,25 @@
 """
-Neo — Multi-indicator inflection detector for Stage 2.
+Neo3 — Multi-indicator early-trend detector for Stage 2.
 
-Catches stocks at the MOMENT 5 momentum indicators simultaneously
-flip from bearish/neutral to bullish — the start of a move, not the
-confirmation the crowd sees 20–30% later.
+Predecessors v1 (strict inflection-moment) and v2 (OIL-tuned) were both
+miscalibrated to one-bar synchronization. In reality the 5 indicators
+flip within a 3-7 bar window, not the same bar. Neo3 widens the "just
+happened" window to 5 bars and relaxes the magnitude bounds to match
+the actual reference set (HINDALCO 4/7, CROMPTON 4/16, USHAMART 4/10,
+ASIANPAINT 4/10 — all real "fresh-trend entries" 1-3 weeks into a
+Supertrend-confirmed move).
 
-Two profiles:
-  v1 (strict)  — original tight thresholds. Designed to catch SLOW,
-                 gradual inflections. Misses fast/gappy moves (OIL-type).
-  v2 (default) — relaxed thresholds tuned to also catch explosive
-                 gap-up inflections where conditions cross hard in 1-2
-                 bars. v2 is the daily-use reference.
+5 conditions (Supertrend is the anchor):
+  1. MACD       histogram crossed red→green within last LOOKBACK bars,
+                line still below MACD_LINE_MAX (not yet runaway).
+  2. AO         positive-and-rising  OR  crossed zero within last LOOKBACK
+                bars  OR  slim red rising (curr/prev ratio ≤ AO_SLIM_RATIO).
+  3. RSI        between RSI_MIN and RSI_MAX (fresh trend, not yet extended).
+  4. Vortex     VI+ crossed/touching VI-  OR  bullish with spread ≤ VORTEX_FRESH.
+  5. Supertrend just flipped bullish (price crossed ST line within last
+                LOOKBACK bars  OR  close within ST_MAX_PCT_ABOVE% above ST).
 
-5 conditions (±1 bar fuzzy window, Supertrend is the anchor):
-  1. MACD       hist red→green in last 2 bars, line still below MACD_LINE_MAX
-  2. AO         just turned green OR slim red (curr/prev ratio ≤ AO_SLIM_RATIO)
-  3. RSI        between RSI_MIN and RSI_MAX (fresh momentum, not yet extended)
-  4. Vortex     VI+ crossed/touching VI- OR fresh cross within VORTEX_FRESH spread
-  5. Supertrend just flipped bullish (price crossed ST line in last LOOKBACK
-                bars, OR close within ST_MAX_PCT_ABOVE% above ST line)
-
-Score ≥ 4 (with Supertrend present) → Neo signal.
+Score ≥ 4 (with Supertrend anchor present) → Neo3 signal.
 
 Tier classification:
   perfect  — 5/5
@@ -35,49 +34,20 @@ from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
-
-# ── profile parameters ────────────────────────────────────────────────────
-#
-# v1 = strict (original Neo). v2 = relaxed (daily-use reference).
-# Picked v2 thresholds against the May-13 OIL gap-up case study
-# (close +13% above ST line, AO ratio 0.347, MACD line +1.66, Vortex
-# spread 0.196, RSI 63.29 — all just outside v1's windows).
-
-NEO_PARAMS_V1: Dict = {
-    "LOOKBACK":         2,
-    "RSI_MIN":         45,
-    "RSI_MAX":         60,
-    "AO_SLIM_RATIO":   0.30,
-    "VORTEX_TOL":      0.02,
-    "VORTEX_FRESH":    0.08,
-    "ST_MAX_PCT_ABOVE": 8.0,
-    "MACD_LINE_MAX":   0.0,
-    "NEO_MIN_SCORE":   4,
-}
-
-NEO_PARAMS_V2: Dict = {
-    "LOOKBACK":         2,
-    "RSI_MIN":         45,
-    "RSI_MAX":         65,
-    "AO_SLIM_RATIO":   0.40,
-    "VORTEX_TOL":      0.02,
-    "VORTEX_FRESH":    0.20,
-    "ST_MAX_PCT_ABOVE": 15.0,
-    "MACD_LINE_MAX":   2.0,
-    "NEO_MIN_SCORE":   4,
-}
-
-NEO_PROFILES: Dict[str, Dict] = {"v1": NEO_PARAMS_V1, "v2": NEO_PARAMS_V2}
-
-# Backward-compat module constants (default to v1 — pre-existing callers
-# that imported these by name keep their original behaviour).
-LOOKBACK         = NEO_PARAMS_V1["LOOKBACK"]
-RSI_MIN          = NEO_PARAMS_V1["RSI_MIN"]
-RSI_MAX          = NEO_PARAMS_V1["RSI_MAX"]
-AO_SLIM_RATIO    = NEO_PARAMS_V1["AO_SLIM_RATIO"]
-VORTEX_TOL       = NEO_PARAMS_V1["VORTEX_TOL"]
-ST_MAX_PCT_ABOVE = NEO_PARAMS_V1["ST_MAX_PCT_ABOVE"]
-NEO_MIN_SCORE    = NEO_PARAMS_V1["NEO_MIN_SCORE"]
+# ── tunable constants ─────────────────────────────────────────────────────
+# Calibrated to the reference inflection bars: HINDALCO 2026-04-07,
+# CROMPTON 2026-04-16, USHAMART 2026-04-10, ASIANPAINT 2026-04-10.
+# Each constant is wider than v1/v2 by design — 5-bar window for the
+# "just happened" semantics, generous magnitude bounds.
+LOOKBACK         = 5       # bar window meaning "just happened" (current + 4 prior bars)
+RSI_MIN          = 45
+RSI_MAX          = 70
+AO_SLIM_RATIO    = 0.40    # AO "slim red" if |ao| ≤ ratio × |ao_prev|
+VORTEX_TOL       = 0.02    # VI+ within this distance of VI- = touching / about to cross
+VORTEX_FRESH     = 0.30    # spread cap for "fresh cross" detection
+ST_MAX_PCT_ABOVE = 18.0    # ST proximity proxy: close within X% above ST line
+MACD_LINE_MAX    = 5.0     # MACD line allowed up to this many points above zero
+NEO_MIN_SCORE    = 4
 
 
 # ── helpers ───────────────────────────────────────────────────────────────
@@ -87,90 +57,95 @@ def _find(indicator_results: list, name: str) -> Optional[dict]:
     return next((r for r in indicator_results if r.get("indicator") == name), None)
 
 
-# ── 5 condition checks (parameterised) ────────────────────────────────────
+# ── 5 condition checks ────────────────────────────────────────────────────
 
-def _c_macd(ind: Optional[dict], p: Dict) -> Tuple[bool, str]:
-    """
-    MACD histogram crossed red→green within last LOOKBACK bars, AND the
-    MACD line itself is still below MACD_LINE_MAX (i.e. not yet extended
-    far above the zero centre — v1 requires < 0, v2 allows < small positive
-    so a same-bar histogram+line crossover still counts).
-    """
+def _c_macd(ind: Optional[dict]) -> Tuple[bool, str]:
+    """MACD histogram crossed red→green within last LOOKBACK bars AND line ≤
+    MACD_LINE_MAX (i.e. crossing happened recently AND line hasn't yet run
+    away). LOOKBACK=5 lets indicators synchronize over a week-ish window."""
     label = "MACD"
     if not ind:
         return False, label
     c = ind.get("computed", {})
-    lookback = p["LOOKBACK"]; line_max = p["MACD_LINE_MAX"]
 
     hist_s = c.get("histogram_series")
     macd_s = c.get("macd_series")
 
-    if hist_s is not None and len(hist_s) >= lookback + 1:
+    if hist_s is not None and len(hist_s) >= LOOKBACK + 1:
         hist = hist_s.values
         macd = macd_s.values if macd_s is not None else None
         if hist[-1] <= 0:
             return False, label
-        if not any(v <= 0 for v in hist[-(lookback + 1):-1]):
+        # Any of the last LOOKBACK prior bars was red → recent crossover
+        if not any(v <= 0 for v in hist[-(LOOKBACK + 1):-1]):
             return False, label
-        if macd is not None and macd[-1] >= line_max:
+        if macd is not None and macd[-1] >= MACD_LINE_MAX:
             return False, label
         return True, label
 
-    # Fallback: scalar flags
+    # Fallback: scalar flags only
     bullish_cross = c.get("bullish_crossover", False)
     imminent      = c.get("imminent_crossover", False)
     macd_val      = c.get("macd", 0) or 0
     hist_val      = c.get("histogram", 0) or 0
     crossed_recently = bullish_cross or (imminent and hist_val > 0)
-    below_ceiling = macd_val < line_max
+    below_ceiling = macd_val < MACD_LINE_MAX
     return crossed_recently and below_ceiling, label
 
 
-def _c_ao(ind: Optional[dict], p: Dict) -> Tuple[bool, str]:
-    """
-    AO just turned green (prev ≤ 0, curr > 0), OR is at slimmest red
-    (still negative but small and rising toward zero, curr/prev ratio
-    ≤ AO_SLIM_RATIO).
-    """
+def _c_ao(ind: Optional[dict]) -> Tuple[bool, str]:
+    """AO bullish — any of:
+       - positive AND rising (in trend, not yet exhausted), OR
+       - crossed zero within last LOOKBACK bars (just turned green), OR
+       - slim red rising (ratio ≤ AO_SLIM_RATIO)."""
     label = "AO"
     if not ind:
         return False, label
     c = ind.get("computed", {})
-    slim = p["AO_SLIM_RATIO"]
 
     curr   = c.get("ao", 0) or 0
     prev   = c.get("ao_prev", 0) or 0
-    zero_x = c.get("zero_line_crossover", False)
     rising = c.get("rising", False)
 
-    if zero_x or (curr > 0 and prev <= 0):
+    # Positive and rising — handles "AO went green a few bars ago, still expanding"
+    if curr > 0 and curr >= prev:
         return True, label
 
+    # Crossed zero within the LOOKBACK window — uses ao_series if available
+    ao_s = c.get("ao_series")
+    if ao_s is not None and len(ao_s) >= LOOKBACK + 1:
+        vals = ao_s.values
+        recent = vals[-(LOOKBACK + 1):]
+        # Was any prior bar ≤ 0 and the latest bar > 0?
+        if recent[-1] > 0 and any(v <= 0 for v in recent[:-1]):
+            return True, label
+
+    # Fallback: explicit zero_line_crossover flag (1-bar window)
+    if c.get("zero_line_crossover", False):
+        return True, label
+
+    # Slim red rising
     if curr < 0 and rising and prev < 0:
         ratio = abs(curr) / max(abs(prev), 1e-9)
-        if ratio <= slim:
+        if ratio <= AO_SLIM_RATIO:
             return True, label
 
     return False, label
 
 
-def _c_rsi(ind: Optional[dict], p: Dict) -> Tuple[bool, str]:
-    """RSI between RSI_MIN and RSI_MAX — momentum just started, not yet extended."""
+def _c_rsi(ind: Optional[dict]) -> Tuple[bool, str]:
+    """RSI between RSI_MIN and RSI_MAX — fresh trend, not yet overbought."""
     label = "RSI"
     if not ind:
         return False, label
     rsi = ind.get("computed", {}).get("rsi")
     if rsi is None:
         return False, label
-    return p["RSI_MIN"] <= float(rsi) <= p["RSI_MAX"], label
+    return RSI_MIN <= float(rsi) <= RSI_MAX, label
 
 
-def _c_vortex(ind: Optional[dict], p: Dict) -> Tuple[bool, str]:
-    """
-    VI+ just crossed above VI- (bullish_crossover flag is True),
-    OR VI+ is within VORTEX_TOL of VI- (converging / touching),
-    OR VI+ is already above VI- with spread ≤ VORTEX_FRESH (recent cross).
-    """
+def _c_vortex(ind: Optional[dict]) -> Tuple[bool, str]:
+    """VI+ crossed above VI-, touching, OR bullish with spread ≤ VORTEX_FRESH."""
     label = "Vortex"
     if not ind:
         return False, label
@@ -182,12 +157,12 @@ def _c_vortex(ind: Optional[dict], p: Dict) -> Tuple[bool, str]:
     vi_plus  = c.get("vi_plus",  0) or 0
     vi_minus = c.get("vi_minus", 0) or 0
 
-    if abs(vi_plus - vi_minus) <= p["VORTEX_TOL"]:
+    if abs(vi_plus - vi_minus) <= VORTEX_TOL:
         return True, label
 
     if c.get("bullish", False):
         spread = c.get("spread", vi_plus - vi_minus)
-        if abs(spread) <= p["VORTEX_FRESH"]:
+        if abs(spread) <= VORTEX_FRESH:
             return True, label
 
     return False, label
@@ -195,23 +170,14 @@ def _c_vortex(ind: Optional[dict], p: Dict) -> Tuple[bool, str]:
 
 def _c_supertrend(
     ind: Optional[dict],
-    daily_df: Optional[pd.DataFrame],
-    p: Dict,
+    daily_df: Optional[pd.DataFrame] = None,
 ) -> Tuple[bool, str]:
-    """
-    Supertrend just flipped to bullish (ANCHOR condition).
-
-    Detection hierarchy:
-      1. Price crossed above the supertrend line within last LOOKBACK bars
-         (checked against raw daily_df closes).
-      2. Fallback: current direction == 1 AND close is within ST_MAX_PCT_ABOVE%
-         above the supertrend value (proxy for a recent flip).
-    """
+    """ANCHOR: Supertrend bullish — flipped within last LOOKBACK bars OR
+       close within ST_MAX_PCT_ABOVE% above ST line."""
     label = "Supertrend"
     if not ind:
         return False, label
     c = ind.get("computed", {})
-    lookback = p["LOOKBACK"]; pct_cap = p["ST_MAX_PCT_ABOVE"]
 
     curr_dir = c.get("direction", 0)
     if curr_dir != 1:
@@ -220,22 +186,22 @@ def _c_supertrend(
     st_val = c.get("supertrend")
     close  = c.get("close")
 
-    # Method 1: raw closes vs current ST level
-    if st_val and daily_df is not None and len(daily_df) > lookback + 1:
+    # Method 1: raw closes vs current ST level — recent flip detection
+    if st_val and daily_df is not None and len(daily_df) > LOOKBACK + 1:
         try:
             col = "Close" if "Close" in daily_df.columns else "close"
             closes = daily_df[col].values
             curr_close = closes[-1]
-            prior      = closes[-(lookback + 2):-1]
+            prior      = closes[-(LOOKBACK + 2):-1]
             if curr_close > st_val and any(pp <= st_val for pp in prior):
                 return True, label
         except Exception:
             pass
 
-    # Method 2: proximity proxy — wider window for fast moves under v2
+    # Method 2: proximity proxy
     if st_val and close and close > 0:
         pct_above = (close - st_val) / st_val * 100
-        return 0 <= pct_above <= pct_cap, label
+        return 0 <= pct_above <= ST_MAX_PCT_ABOVE, label
 
     return c.get("above_supertrend", False), label
 
@@ -245,34 +211,27 @@ def _c_supertrend(
 def neo_score(
     indicator_results: list,
     daily_df: Optional[pd.DataFrame] = None,
-    profile: str = "v1",
 ) -> Dict:
     """
-    Compute the Neo signal score for a Stage 2 stock.
-
-    Args:
-        indicator_results : list of indicator result dicts from Stage 1
-        daily_df          : full daily OHLCV DataFrame (used for ST flip detection)
-        profile           : "v1" (strict) or "v2" (relaxed, daily-use reference)
+    Compute the Neo3 signal score for a Stage 2 stock.
 
     Returns dict:
         {
-            "score"     : int,         # 0–5
-            "label"     : "5/5",       # display string
-            "is_neo"    : bool,        # True when tier in (perfect, strong, watch)
-            "tier"      : str,         # perfect | strong | watch | below
-            "profile"   : str,         # "v1" | "v2"
-            "conditions": {...},       # per-condition pass/fail
-            "missing"   : [str],       # names of failed conditions
+            "score"     : int,        # 0–5
+            "label"     : "5/5",      # display string
+            "is_neo"    : bool,       # True when tier in (perfect, strong, watch)
+            "tier"      : str,        # perfect | strong | watch | below
+            "profile"   : "neo3",     # name of active profile
+            "conditions": {...},      # per-condition pass/fail
+            "missing"   : [str],      # names of failed conditions
         }
     """
-    p = NEO_PROFILES.get(profile, NEO_PARAMS_V1)
     checks: List[Tuple[bool, str]] = [
-        _c_macd(_find(indicator_results, "MACD"), p),
-        _c_ao(_find(indicator_results, "Awesome Oscillator"), p),
-        _c_rsi(_find(indicator_results, "RSI"), p),
-        _c_vortex(_find(indicator_results, "Vortex Indicator"), p),
-        _c_supertrend(_find(indicator_results, "Supertrend"), daily_df, p),
+        _c_macd(_find(indicator_results, "MACD")),
+        _c_ao(_find(indicator_results, "Awesome Oscillator")),
+        _c_rsi(_find(indicator_results, "RSI")),
+        _c_vortex(_find(indicator_results, "Vortex Indicator")),
+        _c_supertrend(_find(indicator_results, "Supertrend"), daily_df),
     ]
 
     score   = sum(1 for ok, _ in checks if ok)
@@ -285,14 +244,11 @@ def neo_score(
         "supertrend": bool(checks[4][0]),
     }
 
-    # Tier classification — Supertrend is the anchor and must be present.
-    # Within 4/5 hits we separate "strong" (MACD/AO/Vortex missing — peers
-    # cross-confirm) from "watch" (RSI missing — out of band, sub-optimal).
     if not conditions["supertrend"]:
         tier = "below"
     elif score >= 5:
         tier = "perfect"
-    elif score >= p["NEO_MIN_SCORE"]:
+    elif score >= NEO_MIN_SCORE:
         tier = "watch" if "RSI" in missing else "strong"
     else:
         tier = "below"
@@ -302,7 +258,7 @@ def neo_score(
         "label":      f"{score}/5",
         "is_neo":     tier in ("perfect", "strong", "watch"),
         "tier":       tier,
-        "profile":    profile,
+        "profile":    "neo3",
         "conditions": conditions,
         "missing":    missing,
     }
