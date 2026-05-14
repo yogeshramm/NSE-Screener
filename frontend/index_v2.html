@@ -2001,37 +2001,119 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
         <div id="rg-alert-status" class="text-[10px] text-on-surface-variant/60">Live alerts coming soon — backend in progress</div>
       </div>
     </div>
+    <!-- Header -->
     <div class="flex items-center justify-between mb-5">
       <div>
         <h2 class="text-xl font-black uppercase tracking-[0.2em] text-primary">PORTFOLIO</h2>
-        <div class="text-[11px] text-on-surface-variant">Live P&amp;L from local price history</div>
+        <div class="text-[11px] text-on-surface-variant">Manual trade journal · Live P&amp;L from price history</div>
       </div>
-      <button onclick="pfShowAdd()" class="px-4 py-2 bg-primary text-on-primary font-bold text-xs rounded-lg hover:opacity-90">+ Add Position</button>
+      <button onclick="pfShowAdd()" class="px-4 py-2 bg-primary text-on-primary font-bold text-xs rounded-lg hover:opacity-90 flex items-center gap-1.5">
+        <span class="material-symbols-outlined text-sm">add</span>Add Trade
+      </button>
     </div>
-    <!-- Totals row -->
-    <div id="pf-totals" class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6"></div>
-    <!-- Positions table -->
-    <div class="rounded-xl border border-outline-variant/20 bg-surface-container-low overflow-x-auto">
-      <table id="pf-table" class="w-full min-w-[700px] text-left tabular-nums">
-        <thead class="bg-surface-container border-b border-outline-variant/20">
-          <tr>
-            <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">Symbol</th>
-            <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">Status</th>
-            <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Qty</th>
-            <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Buy</th>
-            <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">LTP / Sell</th>
-            <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Invested</th>
-            <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">P&amp;L</th>
-            <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">SL / Tgt</th>
-            <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Date</th>
-            <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center"></th>
-          </tr>
-        </thead>
-        <tbody id="pf-body" class="text-xs">
-          <tr><td colspan="10" class="px-3 py-12 text-center text-on-surface-variant/50">No positions. Click "Add Position" to start tracking.</td></tr>
-        </tbody>
-      </table>
+
+    <!-- KPI Cards -->
+    <div id="pf-totals" class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5"></div>
+
+    <!-- Charts row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+      <div class="bg-surface-container-low rounded-xl border border-outline-variant/20 p-4">
+        <div class="text-[10px] font-black uppercase tracking-wider text-on-surface-variant mb-3 flex items-center gap-2">
+          <span class="material-symbols-outlined text-sm">donut_small</span>Portfolio Allocation
+        </div>
+        <div id="pf-pie-chart" class="flex items-center gap-5 min-h-[130px]"></div>
+      </div>
+      <div class="bg-surface-container-low rounded-xl border border-outline-variant/20 p-4">
+        <div class="text-[10px] font-black uppercase tracking-wider text-on-surface-variant mb-3 flex items-center gap-2">
+          <span class="material-symbols-outlined text-sm">bar_chart</span>P&amp;L by Position
+        </div>
+        <div id="pf-bar-chart" class="min-h-[130px] flex flex-col justify-center"></div>
+      </div>
     </div>
+
+    <!-- Sub-tabs nav -->
+    <div class="flex border-b border-outline-variant/20 mb-0">
+      <button class="pf-subtab-btn flex items-center gap-1.5 px-5 py-3 text-[10px] font-black uppercase tracking-wider border-b-2 border-primary text-primary transition-colors" data-tab="holdings" onclick="pfSwitchTab('holdings')">
+        <span class="material-symbols-outlined text-sm">grid_view</span>Holdings
+      </button>
+      <button class="pf-subtab-btn flex items-center gap-1.5 px-5 py-3 text-[10px] font-black uppercase tracking-wider border-b-2 border-transparent text-on-surface-variant hover:text-on-surface transition-colors" data-tab="tradebook" onclick="pfSwitchTab('tradebook')">
+        <span class="material-symbols-outlined text-sm">receipt_long</span>Trade Book
+      </button>
+      <button class="pf-subtab-btn flex items-center gap-1.5 px-5 py-3 text-[10px] font-black uppercase tracking-wider border-b-2 border-transparent text-on-surface-variant hover:text-on-surface transition-colors" data-tab="pnl" onclick="pfSwitchTab('pnl')">
+        <span class="material-symbols-outlined text-sm">analytics</span>P&amp;L Report
+      </button>
+    </div>
+
+    <!-- Holdings sub-tab -->
+    <div id="pf-subtab-holdings" class="pf-subtab-content">
+      <div class="rounded-b-xl border border-t-0 border-outline-variant/20 bg-surface-container-low overflow-x-auto">
+        <table id="pf-table" class="w-full min-w-[760px] text-left tabular-nums">
+          <thead class="bg-surface-container border-b border-outline-variant/20">
+            <tr>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">Symbol</th>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">Status</th>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Qty</th>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Avg Cost</th>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">LTP / Exit</th>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Invested</th>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Current</th>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">P&amp;L</th>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">SL / Tgt</th>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Entry Date</th>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center"></th>
+            </tr>
+          </thead>
+          <tbody id="pf-body" class="text-xs">
+            <tr><td colspan="11" class="px-3 py-12 text-center text-on-surface-variant/50">No positions. Click "Add Trade" to start tracking.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Trade Book sub-tab -->
+    <div id="pf-subtab-tradebook" class="pf-subtab-content hidden">
+      <div class="rounded-b-xl border border-t-0 border-outline-variant/20 bg-surface-container-low overflow-x-auto">
+        <table class="w-full min-w-[600px] text-left tabular-nums">
+          <thead class="bg-surface-container border-b border-outline-variant/20">
+            <tr>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">Date</th>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">Type</th>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">Symbol</th>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Qty</th>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Price</th>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Trade Value</th>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">Notes</th>
+            </tr>
+          </thead>
+          <tbody id="pf-tradebook-body" class="text-xs">
+            <tr><td colspan="7" class="px-3 py-12 text-center text-on-surface-variant/50">No trades yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- P&L Report sub-tab -->
+    <div id="pf-subtab-pnl" class="pf-subtab-content hidden">
+      <div class="rounded-b-xl border border-t-0 border-outline-variant/20 bg-surface-container-low overflow-x-auto">
+        <table class="w-full min-w-[650px] text-left tabular-nums">
+          <thead class="bg-surface-container border-b border-outline-variant/20">
+            <tr>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">Symbol</th>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">Entry Date</th>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant">Exit Date</th>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Held</th>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Entry → Exit</th>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Realized P&amp;L</th>
+              <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Return</th>
+            </tr>
+          </thead>
+          <tbody id="pf-pnl-body" class="text-xs">
+            <tr><td colspan="7" class="px-3 py-12 text-center text-on-surface-variant/50">No closed trades yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 </section>
 
@@ -3512,28 +3594,151 @@ async function loadPortfolio() {
     // Sync the chart-marker cache with fresh data
     _pfTradesCache = d.positions || [];
     _pfTradesCacheTs = Date.now();
-    _pfRenderTotals(d.totals || {}); _pfRenderBody(d.positions || []);
+    const positions = d.positions || [];
+    _pfRenderTotals(d.totals || {});
+    _pfRenderBody(positions);
+    _pfRenderPieChart(positions);
+    _pfRenderBarChart(positions);
+    _pfRenderTradeBook(positions);
+    _pfRenderPnlReport(positions);
   } catch(e) {
-    document.getElementById('pf-body').innerHTML = `<tr><td colspan="10" class="px-3 py-8 text-center text-error text-xs">Load failed: ${e.message}</td></tr>`;
+    document.getElementById('pf-body').innerHTML = `<tr><td colspan="11" class="px-3 py-8 text-center text-error text-xs">Load failed: ${e.message}</td></tr>`;
   }
 }
 function _pfCol(v) { return v > 0 ? 'text-[#00e5a0]' : v < 0 ? 'text-[#ff4757]' : 'text-on-surface-variant'; }
+function _pfBg(v) { return v > 0 ? 'bg-[#00e5a0]/10' : v < 0 ? 'bg-[#ff4757]/10' : ''; }
 function _pfFmt(v) { return (v>=0?'+':'') + Math.round(v).toLocaleString('en-IN'); }
+const _PF_COLORS = ['#6effc0','#00b4d8','#f77f00','#a78bfa','#ff6b6b','#ffd166','#06d6a0','#118ab2','#e63946','#f4a261'];
 function _pfRenderTotals(t) {
+  const invested = Math.round(t.invested||0);
+  const current  = Math.round(t.current||0);
+  const pnl      = t.pnl||0;
+  const pnl_pct  = t.pnl_pct||0;
+  const realized = t.realized_pnl||0;
+  const totalPnl = pnl + realized;
   const cards = [
-    ['Invested', `\u20b9${Math.round(t.invested||0).toLocaleString('en-IN')}`, 'text-on-surface'],
-    ['Current', `\u20b9${Math.round(t.current||0).toLocaleString('en-IN')}`, 'text-on-surface'],
-    ['Open P&L', `\u20b9${_pfFmt(t.pnl||0)} (${(t.pnl_pct||0)>=0?'+':''}${(t.pnl_pct||0).toFixed(2)}%)`, _pfCol(t.pnl||0)],
-    ['Day Change', `\u20b9${_pfFmt(t.day_change||0)}`, _pfCol(t.day_change||0)],
-    ['Realized', `\u20b9${_pfFmt(t.realized_pnl||0)}`, _pfCol(t.realized_pnl||0)],
+    { icon:'savings',                label:'Invested',       value:`₹${invested.toLocaleString('en-IN')}`,  cls:'text-on-surface', sub:'' },
+    { icon:'account_balance_wallet', label:'Current Value',  value:`₹${current.toLocaleString('en-IN')}`,   cls:'text-on-surface', sub:'' },
+    { icon:'show_chart',             label:'Unrealized P&L', value:`₹${_pfFmt(pnl)}`,     cls:_pfCol(pnl),      sub:`${pnl_pct>=0?'+':''}${pnl_pct.toFixed(2)}%` },
+    { icon:'receipt_long',           label:'Realized P&L',   value:`₹${_pfFmt(realized)}`, cls:_pfCol(realized), sub:'' },
+    { icon:'trending_up',            label:'Total P&L',      value:`₹${_pfFmt(totalPnl)}`, cls:_pfCol(totalPnl), sub:'' },
   ];
-  document.getElementById('pf-totals').innerHTML = cards.map(([l,v,c]) =>
-    `<div class="bg-surface-container/40 rounded-lg p-3"><div class="text-[9px] font-bold uppercase text-on-surface-variant">${l}</div><div class="text-base font-black ${c} mt-1 font-mono">${v}</div></div>`
+  document.getElementById('pf-totals').innerHTML = cards.map(c =>
+    `<div class="bg-surface-container/40 rounded-xl p-4 border border-outline-variant/10 flex flex-col gap-1">
+      <div class="flex items-center gap-1.5 text-on-surface-variant">
+        <span class="material-symbols-outlined text-sm">${c.icon}</span>
+        <span class="text-[9px] font-black uppercase tracking-wider">${c.label}</span>
+      </div>
+      <div class="text-sm font-black ${c.cls} font-mono mt-0.5">${c.value}</div>
+      ${c.sub ? `<div class="text-[9px] font-bold ${c.cls} opacity-80">${c.sub}</div>` : ''}
+    </div>`
   ).join('');
+}
+function _pfRenderPieChart(positions) {
+  const el = document.getElementById('pf-pie-chart');
+  const open = positions.filter(p => p.status !== 'closed' && (p.invested||0) > 0);
+  if (!open.length) { el.innerHTML = '<div class="text-xs text-on-surface-variant/40 m-auto">No open positions</div>'; return; }
+  const total = open.reduce((s,p) => s + (p.invested||0), 0);
+  const r = 40, cx = 50, cy = 50, circ = 2 * Math.PI * r;
+  let offset = 0;
+  const slices = open.map((p,i) => {
+    const pct  = (p.invested||0) / total;
+    const dash = pct * circ;
+    const col  = _PF_COLORS[i % _PF_COLORS.length];
+    const s    = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${col}" stroke-width="18" stroke-dasharray="${dash.toFixed(2)} ${(circ-dash).toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}" transform="rotate(-90 ${cx} ${cy})"/>`;
+    offset += dash;
+    return { s, symbol:p.symbol, pct:(pct*100).toFixed(1), col };
+  });
+  const svg    = `<svg viewBox="0 0 100 100" class="w-[110px] h-[110px] shrink-0">${slices.map(x=>x.s).join('')}</svg>`;
+  const legend = `<div class="flex flex-col gap-1.5 flex-wrap max-h-[120px] overflow-y-auto pr-1">${slices.map(x=>`<div class="flex items-center gap-1.5 text-[9px]"><span class="w-2 h-2 rounded-full shrink-0" style="background:${x.col}"></span><span class="font-bold text-on-surface">${x.symbol}</span><span class="text-on-surface-variant">${x.pct}%</span></div>`).join('')}</div>`;
+  el.innerHTML = svg + legend;
+}
+function _pfRenderBarChart(positions) {
+  const el = document.getElementById('pf-bar-chart');
+  if (!positions.length) { el.innerHTML = '<div class="text-xs text-on-surface-variant/40 m-auto text-center w-full">No data</div>'; return; }
+  const sorted  = [...positions].sort((a,b) => (b.pnl||0) - (a.pnl||0));
+  const maxAbs  = Math.max(...sorted.map(p=>Math.abs(p.pnl||0)), 1);
+  el.innerHTML  = sorted.map(p => {
+    const pnl   = p.pnl || 0;
+    const pct   = (Math.abs(pnl) / maxAbs * 100).toFixed(1);
+    const color = pnl > 0 ? '#00e5a0' : pnl < 0 ? '#ff4757' : '#666';
+    return `<div class="flex items-center gap-2 mb-1.5">
+      <div class="text-[9px] font-bold text-on-surface w-[72px] shrink-0 truncate">${p.symbol}</div>
+      <div class="flex-1 h-4 bg-surface-container-highest rounded-sm overflow-hidden">
+        <div class="h-full rounded-sm" style="width:${pct}%;background:${color};opacity:0.85"></div>
+      </div>
+      <div class="text-[9px] font-mono font-bold w-[70px] text-right shrink-0" style="color:${color}">${pnl>=0?'+':''}₹${Math.round(Math.abs(pnl)).toLocaleString('en-IN')}</div>
+    </div>`;
+  }).join('');
+}
+function _pfRenderTradeBook(positions) {
+  const body = document.getElementById('pf-tradebook-body');
+  if (!positions.length) { body.innerHTML = '<tr><td colspan="7" class="px-3 py-12 text-center text-on-surface-variant/50">No trades yet</td></tr>'; return; }
+  const entries = [];
+  for (const p of positions) {
+    entries.push({ date:p.buy_date||'—', type:'BUY', symbol:p.symbol, qty:p.qty, price:p.buy_price, value:p.invested||0, notes:p.notes||'' });
+    if (p.status==='closed' && p.sell_price) {
+      entries.push({ date:p.sell_date||'—', type:'SELL', symbol:p.symbol, qty:p.qty, price:p.sell_price, value:p.qty*(p.sell_price||0), notes:'' });
+    }
+  }
+  entries.sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  body.innerHTML = entries.map(e => {
+    const isBuy = e.type === 'BUY';
+    return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40">
+      <td class="px-3 py-2.5 text-on-surface-variant font-mono text-[10px]">${e.date}</td>
+      <td class="px-3 py-2.5"><span class="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${isBuy?'bg-[#00e5a0]/15 text-[#00e5a0]':'bg-[#ff4757]/15 text-[#ff4757]'}">${e.type}</span></td>
+      <td class="px-3 py-2.5 font-bold text-primary">${e.symbol}</td>
+      <td class="px-3 py-2.5 text-right font-mono">${e.qty}</td>
+      <td class="px-3 py-2.5 text-right font-mono">₹${e.price}</td>
+      <td class="px-3 py-2.5 text-right font-mono font-bold">₹${Math.round(e.value||0).toLocaleString('en-IN')}</td>
+      <td class="px-3 py-2.5 text-[9px] text-on-surface-variant/60">${e.notes}</td>
+    </tr>`;
+  }).join('');
+}
+function _pfRenderPnlReport(positions) {
+  const body   = document.getElementById('pf-pnl-body');
+  const closed = positions.filter(p => p.status==='closed');
+  if (!closed.length) { body.innerHTML = '<tr><td colspan="7" class="px-3 py-12 text-center text-on-surface-variant/50">No closed trades yet</td></tr>'; return; }
+  let totalRealized = 0;
+  const rows = closed.map(p => {
+    const rPnl = p.pnl||0; totalRealized += rPnl;
+    let held = '—';
+    if (p.buy_date && p.sell_date) {
+      const d = Math.round((new Date(p.sell_date)-new Date(p.buy_date))/86400000);
+      held = d + 'd';
+    }
+    return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 ${rPnl>=0?'bg-[#00e5a0]/5':'bg-[#ff4757]/5'}">
+      <td class="px-3 py-2.5 font-bold text-primary">${p.symbol}</td>
+      <td class="px-3 py-2.5 text-[10px] font-mono text-on-surface-variant">${p.buy_date||'—'}</td>
+      <td class="px-3 py-2.5 text-[10px] font-mono text-on-surface-variant">${p.sell_date||'—'}</td>
+      <td class="px-3 py-2.5 text-right font-mono text-[10px]">${held}</td>
+      <td class="px-3 py-2.5 text-right font-mono text-[10px]">₹${p.buy_price} → ₹${p.sell_price||'—'}</td>
+      <td class="px-3 py-2.5 text-right font-mono font-bold ${_pfCol(rPnl)}">₹${_pfFmt(rPnl)}</td>
+      <td class="px-3 py-2.5 text-right font-mono font-bold ${_pfCol(p.pnl_pct)}">${(p.pnl_pct>=0?'+':'')}${p.pnl_pct}%</td>
+    </tr>`;
+  });
+  rows.push(`<tr class="border-t-2 border-outline-variant/30 bg-surface-container">
+    <td class="px-3 py-2.5 font-black uppercase text-[9px] tracking-wider text-on-surface-variant" colspan="5">Total Realized</td>
+    <td class="px-3 py-2.5 text-right font-mono font-black ${_pfCol(totalRealized)}">₹${_pfFmt(totalRealized)}</td>
+    <td></td>
+  </tr>`);
+  body.innerHTML = rows.join('');
+}
+function pfSwitchTab(tab) {
+  document.querySelectorAll('.pf-subtab-btn').forEach(b => {
+    const active = b.dataset.tab === tab;
+    b.classList.toggle('border-primary', active);
+    b.classList.toggle('text-primary', active);
+    b.classList.toggle('border-transparent', !active);
+    b.classList.toggle('text-on-surface-variant', !active);
+  });
+  document.querySelectorAll('.pf-subtab-content').forEach(c => {
+    c.classList.toggle('hidden', !c.id.endsWith(tab));
+  });
 }
 function _pfRenderBody(rows) {
   const body = document.getElementById('pf-body');
-  if (!rows.length) { body.innerHTML = '<tr><td colspan="10" class="px-3 py-12 text-center text-on-surface-variant/50">No positions. Click "Add Position" to start tracking.</td></tr>'; return; }
+  if (!rows.length) { body.innerHTML = '<tr><td colspan="11" class="px-3 py-12 text-center text-on-surface-variant/50">No positions. Click "Add Trade" to start tracking.</td></tr>'; return; }
   const R = '₹';
   body.innerHTML = rows.map(r => {
     const isClosed = r.status === 'closed';
@@ -3541,22 +3746,26 @@ function _pfRenderBody(rows) {
       ? `<span class="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase bg-surface-container text-on-surface-variant">CLOSED</span>`
       : `<span class="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase bg-primary/20 text-primary">OPEN</span>`;
     const ltpCell = isClosed
-      ? `<td class="px-3 py-2.5 text-right font-mono text-on-surface-variant">${R}${r.ltp}<div class="text-[8px] text-on-surface-variant/50">${r.sell_date||''}</div></td>`
+      ? `<td class="px-3 py-2.5 text-right font-mono text-on-surface-variant">${R}${r.sell_price||r.ltp}<div class="text-[8px] text-on-surface-variant/50">${r.sell_date||''}</div></td>`
       : `<td class="px-3 py-2.5 text-right font-mono">${R}${r.ltp}<div class="text-[8px] ${_pfCol(r.day_pct)}">${(r.day_pct>=0?'+':'')}${r.day_pct}%</div></td>`;
+    const curVal  = isClosed ? Math.round(r.qty*(r.sell_price||r.ltp)) : Math.round(r.qty*r.ltp);
+    const curCell = `<td class="px-3 py-2.5 text-right font-mono">${R}${curVal.toLocaleString('en-IN')}</td>`;
     const pnlCell = `<td class="px-3 py-2.5 text-right font-mono font-bold ${_pfCol(r.pnl)}">${R}${_pfFmt(r.pnl)}<div class="text-[8px]">(${(r.pnl_pct>=0?'+':'')}${r.pnl_pct}%)</div></td>`;
     const slTgt = (r.stop_loss || r.target)
       ? `<td class="px-3 py-2.5 text-right text-[9px] font-mono leading-relaxed">${r.stop_loss ? `<div class="text-error">SL ${R}${r.stop_loss}</div>` : ''}${r.target ? `<div class="text-primary">T ${R}${r.target}</div>` : ''}</td>`
       : `<td class="px-3 py-2.5 text-right text-on-surface-variant/30 text-[9px]">—</td>`;
     const actionsCell = isClosed
       ? `<td class="px-3 py-2.5 text-center"><button onclick="pfDelete('${r.id}')" class="text-on-surface-variant hover:text-error"><span class="material-symbols-outlined text-sm">delete</span></button></td>`
-      : `<td class="px-3 py-2.5 text-center"><button onclick="pfOpenCloseModal('${r.id}','${r.symbol}')" class="text-[8px] font-bold text-on-surface-variant hover:text-error px-1.5 py-0.5 rounded bg-surface-container-highest border border-outline-variant/20" title="Close trade">CLOSE</button> <button onclick="pfDelete('${r.id}')" class="text-on-surface-variant hover:text-error"><span class="material-symbols-outlined text-sm">delete</span></button></td>`;
-    return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 ${isClosed?'opacity-60':''}">
+      : `<td class="px-3 py-2.5 text-center"><button onclick="pfOpenCloseModal('${r.id}','${r.symbol}')" class="text-[8px] font-bold text-on-surface-variant hover:text-error px-1.5 py-0.5 rounded bg-surface-container-highest border border-outline-variant/20" title="Close trade">CLOSE</button> <button onclick="pfDelete('${r.id}')" class="text-on-surface-variant hover:text-error ml-1"><span class="material-symbols-outlined text-sm">delete</span></button></td>`;
+    const rowBg = isClosed ? _pfBg(r.pnl) : '';
+    return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 ${rowBg}">
       <td class="px-3 py-2.5 font-bold text-primary" title="View chart + insights"><a href="#chart=${encodeURIComponent(r.symbol)}" onclick="event.preventDefault();event.stopPropagation();openStockView('${r.symbol}','portfolio')" oncontextmenu="event.stopPropagation()" class="hover:underline">${r.symbol}</a>${r.notes ? `<div class="text-[8px] text-on-surface-variant/50 font-normal">${r.notes}</div>` : ''}</td>
       <td class="px-3 py-2.5">${statusBadge}</td>
       <td class="px-3 py-2.5 text-right font-mono">${r.qty}</td>
       <td class="px-3 py-2.5 text-right font-mono text-on-surface-variant">${R}${r.buy_price}</td>
       ${ltpCell}
       <td class="px-3 py-2.5 text-right font-mono text-on-surface-variant">${R}${Math.round(r.invested).toLocaleString('en-IN')}</td>
+      ${curCell}
       ${pnlCell}
       ${slTgt}
       <td class="px-3 py-2.5 text-right text-[9px] text-on-surface-variant">${r.buy_date||'—'}</td>
