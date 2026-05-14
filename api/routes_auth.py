@@ -15,6 +15,7 @@ from engine.auth import (
     register, login, verify_token, get_user,
     change_password, update_display_name,
     list_users, approve_user, delete_user,
+    get_user_by_id, get_users_by_ids,        # available for any route that needs them
 )
 
 router = APIRouter()

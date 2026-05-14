@@ -5,6 +5,27 @@ JWT-based auth. Single source of truth: SQLite users table (config/yointell.db).
 config/users.json is kept as a read-only bootstrap — _migrate_legacy_users()
 in engine/db.py upserts it into SQLite on every startup, then this module
 ignores it entirely.
+
+──────────────────────────────────────────────────────────────────────
+PUBLIC PROFILE API  (use these everywhere; never query users table directly)
+──────────────────────────────────────────────────────────────────────
+
+  Single lookup
+    get_user(username)        → dict | None    (by username string)
+    get_user_by_id(user_id)   → dict | None    (by SQLite row id)
+
+  Bulk lookup
+    get_users_by_ids([id, …]) → {id: dict}     (one round-trip for many users)
+
+  In SQL JOIN queries — include the column set + alias so every
+  query returns the same field names:
+
+      LEFT JOIN users u ON u.id = <table>.author_id
+      SELECT …, """ + "u.username, u.display_name, u.role" + """
+
+  Then call profile_from_row(row, prefix="") to get a clean dict
+  from any sqlite3.Row that includes those columns.
+──────────────────────────────────────────────────────────────────────
 """
 
 import bcrypt
@@ -49,6 +70,65 @@ def _row_to_dict(row) -> dict:
         "created":          row["created_at"],
         "password_changed": row["password_changed"] if "password_changed" in keys else None,
     }
+
+
+# ─── reusable profile helpers (call these; never query users table directly) ──
+
+#: Drop this into any SELECT that JOINs `users u` to get consistent profile cols.
+USER_PROFILE_COLS = "u.username, u.display_name, u.role"
+
+
+def profile_from_row(row, prefix: str = "") -> dict:
+    """Extract a public user profile from a sqlite3.Row that includes USER_PROFILE_COLS.
+
+    Use *prefix* when the JOIN uses a table alias other than 'u', e.g.
+    prefix='author_' if you aliased the columns as author_username etc.
+
+    Returns a dict with keys: username, display_name, role.
+    Returns None-values gracefully if the JOIN was LEFT and no user matched.
+    """
+    p = prefix
+    keys = row.keys()
+    username = row[f"{p}username"] if f"{p}username" in keys else None
+    return {
+        "username":     username,
+        "display_name": (row[f"{p}display_name"] if f"{p}display_name" in keys else None) or username,
+        "role":         row[f"{p}role"] if f"{p}role" in keys else "user",
+    }
+
+
+def get_user_by_id(user_id: int) -> dict | None:
+    """Get public profile by SQLite users.id. Returns None if not found."""
+    if not user_id:
+        return None
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+    return _row_to_dict(row) if row else None
+
+
+def get_users_by_ids(user_ids: list) -> dict:
+    """Bulk-fetch public profiles by id. Returns {id: profile_dict}.
+
+    One DB round-trip regardless of how many ids — use this when you
+    have a list of author_ids from a query result instead of joining.
+
+    Example:
+        rows   = conn.execute("SELECT * FROM forum_posts WHERE topic_id = ?", ...)
+        ids    = [r["author_id"] for r in rows]
+        users  = get_users_by_ids(ids)          # {id: {username, display_name, role}}
+        posts  = [{**dict(r), "author": users.get(r["author_id"])} for r in rows]
+    """
+    if not user_ids:
+        return {}
+    unique = list({uid for uid in user_ids if uid})
+    placeholders = ",".join("?" * len(unique))
+    with get_conn() as conn:
+        rows = conn.execute(
+            f"SELECT * FROM users WHERE id IN ({placeholders})", unique
+        ).fetchall()
+    return {row["id"]: _row_to_dict(row) for row in rows}
 
 
 # ─── public API ──────────────────────────────────────────────────────────────
