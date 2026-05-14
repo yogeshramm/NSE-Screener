@@ -32,6 +32,46 @@ from engine.db import get_conn, now_ts
 
 # ─────────────────────────── helpers ───────────────────────────
 
+def _ensure_user_in_db(conn, username: str):
+    """Return SQLite users row for *username*, syncing from users.json if needed.
+
+    Auth lives in config/users.json; the SQLite users table is populated
+    lazily here so preset-sharing works even before a user ever touches any
+    SQLite-backed feature (forum, tournaments, etc.).
+    """
+    row = conn.execute(
+        "SELECT id FROM users WHERE username = ? COLLATE NOCASE",
+        (username.strip(),),
+    ).fetchone()
+    if row:
+        return row
+
+    # Not in SQLite yet — check users.json via auth module
+    try:
+        from engine.auth import get_user as _auth_get_user
+        auth_user = _auth_get_user(username.strip())
+    except Exception:
+        auth_user = None
+
+    if not auth_user or auth_user.get("status", "approved") != "approved":
+        return None  # caller raises "user not found"
+
+    # Upsert a minimal shadow row (password auth still handled by users.json)
+    conn.execute(
+        """INSERT OR IGNORE INTO users
+           (username, password_hash, role, created_at, extras_json)
+           VALUES (?, 'json-auth-shadow', ?, ?, '{}')""",
+        (
+            auth_user["username"],
+            auth_user.get("role", "user"),
+            now_ts(),
+        ),
+    )
+    return conn.execute(
+        "SELECT id FROM users WHERE username = ? COLLATE NOCASE",
+        (auth_user["username"],),
+    ).fetchone()
+
 _SAFE_NAME = re.compile(r"[^a-z0-9_\-]")
 
 
@@ -307,10 +347,7 @@ def share_with_user(
         ).fetchone()
         if not owner_row:
             raise PermissionError("Preset not found or you don't own it")
-        recipient = conn.execute(
-            "SELECT id FROM users WHERE username = ? COLLATE NOCASE",
-            (recipient_username.strip(),),
-        ).fetchone()
+        recipient = _ensure_user_in_db(conn, recipient_username)
         if not recipient:
             raise ValueError(f"User '{recipient_username}' not found")
         if recipient["id"] == requester_id:
@@ -347,10 +384,7 @@ def unshare(preset_id: int, recipient_username: str, requester_id: int) -> None:
         ).fetchone()
         if not owner_row:
             raise PermissionError("Preset not found or you don't own it")
-        recipient = conn.execute(
-            "SELECT id FROM users WHERE username = ? COLLATE NOCASE",
-            (recipient_username.strip(),),
-        ).fetchone()
+        recipient = _ensure_user_in_db(conn, recipient_username)
         if not recipient:
             return
         conn.execute(
