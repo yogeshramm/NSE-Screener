@@ -25,7 +25,7 @@ import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator
+from typing import Generator, Optional
 
 # Single-file DB next to existing config/ — gitignored, runtime-only data
 ROOT = Path(__file__).resolve().parent.parent
@@ -330,21 +330,35 @@ def _migrate_legacy_users() -> None:
 
 
 def _migrate_legacy_presets() -> None:
-    """Sync config/presets/*.json into the presets table as ownerless system rows.
+    """Sync config/presets/*.json into the presets table.
 
-    Idempotent: on every startup, insert any JSON files not yet present in the
-    DB as ownerless legacy presets. Existing rows are left untouched (so user
-    edits via the API survive a restart).
+    New JSON presets are auto-claimed for the primary user (resolved from
+    YOINTELL_PRIMARY_USERNAME env var, falling back to 'yogesh') so they show
+    up as MINE with edit/share/delete in the UI rather than as immutable
+    SYSTEM rows. If the primary user can't be resolved, falls back to
+    ownerless (the original behaviour).
+
+    Idempotent: skips any name that already exists in the presets table
+    (any owner), so user edits via the API survive a restart and we never
+    double-import.
     """
     if not _LEGACY_PRESETS_DIR.exists():
         return
     now = int(time.time())
     conn = _connect()
     try:
-        # Dedup against ALL preset rows (any owner). If a user has claimed a
-        # legacy JSON preset by name, we must NOT re-insert a system duplicate
-        # on the next restart — that would re-add the SYSTEM row alongside
-        # the user's MINE row.
+        # Resolve primary user once
+        primary = os.environ.get("YOINTELL_PRIMARY_USERNAME", "yogesh").strip().lower()
+        owner_id: Optional[int] = None
+        if primary:
+            row = conn.execute(
+                "SELECT id FROM users WHERE LOWER(username) = ?", (primary,)
+            ).fetchone()
+            if row:
+                owner_id = row["id"]
+
+        # Dedup against ALL preset rows (any owner) — a user-claimed preset
+        # must not be re-imported as a SYSTEM duplicate on restart.
         rows = conn.execute("SELECT DISTINCT name FROM presets").fetchall()
         existing = {r["name"] for r in rows}
         for f in sorted(_LEGACY_PRESETS_DIR.glob("*.json")):
@@ -358,8 +372,9 @@ def _migrate_legacy_presets() -> None:
             conn.execute(
                 """INSERT INTO presets
                    (owner_id, name, description, config_json, stages_json, visibility, created_at, updated_at)
-                   VALUES(NULL, ?, ?, ?, ?, 'private', ?, ?)""",
+                   VALUES(?, ?, ?, ?, ?, 'private', ?, ?)""",
                 (
+                    owner_id,
                     name,
                     "Imported from legacy config",
                     json.dumps(cfg),
