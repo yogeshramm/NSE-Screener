@@ -341,9 +341,11 @@ def _migrate_legacy_presets() -> None:
     now = int(time.time())
     conn = _connect()
     try:
-        rows = conn.execute(
-            "SELECT name FROM presets WHERE owner_id IS NULL"
-        ).fetchall()
+        # Dedup against ALL preset rows (any owner). If a user has claimed a
+        # legacy JSON preset by name, we must NOT re-insert a system duplicate
+        # on the next restart — that would re-add the SYSTEM row alongside
+        # the user's MINE row.
+        rows = conn.execute("SELECT DISTINCT name FROM presets").fetchall()
         existing = {r["name"] for r in rows}
         for f in sorted(_LEGACY_PRESETS_DIR.glob("*.json")):
             name = f.stem
