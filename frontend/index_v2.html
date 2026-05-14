@@ -11526,7 +11526,15 @@ function loadPracticeHistory() {
 }
 
 function renderHistoryRow(h) {
-  const col = h.pnl >= 0 ? 'text-[#00e5a0]' : 'text-[#ff4757]';
+  // Server-synced sessions (from /leaderboard/personal) have h.pnl=null and
+  // only carry h.pnl_pct. Fall back to the percent for display + colour so
+  // the whole list doesn't crash on a single null cell.
+  const pnlPct = (typeof h.pnl_pct === 'number') ? h.pnl_pct : 0;
+  const isPos = (h.pnl != null ? h.pnl : pnlPct) >= 0;
+  const col = isPos ? 'text-[#00e5a0]' : 'text-[#ff4757]';
+  const pnlText = (h.pnl != null)
+    ? `${h.pnl >= 0 ? '+' : ''}₹${h.pnl.toLocaleString('en-IN')} (${pnlPct.toFixed(1)}%)`
+    : `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%`;
   const diffCol = { Easy: 'text-[#00e5a0]', Medium: 'text-yellow-400', Hard: 'text-[#ff4757]' }[h.difficulty] || 'text-on-surface-variant';
   const trades = h.trades || [];
   return `<div class="bg-surface-container-highest rounded-lg overflow-hidden">
@@ -11539,7 +11547,7 @@ function renderHistoryRow(h) {
         <span class="text-[9px] text-on-surface-variant">${h.trades_count} trades</span>
         <span class="text-[9px] text-on-surface-variant">${(h.win_rate || 0).toFixed(0)}% win</span>
       </div>
-      <span class="text-xs font-mono font-bold ${col}">${h.pnl >= 0 ? '+' : ''}\u20b9${h.pnl.toLocaleString('en-IN')} (${(h.pnl_pct || 0).toFixed(1)}%)</span>
+      <span class="text-xs font-mono font-bold ${col}">${pnlText}</span>
     </div>
     <div id="prac-row-body-${h.id}" class="hidden px-4 py-3 border-t border-outline-variant/10 text-[10px] space-y-2">
       ${trades.length ? trades.map((t, i) => {
