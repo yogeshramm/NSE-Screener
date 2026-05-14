@@ -69,7 +69,9 @@ def _vortex_series(h: pd.Series, l: pd.Series, c: pd.Series, period: int = 14):
 
 
 def _supertrend_dir(h: pd.Series, l: pd.Series, c: pd.Series,
-                    period: int = 10, mult: float = 3.0) -> pd.Series:
+                    period: int = 7, mult: float = 3.0) -> pd.Series:
+    # period/mult MUST match indicators/supertrend.py's default_params so that
+    # what Neo Radar reports aligns with what the chart Supertrend overlay shows.
     """Return supertrend direction series (+1 bullish, -1 bearish)."""
     h_prev = h.shift(1); l_prev = l.shift(1); c_prev = c.shift(1)
     tr = pd.concat([(h - l).abs(), (h - c_prev).abs(), (l - c_prev).abs()], axis=1).max(axis=1)
@@ -106,15 +108,17 @@ def _find(indicator_results: list, name: str) -> Optional[dict]:
 
 
 def _series_recently_crossed_up(s: pd.Series, threshold: float, lookback: int) -> bool:
-    """True iff series[-1] > threshold AND any of the (lookback-1) prior
-    bars were ≤ threshold — the cross happened within the last `lookback`
-    bars inclusive (today is one of them)."""
-    if s is None or len(s) < lookback:
+    """True iff series[-1] > threshold AND any of the `lookback` prior bars
+    were ≤ threshold. The cross event must have happened on one of the last
+    `lookback` bars inclusive (today, yesterday, …). To detect a cross
+    landing on bar -k, we need bar -(k+1) to have been below threshold,
+    so we look at `lookback` prior bars (positions -[lookback+1] .. -2)."""
+    if s is None or len(s) < lookback + 1:
         return False
     vals = s.values
     if math.isnan(vals[-1]) or vals[-1] <= threshold:
         return False
-    prior = vals[-lookback:-1]
+    prior = vals[-(lookback + 1):-1]
     return any(not math.isnan(v) and v <= threshold for v in prior)
 
 
@@ -164,33 +168,39 @@ def _c_rsi(ind: Optional[dict]) -> Tuple[bool, str]:
 
 
 def _c_vortex(daily_df: Optional[pd.DataFrame], lookback: int) -> Tuple[bool, str]:
+    """VI+ crossed above VI- within last `lookback` bars (inclusive of today).
+       Currently bullish AND any of `lookback` prior bars had VI+ ≤ VI-.
+       A cross on bar -k requires bar -(k+1) to have been bearish, so we
+       check `lookback` prior bars: positions -[lookback+1] .. -2."""
     label = "Vortex"
     if daily_df is None or len(daily_df) < 20:
         return False, label
     vi_p, vi_m = _vortex_series(daily_df["High"], daily_df["Low"], daily_df["Close"])
-    if len(vi_p) < lookback:
+    if len(vi_p) < lookback + 1:
         return False, label
     p = vi_p.values; m = vi_m.values
     if math.isnan(p[-1]) or math.isnan(m[-1]) or p[-1] <= m[-1]:
         return False, label
-    for i in range(-lookback, -1):
+    for i in range(-(lookback + 1), -1):
         if not math.isnan(p[i]) and not math.isnan(m[i]) and p[i] <= m[i]:
             return True, label
     return False, label
 
 
 def _c_supertrend(daily_df: Optional[pd.DataFrame], lookback: int) -> Tuple[bool, str]:
-    """ANCHOR: Supertrend direction flipped -1 → +1 within last `lookback` bars."""
+    """ANCHOR: Supertrend direction flipped -1 → +1 within last `lookback` bars
+       (inclusive of today). A flip on bar -k requires bar -(k+1) to have been
+       bearish, so we check `lookback` prior bars: positions -[lookback+1] .. -2."""
     label = "Supertrend"
     if daily_df is None or len(daily_df) < 20:
         return False, label
     dir_ = _supertrend_dir(daily_df["High"], daily_df["Low"], daily_df["Close"])
-    if len(dir_) < lookback:
+    if len(dir_) < lookback + 1:
         return False, label
     vals = dir_.values
     if vals[-1] != 1:
         return False, label
-    for i in range(-lookback, -1):
+    for i in range(-(lookback + 1), -1):
         if vals[i] == -1:
             return True, label
     return False, label
