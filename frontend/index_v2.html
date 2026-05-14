@@ -2114,6 +2114,21 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
       </div>
     </div>
 
+    <!-- Tax Estimator Panel -->
+    <div class="mt-5 bg-surface-container-low rounded-xl border border-outline-variant/20 overflow-hidden" id="pf-tax-panel">
+      <div class="px-4 py-3 flex items-center justify-between cursor-pointer" onclick="pfToggleTax()">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-sm" style="color:#fbbf24">receipt</span>
+          <span class="text-[10px] font-black uppercase tracking-[0.15em] text-on-surface">Tax Estimator</span>
+          <span class="text-[9px] px-2 py-0.5 rounded-full font-bold" style="background:#fbbf2420;color:#fbbf24">FY 2024-25 · Finance Act 2024</span>
+        </div>
+        <span id="pf-tax-chevron" class="material-symbols-outlined text-sm text-on-surface-variant">expand_more</span>
+      </div>
+      <div id="pf-tax-body" class="hidden px-4 pb-4">
+        <div id="pf-tax-content"></div>
+      </div>
+    </div>
+
   </div>
 </section>
 
@@ -3601,6 +3616,7 @@ async function loadPortfolio() {
     _pfRenderBarChart(positions);
     _pfRenderTradeBook(positions);
     _pfRenderPnlReport(positions);
+    _pfRenderTaxPanel(positions);
   } catch(e) {
     document.getElementById('pf-body').innerHTML = `<tr><td colspan="11" class="px-3 py-8 text-center text-error text-xs">Load failed: ${e.message}</td></tr>`;
   }
@@ -3723,6 +3739,120 @@ function _pfRenderPnlReport(positions) {
     <td></td>
   </tr>`);
   body.innerHTML = rows.join('');
+}
+function pfToggleTax() {
+  const body = document.getElementById('pf-tax-body');
+  const chev = document.getElementById('pf-tax-chevron');
+  body.classList.toggle('hidden');
+  chev.textContent = body.classList.contains('hidden') ? 'expand_more' : 'expand_less';
+}
+function _pfCalcTax(positions) {
+  const closed = positions.filter(p => p.status === 'closed' && p.buy_date && p.sell_date);
+  let stcg = 0, stcl = 0, ltcg = 0, ltcl = 0;
+  for (const p of closed) {
+    const days = Math.round((new Date(p.sell_date) - new Date(p.buy_date)) / 86400000);
+    const pnl  = p.pnl || 0;
+    if (days >= 365) { pnl > 0 ? (ltcg += pnl) : (ltcl += Math.abs(pnl)); }
+    else             { pnl > 0 ? (stcg += pnl) : (stcl += Math.abs(pnl)); }
+  }
+  const net_stcg           = stcg - stcl;
+  const net_ltcg_raw       = ltcg - ltcl;
+  const remaining_stcl     = Math.max(0, -net_stcg);          // excess STCL offsets LTCG
+  const net_ltcg           = net_ltcg_raw - remaining_stcl;
+  const stcg_taxable       = Math.max(0, net_stcg);
+  const stcg_tax           = stcg_taxable * 0.20;             // Sec 111A @20%
+  const ltcg_exemption     = 125000;                          // Sec 112A — ₹1.25L
+  const ltcg_taxable       = Math.max(0, net_ltcg - ltcg_exemption);
+  const ltcg_tax           = ltcg_taxable * 0.125;            // Sec 112A @12.5%
+  const base_tax           = stcg_tax + ltcg_tax;
+  const cess               = base_tax * 0.04;                 // Health & Education Cess @4%
+  const total_tax          = base_tax + cess;
+  const taxable_total      = stcg_taxable + Math.max(0, net_ltcg);
+  const net_after_tax      = taxable_total - total_tax;
+  return { stcg, stcl, net_stcg, ltcg, ltcl, net_ltcg_raw, remaining_stcl, net_ltcg,
+           stcg_taxable, stcg_tax, ltcg_exemption, ltcg_taxable, ltcg_tax,
+           base_tax, cess, total_tax, net_after_tax, closedCount: closed.length };
+}
+function _pfRenderTaxPanel(positions) {
+  const el = document.getElementById('pf-tax-content');
+  if (!el) return;
+  const closed = positions.filter(p => p.status === 'closed');
+  if (!closed.length) {
+    el.innerHTML = '<p class="text-xs text-on-surface-variant/50 py-4 text-center">No closed trades — tax estimate not applicable.</p>';
+    return;
+  }
+  const t   = _pfCalcTax(positions);
+  const R   = '₹';
+  const fmt = v => Math.round(Math.abs(v)).toLocaleString('en-IN');
+  const col = v => v > 0 ? 'text-[#00e5a0]' : v < 0 ? 'text-[#ff4757]' : 'text-on-surface-variant';
+  const sgn = v => v >= 0 ? '+' : '-';
+  const exemptUsed = Math.min(Math.max(0, t.net_ltcg), t.ltcg_exemption);
+  el.innerHTML = `
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+      <div class="bg-surface-container rounded-lg p-4 border border-outline-variant/10">
+        <div class="text-[10px] font-black uppercase tracking-wider text-on-surface-variant mb-3 flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-sm" style="color:#fbbf24">flash_on</span>Short Term (&lt;12 months) — 20%
+        </div>
+        <div class="space-y-1.5 text-[10px]">
+          <div class="flex justify-between"><span class="text-on-surface-variant">Gains (STCG)</span><span class="font-mono text-[#00e5a0]">+${R}${fmt(t.stcg)}</span></div>
+          <div class="flex justify-between"><span class="text-on-surface-variant">Losses (STCL)</span><span class="font-mono text-[#ff4757]">-${R}${fmt(t.stcl)}</span></div>
+          <div class="flex justify-between border-t border-outline-variant/20 pt-1.5 font-bold">
+            <span>Net STCG</span><span class="font-mono ${col(t.net_stcg)}">${sgn(t.net_stcg)}${R}${fmt(t.net_stcg)}</span>
+          </div>
+          ${t.remaining_stcl > 0 ? `<div class="text-[8px] text-on-surface-variant/60 italic">Excess STCL of ${R}${fmt(t.remaining_stcl)} set off against LTCG (Sec 70)</div>` : ''}
+          <div class="flex justify-between font-bold pt-0.5">
+            <span>Tax @ 20% <span class="font-normal text-on-surface-variant/60">(Sec 111A)</span></span>
+            <span class="font-mono text-[#ff4757]">${t.stcg_tax > 0 ? `-${R}${fmt(t.stcg_tax)}` : `${R}0`}</span>
+          </div>
+        </div>
+      </div>
+      <div class="bg-surface-container rounded-lg p-4 border border-outline-variant/10">
+        <div class="text-[10px] font-black uppercase tracking-wider text-on-surface-variant mb-3 flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-sm text-primary">hourglass_top</span>Long Term (≥12 months) — 12.5%
+        </div>
+        <div class="space-y-1.5 text-[10px]">
+          <div class="flex justify-between"><span class="text-on-surface-variant">Gains (LTCG)</span><span class="font-mono text-[#00e5a0]">+${R}${fmt(t.ltcg)}</span></div>
+          <div class="flex justify-between"><span class="text-on-surface-variant">Losses (LTCL)</span><span class="font-mono text-[#ff4757]">-${R}${fmt(t.ltcl)}</span></div>
+          ${t.remaining_stcl > 0 ? `<div class="flex justify-between"><span class="text-on-surface-variant">STCL offset (Sec 70)</span><span class="font-mono text-[#ff4757]">-${R}${fmt(t.remaining_stcl)}</span></div>` : ''}
+          <div class="flex justify-between border-t border-outline-variant/20 pt-1.5 font-bold">
+            <span>Net LTCG</span><span class="font-mono ${col(t.net_ltcg)}">${sgn(t.net_ltcg)}${R}${fmt(t.net_ltcg)}</span>
+          </div>
+          <div class="flex justify-between"><span class="text-on-surface-variant">Exemption (Sec 112A)</span><span class="font-mono text-on-surface-variant/60">-${R}${exemptUsed.toLocaleString('en-IN')}</span></div>
+          <div class="flex justify-between"><span class="text-on-surface-variant">Taxable LTCG</span><span class="font-mono">${R}${fmt(t.ltcg_taxable)}</span></div>
+          <div class="flex justify-between font-bold pt-0.5">
+            <span>Tax @ 12.5% <span class="font-normal text-on-surface-variant/60">(Sec 112A)</span></span>
+            <span class="font-mono text-[#ff4757]">${t.ltcg_tax > 0 ? `-${R}${fmt(t.ltcg_tax)}` : `${R}0`}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="mt-4 bg-surface-container rounded-xl p-4 border border-outline-variant/10">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div>
+          <div class="text-[9px] font-black uppercase text-on-surface-variant mb-0.5">Base Tax</div>
+          <div class="font-mono font-black text-[#ff4757] text-sm">-${R}${fmt(t.base_tax)}</div>
+        </div>
+        <div>
+          <div class="text-[9px] font-black uppercase text-on-surface-variant mb-0.5">Cess @4%</div>
+          <div class="font-mono font-black text-[#ff4757] text-sm">-${R}${fmt(t.cess)}</div>
+        </div>
+        <div>
+          <div class="text-[9px] font-black uppercase text-on-surface-variant mb-0.5">Total Tax</div>
+          <div class="font-mono font-black text-[#ff4757] text-base">-${R}${fmt(t.total_tax)}</div>
+        </div>
+        <div>
+          <div class="text-[9px] font-black uppercase text-on-surface-variant mb-0.5">Take-Home (after tax)</div>
+          <div class="font-mono font-black ${col(t.net_after_tax)} text-base">${sgn(t.net_after_tax)}${R}${fmt(t.net_after_tax)}</div>
+        </div>
+      </div>
+      <div class="mt-3 pt-2 border-t border-outline-variant/10 text-[8px] text-on-surface-variant/40 leading-relaxed">
+        Estimate per Finance Act 2024 (effective Jul 23, 2024). Sec 111A: STCG @20%. Sec 112A: LTCG @12.5%, ₹1.25L exemption per FY.
+        Health &amp; Education Cess @4% included. Surcharge, slab benefit, and set-off carry-forward not computed here.
+        STCL offsets both STCG and LTCG (Sec 70). LTCL offsets only LTCG. File ITR to carry forward losses.
+        <strong class="text-on-surface-variant/60">Consult a Chartered Accountant for actual tax filing.</strong>
+      </div>
+    </div>
+  `;
 }
 function pfSwitchTab(tab) {
   document.querySelectorAll('.pf-subtab-btn').forEach(b => {
