@@ -613,13 +613,13 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
   #s1-table th:nth-child(8), #s1-table td:nth-child(8)
   { display: none !important; }
 
-  /* Stage 2 — mobile keeps: Stock · Price · SL · Target · Score · ★
-     Hiding: # (1) · R:R (6) · MFS (7) · MTF (8) · Status (10) */
+  /* Stage 2 — mobile keeps: Stock · Price · SL · Target · Score · NEO · ★
+     Hiding: # (1) · R:R (6) · MFS (7) · MTF (8) · Status (11) */
   #s2-table th:nth-child(1), #s2-table td:nth-child(1),
   #s2-table th:nth-child(6), #s2-table td:nth-child(6),
   #s2-table th:nth-child(7), #s2-table td:nth-child(7),
   #s2-table th:nth-child(8), #s2-table td:nth-child(8),
-  #s2-table th:nth-child(10), #s2-table td:nth-child(10)
+  #s2-table th:nth-child(11), #s2-table td:nth-child(11)
   { display: none !important; }
 
   /* Watchlist — mobile keeps: Symbol · Price · 10D Trend · Actions
@@ -1215,6 +1215,7 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right" title="Multi-Factor Score: Momentum + Quality + Value + Growth (1-99 percentile).">MFS</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center" title="Multi-Timeframe Confluence (1D·1W·1M).">MTF</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-right">Score</th>
+                  <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center" title="Neo v1 — simultaneous inflection signal: MACD · AO · RSI · Vortex · Supertrend all crossing together. 5/5 = perfect entry. 4/5 = valid (missing condition shown).">NEO</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">Status</th>
                   <th class="px-3 py-3 text-[10px] font-black uppercase text-on-surface-variant text-center">
                     <span class="material-symbols-outlined text-xs">bookmark</span>
@@ -1222,7 +1223,7 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
                 </tr>
               </thead>
               <tbody id="s2-body" class="text-xs">
-                <tr><td colspan="11" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 2 results appear after screening</td></tr>
+                <tr><td colspan="12" class="px-3 py-8 text-center text-on-surface-variant/50">Stage 2 results appear after screening</td></tr>
               </tbody>
             </table>
             </div>
@@ -3060,6 +3061,17 @@ function _evBadge(r) {
   return `<div class="text-[8.5px] font-medium leading-tight mt-0.5 tracking-wide" style="color:${col}">${d.text}</div>`;
 }
 
+function _neoBadge(neo) {
+  /* Renders the Neo v1 multi-indicator inflection badge for Stage 2.
+     5/5 → gold star pill   4/5 → green pill with missing label   <4 → dash */
+  if (!neo || !neo.is_neo) return '<span class="text-on-surface-variant/30 text-xs">—</span>';
+  const missing = (neo.missing || []).join(', ');
+  if (neo.score >= 5) {
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-black" title="Neo v1 perfect: all 5 indicators simultaneously at inflection">★ 5/5</span>`;
+  }
+  return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-black" title="Neo v1 valid — missing: ${missing}">${neo.score}/5 <span class="font-normal text-[8px] text-primary/70">-${missing}</span></span>`;
+}
+
 // ============ QUICK LOOKUP (search bar → single row in Stage 1) ============
 // Client-side event badge from insights-pro events[] array (same logic as server get_event_badge)
 function _quickEvBadge(events) {
@@ -4324,6 +4336,7 @@ function renderResults(data) {
       <td class="px-3 py-2.5 text-right mfs-cell" data-sym="${r.symbol}">—</td>
       <td class="px-3 py-2.5 text-center mtf-cell" data-sym="${r.symbol}">—</td>
       <td class="px-3 py-2.5 text-right"><span class="px-2 py-0.5 ${r.score>=60?'bg-primary/20 text-primary':'bg-surface-container-highest text-on-surface-variant'} rounded-full text-[10px] font-black">${r.score}</span></td>
+      <td class="px-3 py-2.5 text-center">${_neoBadge(r.neo)}</td>
       <td class="px-3 py-2.5 text-center"><span class="${r.passed?'bg-primary/10 text-primary':'bg-error/10 text-error'} text-[10px] px-2 py-0.5 rounded-full font-black uppercase">${r.passed?'PASS':'FAIL'}</span></td>
       <td class="px-3 py-2.5 text-center"><button onclick="event.stopPropagation();addToWatchlist('${r.symbol}')" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined" style="font-size:14px;">bookmark_add</span></button></td>
     </tr>

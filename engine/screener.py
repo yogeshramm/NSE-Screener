@@ -9,6 +9,7 @@ from engine.fundamental_checker import check_fundamentals
 from engine.indicator_cache import load_cached, save_cached
 from engine.late_entry import check_stage1_late_entry, check_stage2_late_entry
 from engine.scorer import compute_score
+from engine.neo_scorer import neo_score
 from indicators.registry import run_all_indicators
 
 
@@ -338,6 +339,9 @@ def screen_stock_stage2(symbol: str, daily_df: pd.DataFrame, stock_data: dict,
     rr_ratio = atr_result["computed"].get("risk_reward_ratio") if atr_result else None
     atr_val = atr_result["computed"].get("atr") if atr_result else None
 
+    # ── Neo v1 signal ────────────────────────────────────────────────────
+    neo = neo_score(stage1_result["indicator_results"], daily_df)
+
     return {
         "symbol": symbol,
         "stage": 2,
@@ -354,6 +358,7 @@ def screen_stock_stage2(symbol: str, daily_df: pd.DataFrame, stock_data: dict,
         "late_entry": late_entry,
         "brk_pass": brk_pass,
         "brk_fail": brk_fail,
+        "neo": neo,
     }
 
 
