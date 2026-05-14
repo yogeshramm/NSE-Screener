@@ -5575,15 +5575,22 @@ function _pfDateToTs(dateStr) {
   try { return Math.floor(new Date(dateStr + 'T00:00:00').getTime() / 1000); } catch(e) { return null; }
 }
 function _pfSnapToCandle(ts) {
+  // Snap to the last trading day ON OR BEFORE the given timestamp (floor).
+  // This means a trade dated on a weekend/holiday always shows on the
+  // previous session, not the next one.
   if (!ts || !chartData?.candles?.length) return null;
   const candles = chartData.candles;
   if (ts < candles[0].time - 86400 || ts > candles[candles.length - 1].time + 7 * 86400) return null;
-  let best = candles[0], bestDiff = Math.abs(candles[0].time - ts);
+  let best = null;
   for (const c of candles) {
-    const d = Math.abs(c.time - ts);
-    if (d < bestDiff) { bestDiff = d; best = c; }
+    if (c.time <= ts) {
+      best = c;          // keep advancing — last candle on or before ts
+    } else {
+      if (!best) best = c; // ts is before first candle; use first available
+      break;
+    }
   }
-  return best.time;
+  return best ? best.time : null;
 }
 async function _pfLoadTradesCache(force = false) {
   const now = Date.now();
