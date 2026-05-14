@@ -3767,8 +3767,8 @@ function _pfCalcTax(positions) {
   const base_tax           = stcg_tax + ltcg_tax;
   const cess               = base_tax * 0.04;                 // Health & Education Cess @4%
   const total_tax          = base_tax + cess;
-  const taxable_total      = stcg_taxable + Math.max(0, net_ltcg);
-  const net_after_tax      = taxable_total - total_tax;
+  const total_realized     = net_stcg + net_ltcg_raw;   // all gains - all losses (true P&L)
+  const net_after_tax      = total_realized - total_tax; // what you actually keep
   return { stcg, stcl, net_stcg, ltcg, ltcl, net_ltcg_raw, remaining_stcl, net_ltcg,
            stcg_taxable, stcg_tax, ltcg_exemption, ltcg_taxable, ltcg_tax,
            base_tax, cess, total_tax, net_after_tax, closedCount: closed.length };
