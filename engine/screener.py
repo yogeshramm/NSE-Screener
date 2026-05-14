@@ -339,16 +339,19 @@ def screen_stock_stage2(symbol: str, daily_df: pd.DataFrame, stock_data: dict,
     rr_ratio = atr_result["computed"].get("risk_reward_ratio") if atr_result else None
     atr_val = atr_result["computed"].get("atr") if atr_result else None
 
-    # ── Neo v1 signal ────────────────────────────────────────────────────
-    neo = neo_score(stage1_result["indicator_results"], daily_df)
+    # ── Neo signal (both profiles, every Stage 2 row carries both) ───────
+    neo    = neo_score(stage1_result["indicator_results"], daily_df, profile="v1")
+    neo_v2 = neo_score(stage1_result["indicator_results"], daily_df, profile="v2")
 
-    # Optional Stage 2 gate: presets can set "stage2_gate": "neo" to require
-    # Neo's tier (4/5 or 5/5 with Supertrend anchor) instead of the default
-    # breakout-count majority.
-    if config.get("stage2_gate") == "neo":
+    # Optional Stage 2 gate: presets can set "stage2_gate": "neo" (v1 strict)
+    # or "neo_v2" (relaxed, daily-use reference) to require the corresponding
+    # tier instead of the default breakout-count majority gate.
+    gate = config.get("stage2_gate")
+    if gate in ("neo", "neo_v2"):
+        active = neo_v2 if gate == "neo_v2" else neo
         min_score = int(config.get("neo_min_score", 4))
-        stage2_pass = (neo["score"] >= min_score
-                       and neo["conditions"]["supertrend"]
+        stage2_pass = (active["score"] >= min_score
+                       and active["conditions"]["supertrend"]
                        and late_entry["status"] != "FAIL")
 
     return {
@@ -367,7 +370,8 @@ def screen_stock_stage2(symbol: str, daily_df: pd.DataFrame, stock_data: dict,
         "late_entry": late_entry,
         "brk_pass": brk_pass,
         "brk_fail": brk_fail,
-        "neo": neo,
+        "neo":    neo,
+        "neo_v2": neo_v2,
     }
 
 
