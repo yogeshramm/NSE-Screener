@@ -45,11 +45,10 @@ import pandas as pd
 
 # ── tunable constants ─────────────────────────────────────────────────────
 # Calibrated to keep the signal moment-of-inflection only.
-LOOKBACK         = 5       # 5-bar synchronization window — indicators don't
-                           #   always flip on the same bar but should within ~1 week.
-                           #   Decay still works because the window slides past
-                           #   the cross point and the "prior bar was bearish"
-                           #   check fails once the window is fully post-inflection.
+LOOKBACK         = 3       # Total window: today + 2 prior bars. "Within last
+                           #   3 bars" — the indicator must have flipped between
+                           #   day-before-yesterday, yesterday, or today. Tighter
+                           #   than the previous 5 to land on the exact moment.
 RSI_MIN          = 45
 RSI_MAX          = 65
 AO_SLIM_RATIO    = 0.40
@@ -116,14 +115,15 @@ def _find(indicator_results: list, name: str) -> Optional[dict]:
 
 def _series_recently_crossed_up(s: pd.Series, threshold: float = 0.0,
                                 lookback: int = LOOKBACK) -> bool:
-    """True iff series[-1] > threshold AND any of the prior lookback
-    bars were ≤ threshold — i.e. the series just crossed up."""
-    if s is None or len(s) < lookback + 1:
+    """True iff series[-1] > threshold AND any of the (lookback-1) prior
+    bars were ≤ threshold — i.e. the series crossed up within the last
+    `lookback` bars (today inclusive). LOOKBACK=3 → today + 2 prior."""
+    if s is None or len(s) < lookback:
         return False
     vals = s.values
     if math.isnan(vals[-1]) or vals[-1] <= threshold:
         return False
-    prior = vals[-(lookback + 1):-1]
+    prior = vals[-lookback:-1]
     return any(not math.isnan(v) and v <= threshold for v in prior)
 
 
@@ -185,20 +185,19 @@ def _c_rsi(ind: Optional[dict]) -> Tuple[bool, str]:
 
 def _c_vortex(ind: Optional[dict], daily_df: Optional[pd.DataFrame]) -> Tuple[bool, str]:
     """VI+ crossed above VI- within last LOOKBACK bars — currently bullish
-       AND any prior bar in window was bearish. NO continuation check."""
+       AND any of (lookback-1) prior bars was bearish. NO continuation check."""
     label = "Vortex"
     if daily_df is None or len(daily_df) < 20:
         return False, label
     vi_p, vi_m = _vortex_series(daily_df["High"], daily_df["Low"], daily_df["Close"])
-    if len(vi_p) < LOOKBACK + 1:
+    if len(vi_p) < LOOKBACK:
         return False, label
     p = vi_p.values; m = vi_m.values
     if math.isnan(p[-1]) or math.isnan(m[-1]):
         return False, label
     if p[-1] <= m[-1]:
         return False, label
-    # Any of prior LOOKBACK bars had VI+ ≤ VI- (fresh cross)
-    for i in range(-(LOOKBACK + 1), -1):
+    for i in range(-LOOKBACK, -1):
         if not math.isnan(p[i]) and not math.isnan(m[i]) and p[i] <= m[i]:
             return True, label
     return False, label
@@ -207,20 +206,20 @@ def _c_vortex(ind: Optional[dict], daily_df: Optional[pd.DataFrame]) -> Tuple[bo
 def _c_supertrend(ind: Optional[dict],
                   daily_df: Optional[pd.DataFrame]) -> Tuple[bool, str]:
     """ANCHOR: Supertrend direction flipped from -1 to +1 within last
-       LOOKBACK bars. Uses our own direction-series computation so this
-       check correctly fires when the flip just happened, regardless
-       of how far price has moved away from the ST line."""
+       LOOKBACK bars (today + lookback-1 prior). Uses our own direction-
+       series computation so this check correctly fires when the flip
+       just happened, regardless of how far price has moved away from
+       the ST line."""
     label = "Supertrend"
     if daily_df is None or len(daily_df) < 20:
         return False, label
     dir_ = _supertrend_dir(daily_df["High"], daily_df["Low"], daily_df["Close"])
-    if len(dir_) < LOOKBACK + 1:
+    if len(dir_) < LOOKBACK:
         return False, label
     vals = dir_.values
     if vals[-1] != 1:
         return False, label
-    # Any prior LOOKBACK bar was bearish (-1) → recent flip
-    for i in range(-(LOOKBACK + 1), -1):
+    for i in range(-LOOKBACK, -1):
         if vals[i] == -1:
             return True, label
     return False, label
@@ -241,7 +240,7 @@ def neo_score(
             "label":      "N/5",
             "is_neo":     bool (tier in {perfect, strong, watch}),
             "tier":       perfect | strong | watch | below,
-            "profile":    "neo3",
+            "profile":    "neo_pulse",
             "conditions": {macd, ao, rsi, vortex, supertrend} → bool,
             "missing":    [labels of failed conditions],
         }
@@ -278,7 +277,7 @@ def neo_score(
         "label":      f"{score}/5",
         "is_neo":     tier in ("perfect", "strong", "watch"),
         "tier":       tier,
-        "profile":    "neo3",
+        "profile":    "neo_pulse",
         "conditions": conditions,
         "missing":    missing,
     }

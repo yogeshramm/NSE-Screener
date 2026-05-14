@@ -342,9 +342,11 @@ def screen_stock_stage2(symbol: str, daily_df: pd.DataFrame, stock_data: dict,
     # ── Neo3 signal (single profile, every Stage 2 row carries it) ───────
     neo = neo_score(stage1_result["indicator_results"], daily_df)
 
-    # Optional Stage 2 gate: presets set "stage2_gate": "neo3" to require
-    # Neo3's tier instead of the default breakout-count majority gate.
-    if config.get("stage2_gate") == "neo3":
+    # Optional Stage 2 gate: presets set "stage2_gate": "neo_pulse" (and the
+    # legacy "neo3" alias) to require the Neo tier instead of the default
+    # breakout-count majority gate. Tier-priority promotion (only the highest
+    # tier present in the universe survives) is applied in run_full_screen.
+    if config.get("stage2_gate") in ("neo_pulse", "neo3"):
         min_score = int(config.get("neo_min_score", 4))
         stage2_pass = (neo["score"] >= min_score
                        and neo["conditions"]["supertrend"]
@@ -420,6 +422,21 @@ def run_full_screen(stocks_data: list[dict], config: dict | None = None) -> dict
     stage2_results.sort(key=lambda x: x["score"], reverse=True)
     for i, r in enumerate(stage2_results):
         r["rank"] = i + 1
+
+    # ── Neo tier-priority: only highest tier present survives ────────────────
+    # When the Neo gate is active, demote 4/5 stocks to passed=False if any 5/5
+    # exists in the universe. The result: scan returns 5/5 stocks if any exist,
+    # else falls back to 4/5. This keeps the list focused on the strongest
+    # inflection signals available *today*.
+    if config and config.get("stage2_gate") in ("neo_pulse", "neo3"):
+        max_score = max(
+            (r.get("neo", {}).get("score", 0) for r in stage2_results if r["passed"]),
+            default=0,
+        )
+        if max_score == 5:
+            for r in stage2_results:
+                if r["passed"] and r.get("neo", {}).get("score", 0) < 5:
+                    r["passed"] = False
 
     # ── Stage 3: Monthly confirmation filter on Stage 2 passed stocks ────────
     stage3_results = []

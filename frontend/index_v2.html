@@ -3062,7 +3062,7 @@ function _evBadge(r) {
 }
 
 function _neoBadge(row) {
-  /* Renders the Neo3 multi-indicator early-trend badge for Stage 2.
+  /* Renders the Neo Pulse multi-indicator early-trend badge for Stage 2.
        perfect (5/5)                       → amber ★ pill
        strong  (4/5, MACD/AO/Vortex out)   → green pill (peers cross-confirm)
        watch   (4/5, RSI out of band)      → blue pill (sub-optimal but anchored)
@@ -3076,12 +3076,12 @@ function _neoBadge(row) {
   if (tier === 'below') return '<span class="text-on-surface-variant/30 text-xs">—</span>';
   const missing = (neo.missing || []).join(', ');
   if (tier === 'perfect') {
-    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-black" title="Neo3 perfect — all 5 conditions met (MACD · AO · RSI · Vortex · Supertrend anchor)">★ 5/5</span>`;
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-black" title="Neo Pulse perfect — all 5 conditions met (MACD · AO · RSI · Vortex · Supertrend anchor)">★ 5/5</span>`;
   }
   if (tier === 'watch') {
-    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-400/15 text-sky-300 text-[10px] font-black" title="Neo3 watch — 4/5 with RSI outside [${45}, ${70}]; sub-optimal but Supertrend anchored">${neo.score}/5 <span class="font-normal text-[8px] text-sky-300/70">-RSI</span></span>`;
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-400/15 text-sky-300 text-[10px] font-black" title="Neo Pulse watch — 4/5 with RSI outside [45, 65]; sub-optimal but Supertrend anchored">${neo.score}/5 <span class="font-normal text-[8px] text-sky-300/70">-RSI</span></span>`;
   }
-  return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-black" title="Neo3 strong — 4/5 with peer-confirming indicators; missing: ${missing}">${neo.score}/5 <span class="font-normal text-[8px] text-primary/70">-${missing}</span></span>`;
+  return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-black" title="Neo Pulse strong — 4/5 with peer-confirming indicators; missing: ${missing}">${neo.score}/5 <span class="font-normal text-[8px] text-primary/70">-${missing}</span></span>`;
 }
 
 // ============ QUICK LOOKUP (search bar → single row in Stage 1) ============
