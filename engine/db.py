@@ -34,7 +34,7 @@ DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 # Schema version is bumped manually when we add/alter tables. The
 # `schema_version` row tracks what's been applied.
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 _init_lock = threading.Lock()
 _initialised = False
@@ -85,7 +85,8 @@ def _ensure_initialised() -> None:
         if _initialised:
             return
         _create_schema()
-        _migrate_legacy_users()
+        _alter_users_v3()        # add status/display_name/password_changed if missing
+        _migrate_legacy_users()  # upsert all users.json rows into SQLite
         _migrate_legacy_presets()
         _seed_forum_categories()
         _initialised = True
@@ -103,13 +104,16 @@ CREATE TABLE IF NOT EXISTS schema_meta (
 );
 
 CREATE TABLE IF NOT EXISTS users (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    username        TEXT NOT NULL UNIQUE COLLATE NOCASE,
-    password_hash   TEXT NOT NULL,
-    role            TEXT NOT NULL DEFAULT 'user',         -- 'user' | 'admin'
-    created_at      INTEGER NOT NULL,                     -- unix epoch
-    public_profile  INTEGER NOT NULL DEFAULT 0,           -- 0/1 — opt-in for leaderboard
-    extras_json     TEXT NOT NULL DEFAULT '{}'            -- forward-compat bag (nickname, prefs, etc.)
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    username         TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    password_hash    TEXT NOT NULL,
+    role             TEXT NOT NULL DEFAULT 'user',        -- 'user' | 'admin'
+    status           TEXT NOT NULL DEFAULT 'approved',   -- 'pending' | 'approved'
+    display_name     TEXT NOT NULL DEFAULT '',
+    created_at       INTEGER NOT NULL,                    -- unix epoch
+    password_changed INTEGER,                             -- unix epoch, nullable
+    public_profile   INTEGER NOT NULL DEFAULT 0,          -- 0/1 — opt-in for leaderboard
+    extras_json      TEXT NOT NULL DEFAULT '{}'           -- forward-compat bag (nickname, prefs, etc.)
 );
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 
@@ -254,13 +258,29 @@ _LEGACY_USERS_FILE = ROOT / "config" / "users.json"
 _LEGACY_PRESETS_DIR = ROOT / "config" / "presets"
 
 
-def _migrate_legacy_users() -> None:
-    """Copy config/users.json rows into users table if not already migrated.
+def _alter_users_v3() -> None:
+    """Idempotently add columns introduced in schema v3 to existing databases."""
+    conn = _connect()
+    try:
+        for col, definition in [
+            ("status",           "TEXT NOT NULL DEFAULT 'approved'"),
+            ("display_name",     "TEXT NOT NULL DEFAULT ''"),
+            ("password_changed", "INTEGER"),
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
+            except sqlite3.OperationalError:
+                pass  # column already exists — no-op
+    finally:
+        conn.close()
 
-    Non-destructive: leaves users.json in place so the old code path still
-    works during transition. The DB becomes the source of truth, but
-    legacy auth helpers can keep reading users.json until they're cut
-    over.
+
+def _migrate_legacy_users() -> None:
+    """Upsert all config/users.json rows into the SQLite users table.
+
+    Runs every startup — idempotent via INSERT OR REPLACE. SQLite is now
+    the single source of truth; users.json is kept as a read-only backup
+    but is never written to by the new auth layer.
     """
     if not _LEGACY_USERS_FILE.exists():
         return
@@ -274,10 +294,6 @@ def _migrate_legacy_users() -> None:
     now = int(time.time())
     conn = _connect()
     try:
-        # If users table already has rows, assume migration done — skip.
-        existing = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-        if existing:
-            return
         for username, rec in data.items():
             if not isinstance(rec, dict):
                 continue
@@ -285,14 +301,29 @@ def _migrate_legacy_users() -> None:
             if not pw:
                 continue
             role = rec.get("role", "user")
-            created_at = rec.get("created_at") or now
-            try:
-                created_at = int(created_at)
-            except Exception:
-                created_at = now
+            status = rec.get("status", "approved")
+            display_name = (rec.get("display_name") or username).strip()
+            # Parse ISO created date from users.json
+            created_at = now
+            created_str = rec.get("created") or rec.get("created_at")
+            if created_str:
+                try:
+                    from datetime import datetime as _dt
+                    created_at = int(_dt.fromisoformat(str(created_str)).timestamp())
+                except Exception:
+                    try:
+                        created_at = int(created_str)
+                    except Exception:
+                        pass
             conn.execute(
-                "INSERT OR IGNORE INTO users(username, password_hash, role, created_at) VALUES(?,?,?,?)",
-                (username, pw, role, created_at),
+                """INSERT INTO users(username, password_hash, role, status, display_name, created_at)
+                   VALUES(?,?,?,?,?,?)
+                   ON CONFLICT(username) DO UPDATE SET
+                     password_hash = excluded.password_hash,
+                     role          = excluded.role,
+                     status        = excluded.status,
+                     display_name  = CASE WHEN display_name = '' THEN excluded.display_name ELSE display_name END""",
+                (username, pw, role, status, display_name, created_at),
             )
     finally:
         conn.close()
