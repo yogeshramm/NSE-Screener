@@ -49,7 +49,7 @@ def list_topics(category_slug: str, limit: int = 100) -> List[Dict[str, Any]]:
     """List non-archived topics in a category, pinned first then by activity."""
     with get_conn() as conn:
         rows = conn.execute(
-            """SELECT t.*, u.username AS author
+            """SELECT t.*, u.username AS author, u.display_name AS author_display
                  FROM forum_topics t
                  LEFT JOIN users u ON u.id = t.author_id
                  JOIN forum_categories c ON c.id = t.category_id
@@ -97,7 +97,8 @@ def create_topic(
 def get_topic(topic_id: int) -> Optional[Dict[str, Any]]:
     with get_conn() as conn:
         row = conn.execute(
-            """SELECT t.*, u.username AS author, c.slug AS category_slug, c.name AS category_name
+            """SELECT t.*, u.username AS author, u.display_name AS author_display,
+                        c.slug AS category_slug, c.name AS category_name
                  FROM forum_topics t
                  LEFT JOIN users u ON u.id = t.author_id
                  JOIN forum_categories c ON c.id = t.category_id
@@ -134,7 +135,7 @@ def list_posts(topic_id: int) -> List[Dict[str, Any]]:
     separately by the UI as the first 'post'."""
     with get_conn() as conn:
         rows = conn.execute(
-            """SELECT p.*, u.username AS author
+            """SELECT p.*, u.username AS author, u.display_name AS author_display
                  FROM forum_posts p
                  LEFT JOIN users u ON u.id = p.author_id
                 WHERE p.topic_id = ?

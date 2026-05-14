@@ -33,43 +33,15 @@ from engine.db import get_conn, now_ts
 # ─────────────────────────── helpers ───────────────────────────
 
 def _ensure_user_in_db(conn, username: str):
-    """Return SQLite users row for *username*, syncing from users.json if needed.
+    """Return SQLite users row for *username*.
 
-    Auth lives in config/users.json; the SQLite users table is populated
-    lazily here so preset-sharing works even before a user ever touches any
-    SQLite-backed feature (forum, tournaments, etc.).
+    SQLite is now the single source of truth for users (auth.py writes
+    there directly and db._migrate_legacy_users() syncs users.json on
+    every startup), so this is a straightforward lookup.
     """
-    row = conn.execute(
-        "SELECT id FROM users WHERE username = ? COLLATE NOCASE",
-        (username.strip(),),
-    ).fetchone()
-    if row:
-        return row
-
-    # Not in SQLite yet — check users.json via auth module
-    try:
-        from engine.auth import get_user as _auth_get_user
-        auth_user = _auth_get_user(username.strip())
-    except Exception:
-        auth_user = None
-
-    if not auth_user or auth_user.get("status", "approved") != "approved":
-        return None  # caller raises "user not found"
-
-    # Upsert a minimal shadow row (password auth still handled by users.json)
-    conn.execute(
-        """INSERT OR IGNORE INTO users
-           (username, password_hash, role, created_at, extras_json)
-           VALUES (?, 'json-auth-shadow', ?, ?, '{}')""",
-        (
-            auth_user["username"],
-            auth_user.get("role", "user"),
-            now_ts(),
-        ),
-    )
     return conn.execute(
         "SELECT id FROM users WHERE username = ? COLLATE NOCASE",
-        (auth_user["username"],),
+        (username.strip(),),
     ).fetchone()
 
 _SAFE_NAME = re.compile(r"[^a-z0-9_\-]")
@@ -275,7 +247,7 @@ def list_presets_for(requester_id: Optional[int] = None) -> List[Dict[str, Any]]
 def list_public_presets(limit: int = 200, search: Optional[str] = None) -> List[Dict[str, Any]]:
     """Community library — public presets with author username + use count."""
     sql = """
-        SELECT p.*, u.username AS author
+        SELECT p.*, u.username AS author, u.display_name AS author_display
           FROM presets p
           LEFT JOIN users u ON u.id = p.owner_id
          WHERE p.visibility = 'public'
@@ -292,6 +264,7 @@ def list_public_presets(limit: int = 200, search: Optional[str] = None) -> List[
         for r in conn.execute(sql, params):
             d = _row_to_dict(r, with_config=False)
             d["author"] = r["author"] or "system"
+            d["author_display"] = r["author_display"] or d["author"]
             out.append(d)
     return out
 
@@ -367,7 +340,7 @@ def share_with_user(
         )
         # Return updated state + recipient list
         shares = conn.execute(
-            """SELECT u.id, u.username, s.shared_at
+            """SELECT u.id, u.username, u.display_name, s.shared_at
                  FROM preset_shares s JOIN users u ON u.id = s.recipient_id
                 WHERE s.preset_id = ? ORDER BY s.shared_at DESC""",
             (preset_id,),
@@ -403,7 +376,7 @@ def shares_for_preset(preset_id: int, requester_id: int) -> List[Dict[str, Any]]
         if not owner_row:
             raise PermissionError("Preset not found or you don't own it")
         rows = conn.execute(
-            """SELECT u.id, u.username, s.shared_at
+            """SELECT u.id, u.username, u.display_name, s.shared_at
                  FROM preset_shares s JOIN users u ON u.id = s.recipient_id
                 WHERE s.preset_id = ? ORDER BY s.shared_at DESC""",
             (preset_id,),

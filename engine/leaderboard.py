@@ -145,7 +145,7 @@ def public_leaderboard(
     start, end, label = _month_window(period)
     with get_conn() as conn:
         rows = conn.execute(
-            f"""SELECT u.username, s.return_pct, s.win_rate, s.profit_factor,
+            f"""SELECT u.username, u.display_name, s.return_pct, s.win_rate, s.profit_factor,
                        s.sharpe, s.trades_count, s.symbol, s.ended_at, s.id
                   FROM practice_sessions s
                   JOIN users u ON u.id = s.user_id
