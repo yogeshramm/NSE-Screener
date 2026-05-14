@@ -3062,26 +3062,28 @@ function _evBadge(r) {
 }
 
 function _neoBadge(row) {
-  /* Renders the Neo Pulse multi-indicator early-trend badge for Stage 2.
-       perfect (5/5)                       → amber ★ pill
-       strong  (4/5, MACD/AO/Vortex out)   → green pill (peers cross-confirm)
-       watch   (4/5, RSI out of band)      → blue pill (sub-optimal but anchored)
-       below   (<4 or Supertrend anchor X) → dash
-     Accepts a Stage 2 row OR a raw neo dict (for back-compat with callers
-     that pass r.neo directly). */
+  /* Neo Radar badge. Picks the visible tier as follows:
+       - if row.neo (strict, 3-bar) is_neo → render strict tier
+       - else if row.neo_flex (flex, 5-bar) is_neo → render flex tier
+       - else → dash (the gate already rejected this row, badge is informational)
+     Tooltip carries which window the score came from + fresh_count tiebreaker. */
   if (!row) return '<span class="text-on-surface-variant/30 text-xs">—</span>';
-  const neo = (row && row.neo) ? row.neo : row;
+  let neo, window_label;
+  if (row.neo && row.neo.is_neo) { neo = row.neo; window_label = 'last 3 bars'; }
+  else if (row.neo_flex && row.neo_flex.is_neo) { neo = row.neo_flex; window_label = 'last 5 bars'; }
+  else { neo = row.neo || row.neo_flex || row; }
   if (!neo || typeof neo.score === 'undefined') return '<span class="text-on-surface-variant/30 text-xs">—</span>';
   const tier = neo.tier || (neo.is_neo ? (neo.score >= 5 ? 'perfect' : 'strong') : 'below');
   if (tier === 'below') return '<span class="text-on-surface-variant/30 text-xs">—</span>';
   const missing = (neo.missing || []).join(', ');
+  const fc = (row.fresh_count != null) ? ` · ${row.fresh_count}/5 today` : '';
   if (tier === 'perfect') {
-    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-black" title="Neo Pulse perfect — all 5 conditions met (MACD · AO · RSI · Vortex · Supertrend anchor)">★ 5/5</span>`;
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-black" title="Neo Radar perfect — all 5 conditions synced within ${window_label}${fc}">★ 5/5</span>`;
   }
   if (tier === 'watch') {
-    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-400/15 text-sky-300 text-[10px] font-black" title="Neo Pulse watch — 4/5 with RSI outside [45, 65]; sub-optimal but Supertrend anchored">${neo.score}/5 <span class="font-normal text-[8px] text-sky-300/70">-RSI</span></span>`;
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-400/15 text-sky-300 text-[10px] font-black" title="Neo Radar watch — 4/5 within ${window_label}; RSI outside [45, 65] but Supertrend anchored${fc}">${neo.score}/5 <span class="font-normal text-[8px] text-sky-300/70">-RSI</span></span>`;
   }
-  return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-black" title="Neo Pulse strong — 4/5 with peer-confirming indicators; missing: ${missing}">${neo.score}/5 <span class="font-normal text-[8px] text-primary/70">-${missing}</span></span>`;
+  return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-black" title="Neo Radar strong — 4/5 within ${window_label}; missing: ${missing}${fc}">${neo.score}/5 <span class="font-normal text-[8px] text-primary/70">-${missing}</span></span>`;
 }
 
 // ============ QUICK LOOKUP (search bar → single row in Stage 1) ============
@@ -4347,10 +4349,10 @@ function renderResults(data) {
   }).join('');
 
   const s2=document.getElementById('s2-body');
-  document.getElementById('s2-count').textContent=data.stage2_results.length+' candidates';
-  s2.innerHTML=data.stage2_results.map((r,i)=>`
+  // Per-row HTML — reused for both flat and Neo-Radar sectioned renders
+  const _s2RowHtml = (r, displayRank) => `
     <tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" data-sym="${r.symbol}" onclick="openInsightsPro('${r.symbol}')" oncontextmenu="event.preventDefault();showCtxMenu(event,'${r.symbol}')">
-      <td class="px-3 py-2.5 font-bold text-secondary">${r.rank||i+1}</td>
+      <td class="px-3 py-2.5 font-bold text-secondary">${displayRank}</td>
       <td class="px-3 py-2.5"><div class="font-bold text-on-surface">${_stockLink(r.symbol)}</div>${_evBadge(r)}</td>
       <td class="px-3 py-2.5 text-right text-on-surface ltp-cell" data-sym="${r.symbol}">\u20b9${r.price||'--'}</td>
       <td class="px-3 py-2.5 text-right text-error font-mono">${r.stop_loss?'\u20b9'+r.stop_loss:'--'}</td>
@@ -4362,8 +4364,43 @@ function renderResults(data) {
       <td class="px-3 py-2.5 text-center">${_neoBadge(r)}</td>
       <td class="px-3 py-2.5 text-center"><span class="${r.passed?'bg-primary/10 text-primary':'bg-error/10 text-error'} text-[10px] px-2 py-0.5 rounded-full font-black uppercase">${r.passed?'PASS':'FAIL'}</span></td>
       <td class="px-3 py-2.5 text-center"><button onclick="event.stopPropagation();addToWatchlist('${r.symbol}')" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined" style="font-size:14px;">bookmark_add</span></button></td>
-    </tr>
-  `).join('');
+    </tr>`;
+
+  const _isRadar = (typeof activePresetName !== 'undefined' && activePresetName === 'neo_radar');
+  if (_isRadar) {
+    // Neo Radar: split Stage 2 into INFLECTION (strict 3-bar) + EXTENDED (5-bar
+    // passers not already in strict). Sort each band by (Neo score desc,
+    // fresh_count desc, composite score desc) — same-day synced signals bubble
+    // to the top of their tier.
+    const _rank = (a, b) => {
+      const sa = a.neo?.is_neo ? a.neo.score : (a.neo_flex?.score || 0);
+      const sb = b.neo?.is_neo ? b.neo.score : (b.neo_flex?.score || 0);
+      if (sb !== sa) return sb - sa;
+      const fa = a.fresh_count || 0, fb = b.fresh_count || 0;
+      if (fb !== fa) return fb - fa;
+      return (b.score || 0) - (a.score || 0);
+    };
+    const passers = (data.stage2_results || []).filter(r => r.passed);
+    const inflection = passers.filter(r => r.neo?.is_neo).sort(_rank);
+    const extended   = passers.filter(r => !r.neo?.is_neo && r.neo_flex?.is_neo).sort(_rank);
+    document.getElementById('s2-count').textContent = (inflection.length + extended.length) + ' moment';
+    let html = '';
+    if (inflection.length) {
+      html += `<tr class="bg-primary/5"><td colspan="12" class="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-primary border-y border-primary/30"><span class="material-symbols-outlined align-middle text-[12px] mr-1">my_location</span>Inflection · last 3 bars · ${inflection.length}</td></tr>`;
+      html += inflection.map((r, i) => _s2RowHtml(r, i + 1)).join('');
+    }
+    if (extended.length) {
+      html += `<tr class="bg-sky-500/5"><td colspan="12" class="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-sky-300 border-y border-sky-500/30"><span class="material-symbols-outlined align-middle text-[12px] mr-1">radar</span>Extended · last 5 bars · ${extended.length}</td></tr>`;
+      html += extended.map((r, i) => _s2RowHtml(r, inflection.length + i + 1)).join('');
+    }
+    if (!inflection.length && !extended.length) {
+      html = '<tr><td colspan="12" class="px-3 py-8 text-center text-on-surface-variant/50">No stocks at the Neo moment today — nothing within the 5-bar window</td></tr>';
+    }
+    s2.innerHTML = html;
+  } else {
+    document.getElementById('s2-count').textContent = data.stage2_results.length + ' candidates';
+    s2.innerHTML = data.stage2_results.map((r, i) => _s2RowHtml(r, r.rank || i + 1)).join('');
+  }
 
   // ── Stage 3: Monthly confirmation ─────────────────────────────────────────
   const s3body = document.getElementById('s3-body');

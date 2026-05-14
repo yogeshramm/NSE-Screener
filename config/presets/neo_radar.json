@@ -1,5 +1,5 @@
 {
-  "stage2_gate": "neo_pulse",
+  "stage2_gate": "neo_radar",
   "neo_min_score": 4,
   "ema": {
     "enabled": true,

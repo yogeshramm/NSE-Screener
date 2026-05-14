@@ -9,7 +9,7 @@ from engine.fundamental_checker import check_fundamentals
 from engine.indicator_cache import load_cached, save_cached
 from engine.late_entry import check_stage1_late_entry, check_stage2_late_entry
 from engine.scorer import compute_score
-from engine.neo_scorer import neo_score
+from engine.neo_scorer import neo_score, neo_radar_score
 from indicators.registry import run_all_indicators
 
 
@@ -339,17 +339,27 @@ def screen_stock_stage2(symbol: str, daily_df: pd.DataFrame, stock_data: dict,
     rr_ratio = atr_result["computed"].get("risk_reward_ratio") if atr_result else None
     atr_val = atr_result["computed"].get("atr") if atr_result else None
 
-    # ── Neo3 signal (single profile, every Stage 2 row carries it) ───────
-    neo = neo_score(stage1_result["indicator_results"], daily_df)
+    # ── Neo Radar (dual-window scoring) ──────────────────────────────────
+    # Every Stage 2 row carries BOTH the strict (lookback=3) and flex
+    # (lookback=5) Neo scores, plus a `fresh_count` tiebreaker for
+    # same-day-priority sorting within a tier. Legacy `neo` field continues
+    # to hold the strict score so existing call sites still work.
+    radar = neo_radar_score(stage1_result["indicator_results"], daily_df)
+    neo      = radar["strict"]
+    neo_flex = radar["flex"]
+    fresh_count = radar["fresh_count"]
 
-    # Optional Stage 2 gate: presets set "stage2_gate": "neo_pulse" (and the
-    # legacy "neo3" alias) to require the Neo tier instead of the default
-    # breakout-count majority gate. Tier-priority promotion (only the highest
-    # tier present in the universe survives) is applied in run_full_screen.
-    if config.get("stage2_gate") in ("neo_pulse", "neo3"):
+    # Stage 2 gate: presets set "stage2_gate": "neo_radar" (also accepts the
+    # legacy "neo_pulse" / "neo3" aliases). A stock passes if EITHER the
+    # strict OR the flex tier qualifies — the frontend separates them into
+    # two sub-sections in the result table.
+    if config.get("stage2_gate") in ("neo_radar", "neo_pulse", "neo3"):
         min_score = int(config.get("neo_min_score", 4))
-        stage2_pass = (neo["score"] >= min_score
-                       and neo["conditions"]["supertrend"]
+        passes_strict = (neo["score"]      >= min_score
+                         and neo["conditions"]["supertrend"])
+        passes_flex   = (neo_flex["score"] >= min_score
+                         and neo_flex["conditions"]["supertrend"])
+        stage2_pass = ((passes_strict or passes_flex)
                        and late_entry["status"] != "FAIL")
 
     return {
@@ -368,7 +378,9 @@ def screen_stock_stage2(symbol: str, daily_df: pd.DataFrame, stock_data: dict,
         "late_entry": late_entry,
         "brk_pass": brk_pass,
         "brk_fail": brk_fail,
-        "neo": neo,
+        "neo":         neo,          # strict (LOOKBACK=3) — back-compat
+        "neo_flex":    neo_flex,     # flex   (LOOKBACK=5)
+        "fresh_count": fresh_count,  # # of indicators firing on today's bar
     }
 
 
@@ -423,20 +435,9 @@ def run_full_screen(stocks_data: list[dict], config: dict | None = None) -> dict
     for i, r in enumerate(stage2_results):
         r["rank"] = i + 1
 
-    # ── Neo tier-priority: only highest tier present survives ────────────────
-    # When the Neo gate is active, demote 4/5 stocks to passed=False if any 5/5
-    # exists in the universe. The result: scan returns 5/5 stocks if any exist,
-    # else falls back to 4/5. This keeps the list focused on the strongest
-    # inflection signals available *today*.
-    if config and config.get("stage2_gate") in ("neo_pulse", "neo3"):
-        max_score = max(
-            (r.get("neo", {}).get("score", 0) for r in stage2_results if r["passed"]),
-            default=0,
-        )
-        if max_score == 5:
-            for r in stage2_results:
-                if r["passed"] and r.get("neo", {}).get("score", 0) < 5:
-                    r["passed"] = False
+    # (Neo Radar shows BOTH strict and flex tiers in separate UI sections —
+    # no tier-priority demotion at the backend level. The frontend groups
+    # passers under sub-headers; the backend just marks them passed.)
 
     # ── Stage 3: Monthly confirmation filter on Stage 2 passed stocks ────────
     stage3_results = []
