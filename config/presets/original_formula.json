@@ -125,7 +125,7 @@
     "institutional_trend": "rising_or_stable"
   },
   "analyst_ratings": {
-    "enabled": true,
+    "enabled": false,
     "analyst_buy_minimum": 3
   },
   "earnings_blackout": {
