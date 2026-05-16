@@ -146,11 +146,12 @@ def _c_ao(daily_df: Optional[pd.DataFrame], lookback: int) -> bool:
     if _series_recently_crossed_up(ao, 0.0, lookback):
         return True
     vals = ao.values
-    if len(vals) >= 2 and not math.isnan(vals[-1]) and not math.isnan(vals[-2]):
-        curr, prev = vals[-1], vals[-2]
-        if curr < 0 and prev < 0 and curr > prev:
-            if abs(curr) / max(abs(prev), 1e-9) <= AO_SLIM_RATIO:
-                return True
+    for i in range(-1, -3, -1):
+        curr, prev = vals[i], vals[i - 1]
+        if not math.isnan(curr) and not math.isnan(prev):
+            if curr < 0 and prev < 0 and curr > prev:
+                if abs(curr) / max(abs(prev), 1e-9) <= AO_SLIM_RATIO:
+                    return True
     return False
 
 
