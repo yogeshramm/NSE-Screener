@@ -3587,7 +3587,7 @@ function toggleFilter(key, enabled) { if (fullConfig[key]) { fullConfig[key].ena
 function toggleAllFilters(enabled) { for (const key of Object.keys(fullConfig)) { if (typeof fullConfig[key]==='object'&&'enabled' in fullConfig[key]) fullConfig[key].enabled=enabled; } renderFilterPanel(); }
 function updateFilterParam(fk, pk, v) { if (fullConfig[fk]) { const n=parseFloat(v); fullConfig[fk][pk]=isNaN(n)?v:n; } }
 function toggleFilterPanel() { filterExpanded=!filterExpanded; document.getElementById('filter-panel').style.maxHeight=filterExpanded?'400px':'0px'; document.getElementById('filter-expand-icon').textContent=filterExpanded?'expand_less':'expand_more'; }
-function getFilterConfig() { const c={}; for(const[k,v] of Object.entries(fullConfig)){if(typeof v==='object'&&'enabled' in v)c[k]={...v};} return c; }
+function getFilterConfig() { const c={}; for(const[k,v] of Object.entries(fullConfig)){if(typeof v==='object'&&'enabled' in v)c[k]={...v}; else if(typeof v!=='object')c[k]=v;} return c; }
 
 // ============ SCREENING ============
 function stopScreening() { if(screenAbort){screenAbort.abort();screenAbort=null;} document.getElementById('loading').firstElementChild.style.width='0%'; document.getElementById('scan-all-btn').disabled=false; document.getElementById('run-btn').disabled=false; document.getElementById('stop-btn').classList.add('hidden'); }
