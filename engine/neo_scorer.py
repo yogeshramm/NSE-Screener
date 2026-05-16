@@ -201,16 +201,83 @@ def _st_currently_bullish_and_flip_age(
     return True, None, float(stv[-1])
 
 
+# ── timing score ─────────────────────────────────────────────────────────
+
+def _timing_score(indicator_results: list,
+                  daily_df: Optional[pd.DataFrame],
+                  conditions: dict,
+                  bars_since_flip: Optional[int]) -> int:
+    """0–10 timing score across the 5 conditions that passed.
+    2 pts = perfect timing, 1 pt = good timing."""
+    t = 0
+
+    # C1: ST flipped today = 2, flipped 1 bar ago = 1
+    if conditions.get("supertrend"):
+        t += 2 if bars_since_flip == 1 else 1
+
+    # C2: 1st green histogram bar = 2, 2nd–3rd = 1, >3 = 0
+    if conditions.get("macd"):
+        ind = _find(indicator_results, "MACD")
+        if ind:
+            hv = ind.get("computed", {}).get("histogram_series")
+            if hv is not None:
+                h = hv.values; n = len(h)
+                if n >= 2 and not math.isnan(h[-1]) and h[-1] > 0:
+                    if not math.isnan(h[-2]) and h[-2] <= 0:
+                        t += 2
+                    elif (n >= 3 and not math.isnan(h[-2]) and h[-2] > 0
+                          and not math.isnan(h[-3]) and h[-3] <= 0):
+                        t += 1
+                    elif (n >= 4 and not math.isnan(h[-2]) and h[-2] > 0
+                          and not math.isnan(h[-3]) and h[-3] > 0
+                          and not math.isnan(h[-4]) and h[-4] <= 0):
+                        t += 1
+
+    # C3: AO crossed zero today = 2, ±2 bars or slim-red = 1
+    if conditions.get("ao"):
+        if daily_df is not None and len(daily_df) >= 35:
+            av = _ao_series(daily_df["High"], daily_df["Low"]).values
+            n = len(av)
+            if (n >= 2 and not math.isnan(av[-1]) and not math.isnan(av[-2])
+                    and av[-1] > 0 and av[-2] <= 0):
+                t += 2
+            else:
+                t += 1
+
+    # C4: Vortex crossed today = 2, 1 bar ago = 1
+    if conditions.get("vortex"):
+        if daily_df is not None and len(daily_df) >= 20:
+            vp, vm = _vortex_series(daily_df["High"], daily_df["Low"], daily_df["Close"])
+            p = vp.values; m = vm.values; n = len(p)
+            if (n >= 2
+                    and not math.isnan(p[-2]) and not math.isnan(m[-2])
+                    and p[-2] <= m[-2] and p[-1] > m[-1]):
+                t += 2
+            else:
+                t += 1
+
+    # C5: RSI 50–56 = 2, 48–50 or 56–60 = 1
+    if conditions.get("rsi"):
+        ind = _find(indicator_results, "RSI")
+        if ind:
+            rsi = ind.get("computed", {}).get("rsi")
+            if rsi is not None:
+                t += 2 if 50 <= float(rsi) <= 56 else 1
+
+    return t
+
+
 # ── scoring ───────────────────────────────────────────────────────────────
 
 def _score_inflection(indicator_results: list,
                       daily_df: Optional[pd.DataFrame]) -> Dict:
     """Post-flip Inflection (Neo v5):
     C1 ST flip within 2 bars + proximity ≤ 10%
-    C2 MACD crossover-while-negative
-    C3 AO zero-cross or slim-red
+    C2 MACD crossover-while-negative (50-bar lookback)
+    C3 AO zero-cross within ±2 bars or slim-red rising within ±2 bars
     C4 Vortex crossover within 2 bars
-    C5 RSI 48–60"""
+    C5 RSI 48–60
+    Timing score 0–10: ≥9 perfect, 6–8 strong, ≤5 valid (all 5/5); 4/5 → watch"""
     st_bull, bars_since, st_val = _st_currently_bullish_and_flip_age(daily_df)
 
     # C1: flip recency + proximity
@@ -224,26 +291,28 @@ def _score_inflection(indicator_results: list,
     conditions = {
         "supertrend": bool(st_ok),
         "macd":       bool(_c_macd(_find(indicator_results, "MACD"), lb)),
-        "ao":         bool(_c_ao(daily_df, 3)),         # AO uses fixed 3-bar window
+        "ao":         bool(_c_ao(daily_df, 3)),
         "vortex":     bool(_c_vortex(daily_df, lb)),
         "rsi":        bool(_c_rsi(_find(indicator_results, "RSI"))),
     }
     score = sum(1 for v in conditions.values() if v)
     missing = [k.upper() for k, v in conditions.items() if not v]
 
-    if not conditions["supertrend"]:
+    timing = _timing_score(indicator_results, daily_df, conditions, bars_since)
+
+    if not conditions["supertrend"] or score < NEO_MIN_SCORE:
         tier = "below"
     elif score >= 5:
-        tier = "perfect"
-    elif score >= NEO_MIN_SCORE:
-        tier = "watch" if "RSI" in missing else "strong"
+        tier = "perfect" if timing >= 9 else ("strong" if timing >= 6 else "valid")
     else:
-        tier = "below"
+        tier = "watch"
 
     return {
         "score":           score,
+        "timing":          timing,
         "label":           f"{score}/5",
-        "is_neo":          tier in ("perfect", "strong", "watch"),
+        "timing_label":    f"{timing}/10",
+        "is_neo":          tier in ("perfect", "strong", "valid", "watch"),
         "tier":            tier,
         "profile":         "inflection",
         "conditions":      conditions,

@@ -2863,6 +2863,25 @@ function _evBadge(r) {
   return `<div class="text-[8.5px] font-medium leading-tight mt-0.5 tracking-wide" style="color:${col}">${d.text}</div>`;
 }
 
+function _neoBadge(r) {
+  const neo = r.neo; const pend = r.neo_pending;
+  if (neo && neo.is_neo) {
+    const tier = neo.tier; const timing = neo.timing ?? 0;
+    const score = neo.score; const miss = (neo.missing || []).join(' · ');
+    if (tier === 'perfect')
+      return `<div class="text-[9px] font-black mt-0.5" style="color:#f59e0b">★ ${timing}/10</div>`;
+    if (tier === 'strong')
+      return `<div class="text-[9px] font-black mt-0.5" style="color:#6effc0">✓ ${timing}/10</div>`;
+    if (tier === 'valid')
+      return `<div class="text-[9px] font-black mt-0.5" style="color:#60a5fa">✓ ${timing}/10</div>`;
+    if (tier === 'watch')
+      return `<div class="text-[9px] font-black mt-0.5" style="color:#9ca3af">${score}/5 · <span style="color:#6b7280">${miss}</span></div>`;
+  }
+  if (pend?.is_pending)
+    return `<div class="text-[9px] font-black mt-0.5" style="color:#a78bfa">⟳ ${pend.score}/4</div>`;
+  return '';
+}
+
 // ============ QUICK LOOKUP (search bar → single row in Stage 1) ============
 // Client-side event badge from insights-pro events[] array (same logic as server get_event_badge)
 function _quickEvBadge(events) {
@@ -3867,7 +3886,7 @@ function renderResults(data) {
   s2.innerHTML=data.stage2_results.map((r,i)=>`
     <tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" data-sym="${r.symbol}" onclick="openInsightsPro('${r.symbol}')" oncontextmenu="event.preventDefault();showCtxMenu(event,'${r.symbol}')">
       <td class="px-3 py-2.5 font-bold text-secondary">${r.rank||i+1}</td>
-      <td class="px-3 py-2.5"><div class="font-bold text-on-surface">${_stockLink(r.symbol)}</div>${_evBadge(r)}</td>
+      <td class="px-3 py-2.5"><div class="font-bold text-on-surface">${_stockLink(r.symbol)}</div>${_neoBadge(r)}${_evBadge(r)}</td>
       <td class="px-3 py-2.5 text-right text-on-surface ltp-cell" data-sym="${r.symbol}">\u20b9${r.price||'--'}</td>
       <td class="px-3 py-2.5 text-right text-error font-mono">${r.stop_loss?'\u20b9'+r.stop_loss:'--'}</td>
       <td class="px-3 py-2.5 text-right text-primary font-mono">${r.target?'\u20b9'+r.target:'--'}</td>
