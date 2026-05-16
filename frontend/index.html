@@ -4728,24 +4728,33 @@ function renderBreakoutPills(data) {
   const ema200Bull = lastEma != null && closes[n - 1] > lastEma;
   const emaOk      = n >= 200 ? ema200Bull : null;
 
-  function pill(label, ok, neutral = false) {
+  // Pull RSI result from screener data if available for this stock
+  const _scrResult = (_lastScreenData?.stage1_results || _lastScreenData?.stage2_results || [])
+    .find ? [...(_lastScreenData?.stage1_results||[]), ...(_lastScreenData?.stage2_results||[])]
+            .find(r => r.symbol === currentChartSymbol) : null;
+  const _scrRsi = _scrResult?.indicators?.find(i => i.name === 'RSI');
+
+  function pill(label, ok, neutral = false, tooltip = '') {
     const bg  = ok ? 'rgba(110,255,192,0.12)' : neutral ? 'rgba(255,255,255,0.06)' : 'rgba(255,71,87,0.12)';
     const col = ok ? '#6effc0' : neutral ? '#6b7280' : '#ff6b81';
     const bdr = ok ? 'rgba(110,255,192,0.18)' : neutral ? 'rgba(255,255,255,0.10)' : 'rgba(255,71,87,0.18)';
     const icn = ok ? '✓' : neutral ? '–' : '✗';
-    return `<span style="background:${bg};color:${col};border:1px solid ${bdr};border-radius:4px;padding:1px 7px;font-size:9px;font-weight:800;letter-spacing:0.04em;line-height:1.7;white-space:nowrap;font-family:inherit">${icn} ${label}</span>`;
+    const tip = tooltip ? ` title="${tooltip}"` : '';
+    return `<span${tip} style="background:${bg};color:${col};border:1px solid ${bdr};border-radius:4px;padding:1px 7px;font-size:9px;font-weight:800;letter-spacing:0.04em;line-height:1.7;white-space:nowrap;font-family:inherit;cursor:default">${icn} ${label}</span>`;
   }
 
   const fisherLabel  = fisherValid ? `Fisher ${fisherBull ? '↑' : '↓'}` : 'Fisher –';
   const klingerLabel = kvoValid    ? `KVO ${klingBull ? '↑' : '↓'}`    : 'KVO –';
   const rsiLabel     = rsiVal != null ? `RSI ${Math.round(rsiVal)}`     : 'RSI –';
   const emaLabel     = n >= 200 ? (ema200Bull ? 'Above EMA 200' : 'Below EMA 200') : `EMA200 (${n}d)`;
+  // Tooltip: use screener threshold if available (shows DELAY-F text), else basic range
+  const rsiTooltip   = _scrRsi ? `${_scrRsi.threshold} | ${_scrRsi.details || ''}`.trim().replace(/\|$/, '') : '';
 
   el.innerHTML =
     `<span style="font-size:8px;font-weight:900;letter-spacing:0.06em;text-transform:uppercase;color:var(--on-surface-variant,#9ca3af);opacity:0.55;margin-right:2px">Breakout</span>` +
     pill(fisherLabel,  fisherBull,  !fisherValid) +
     pill(klingerLabel, klingBull,   !kvoValid) +
-    pill(rsiLabel,     rsiBull,     rsiVal == null) +
+    pill(rsiLabel,     rsiBull,     rsiVal == null, rsiTooltip) +
     (emaOk === null ? pill(emaLabel, false, true) : pill(emaLabel, ema200Bull));
 
   el.classList.remove('hidden');
