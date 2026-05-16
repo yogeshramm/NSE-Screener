@@ -212,6 +212,9 @@ def run_screen(request: ScreenRequest):
                         stock_data.update(pickle.load(f))
                 except Exception:
                     pass
+            if not stock_data.get("sector"):
+                from data.sector_map import get_sector
+                stock_data["sector"] = get_sector(sym)
             prefetched[sym] = {
                 "symbol": sym,
                 "daily_df": hist_df,

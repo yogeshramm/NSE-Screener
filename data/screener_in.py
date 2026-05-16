@@ -11,6 +11,7 @@ import requests
 import re
 import time
 from data.cache import get_cached, set_cached
+from data.sector_map import get_sector
 
 SCREENER_URL = "https://www.screener.in/company/{symbol}/consolidated/"
 SCREENER_STANDALONE_URL = "https://www.screener.in/company/{symbol}/"
@@ -62,6 +63,43 @@ def _find_value_after_label(html: str, label: str) -> str | None:
     if match2:
         return match2.group(1).strip()
 
+    return None
+
+
+def _extract_annual_row(html: str, label: str, section_hint: str = "") -> float | None:
+    """
+    Extract the most recent year's value for a row label from screener.in annual tables.
+
+    Labels on screener.in often contain &nbsp; or nested spans (e.g. "Borrowings&nbsp;+").
+    We search for the label as a plain-text substring, find its enclosing <tr>, then
+    pull numeric values from the data cells and return the last (most recent year).
+    """
+    search_html = html
+    if section_hint:
+        sec = re.search(rf'id="{re.escape(section_hint)}".*?</section>', html, re.DOTALL | re.IGNORECASE)
+        if sec:
+            search_html = sec.group(0)
+
+    lo = search_html.lower()
+    pos = lo.find(label.lower())
+    if pos == -1:
+        return None
+
+    tr_start = search_html.rfind('<tr', 0, pos)
+    tr_end   = search_html.find('</tr>', pos)
+    if tr_start == -1 or tr_end == -1:
+        return None
+
+    row = search_html[tr_start : tr_end + 5]
+    cells = re.findall(r'<td[^>]*>(.*?)</td>', row, re.DOTALL)
+    # Skip the first cell (it's the label); find numeric values among the rest
+    for raw in reversed(cells[1:]):
+        val = re.sub(r'<[^>]+>', '', raw).replace('&nbsp;', ' ').strip().replace(',', '')
+        if val and val not in ('-', '—', ''):
+            try:
+                return float(val)
+            except ValueError:
+                continue
     return None
 
 
@@ -164,7 +202,35 @@ def fetch_from_screener(symbol: str, use_cache: bool = True) -> dict:
         **holdings,
     }
 
-    # Derive additional fields for compatibility with our screener
+    # ── Annual table supplementary fields ──────────────────────────────────
+    # EPS: "EPS in Rs" row in P&L section (top-ratios "EPS" label doesn't exist)
+    eps_annual = _extract_annual_row(html, "EPS in Rs", "profit-loss")
+    if eps_annual is None:
+        eps_annual = _extract_annual_row(html, "EPS in Rs")  # fallback: whole page
+    if eps_annual is not None:
+        result["eps"] = eps_annual
+
+    # Free Cash Flow: "Free Cash Flow" row in cash-flow section
+    fcf_annual = _extract_annual_row(html, "Free Cash Flow", "cash-flow")
+    if fcf_annual is None:
+        fcf_annual = _extract_annual_row(html, "Free Cash Flow")
+    if fcf_annual is not None:
+        result["free_cash_flow_cr"] = fcf_annual  # crore; checker uses sign only
+
+    # D/E fallback: compute from balance-sheet rows when top-ratios D/E is missing
+    if result.get("debt_to_equity") is None:
+        borrowings = _extract_annual_row(html, "Borrowings", "balance-sheet")
+        equity_cap = _extract_annual_row(html, "Equity Capital", "balance-sheet")
+        reserves   = _extract_annual_row(html, "Reserves", "balance-sheet")
+        if borrowings is not None and equity_cap is not None and reserves is not None:
+            equity_total = equity_cap + reserves
+            if equity_total > 0:
+                result["debt_to_equity"] = round(borrowings / equity_total, 2)
+
+    # ── Sector (static map — no live API call needed) ──────────────────────
+    result["sector"] = get_sector(symbol)
+
+    # ── Canonical field aliases ─────────────────────────────────────────────
     if result.get("roe") is not None:
         result["roe_pct"] = result["roe"]
         result["roe_decimal"] = result["roe"] / 100
@@ -175,11 +241,17 @@ def fetch_from_screener(symbol: str, use_cache: bool = True) -> dict:
     if result.get("pe") is not None:
         result["trailing_pe"] = result["pe"]
 
-    if result.get("eps") is not None:
-        result["trailing_eps"] = result["eps"]
+    # EPS alias — prefer annual table value (eps key), fallback to top-ratios
+    eps_val = result.get("eps")
+    if eps_val is not None:
+        result["trailing_eps"] = eps_val
 
     if result.get("debt_to_equity") is not None:
         result["debt_to_equity_ratio"] = result["debt_to_equity"]
+
+    # FCF alias: fundamental_checker uses "free_cash_flow" key (sign-based check)
+    if result.get("free_cash_flow_cr") is not None:
+        result["free_cash_flow"] = result["free_cash_flow_cr"]
 
     if result.get("fii_holding") is not None:
         result["institutional_holdings_pct"] = (

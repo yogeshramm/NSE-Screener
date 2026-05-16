@@ -156,7 +156,7 @@ def get_default_config() -> dict:
             "institutional_trend": "rising_or_stable",
         },
         "analyst_ratings": {
-            "enabled": True,
+            "enabled": False,
             "analyst_buy_minimum": 3,
         },
         "earnings_blackout": {

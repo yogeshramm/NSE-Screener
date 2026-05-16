@@ -78,7 +78,10 @@ def check_fundamentals(stock_data: dict, config: dict) -> dict:
         sector = stock_data.get("sector", "")
         # PSU/Infra exemption
         psu_infra = cfg.get("exclude_psu_infra", True)
-        is_exempt = psu_infra and sector in ("Utilities", "Industrials", "Energy")
+        is_exempt = psu_infra and sector in (
+            "Utilities", "Industrials", "Energy",  # yfinance legacy names
+            "Power", "Infrastructure", "Renewable Energy",  # sector_map names
+        )
 
         if de is not None:
             if is_exempt:
@@ -103,12 +106,14 @@ def check_fundamentals(stock_data: dict, config: dict) -> dict:
                     "threshold": f"<= {maximum}",
                     "details": f"D/E = {de} exceeds maximum",
                 }
-        elif de is None and stock_data.get("sector") == "Financial Services":
-            # Banks don't typically report D/E through yfinance
+        elif de is None and stock_data.get("sector") in (
+            "Financial Services", "Banking", "NBFC", "Insurance"
+        ):
+            # High leverage is structural for banks/NBFCs — D/E not a meaningful filter
             results["debt_to_equity"] = {
-                "status": "PASS", "value": "N/A (Bank)",
+                "status": "PASS", "value": "N/A (Finance)",
                 "threshold": f"<= {maximum}",
-                "details": "D/E not applicable for banks",
+                "details": "D/E not applicable for banks/NBFCs",
             }
         else:
             results["debt_to_equity"] = {
@@ -349,16 +354,31 @@ def check_fundamentals(stock_data: dict, config: dict) -> dict:
     else:
         results["daily_turnover"] = {"status": "SKIPPED", "value": "N/A", "threshold": "N/A", "details": "Disabled"}
 
-    # --- Free Float (estimated from institutional + promoter holdings) ---
+    # --- Free Float (100 - promoter - govt holdings, sourced from screener.in) ---
     cfg = config.get("free_float", {})
     if cfg.get("enabled", True):
-        # yfinance doesn't reliably provide free float for NSE stocks
-        # Pass with BORDERLINE since this data is hard to get
-        results["free_float"] = {
-            "status": "BORDERLINE", "value": "N/A",
-            "threshold": f">= {cfg.get('freefloat_minimum', 30)}%",
-            "details": "Free float data not available via yfinance (will use NSE data when available)",
-        }
+        minimum = cfg.get("freefloat_minimum", 30)
+        promoter = stock_data.get("promoter_holding") or 0
+        govt     = stock_data.get("govt_holding") or 0
+        if promoter > 0 or govt > 0:
+            free_float_pct = round(100.0 - promoter - govt, 2)
+            if free_float_pct >= minimum:
+                status = "PASS"
+            elif free_float_pct >= minimum * 0.9:
+                status = "BORDERLINE"
+            else:
+                status = "FAIL"
+            results["free_float"] = {
+                "status": status, "value": f"{free_float_pct}%",
+                "threshold": f">= {minimum}%",
+                "details": f"Free float = {free_float_pct}% (promoter {promoter}% + govt {govt}%)",
+            }
+        else:
+            results["free_float"] = {
+                "status": "BORDERLINE", "value": "N/A",
+                "threshold": f">= {minimum}%",
+                "details": "Promoter holding data unavailable",
+            }
     else:
         results["free_float"] = {"status": "SKIPPED", "value": "N/A", "threshold": "N/A", "details": "Disabled"}
 

@@ -522,6 +522,11 @@ def load_stock_full(symbol: str) -> dict | None:
             fund = pickle.load(f)
             result.update(fund)
 
+    # Sector fallback — static map, no web call needed
+    if not result.get("sector"):
+        from data.sector_map import get_sector
+        result["sector"] = get_sector(symbol)
+
     if "daily_history" not in result:
         return None
 
