@@ -8,7 +8,9 @@
     "enabled": true,
     "rsi_period": 14,
     "rsi_min": 52,
-    "rsi_max": 70
+    "rsi_max": 70,
+    "delay_f_entry": true,
+    "delay_f_lookback": 15
   },
   "macd": {
     "enabled": true,
