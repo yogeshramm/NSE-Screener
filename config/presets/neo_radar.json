@@ -227,7 +227,7 @@
     "liquidity_weight": 10
   },
   "rs_rank": {
-    "enabled": true,
+    "enabled": false,
     "min_rs_percentile": 60
   }
 }

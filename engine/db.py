@@ -359,30 +359,41 @@ def _migrate_legacy_presets() -> None:
 
         # Dedup against ALL preset rows (any owner) — a user-claimed preset
         # must not be re-imported as a SYSTEM duplicate on restart.
-        rows = conn.execute("SELECT DISTINCT name FROM presets").fetchall()
-        existing = {r["name"] for r in rows}
+        rows = conn.execute(
+            "SELECT name, description, config_json FROM presets"
+        ).fetchall()
+        existing = {r["name"]: r for r in rows}
         for f in sorted(_LEGACY_PRESETS_DIR.glob("*.json")):
             name = f.stem
-            if name in existing:
-                continue
             try:
                 cfg = json.loads(f.read_text())
             except Exception:
                 continue
-            conn.execute(
-                """INSERT INTO presets
-                   (owner_id, name, description, config_json, stages_json, visibility, created_at, updated_at)
-                   VALUES(?, ?, ?, ?, ?, 'private', ?, ?)""",
-                (
-                    owner_id,
-                    name,
-                    "Imported from legacy config",
-                    json.dumps(cfg),
-                    json.dumps({"s1": True, "s2": True, "s3": False}),
-                    now,
-                    now,
-                ),
-            )
+            cfg_str = json.dumps(cfg)
+            if name not in existing:
+                conn.execute(
+                    """INSERT INTO presets
+                       (owner_id, name, description, config_json, stages_json, visibility, created_at, updated_at)
+                       VALUES(?, ?, ?, ?, ?, 'private', ?, ?)""",
+                    (
+                        owner_id,
+                        name,
+                        "Imported from legacy config",
+                        cfg_str,
+                        json.dumps({"s1": True, "s2": True, "s3": False}),
+                        now,
+                        now,
+                    ),
+                )
+            elif existing[name]["description"] == "Imported from legacy config":
+                # Re-sync config from JSON for presets that haven't been
+                # user-edited (description unchanged). This lets JSON edits
+                # propagate on restart without wiping user-created presets.
+                if existing[name]["config_json"] != cfg_str:
+                    conn.execute(
+                        "UPDATE presets SET config_json=?, updated_at=? WHERE name=?",
+                        (cfg_str, now, name),
+                    )
     finally:
         conn.close()
 
