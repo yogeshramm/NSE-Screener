@@ -2863,21 +2863,23 @@ function _evBadge(r) {
   return `<div class="text-[8.5px] font-medium leading-tight mt-0.5 tracking-wide" style="color:${col}">${d.text}</div>`;
 }
 
-function _neoBadge(r) {
-  const neo = r.neo; const pend = r.neo_pending;
+function _neoBadge(r, useExtended) {
+  const neo = useExtended ? r.neo_extended : r.neo;
+  const pend = r.neo_pending;
   if (neo && neo.is_neo) {
     const tier = neo.tier; const timing = neo.timing ?? 0;
     const score = neo.score; const miss = (neo.missing || []).join(' · ');
+    const ext = useExtended ? ' <span style="color:#6b7280;font-weight:400">5D</span>' : '';
     if (tier === 'perfect')
-      return `<div class="text-[9px] font-black mt-0.5" style="color:#f59e0b">★ ${timing}/10</div>`;
+      return `<div class="text-[9px] font-black mt-0.5" style="color:#f59e0b">★ ${timing}/10${ext}</div>`;
     if (tier === 'strong')
-      return `<div class="text-[9px] font-black mt-0.5" style="color:#6effc0">✓ ${timing}/10</div>`;
+      return `<div class="text-[9px] font-black mt-0.5" style="color:#6effc0">✓ ${timing}/10${ext}</div>`;
     if (tier === 'valid')
-      return `<div class="text-[9px] font-black mt-0.5" style="color:#60a5fa">✓ ${timing}/10</div>`;
+      return `<div class="text-[9px] font-black mt-0.5" style="color:#60a5fa">✓ ${timing}/10${ext}</div>`;
     if (tier === 'watch')
-      return `<div class="text-[9px] font-black mt-0.5" style="color:#9ca3af">${score}/5 · <span style="color:#6b7280">${miss}</span></div>`;
+      return `<div class="text-[9px] font-black mt-0.5" style="color:#9ca3af">${score}/5 · <span style="color:#6b7280">${miss}${ext}</span></div>`;
   }
-  if (pend?.is_pending)
+  if (!useExtended && pend?.is_pending)
     return `<div class="text-[9px] font-black mt-0.5" style="color:#a78bfa">⟳ ${pend.score}/4</div>`;
   return '';
 }
@@ -3883,10 +3885,10 @@ function renderResults(data) {
 
   const s2=document.getElementById('s2-body');
   document.getElementById('s2-count').textContent=data.stage2_results.length+' candidates';
-  s2.innerHTML=data.stage2_results.map((r,i)=>`
+  const _s2Row=(r,i,useExt)=>`
     <tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" data-sym="${r.symbol}" onclick="openInsightsPro('${r.symbol}')" oncontextmenu="event.preventDefault();showCtxMenu(event,'${r.symbol}')">
       <td class="px-3 py-2.5 font-bold text-secondary">${r.rank||i+1}</td>
-      <td class="px-3 py-2.5"><div class="font-bold text-on-surface">${_stockLink(r.symbol)}</div>${_neoBadge(r)}${_evBadge(r)}</td>
+      <td class="px-3 py-2.5"><div class="font-bold text-on-surface">${_stockLink(r.symbol)}</div>${_neoBadge(r,useExt)}${_evBadge(r)}</td>
       <td class="px-3 py-2.5 text-right text-on-surface ltp-cell" data-sym="${r.symbol}">\u20b9${r.price||'--'}</td>
       <td class="px-3 py-2.5 text-right text-error font-mono">${r.stop_loss?'\u20b9'+r.stop_loss:'--'}</td>
       <td class="px-3 py-2.5 text-right text-primary font-mono">${r.target?'\u20b9'+r.target:'--'}</td>
@@ -3896,8 +3898,20 @@ function renderResults(data) {
       <td class="px-3 py-2.5 text-right"><span class="px-2 py-0.5 ${r.score>=60?'bg-primary/20 text-primary':'bg-surface-container-highest text-on-surface-variant'} rounded-full text-[10px] font-black">${r.score}</span></td>
       <td class="px-3 py-2.5 text-center"><span class="${r.passed?'bg-primary/10 text-primary':'bg-error/10 text-error'} text-[10px] px-2 py-0.5 rounded-full font-black uppercase">${r.passed?'PASS':'FAIL'}</span></td>
       <td class="px-3 py-2.5 text-center"><button onclick="event.stopPropagation();addToWatchlist('${r.symbol}')" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined" style="font-size:14px;">bookmark_add</span></button></td>
-    </tr>
-  `).join('');
+    </tr>`;
+  const _s2Hdr=(lbl,n,col)=>`<tr><td colspan="11" class="px-3 py-1.5 bg-surface-container-highest/60"><span class="text-[9px] font-black uppercase tracking-widest" style="color:${col}">${lbl}</span><span class="text-[9px] text-on-surface-variant ml-1">${n} stock${n!==1?'s':''}</span></td></tr>`;
+  if (data.stage2_gate==='neo_extended') {
+    const tight   = data.stage2_results.filter(r=>r.neo?.is_neo);
+    const extOnly = data.stage2_results.filter(r=>!r.neo?.is_neo && r.neo_extended?.is_neo);
+    const pend    = data.stage2_results.filter(r=>!r.neo?.is_neo && !r.neo_extended?.is_neo && r.neo_pending?.is_pending);
+    let html='';
+    if(tight.length)   html+=_s2Hdr('Tight Inflection \u00b7 \u22642 bars',tight.length,'#6effc0')  +tight.map((r,i)=>_s2Row(r,i,false)).join('');
+    if(extOnly.length) html+=_s2Hdr('Extended Window \u00b7 \u22645 bars',extOnly.length,'#60a5fa')  +extOnly.map((r,i)=>_s2Row(r,i,true)).join('');
+    if(pend.length)    html+=_s2Hdr('Pre-flip Pending',pend.length,'#a78bfa')                          +pend.map((r,i)=>_s2Row(r,i,false)).join('');
+    s2.innerHTML=html||'<tr><td colspan="11" class="px-3 py-8 text-center text-on-surface-variant/50">No Neo Extended hits today</td></tr>';
+  } else {
+    s2.innerHTML=data.stage2_results.map((r,i)=>_s2Row(r,i,false)).join('');
+  }
 
   // ── Stage 3: Monthly confirmation ─────────────────────────────────────────
   const s3body = document.getElementById('s3-body');

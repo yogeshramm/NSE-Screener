@@ -346,20 +346,25 @@ def screen_stock_stage2(symbol: str, daily_df: pd.DataFrame, stock_data: dict,
     #   bars_since_flip = how many bars since ST flip (1 = today's flip)
     #   fresh_count    = how many of the 5 fired specifically on today's bar
     radar = neo_radar_score(stage1_result["indicator_results"], daily_df)
-    neo            = radar["inflection"]
-    neo_pending    = radar["pending"]
+    neo             = radar["inflection"]
+    neo_extended    = radar["inflection_extended"]
+    neo_pending     = radar["pending"]
     bars_since_flip = radar["bars_since_flip"]
-    fresh_count    = radar["fresh_count"]
+    fresh_count     = radar["fresh_count"]
 
-    # Stage 2 gate: presets set "stage2_gate": "neo_radar" (legacy aliases
-    # "neo_pulse"/"neo3" still accepted). A row passes if EITHER the
-    # post-flip Inflection tier OR the pre-flip Pending tier qualifies —
-    # the frontend separates them into two sub-sections.
-    if config.get("stage2_gate") in ("neo_radar", "neo_pulse", "neo3"):
+    gate = config.get("stage2_gate", "")
+    if gate in ("neo_radar", "neo_pulse", "neo3"):
         min_score = int(config.get("neo_min_score", 4))
-        passes_inflection = neo["is_neo"]    and neo["score"] >= min_score
+        passes_inflection = neo["is_neo"]          and neo["score"] >= min_score
         passes_pending    = neo_pending.get("is_pending", False)
         stage2_pass = ((passes_inflection or passes_pending)
+                       and late_entry["status"] != "FAIL")
+    elif gate == "neo_extended":
+        min_score = int(config.get("neo_min_score", 4))
+        passes_tight    = neo["is_neo"]          and neo["score"] >= min_score
+        passes_extended = neo_extended["is_neo"] and neo_extended["score"] >= min_score
+        passes_pending  = neo_pending.get("is_pending", False)
+        stage2_pass = ((passes_tight or passes_extended or passes_pending)
                        and late_entry["status"] != "FAIL")
 
     return {
@@ -378,10 +383,11 @@ def screen_stock_stage2(symbol: str, daily_df: pd.DataFrame, stock_data: dict,
         "late_entry": late_entry,
         "brk_pass": brk_pass,
         "brk_fail": brk_fail,
-        "neo":             neo,             # inflection (post-flip)
+        "neo":             neo,             # tight inflection (≤2 bars)
+        "neo_extended":    neo_extended,    # extended inflection (≤5 bars)
         "neo_pending":     neo_pending,     # pending (pre-flip; ST still red)
-        "bars_since_flip": bars_since_flip, # 1 = ST flipped today
-        "fresh_count":     fresh_count,     # # of indicators firing on today's bar
+        "bars_since_flip": bars_since_flip,
+        "fresh_count":     fresh_count,
     }
 
 
@@ -465,5 +471,6 @@ def run_full_screen(stocks_data: list[dict], config: dict | None = None) -> dict
         "stage2_passed": [r["symbol"] for r in stage2_results if r["passed"]],
         "stage3_passed": [r["symbol"] for r in stage3_results if r.get("stage3_passed")],
         "total_screened": len(stocks_data),
+        "stage2_gate": config.get("stage2_gate", ""),
         "config": config,
     }

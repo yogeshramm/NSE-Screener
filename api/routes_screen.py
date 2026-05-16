@@ -303,6 +303,7 @@ def run_screen(request: ScreenRequest):
         "stage1_passed": result["stage1_passed"],
         "stage2_passed": result["stage2_passed"],
         "stage3_passed": result["stage3_passed"],
+        "stage2_gate": result.get("stage2_gate", ""),
         "stage1_results": stage1,
         "stage2_results": stage2,
         "stage3_results": stage3,

@@ -27,11 +27,13 @@ import pandas as pd
 
 # ── tunable constants ─────────────────────────────────────────────────────
 INFLECTION_LOOKBACK = 2    # ST flip + Vortex cross must be within 2 bars
+EXTENDED_LOOKBACK   = 5    # extended window: ST flip + Vortex within 5 bars
 PENDING_LOOKBACK    = 3    # non-ST indicators window for PENDING mode
 RSI_MIN             = 48
 RSI_MAX             = 60
 AO_SLIM_RATIO       = 0.40
-ST_PROX_MAX         = 0.10  # close must be within 10% of ST line
+ST_PROX_MAX         = 0.10  # close within 10% of ST line (tight)
+ST_PROX_EXTENDED    = 0.15  # close within 15% of ST line (extended)
 MACD_CROSS_LOOKBACK = 50   # bars to look back for hist neg→pos crossover
 NEO_MIN_SCORE       = 4
 # Back-compat
@@ -321,6 +323,57 @@ def _score_inflection(indicator_results: list,
     }
 
 
+def _score_inflection_extended(indicator_results: list,
+                               daily_df: Optional[pd.DataFrame]) -> Dict:
+    """Extended-window Inflection (Neo Wide):
+    Same 5 conditions as tight, proportionally scaled to 5-bar window.
+    C1 ST flip within 5 bars + proximity ≤ 15%
+    C2 MACD crossover-while-negative (50-bar lookback, unchanged)
+    C3 AO zero-cross within ±5 bars or slim-red within ±2 bars
+    C4 Vortex crossover within 5 bars
+    C5 RSI 48–60 (unchanged)"""
+    st_bull, bars_since, st_val = _st_currently_bullish_and_flip_age(daily_df)
+
+    prox_ok = False
+    if st_bull and bars_since is not None and not math.isnan(st_val) and st_val > 0:
+        close = float(daily_df["Close"].values[-1])
+        prox_ok = (close - st_val) / close <= ST_PROX_EXTENDED
+    st_ok = st_bull and bars_since is not None and bars_since <= EXTENDED_LOOKBACK and prox_ok
+
+    lb = EXTENDED_LOOKBACK
+    conditions = {
+        "supertrend": bool(st_ok),
+        "macd":       bool(_c_macd(_find(indicator_results, "MACD"), lb)),
+        "ao":         bool(_c_ao(daily_df, lb)),
+        "vortex":     bool(_c_vortex(daily_df, lb)),
+        "rsi":        bool(_c_rsi(_find(indicator_results, "RSI"))),
+    }
+    score = sum(1 for v in conditions.values() if v)
+    missing = [k.upper() for k, v in conditions.items() if not v]
+
+    timing = _timing_score(indicator_results, daily_df, conditions, bars_since)
+
+    if not conditions["supertrend"] or score < NEO_MIN_SCORE:
+        tier = "below"
+    elif score >= 5:
+        tier = "perfect" if timing >= 9 else ("strong" if timing >= 6 else "valid")
+    else:
+        tier = "watch"
+
+    return {
+        "score":           score,
+        "timing":          timing,
+        "label":           f"{score}/5",
+        "timing_label":    f"{timing}/10",
+        "is_neo":          tier in ("perfect", "strong", "valid", "watch"),
+        "tier":            tier,
+        "profile":         "extended",
+        "conditions":      conditions,
+        "missing":         missing,
+        "bars_since_flip": bars_since if st_bull else None,
+    }
+
+
 def _score_pending(indicator_results: list,
                    daily_df: Optional[pd.DataFrame]) -> Dict:
     """Pre-flip Pending: ST still bearish but C2+C3+C4+C5 all aligned.
@@ -367,12 +420,14 @@ def _fresh_count(indicator_results: list, daily_df: Optional[pd.DataFrame]) -> i
 def neo_radar_score(indicator_results: list,
                     daily_df: Optional[pd.DataFrame] = None) -> Dict:
     infl = _score_inflection(indicator_results, daily_df)
+    ext  = _score_inflection_extended(indicator_results, daily_df)
     pend = _score_pending(indicator_results, daily_df)
     return {
-        "inflection":      infl,
-        "pending":         pend,
-        "bars_since_flip": infl["bars_since_flip"],
-        "fresh_count":     _fresh_count(indicator_results, daily_df),
+        "inflection":          infl,
+        "inflection_extended": ext,
+        "pending":             pend,
+        "bars_since_flip":     infl["bars_since_flip"],
+        "fresh_count":         _fresh_count(indicator_results, daily_df),
     }
 
 
