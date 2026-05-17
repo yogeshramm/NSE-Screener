@@ -142,10 +142,10 @@ def _c_macd(ind: Optional[dict], lookback: int) -> bool:
     return not math.isnan(macd[-1]) and macd[-1] <= 0
 
 
-def _c_ao(daily_df: Optional[pd.DataFrame], lookback: int) -> bool:
+def _c_ao(daily_df: Optional[pd.DataFrame], lookback: int, _ao_s=None) -> bool:
     if daily_df is None or len(daily_df) < 35:
         return False
-    ao = _ao_series(daily_df["High"], daily_df["Low"])
+    ao = _ao_s if _ao_s is not None else _ao_series(daily_df["High"], daily_df["Low"])
     if _series_recently_crossed_up(ao, 0.0, lookback):
         return True
     vals = ao.values
@@ -167,10 +167,10 @@ def _c_rsi(ind: Optional[dict]) -> bool:
     return RSI_MIN <= float(rsi) <= RSI_MAX
 
 
-def _c_vortex(daily_df: Optional[pd.DataFrame], lookback: int) -> bool:
+def _c_vortex(daily_df: Optional[pd.DataFrame], lookback: int, _vx=None) -> bool:
     if daily_df is None or len(daily_df) < 20:
         return False
-    vi_p, vi_m = _vortex_series(daily_df["High"], daily_df["Low"], daily_df["Close"])
+    vi_p, vi_m = _vx if _vx is not None else _vortex_series(daily_df["High"], daily_df["Low"], daily_df["Close"])
     if len(vi_p) < lookback + 1:
         return False
     p = vi_p.values; m = vi_m.values
@@ -209,7 +209,8 @@ def _st_currently_bullish_and_flip_age(
 def _timing_score(indicator_results: list,
                   daily_df: Optional[pd.DataFrame],
                   conditions: dict,
-                  bars_since_flip: Optional[int]) -> int:
+                  bars_since_flip: Optional[int],
+                  _ao_s=None, _vx=None) -> int:
     """0–10 timing score across the 5 conditions that passed.
     2 pts = perfect timing, 1 pt = good timing."""
     t = 0
@@ -239,7 +240,8 @@ def _timing_score(indicator_results: list,
     # C3: AO crossed zero today = 2, ±2 bars or slim-red = 1
     if conditions.get("ao"):
         if daily_df is not None and len(daily_df) >= 35:
-            av = _ao_series(daily_df["High"], daily_df["Low"]).values
+            _ao_tmp = _ao_s if _ao_s is not None else _ao_series(daily_df["High"], daily_df["Low"])
+            av = _ao_tmp.values
             n = len(av)
             if (n >= 2 and not math.isnan(av[-1]) and not math.isnan(av[-2])
                     and av[-1] > 0 and av[-2] <= 0):
@@ -250,7 +252,7 @@ def _timing_score(indicator_results: list,
     # C4: Vortex crossed today = 2, 1 bar ago = 1
     if conditions.get("vortex"):
         if daily_df is not None and len(daily_df) >= 20:
-            vp, vm = _vortex_series(daily_df["High"], daily_df["Low"], daily_df["Close"])
+            vp, vm = _vx if _vx is not None else _vortex_series(daily_df["High"], daily_df["Low"], daily_df["Close"])
             p = vp.values; m = vm.values; n = len(p)
             if (n >= 2
                     and not math.isnan(p[-2]) and not math.isnan(m[-2])
@@ -274,7 +276,7 @@ def _timing_score(indicator_results: list,
 
 def _score_inflection(indicator_results: list,
                       daily_df: Optional[pd.DataFrame],
-                      _st: tuple = None) -> Dict:
+                      _st: tuple = None, _ao_s=None, _vx=None) -> Dict:
     """Post-flip Inflection (Neo v5):
     C1 ST flip within 2 bars + proximity ≤ 10%
     C2 MACD crossover-while-negative (50-bar lookback)
@@ -295,14 +297,14 @@ def _score_inflection(indicator_results: list,
     conditions = {
         "supertrend": bool(st_ok),
         "macd":       bool(_c_macd(_find(indicator_results, "MACD"), lb)),
-        "ao":         bool(_c_ao(daily_df, 3)),
-        "vortex":     bool(_c_vortex(daily_df, lb)),
+        "ao":         bool(_c_ao(daily_df, 3, _ao_s)),
+        "vortex":     bool(_c_vortex(daily_df, lb, _vx)),
         "rsi":        bool(_c_rsi(_find(indicator_results, "RSI"))),
     }
     score = sum(1 for v in conditions.values() if v)
     missing = [k.upper() for k, v in conditions.items() if not v]
 
-    timing = _timing_score(indicator_results, daily_df, conditions, bars_since)
+    timing = _timing_score(indicator_results, daily_df, conditions, bars_since, _ao_s, _vx)
 
     if not conditions["supertrend"] or score < NEO_MIN_SCORE:
         tier = "below"
@@ -327,7 +329,7 @@ def _score_inflection(indicator_results: list,
 
 def _score_inflection_extended(indicator_results: list,
                                daily_df: Optional[pd.DataFrame],
-                               _st: tuple = None) -> Dict:
+                               _st: tuple = None, _ao_s=None, _vx=None) -> Dict:
     """Extended-window Inflection (Neo Wide):
     Same 5 conditions as tight, proportionally scaled to 5-bar window.
     C1 ST flip within 5 bars + proximity ≤ 15%
@@ -347,14 +349,14 @@ def _score_inflection_extended(indicator_results: list,
     conditions = {
         "supertrend": bool(st_ok),
         "macd":       bool(_c_macd(_find(indicator_results, "MACD"), lb)),
-        "ao":         bool(_c_ao(daily_df, lb)),
-        "vortex":     bool(_c_vortex(daily_df, lb)),
+        "ao":         bool(_c_ao(daily_df, lb, _ao_s)),
+        "vortex":     bool(_c_vortex(daily_df, lb, _vx)),
         "rsi":        bool(_c_rsi(_find(indicator_results, "RSI"))),
     }
     score = sum(1 for v in conditions.values() if v)
     missing = [k.upper() for k, v in conditions.items() if not v]
 
-    timing = _timing_score(indicator_results, daily_df, conditions, bars_since)
+    timing = _timing_score(indicator_results, daily_df, conditions, bars_since, _ao_s, _vx)
 
     if not conditions["supertrend"] or score < NEO_MIN_SCORE:
         tier = "below"
@@ -379,7 +381,7 @@ def _score_inflection_extended(indicator_results: list,
 
 def _score_pending(indicator_results: list,
                    daily_df: Optional[pd.DataFrame],
-                   _st: tuple = None) -> Dict:
+                   _st: tuple = None, _ao_s=None, _vx=None) -> Dict:
     """Pre-flip Pending: ST still bearish but C2+C3+C4+C5 all aligned.
     Watchlist for an imminent flip."""
     st_bull, _, _ = _st if _st is not None else _st_currently_bullish_and_flip_age(daily_df)
@@ -392,9 +394,9 @@ def _score_pending(indicator_results: list,
     lb = PENDING_LOOKBACK
     conditions = {
         "macd":   bool(_c_macd(_find(indicator_results, "MACD"), lb)),
-        "ao":     bool(_c_ao(daily_df, 3)),
+        "ao":     bool(_c_ao(daily_df, 3, _ao_s)),
         "rsi":    bool(_c_rsi(_find(indicator_results, "RSI"))),
-        "vortex": bool(_c_vortex(daily_df, lb)),
+        "vortex": bool(_c_vortex(daily_df, lb, _vx)),
     }
     score = sum(1 for v in conditions.values() if v)
     missing = [k.upper() for k, v in conditions.items() if not v]
@@ -408,14 +410,14 @@ def _score_pending(indicator_results: list,
 
 
 def _fresh_count(indicator_results: list, daily_df: Optional[pd.DataFrame],
-                 _st: tuple = None) -> int:
+                 _st: tuple = None, _ao_s=None, _vx=None) -> int:
     _, bars_since, st_val = _st if _st is not None else _st_currently_bullish_and_flip_age(daily_df)
     st_today = bars_since == 1
     return sum(1 for v in [
         _c_macd(_find(indicator_results, "MACD"), 1),
-        _c_ao(daily_df, 1),
+        _c_ao(daily_df, 1, _ao_s),
         _c_rsi(_find(indicator_results, "RSI")),
-        _c_vortex(daily_df, 1),
+        _c_vortex(daily_df, 1, _vx),
         st_today,
     ] if v)
 
@@ -425,15 +427,17 @@ def _fresh_count(indicator_results: list, daily_df: Optional[pd.DataFrame],
 def neo_radar_score(indicator_results: list,
                     daily_df: Optional[pd.DataFrame] = None) -> Dict:
     st = _st_currently_bullish_and_flip_age(daily_df)
-    infl = _score_inflection(indicator_results, daily_df, _st=st)
-    ext  = _score_inflection_extended(indicator_results, daily_df, _st=st)
-    pend = _score_pending(indicator_results, daily_df, _st=st)
+    _ao_s = _ao_series(daily_df["High"], daily_df["Low"]) if daily_df is not None and len(daily_df) >= 35 else None
+    _vx   = _vortex_series(daily_df["High"], daily_df["Low"], daily_df["Close"]) if daily_df is not None and len(daily_df) >= 20 else None
+    infl = _score_inflection(indicator_results, daily_df, _st=st, _ao_s=_ao_s, _vx=_vx)
+    ext  = _score_inflection_extended(indicator_results, daily_df, _st=st, _ao_s=_ao_s, _vx=_vx)
+    pend = _score_pending(indicator_results, daily_df, _st=st, _ao_s=_ao_s, _vx=_vx)
     return {
         "inflection":          infl,
         "inflection_extended": ext,
         "pending":             pend,
         "bars_since_flip":     infl["bars_since_flip"],
-        "fresh_count":         _fresh_count(indicator_results, daily_df, _st=st),
+        "fresh_count":         _fresh_count(indicator_results, daily_df, _st=st, _ao_s=_ao_s, _vx=_vx),
     }
 
 
