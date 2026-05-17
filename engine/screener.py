@@ -366,6 +366,7 @@ def screen_stock_stage2(symbol: str, daily_df: pd.DataFrame, stock_data: dict,
         passes_pending  = neo_pending.get("is_pending", False)
         stage2_pass = ((passes_tight or passes_extended or passes_pending)
                        and late_entry["status"] != "FAIL")
+    # default: traditional breakout vote (already computed above at line 332)
 
     return {
         "symbol": symbol,
