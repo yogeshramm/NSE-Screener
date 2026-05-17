@@ -1,6 +1,4 @@
 {
-  "stage2_gate": "neo_extended",
-  "neo_min_score": 4,
   "ema": {
     "enabled": true,
     "fast_ema_period": 50,
