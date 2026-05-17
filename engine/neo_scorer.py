@@ -74,8 +74,9 @@ def _supertrend_dir_and_val(h: pd.Series, l: pd.Series, c: pd.Series,
     fu = np.copy(upper); fl = np.copy(lower)
     dir_ = np.ones(n, dtype=int)
     stv  = np.full(n, np.nan)
+    atr_vals = atr.values
     for i in range(1, n):
-        if math.isnan(atr.iloc[i]):
+        if math.isnan(atr_vals[i]):
             dir_[i] = dir_[i-1]
             continue
         if not math.isnan(fu[i-1]):
@@ -272,7 +273,8 @@ def _timing_score(indicator_results: list,
 # ── scoring ───────────────────────────────────────────────────────────────
 
 def _score_inflection(indicator_results: list,
-                      daily_df: Optional[pd.DataFrame]) -> Dict:
+                      daily_df: Optional[pd.DataFrame],
+                      _st: tuple = None) -> Dict:
     """Post-flip Inflection (Neo v5):
     C1 ST flip within 2 bars + proximity ≤ 10%
     C2 MACD crossover-while-negative (50-bar lookback)
@@ -280,7 +282,7 @@ def _score_inflection(indicator_results: list,
     C4 Vortex crossover within 2 bars
     C5 RSI 48–60
     Timing score 0–10: ≥9 perfect, 6–8 strong, ≤5 valid (all 5/5); 4/5 → watch"""
-    st_bull, bars_since, st_val = _st_currently_bullish_and_flip_age(daily_df)
+    st_bull, bars_since, st_val = _st if _st is not None else _st_currently_bullish_and_flip_age(daily_df)
 
     # C1: flip recency + proximity
     prox_ok = False
@@ -324,7 +326,8 @@ def _score_inflection(indicator_results: list,
 
 
 def _score_inflection_extended(indicator_results: list,
-                               daily_df: Optional[pd.DataFrame]) -> Dict:
+                               daily_df: Optional[pd.DataFrame],
+                               _st: tuple = None) -> Dict:
     """Extended-window Inflection (Neo Wide):
     Same 5 conditions as tight, proportionally scaled to 5-bar window.
     C1 ST flip within 5 bars + proximity ≤ 15%
@@ -332,7 +335,7 @@ def _score_inflection_extended(indicator_results: list,
     C3 AO zero-cross within ±5 bars or slim-red within ±2 bars
     C4 Vortex crossover within 5 bars
     C5 RSI 48–60 (unchanged)"""
-    st_bull, bars_since, st_val = _st_currently_bullish_and_flip_age(daily_df)
+    st_bull, bars_since, st_val = _st if _st is not None else _st_currently_bullish_and_flip_age(daily_df)
 
     prox_ok = False
     if st_bull and bars_since is not None and not math.isnan(st_val) and st_val > 0:
@@ -375,10 +378,11 @@ def _score_inflection_extended(indicator_results: list,
 
 
 def _score_pending(indicator_results: list,
-                   daily_df: Optional[pd.DataFrame]) -> Dict:
+                   daily_df: Optional[pd.DataFrame],
+                   _st: tuple = None) -> Dict:
     """Pre-flip Pending: ST still bearish but C2+C3+C4+C5 all aligned.
     Watchlist for an imminent flip."""
-    st_bull, _, _ = _st_currently_bullish_and_flip_age(daily_df)
+    st_bull, _, _ = _st if _st is not None else _st_currently_bullish_and_flip_age(daily_df)
     if st_bull:
         return {
             "score": 0, "label": "0/4", "is_pending": False,
@@ -403,8 +407,9 @@ def _score_pending(indicator_results: list,
     }
 
 
-def _fresh_count(indicator_results: list, daily_df: Optional[pd.DataFrame]) -> int:
-    _, bars_since, st_val = _st_currently_bullish_and_flip_age(daily_df)
+def _fresh_count(indicator_results: list, daily_df: Optional[pd.DataFrame],
+                 _st: tuple = None) -> int:
+    _, bars_since, st_val = _st if _st is not None else _st_currently_bullish_and_flip_age(daily_df)
     st_today = bars_since == 1
     return sum(1 for v in [
         _c_macd(_find(indicator_results, "MACD"), 1),
@@ -419,15 +424,16 @@ def _fresh_count(indicator_results: list, daily_df: Optional[pd.DataFrame]) -> i
 
 def neo_radar_score(indicator_results: list,
                     daily_df: Optional[pd.DataFrame] = None) -> Dict:
-    infl = _score_inflection(indicator_results, daily_df)
-    ext  = _score_inflection_extended(indicator_results, daily_df)
-    pend = _score_pending(indicator_results, daily_df)
+    st = _st_currently_bullish_and_flip_age(daily_df)
+    infl = _score_inflection(indicator_results, daily_df, _st=st)
+    ext  = _score_inflection_extended(indicator_results, daily_df, _st=st)
+    pend = _score_pending(indicator_results, daily_df, _st=st)
     return {
         "inflection":          infl,
         "inflection_extended": ext,
         "pending":             pend,
         "bars_since_flip":     infl["bars_since_flip"],
-        "fresh_count":         _fresh_count(indicator_results, daily_df),
+        "fresh_count":         _fresh_count(indicator_results, daily_df, _st=st),
     }
 
 
