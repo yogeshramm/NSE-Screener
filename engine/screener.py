@@ -9,7 +9,7 @@ from engine.fundamental_checker import check_fundamentals
 from engine.indicator_cache import load_cached, save_cached
 from engine.late_entry import check_stage1_late_entry, check_stage2_late_entry
 from engine.scorer import compute_score
-from engine.neo_scorer import neo_score, neo_radar_score
+from engine.neo_scorer import neo_radar_score
 from indicators.registry import run_all_indicators
 
 

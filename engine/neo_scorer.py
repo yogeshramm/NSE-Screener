@@ -20,7 +20,7 @@ within 3 bars — imminent flip expected.
 from __future__ import annotations
 
 import math
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -36,10 +36,6 @@ ST_PROX_MAX         = 0.10  # close within 10% of ST line (tight)
 ST_PROX_EXTENDED    = 0.15  # close within 15% of ST line (extended)
 MACD_CROSS_LOOKBACK = 50   # bars to look back for hist neg→pos crossover
 NEO_MIN_SCORE       = 4
-# Back-compat
-LOOKBACK         = INFLECTION_LOOKBACK
-STRICT_LOOKBACK  = INFLECTION_LOOKBACK
-FLEX_LOOKBACK    = INFLECTION_LOOKBACK
 
 
 # ── series computers ──────────────────────────────────────────────────────

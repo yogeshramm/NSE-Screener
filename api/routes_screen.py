@@ -161,7 +161,6 @@ def run_screen(request: ScreenRequest):
         # the Angel backfill the per-stock pkl grew from ~480 rows to ~2477,
         # so the double-load went from annoying to 100s+.
         import pickle
-        from setup_data import FUNDAMENTALS_DIR
 
         # During market hours, batch-fetch live OHLC from Angel One for all
         # candidates upfront.  This lets indicators (RSI, EMA, Supertrend,
