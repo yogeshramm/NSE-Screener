@@ -437,7 +437,7 @@ async def get_analyst_signal_async(symbol: str, tf: str = "1y") -> Dict[str, Any
     yf_hist = _yf_rating_history(symbol, days=days)
     tv = _tradingview_technical(symbol)  # batch-cached, near-instant
     crawl = await _crawl_sources(symbol, lookback_days=days)
-    mc = crawl.get("moneycontrol")
+    mc = crawl.get("moneycontrol") or _mc_consensus(symbol)
     tt = crawl.get("tickertape")
     tl = crawl.get("trendlyne")
     # TL + TT blocked from datacenter IPs — fall back to GHA-fetched cache if live fetch failed
