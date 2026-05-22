@@ -26,11 +26,28 @@ _HDR = {
 
 # ---------- A. Moneycontrol ----------
 _MC_SCID_CACHE = os.path.join(CACHE_DIR, "_mc_scid_map.json")
+_MC_SCID_MAP_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "mc_sc_ids.json")
+
+_mc_scid_map: Optional[Dict[str, str]] = None
+
+def _load_mc_scid_map() -> Dict[str, str]:
+    global _mc_scid_map
+    if _mc_scid_map is None:
+        try:
+            _mc_scid_map = json.load(open(_MC_SCID_MAP_PATH))
+        except Exception:
+            _mc_scid_map = {}
+    return _mc_scid_map
 
 
 def _mc_scid(symbol: str) -> Optional[str]:
-    """Resolve symbol → Moneycontrol internal SC_ID via their autosuggest API.
-    Note: MC often 403s direct calls; degrade gracefully when blocked."""
+    """Resolve symbol → Moneycontrol internal SC_ID.
+    Checks pre-built map first (481 stocks), falls back to autosuggest API."""
+    # Fast path: pre-built map
+    sc_id = _load_mc_scid_map().get(symbol)
+    if sc_id:
+        return sc_id
+
     cache = {}
     if os.path.exists(_MC_SCID_CACHE):
         try: cache = json.load(open(_MC_SCID_CACHE))
