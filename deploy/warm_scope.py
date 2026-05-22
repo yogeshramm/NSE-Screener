@@ -30,3 +30,21 @@ else:
 from engine.precompute import warm_cache
 stats = warm_cache(symbols=syms, verbose=False)
 print(json.dumps(stats))
+
+# Batch-refresh TradingView technical ratings for all warmed symbols
+try:
+    from data.analyst_ratings import _tv_batch_refresh, _TV_CACHE_FILE
+    import json as _json
+    tv_syms = syms or all500
+    if tv_syms:
+        result = _tv_batch_refresh(tv_syms)
+        if result:
+            try:
+                existing = _json.load(open(_TV_CACHE_FILE)) if __import__('os').path.exists(_TV_CACHE_FILE) else {}
+            except Exception:
+                existing = {}
+            existing.update(result)
+            _json.dump(existing, open(_TV_CACHE_FILE, "w"))
+            print(f"[warm_scope] TV batch: {len(result)} symbols refreshed", flush=True)
+except Exception as e:
+    print(f"[warm_scope] TV batch failed: {e}", flush=True)
