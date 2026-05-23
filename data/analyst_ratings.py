@@ -131,6 +131,45 @@ def _ct(text: str, pat: str) -> int:
     except Exception: return 0
 
 
+def _mc_swot(symbol: str) -> Optional[Dict[str, Any]]:
+    """Fetch MC SWOT signal counts for a stock. Works for all 481 mapped stocks."""
+    sc = _mc_scid(symbol)
+    if not sc: return None
+    try:
+        from curl_cffi import requests as cf
+        r = cf.get(f"https://api.moneycontrol.com/mcapi/v1/swot/count?scId={sc}",
+                   impersonate="chrome124", headers=_MC_API_HDR, timeout=8)
+        if r.status_code != 200: return None
+        info = r.json().get("data", {}).get("info", {})
+        if not info: return None
+        return {
+            "strengths": info.get("S", {}).get("count", 0),
+            "weaknesses": info.get("W", {}).get("count", 0),
+            "opportunities": info.get("O", {}).get("count", 0),
+            "threats": info.get("T", {}).get("count", 0),
+            "top_strength": info.get("S", {}).get("title", ""),
+            "top_opportunity": info.get("O", {}).get("title", ""),
+        }
+    except Exception: return None
+
+
+def _mc_technical(symbol: str) -> Optional[Dict[str, Any]]:
+    """Fetch MC's own technical indication (Very Bearish → Very Bullish)."""
+    sc = _mc_scid(symbol)
+    if not sc: return None
+    try:
+        from curl_cffi import requests as cf
+        r = cf.get(f"https://api.moneycontrol.com/mcapi/v1/technicals/indication?scId={sc}&dur=D",
+                   impersonate="chrome124", headers=_MC_API_HDR, timeout=8)
+        if r.status_code != 200: return None
+        label = r.json().get("data", {}).get("indication", "")
+        if not label: return None
+        score_map = {"Very Bullish": 1.0, "Bullish": 0.5, "Neutral": 0.0,
+                     "Bearish": -0.5, "Very Bearish": -1.0}
+        return {"label": label, "score": score_map.get(label, 0.0)}
+    except Exception: return None
+
+
 # ---------- A2. ET Markets broker recommendations ----------
 _ET_COMPANYID = {
     "RELIANCE": ("reliance-industries-ltd", 13215),
@@ -458,6 +497,8 @@ async def get_analyst_signal_async(symbol: str, tf: str = "1y") -> Dict[str, Any
     mc = crawl.get("moneycontrol") or _mc_consensus(symbol)
     tt = crawl.get("tickertape")
     tl = crawl.get("trendlyne")
+    mc_swot = _mc_swot(symbol)
+    mc_tech = _mc_technical(symbol)
     # TL + TT blocked from datacenter IPs — fall back to GHA-fetched cache if live fetch failed
     if not tl and existing_cache.get("trendlyne"):
         tl = existing_cache["trendlyne"]
@@ -478,6 +519,8 @@ async def get_analyst_signal_async(symbol: str, tf: str = "1y") -> Dict[str, Any
         "window_days": days,
         "target_horizon": "12M",
         "moneycontrol": mc,
+        "mc_swot": mc_swot,
+        "mc_technical": mc_tech,
         "et_markets": et,
         "tickertape": tt,
         "trendlyne": tl,
@@ -485,15 +528,15 @@ async def get_analyst_signal_async(symbol: str, tf: str = "1y") -> Dict[str, Any
         "yfinance": yf_,
         "yfinance_history": yf_hist,
         "news_activity": rss,
-        "composite": _composite_ext(mc, et, tt, tl, tv, yf_, rss, current_price=cur_price),
-        "sources_used": [n for n, v in [("moneycontrol", mc), ("et_markets", et), ("tickertape", tt), ("trendlyne", tl), ("tradingview", tv), ("yfinance", yf_), ("yf_history", yf_hist), ("news", rss)] if v],
+        "composite": _composite_ext(mc, et, tt, tl, tv, yf_, rss, mc_tech=mc_tech, current_price=cur_price),
+        "sources_used": [n for n, v in [("moneycontrol", mc), ("mc_swot", mc_swot), ("mc_technical", mc_tech), ("et_markets", et), ("tickertape", tt), ("trendlyne", tl), ("tradingview", tv), ("yfinance", yf_), ("yf_history", yf_hist), ("news", rss)] if v],
     }
     try: json.dump(result, open(cache_f, "w"))
     except Exception: pass
     return result
 
 
-def _composite_ext(mc, et, tt, tl, tv, yf_, rss, current_price=None) -> Dict[str, Any]:
+def _composite_ext(mc, et, tt, tl, tv, yf_, rss, mc_tech=None, current_price=None) -> Dict[str, Any]:
     """Extended composite. Uses explicit ratings where present, derives rating
     from target upside when only target prices are available."""
     parts = []; targets = []
@@ -503,6 +546,9 @@ def _composite_ext(mc, et, tt, tl, tv, yf_, rss, current_price=None) -> Dict[str
     if tv and tv.get("score") is not None:
         tv_mapped = 3.0 - tv["score"] * 2.0   # 1.0=Strong Buy … 5.0=Strong Sell
         parts.append(tv_mapped)
+    # MC own technical indication: same [-1,1] → [1,5] conversion
+    if mc_tech and mc_tech.get("score") is not None:
+        parts.append(3.0 - mc_tech["score"] * 2.0)
     for src in (mc, et, tt, tl):
         if not src: continue
         sb, b, h, s, ss = src.get("strong_buy", 0), src.get("buy", 0), src.get("hold", 0), src.get("sell", 0), src.get("strong_sell", 0)
