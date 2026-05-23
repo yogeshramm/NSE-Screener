@@ -170,6 +170,93 @@ def _mc_technical(symbol: str) -> Optional[Dict[str, Any]]:
     except Exception: return None
 
 
+# ---------- Quarterly EPS — screener.in ----------
+def _screener_quarterly_eps(symbol: str) -> Optional[Dict[str, Any]]:
+    """Fetch quarterly EPS actuals from screener.in (last 8 quarters).
+    Tries consolidated first, falls back to standalone."""
+    try:
+        from curl_cffi import requests as cf
+        from bs4 import BeautifulSoup
+        hdrs = {
+            "Accept": "text/html,application/xhtml+xml,*/*;q=0.9",
+            "Accept-Language": "en-IN,en;q=0.9",
+            "Referer": "https://www.screener.in/",
+        }
+        r = None
+        for url in [
+            f"https://www.screener.in/company/{symbol}/consolidated/",
+            f"https://www.screener.in/company/{symbol}/",
+        ]:
+            resp = cf.get(url, impersonate="chrome124", headers=hdrs, timeout=12)
+            if resp.status_code == 200 and len(resp.text) > 10000:
+                r = resp
+                break
+        if not r:
+            return None
+        soup = BeautifulSoup(r.text, "html.parser")
+        sec = soup.find("section", {"id": "quarters"})
+        if not sec:
+            return None
+        tbl = sec.find("table")
+        if not tbl or not tbl.find("thead"):
+            return None
+        qlabels = [th.get_text(strip=True) for th in tbl.find("thead").find_all("th")[1:]]
+        eps_cells = np_cells = None
+        for row in tbl.find("tbody").find_all("tr"):
+            cells = row.find_all("td")
+            if not cells:
+                continue
+            lbl = cells[0].get_text(strip=True)
+            if "EPS" in lbl and eps_cells is None:
+                eps_cells = cells
+            if "Net Profit" in lbl and np_cells is None:
+                np_cells = cells
+        def _parse(cells):
+            out = []
+            for i, cell in enumerate(cells[1:]):
+                if i >= len(qlabels):
+                    break
+                try:
+                    v = float(cell.get_text(strip=True).replace(",", ""))
+                except ValueError:
+                    v = None
+                out.append({"quarter": qlabels[i], "value": v})
+            return out[-8:]
+        quarterly_eps = _parse(eps_cells) if eps_cells else []
+        if not quarterly_eps:
+            return None
+        from datetime import date
+        return {
+            "source": "screener.in",
+            "quarterly_eps": quarterly_eps,
+            "quarterly_net_profit_cr": _parse(np_cells) if np_cells else [],
+            "as_of": date.today().isoformat(),
+        }
+    except Exception:
+        return None
+
+
+def _tt_forecasts_for_symbol(symbol: str) -> Optional[Dict[str, Any]]:
+    """Wrapper: resolve TT slug + fetch /forecasts page for quarterly EPS + annual consensus."""
+    try:
+        from data.analyst_crawl import tt_fetch_forecasts_for_symbol
+        return tt_fetch_forecasts_for_symbol(symbol)
+    except Exception:
+        return None
+
+
+async def _run_executor_safe(fn, *args, timeout: float = 15):
+    """Run sync fn in the default executor with a timeout; returns None on any failure."""
+    try:
+        loop = asyncio.get_event_loop()
+        return await asyncio.wait_for(
+            loop.run_in_executor(None, fn, *args),
+            timeout=timeout,
+        )
+    except Exception:
+        return None
+
+
 # ---------- A2. ET Markets broker recommendations ----------
 _ET_COMPANYID = {
     "RELIANCE": ("reliance-industries-ltd", 13215),
@@ -493,7 +580,13 @@ async def get_analyst_signal_async(symbol: str, tf: str = "1y") -> Dict[str, Any
     rss = _rss_activity(symbol, days=days)
     yf_hist = _yf_rating_history(symbol, days=days)
     tv = _tradingview_technical(symbol)  # batch-cached, near-instant
-    crawl = await _crawl_sources(symbol, lookback_days=days)
+    # Parallel: crawl (TT broker + TL) + screener quarterly EPS + TT forecasts (EPS + consensus)
+    crawl_r, screener_eps, tt_forecasts = await asyncio.gather(
+        _crawl_sources(symbol, lookback_days=days),
+        _run_executor_safe(_screener_quarterly_eps, symbol),
+        _run_executor_safe(_tt_forecasts_for_symbol, symbol),
+    )
+    crawl = crawl_r if isinstance(crawl_r, dict) else {}
     mc = crawl.get("moneycontrol") or _mc_consensus(symbol)
     tt = crawl.get("tickertape")
     tl = crawl.get("trendlyne")
@@ -504,6 +597,10 @@ async def get_analyst_signal_async(symbol: str, tf: str = "1y") -> Dict[str, Any
         tl = existing_cache["trendlyne"]
     if not tt and existing_cache.get("tickertape"):
         tt = existing_cache["tickertape"]
+    if not screener_eps and existing_cache.get("screener_eps"):
+        screener_eps = existing_cache["screener_eps"]
+    if not tt_forecasts and existing_cache.get("tt_forecasts"):
+        tt_forecasts = existing_cache["tt_forecasts"]
     # Current price from local history (for target-based rating derivation)
     cur_price = None
     try:
@@ -528,8 +625,15 @@ async def get_analyst_signal_async(symbol: str, tf: str = "1y") -> Dict[str, Any
         "yfinance": yf_,
         "yfinance_history": yf_hist,
         "news_activity": rss,
+        "screener_eps": screener_eps,
+        "tt_forecasts": tt_forecasts,
         "composite": _composite_ext(mc, et, tt, tl, tv, yf_, rss, mc_tech=mc_tech, current_price=cur_price),
-        "sources_used": [n for n, v in [("moneycontrol", mc), ("mc_swot", mc_swot), ("mc_technical", mc_tech), ("et_markets", et), ("tickertape", tt), ("trendlyne", tl), ("tradingview", tv), ("yfinance", yf_), ("yf_history", yf_hist), ("news", rss)] if v],
+        "sources_used": [n for n, v in [
+            ("moneycontrol", mc), ("mc_swot", mc_swot), ("mc_technical", mc_tech),
+            ("et_markets", et), ("tickertape", tt), ("trendlyne", tl),
+            ("tradingview", tv), ("yfinance", yf_), ("yf_history", yf_hist),
+            ("news", rss), ("screener_eps", screener_eps), ("tt_forecasts", tt_forecasts),
+        ] if v],
     }
     try: json.dump(result, open(cache_f, "w"))
     except Exception: pass

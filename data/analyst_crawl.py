@@ -370,6 +370,58 @@ def _tt_fetch_sync(slug: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def _tt_fetch_forecasts_sync(slug: str) -> Optional[Dict[str, Any]]:
+    """Fetch quarterly EPS actuals + annual EPS consensus from Tickertape /forecasts page.
+    Uses curl_cffi chrome131 — works from datacenter IPs (proven in test_scrape_eps.py)."""
+    from curl_cffi import requests as cf
+    url = f"https://www.tickertape.in/stocks/{slug}/forecasts"
+    try:
+        r = cf.get(url, impersonate="chrome131", timeout=20, headers=_TT_FETCH_HDR)
+        if r.status_code != 200 or len(r.text) < 10000:
+            return None
+        mj = re.search(r'<script id="__NEXT_DATA__"[^>]*>({.*?})</script>', r.text, re.S)
+        if not mj:
+            return None
+        try:
+            data = json.loads(mj.group(1))
+        except Exception:
+            return None
+        props = data.get("props", {}).get("pageProps", {})
+        quarterly = []
+        for q in (props.get("income-normal-interim") or []):
+            quarterly.append({
+                "quarter": q.get("displayPeriod"),
+                "eps_actual": q.get("qIncEps"),
+                "net_profit_cr": q.get("qIncNinc"),
+            })
+        eps_forecast = []
+        for e in (props.get("forecastsHistory", {}).get("eps") or []):
+            eps_forecast.append({
+                "fy_end": (e.get("date") or "")[:7],
+                "eps_consensus": round(e.get("value", 0), 2),
+                "yoy_change_pct": e.get("change"),
+            })
+        if not quarterly and not eps_forecast:
+            return None
+        from datetime import date
+        return {
+            "source_url": url,
+            "quarterly_eps": quarterly[-8:],
+            "annual_eps_forecast": eps_forecast,
+            "as_of": date.today().isoformat(),
+        }
+    except Exception:
+        return None
+
+
+def tt_fetch_forecasts_for_symbol(symbol: str) -> Optional[Dict[str, Any]]:
+    """Resolve slug then fetch Tickertape /forecasts page (quarterly EPS + annual consensus)."""
+    slug = _tt_resolve_slug(symbol)
+    if not slug:
+        return None
+    return _tt_fetch_forecasts_sync(slug)
+
+
 async def fetch_tickertape(symbol: str) -> Optional[Dict[str, Any]]:
     slug = _tt_resolve_slug(symbol)
     if not slug:
