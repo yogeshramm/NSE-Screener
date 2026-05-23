@@ -1302,9 +1302,11 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
           </div>
           <div id="sc-briefing-content" class="grid grid-cols-4 gap-3 text-[10px]"></div>
         </div>
-        <div id="chart-container" class="bg-surface-container rounded-lg relative overflow-hidden border border-outline-variant/10" style="min-height:300px;height:350px;flex-shrink:0">
-          <div id="ohlc-overlay" class="absolute top-2 left-2 z-10 flex gap-3 text-[10px] font-mono pointer-events-none" style="text-shadow:0 0 3px rgba(0,0,0,0.5)"></div>
-          <!-- Marker popup — shown on D/E/≈E/⚡ click -->
+        <div style="position:relative">
+          <div id="chart-container" class="bg-surface-container rounded-lg relative overflow-hidden border border-outline-variant/10" style="min-height:300px;height:350px;flex-shrink:0">
+            <div id="ohlc-overlay" class="absolute top-2 left-2 z-10 flex gap-3 text-[10px] font-mono pointer-events-none" style="text-shadow:0 0 3px rgba(0,0,0,0.5)"></div>
+          </div>
+          <!-- Marker popup — shown on D/E/≈E/⚡ click — lives OUTSIDE chart-container so innerHTML='' doesn't destroy it -->
           <div id="sc-marker-popup" style="display:none;position:absolute;z-index:50;min-width:200px;max-width:260px;pointer-events:auto" class="bg-surface-container-highest border border-outline-variant/30 rounded-xl shadow-2xl p-3 text-[11px]"></div>
         </div>
         <div id="rsi-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:80px"></div>
