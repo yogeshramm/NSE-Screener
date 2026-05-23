@@ -115,6 +115,7 @@ from api.routes_ticks import router as ticks_router
 from api.routes_leaderboard import router as leaderboard_router
 from api.routes_forum import router as forum_router
 from api.routes_tournament import router as tournament_router
+from api.routes_earnings import router as earnings_router
 
 app = FastAPI(
     title="NSE Screener API",
@@ -163,6 +164,7 @@ app.include_router(ticks_router, tags=["Live Prices"])
 app.include_router(leaderboard_router, tags=["Leaderboard"])
 app.include_router(forum_router, tags=["Forum"])
 app.include_router(tournament_router, tags=["Tournament"])
+app.include_router(earnings_router, tags=["Earnings"])
 
 
 # Serve frontend

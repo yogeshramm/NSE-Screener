@@ -1304,6 +1304,8 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
         </div>
         <div id="chart-container" class="bg-surface-container rounded-lg relative overflow-hidden border border-outline-variant/10" style="min-height:300px;height:350px;flex-shrink:0">
           <div id="ohlc-overlay" class="absolute top-2 left-2 z-10 flex gap-3 text-[10px] font-mono pointer-events-none" style="text-shadow:0 0 3px rgba(0,0,0,0.5)"></div>
+          <!-- Marker popup — shown on D/E/≈E/⚡ click -->
+          <div id="sc-marker-popup" style="display:none;position:absolute;z-index:50;min-width:200px;max-width:260px;pointer-events:auto" class="bg-surface-container-highest border border-outline-variant/30 rounded-xl shadow-2xl p-3 text-[11px]"></div>
         </div>
         <div id="rsi-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:80px"></div>
         <div id="macd-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:80px;display:none"></div>
@@ -4070,6 +4072,7 @@ function openChart(symbol) {
   const hs  = document.getElementById('sc-help-summary');if (hs)  { hs.classList.add('hidden'); hs.innerHTML=''; }
   const pp  = document.getElementById('sc-breakout-pills'); if (pp) { pp.classList.add('hidden'); pp.innerHTML=''; }
   scClear52WLines(); scClearTriggerLines();
+  _hideMarkerPopup();
 
   currentChartSymbol = symbol;
   const tables = document.getElementById('tables-panel');
@@ -4323,6 +4326,8 @@ async function loadChart(symbol, days, interval) {
     const data=await res.json();
     document.getElementById('chart-price').textContent='\u20b9'+data.price;
     renderChart(data);
+    // Auto-fetch marker data in parallel (fire-and-forget \u2014 markers repaint when ready)
+    _prefetchMarkerData(symbol);
   } catch(e) { document.getElementById('chart-container').innerHTML='<p class="text-error p-4 text-sm">Chart error: '+e.message+'</p>'; }
 }
 
@@ -4608,6 +4613,17 @@ function renderChart(data) {
 
   // Click handler: drawing tools take priority, then mark mode
   currentChart.subscribeClick(param => {
+    // Marker popup — highest priority when not in draw/mark mode
+    if (!_drawMode && !scMarkMode) {
+      if (param.time) {
+        const hits = scMarkerMeta.filter(m => m.time === param.time);
+        if (hits.length > 0) {
+          _showMarkerPopup(hits, param.point);
+          return;
+        }
+      }
+      _hideMarkerPopup(); // clicked away from any marker
+    }
     // Drawing tools
     if (_drawMode && param.point) {
       const price = window._scCandleSeries?.coordinateToPrice(param.point.y);
@@ -5487,6 +5503,9 @@ let scTradeZonesOn = true;   // Trade Zones on by default
 let scMarkMode = false;      // click-to-mark BUY mode
 let scBriefingCache = {}; // {symbol: data}
 let scEventsCache = {};   // {symbol: events[]}
+let scEarningsCache = {}; // {symbol: earnings data from TV scanner}
+let scNewsCache = {};     // {symbol: news items[]}
+let scMarkerMeta = [];    // [{time, type, data}] — parallel to chart markers for popup
 let scOptimalCache = {};  // {symbol: plan[]} newest-first array, max 3 per symbol
 let scSLMode = 'none';   // 'none' | 'atr' | 'pct'  — opt-in stop loss mode
 let scSLPct  = 5;        // stop % used when scSLMode === 'pct'
@@ -5863,6 +5882,115 @@ function scRenderSummaryBadge() {
   el.classList.remove('hidden');
 }
 
+// ── Marker data prefetch (auto on every chart open) ──────────────────────────
+async function _prefetchMarkerData(symbol) {
+  // Fire all three fetches in parallel; repaint markers as each resolves
+  const [evRes, erRes, nwRes] = await Promise.allSettled([
+    fetch(API + '/events/symbol/' + symbol).then(r => r.json()),
+    fetch(API + '/earnings/' + symbol).then(r => r.json()),
+    fetch(API + '/news/' + symbol + '?limit=15').then(r => r.json()),
+  ]);
+  if (evRes.status === 'fulfilled') scEventsCache[symbol]  = evRes.value.events  || [];
+  if (erRes.status === 'fulfilled') scEarningsCache[symbol] = erRes.value.earnings || null;
+  if (nwRes.status === 'fulfilled') scNewsCache[symbol]     = nwRes.value.news    || [];
+  // Repaint once all data is in
+  if (currentChartSymbol === symbol) scApplyMarkers();
+}
+
+// ── Marker popup ──────────────────────────────────────────────────────────────
+function _showMarkerPopup(entries, point) {
+  const popup = document.getElementById('sc-marker-popup');
+  if (!popup) return;
+
+  // Build HTML for all markers at this time (could be E + ⚡ on same candle)
+  let html = '';
+  for (const e of entries) {
+    if (e.type === 'dividend') {
+      const d = e.data;
+      html += `
+        <div class="mb-2 last:mb-0">
+          <div class="flex items-center gap-1.5 mb-1">
+            <span class="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-[10px]">D</span>
+            <span class="font-semibold text-on-surface">Dividend</span>
+          </div>
+          <div class="space-y-0.5 text-on-surface-variant">
+            ${d.amount   ? `<div>Amount: <span class="text-on-surface font-medium">₹${d.amount}</span></div>` : ''}
+            ${d.ex_date  ? `<div>Ex-date: <span class="text-on-surface">${d.ex_date}</span></div>` : ''}
+            ${d.pay_date ? `<div>Pay date: <span class="text-on-surface">${d.pay_date}</span></div>` : ''}
+            ${d.event    ? `<div class="text-[10px] opacity-60">${d.event}</div>` : ''}
+          </div>
+        </div>`;
+    } else if (e.type === 'earnings') {
+      const d = e.data;
+      const beatCol  = d.beat === true ? 'text-green-400' : d.beat === false ? 'text-red-400' : 'text-on-surface-variant';
+      const beatLbl  = d.beat === true ? '▲ Beat' : d.beat === false ? '▼ Miss' : '—';
+      const surprLbl = d.eps_surprise_pct != null ? `${d.eps_surprise_pct > 0 ? '+' : ''}${d.eps_surprise_pct}%` : '';
+      const dateStr  = d.last_earnings_ts ? new Date(d.last_earnings_ts * 1000).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'numeric'}) : '';
+      html += `
+        <div class="mb-2 last:mb-0">
+          <div class="flex items-center gap-1.5 mb-1">
+            <span class="w-5 h-5 rounded flex items-center justify-center font-bold text-[10px] text-white" style="background:${d.beat===true?'#22c55e':d.beat===false?'#ef4444':'#6b7280'}">E</span>
+            <span class="font-semibold text-on-surface">Earnings</span>
+            ${dateStr ? `<span class="text-[10px] text-on-surface-variant ml-auto">${dateStr}</span>` : ''}
+          </div>
+          <div class="space-y-0.5 text-on-surface-variant">
+            ${d.eps_actual   != null ? `<div>Reported: <span class="text-on-surface font-medium">₹${d.eps_actual}</span></div>` : ''}
+            ${d.eps_estimate != null ? `<div>Estimate: <span class="text-on-surface">₹${d.eps_estimate}</span></div>` : ''}
+            ${surprLbl ? `<div class="${beatCol} font-semibold">${beatLbl} ${surprLbl}</div>` : ''}
+          </div>
+        </div>`;
+    } else if (e.type === 'upcoming_earnings') {
+      const d = e.data;
+      const dateStr = d.next_earnings_ts ? new Date(d.next_earnings_ts * 1000).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'numeric'}) : '';
+      html += `
+        <div class="mb-2 last:mb-0">
+          <div class="flex items-center gap-1.5 mb-1">
+            <span class="w-5 h-5 rounded border-2 border-amber-400 flex items-center justify-center font-bold text-[10px] text-amber-400">E</span>
+            <span class="font-semibold text-on-surface">Upcoming Earnings</span>
+          </div>
+          <div class="text-on-surface-variant">
+            ${dateStr ? `<div>Expected: <span class="text-amber-400 font-medium">${dateStr}</span></div>` : ''}
+            ${d.eps_estimate != null ? `<div>EPS Estimate: <span class="text-on-surface">₹${d.eps_estimate}</span></div>` : ''}
+          </div>
+        </div>`;
+    } else if (e.type === 'news') {
+      const d = e.data;
+      html += `
+        <div class="mb-2 last:mb-0">
+          <div class="flex items-center gap-1.5 mb-1">
+            <span class="w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold text-[10px]">⚡</span>
+            <span class="font-semibold text-on-surface">News</span>
+            ${d.pub_fmt ? `<span class="text-[10px] text-on-surface-variant ml-auto">${d.pub_fmt}</span>` : ''}
+          </div>
+          <a href="${d.link||'#'}" target="_blank" rel="noopener" class="text-primary hover:underline leading-tight block">${d.title||''}</a>
+          ${d.source ? `<div class="text-[10px] text-on-surface-variant mt-0.5">${d.source}</div>` : ''}
+        </div>`;
+    }
+    if (entries.indexOf(e) < entries.length - 1) html += `<div class="border-t border-outline-variant/20 my-2"></div>`;
+  }
+
+  popup.innerHTML = html;
+
+  // Position popup — keep it within chart bounds
+  const container = document.getElementById('chart-container');
+  const rect = container.getBoundingClientRect();
+  const pw = 260, ph = 160;
+  let left = point.x + 12;
+  let top  = point.y - 10;
+  if (left + pw > container.clientWidth - 8)  left = point.x - pw - 12;
+  if (top  + ph > container.clientHeight - 8) top  = container.clientHeight - ph - 8;
+  if (left < 4) left = 4;
+  if (top  < 4) top  = 4;
+  popup.style.left    = left + 'px';
+  popup.style.top     = top  + 'px';
+  popup.style.display = 'block';
+}
+
+function _hideMarkerPopup() {
+  const p = document.getElementById('sc-marker-popup');
+  if (p) p.style.display = 'none';
+}
+
 async function toggleScreenerEvents() {
   scEventsOn = !scEventsOn;
   const btn = document.getElementById('sc-events-btn');
@@ -5969,6 +6097,97 @@ function scApplyMarkers() {
   const cs = window._scCandleSeries;
   if (!cs || !chartData) return;
   const markers = [];
+  scMarkerMeta = []; // reset parallel metadata store
+
+  // ── Helper: snap unix timestamp to nearest candle ─────────────────────────
+  function _snapCandle(ts) {
+    if (!ts || !chartData.candles?.length) return null;
+    const candles = chartData.candles;
+    if (ts < candles[0].time - 7*86400) return null; // too old
+    let nearest = candles[0], minD = Math.abs(candles[0].time - ts);
+    for (const c of candles) { const d = Math.abs(c.time - ts); if (d < minD) { minD = d; nearest = c; } }
+    if (minD > 10 * 86400) return null; // >10 days off — no match
+    return nearest;
+  }
+
+  // ── D markers — Dividend (always on, auto-fetched) ────────────────────────
+  if (currentChartSymbol && scEventsCache[currentChartSymbol]) {
+    for (const e of scEventsCache[currentChartSymbol]) {
+      const ev = (e.event || '').toLowerCase();
+      if (!ev.includes('dividend')) continue;
+      const d = e.date || '';
+      let ts = null;
+      // Parse multiple date formats
+      const m1 = d.match(/(\d{1,2})-([A-Za-z]{3})-(\d{4})/);
+      const m2 = d.match(/(\d{4})-(\d{2})-(\d{2})/);
+      if (m1) ts = Math.floor(new Date(`${m1[2]} ${m1[1]}, ${m1[3]}`).getTime() / 1000);
+      else if (m2) ts = Math.floor(new Date(`${m2[0]}T00:00:00Z`).getTime() / 1000);
+      if (!ts) continue;
+      const candle = _snapCandle(ts);
+      if (!candle) continue;
+      // Extract amount from event string e.g. "Dividend - Rs 8.00 Per Share"
+      const amtM = e.event?.match(/rs\.?\s*([\d.]+)/i);
+      const amount = amtM ? amtM[1] : null;
+      markers.push({ time: candle.time, position: 'belowBar', color: '#3b82f6', shape: 'circle', text: 'D' });
+      scMarkerMeta.push({ time: candle.time, type: 'dividend', data: { event: e.event, amount, ex_date: d, pay_date: e.bm_date || null } });
+    }
+  }
+
+  // ── E markers — Earnings beat/miss (always on) ────────────────────────────
+  if (currentChartSymbol && scEarningsCache[currentChartSymbol]) {
+    const er = scEarningsCache[currentChartSymbol];
+    if (er.last_earnings_ts) {
+      const candle = _snapCandle(er.last_earnings_ts);
+      if (candle) {
+        const col = er.beat === true ? '#22c55e' : er.beat === false ? '#ef4444' : '#6b7280';
+        markers.push({ time: candle.time, position: 'belowBar', color: col, shape: 'square', text: 'E' });
+        scMarkerMeta.push({ time: candle.time, type: 'earnings', data: er });
+      }
+    }
+    // ≈E marker — upcoming earnings (on last candle if within 120 days)
+    if (er.next_earnings_ts) {
+      const now = Math.floor(Date.now() / 1000);
+      const daysAhead = (er.next_earnings_ts - now) / 86400;
+      if (daysAhead > 0 && daysAhead <= 120 && chartData.candles?.length) {
+        const lastCandle = chartData.candles[chartData.candles.length - 1];
+        // Avoid duplicate if same time as E marker
+        const alreadyUsed = scMarkerMeta.some(m => m.time === lastCandle.time && m.type === 'earnings');
+        if (!alreadyUsed) {
+          markers.push({ time: lastCandle.time, position: 'belowBar', color: '#f59e0b', shape: 'circle', text: '~E' });
+        } else {
+          // Push ≈E slightly — use aboveBar to avoid collision
+          markers.push({ time: lastCandle.time, position: 'aboveBar', color: '#f59e0b', shape: 'circle', text: '~E' });
+        }
+        scMarkerMeta.push({ time: lastCandle.time, type: 'upcoming_earnings', data: er });
+      }
+    }
+  }
+
+  // ── ⚡ markers — News (always on, recent articles only) ───────────────────
+  if (currentChartSymbol && scNewsCache[currentChartSymbol]?.length && chartData.candles?.length) {
+    const candles = chartData.candles;
+    const tMin = candles[0].time, tMax = candles[candles.length - 1].time;
+    // Group news by date so multiple articles on same day → one marker
+    const newsGroups = {};
+    for (const n of scNewsCache[currentChartSymbol]) {
+      if (!n.pub) continue;
+      try {
+        const ts = Math.floor(new Date(n.pub).getTime() / 1000);
+        if (ts < tMin || ts > tMax + 86400) continue;
+        const candle = _snapCandle(ts);
+        if (!candle) continue;
+        if (!newsGroups[candle.time]) newsGroups[candle.time] = [];
+        newsGroups[candle.time].push(n);
+      } catch(e) { continue; }
+    }
+    for (const [t, items] of Object.entries(newsGroups)) {
+      const time = parseInt(t);
+      markers.push({ time, position: 'aboveBar', color: '#a855f7', shape: 'circle', text: '⚡' });
+      // Store the most recent article for popup
+      scMarkerMeta.push({ time, type: 'news', data: items[0] });
+    }
+  }
+
   // HELP: historical pattern markers — color purely by OUTCOME (no pending hits)
   if (scHelpOn && currentChartSymbol && chartData.candles?.length) {
     const data = scAnalyzeCache[currentChartSymbol] || {};
