@@ -12763,8 +12763,8 @@ function _ipRenderAnalystBody(a, price, state) {
     </div>
     ${(() => {
       // Count analyst-rating sources
-      const ratingSources = ['yfinance','et_markets','tickertape','trendlyne','tradingview'].filter(n => (a.sources_used||[]).includes(n));
-      return `<div class="mt-2 pt-2 border-t border-outline-variant/10 text-[9px] uppercase font-bold text-on-surface-variant mb-1">Sources · ${ratingSources.length}/5</div>`;
+      const ratingSources = ['moneycontrol','mc_technical','yfinance','et_markets','tickertape','trendlyne','tradingview'].filter(n => (a.sources_used||[]).includes(n));
+      return `<div class="mt-2 pt-2 border-t border-outline-variant/10 text-[9px] uppercase font-bold text-on-surface-variant mb-1">Sources · ${ratingSources.length}/7</div>`;
     })()}
     ${(() => {
       const tl = a.trendlyne; if (!tl) return '';
@@ -12801,6 +12801,29 @@ function _ipRenderAnalystBody(a, price, state) {
       const ma = tw.ma_score != null ? ` · MA ${tw.ma_score>=0?'+':''}${tw.ma_score.toFixed(2)}` : '';
       const osc = tw.osc_score != null ? ` · OSC ${tw.osc_score>=0?'+':''}${tw.osc_score.toFixed(2)}` : '';
       return `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">TW</span><span class="font-mono text-on-surface"><span class="${twCol}">${tw.label}</span> <span class="text-on-surface-variant">(${tw.score>=0?'+':''}${tw.score.toFixed(2)}${ma}${osc})</span></span></div>`;
+    })()}
+    ${(() => {
+      const mc_t = a.mc_technical; if (!mc_t) return '';
+      const col = mc_t.label==='Very Bullish'?'text-[#00e5a0]':mc_t.label==='Bullish'?'text-primary':mc_t.label==='Neutral'?'text-yellow-400':mc_t.label==='Bearish'?'text-orange-400':'text-[#ff4757]';
+      return `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">MC Tech</span><span class="font-mono text-on-surface"><span class="${col}">${mc_t.label}</span></span></div>`;
+    })()}
+    ${(() => {
+      const mc = a.moneycontrol; if (!mc || (!mc.buy && !mc.hold && !mc.sell)) return '';
+      const bits = [];
+      bits.push(`${mc.brokers_mentioned||(mc.buy||0)+(mc.hold||0)+(mc.sell||0)} brokers`);
+      const parts = [];
+      if (mc.buy) parts.push(`B ${mc.buy}`);
+      if (mc.hold) parts.push(`H ${mc.hold}`);
+      if (mc.sell) parts.push(`S ${mc.sell}`);
+      if (parts.length) bits.push(parts.join(' '));
+      if (mc.target_price) bits.push(`₹${mc.target_price}`);
+      const rep = (mc.reports||[])[0];
+      const repStr = rep ? ` · ${rep.org||''} ${rep.date||''}` : '';
+      return `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">MC${repStr}</span><span class="font-mono text-on-surface">${bits.join(' · ')}</span></div>`;
+    })()}
+    ${(() => {
+      const sw = a.mc_swot; if (!sw || (!sw.strengths && !sw.weaknesses)) return '';
+      return `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">MC SWOT</span><span class="font-mono text-on-surface text-[#00e5a0]">S ${sw.strengths}</span><span class="font-mono text-on-surface text-[#ff4757] ml-2">W ${sw.weaknesses}</span><span class="font-mono text-on-surface text-primary ml-2">O ${sw.opportunities}</span><span class="font-mono text-on-surface text-yellow-400 ml-2">T ${sw.threats}</span></div>`;
     })()}
     ${(() => {
       if (!et) return '';
