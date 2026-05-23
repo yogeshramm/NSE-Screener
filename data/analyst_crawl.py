@@ -19,7 +19,7 @@ _LOCK = threading.Lock()
 # change only on corporate actions. Persisting them avoids re-hitting the
 # autocomplete endpoints every cold start.
 _RESOLVE_CACHE_FILE = Path(__file__).resolve().parent.parent / "data_store" / "analyst" / "resolve_cache.json"
-_RESOLVE_TTL = timedelta(days=30)
+_RESOLVE_TTL = timedelta(days=60)
 _DISK_LOADED = False
 
 
@@ -183,6 +183,9 @@ _TT_SITEMAP_CACHE: Dict[str, str] = {}   # tickertape-code → slug
 _TT_SITEMAP_LOADED = False
 _TT_SITEMAP_FILE = _RESOLVE_CACHE_FILE.parent / "tt_sitemap.json"
 
+_NSE_EQUITY_NAMES: Dict[str, str] = {}   # NSE symbol → company name (lazy-loaded)
+_NSE_EQUITY_NAMES_LOADED = False
+
 _TT_FETCH_HDR = {
     "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
     "Accept-Language": "en-IN,en;q=0.9",
@@ -228,20 +231,68 @@ def _tt_load_sitemap() -> None:
         pass
 
 
+def _tt_load_nse_names() -> Dict[str, str]:
+    """Lazy-load NSE equity CSV → {SYMBOL: company_name}. Tries local cache then network."""
+    global _NSE_EQUITY_NAMES, _NSE_EQUITY_NAMES_LOADED
+    if _NSE_EQUITY_NAMES_LOADED:
+        return _NSE_EQUITY_NAMES
+    _NSE_EQUITY_NAMES_LOADED = True
+    # Try local cached CSV first
+    local_csv = Path(__file__).resolve().parent.parent / "data_store" / "nse_equity_list.csv"
+    try:
+        import csv
+        if local_csv.exists():
+            with open(local_csv, newline="", encoding="utf-8") as f:
+                for row in csv.DictReader(f):
+                    sym = (row.get("SYMBOL") or "").strip()
+                    name = (row.get("NAME OF COMPANY") or "").strip()
+                    if sym and name:
+                        _NSE_EQUITY_NAMES[sym] = name
+            if _NSE_EQUITY_NAMES:
+                return _NSE_EQUITY_NAMES
+    except Exception:
+        pass
+    # Fallback: fetch from NSE (best-effort, non-blocking on failure)
+    try:
+        from curl_cffi import requests as cf
+        r = cf.get(
+            "https://archives.nseindia.com/content/equities/EQUITY_L.csv",
+            impersonate="chrome124", timeout=10,
+        )
+        if r.status_code == 200:
+            import csv, io
+            for row in csv.DictReader(io.StringIO(r.text)):
+                sym = (row.get("SYMBOL") or "").strip()
+                name = (row.get("NAME OF COMPANY") or "").strip()
+                if sym and name:
+                    _NSE_EQUITY_NAMES[sym] = name
+            # Save locally for next time
+            try:
+                local_csv.parent.mkdir(parents=True, exist_ok=True)
+                local_csv.write_text(r.text, encoding="utf-8")
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return _NSE_EQUITY_NAMES
+
+
 def _tt_company_name(symbol: str) -> Optional[str]:
-    """Read company long/short name from local fundamentals pickle."""
+    """Return company name: fundamentals pkl first, then NSE equity CSV."""
     try:
         import pickle
         p = Path(__file__).resolve().parent.parent / "data_store" / "fundamentals" / f"{symbol}.pkl"
-        if not p.exists():
-            return None
-        with open(p, "rb") as f:
-            fund = pickle.load(f)
-        if isinstance(fund, dict):
-            return fund.get("longName") or fund.get("shortName")
+        if p.exists():
+            with open(p, "rb") as f:
+                fund = pickle.load(f)
+            if isinstance(fund, dict):
+                name = fund.get("longName") or fund.get("shortName")
+                if name:
+                    return name
     except Exception:
         pass
-    return None
+    # Fallback: NSE equity CSV (covers stocks with screener.in-only pkls)
+    return _tt_load_nse_names().get(symbol)
 
 
 def _tt_slug_from_sitemap(symbol: str) -> Optional[str]:
@@ -251,7 +302,7 @@ def _tt_slug_from_sitemap(symbol: str) -> Optional[str]:
       1. Exact NSE symbol == Tickertape code  (TCS, INFY, WIPRO, SBI…)
       2. Company name fuzzy match — most reliable for complex symbols
          (HDFCBANK→"hdfc-bank-HDBK", BAJFINANCE→"bajaj-finance-BJFN", SBIN→"state-bank-…-SBI")
-      3. First-4-char code as last resort (RELIANCE→RELI when no fundamentals available)
+      3. Short-code prefix 4→3 chars (RELIANCE→RELI, SBIN→SBI)
     """
     _tt_load_sitemap()
     if not _TT_SITEMAP_CACHE:
@@ -279,11 +330,12 @@ def _tt_slug_from_sitemap(symbol: str) -> Optional[str]:
                 if slug.startswith(prefix):
                     return slug
 
-    # 3. First-4-char code (fallback when fundamentals absent)
-    if len(symbol) >= 4:
-        s = _TT_SITEMAP_CACHE.get(symbol[:4])
-        if s:
-            return s
+    # 3. Short-code prefix: try 4-char then 3-char (handles SBIN→SBI, etc.)
+    for n in (4, 3):
+        if len(symbol) >= n:
+            s = _TT_SITEMAP_CACHE.get(symbol[:n])
+            if s:
+                return s
 
     return None
 
