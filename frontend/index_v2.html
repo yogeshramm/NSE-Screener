@@ -12763,8 +12763,8 @@ function _ipRenderAnalystBody(a, price, state) {
     </div>
     ${(() => {
       // Count analyst-rating sources
-      const ratingSources = ['yfinance','et_markets','tickertape','trendlyne','tradingview'].filter(n => (a.sources_used||[]).includes(n));
-      return `<div class="mt-2 pt-2 border-t border-outline-variant/10 text-[9px] uppercase font-bold text-on-surface-variant mb-1">Sources · ${ratingSources.length}/5</div>`;
+      const ratingSources = ['moneycontrol','mc_technical','yfinance','et_markets','tickertape','trendlyne','tradingview'].filter(n => (a.sources_used||[]).includes(n));
+      return `<div class="mt-2 pt-2 border-t border-outline-variant/10 text-[9px] uppercase font-bold text-on-surface-variant mb-1">Sources · ${ratingSources.length}/7</div>`;
     })()}
     ${(() => {
       const tl = a.trendlyne; if (!tl) return '';
@@ -12803,6 +12803,29 @@ function _ipRenderAnalystBody(a, price, state) {
       return `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">TW</span><span class="font-mono text-on-surface"><span class="${twCol}">${tw.label}</span> <span class="text-on-surface-variant">(${tw.score>=0?'+':''}${tw.score.toFixed(2)}${ma}${osc})</span></span></div>`;
     })()}
     ${(() => {
+      const mc_t = a.mc_technical; if (!mc_t) return '';
+      const col = mc_t.label==='Very Bullish'?'text-[#00e5a0]':mc_t.label==='Bullish'?'text-primary':mc_t.label==='Neutral'?'text-yellow-400':mc_t.label==='Bearish'?'text-orange-400':'text-[#ff4757]';
+      return `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">MC Tech</span><span class="font-mono text-on-surface"><span class="${col}">${mc_t.label}</span></span></div>`;
+    })()}
+    ${(() => {
+      const mc = a.moneycontrol; if (!mc || (!mc.buy && !mc.hold && !mc.sell)) return '';
+      const bits = [];
+      bits.push(`${mc.brokers_mentioned||(mc.buy||0)+(mc.hold||0)+(mc.sell||0)} brokers`);
+      const parts = [];
+      if (mc.buy) parts.push(`B ${mc.buy}`);
+      if (mc.hold) parts.push(`H ${mc.hold}`);
+      if (mc.sell) parts.push(`S ${mc.sell}`);
+      if (parts.length) bits.push(parts.join(' '));
+      if (mc.target_price) bits.push(`₹${mc.target_price}`);
+      const rep = (mc.reports||[])[0];
+      const repStr = rep ? ` · ${rep.org||''} ${rep.date||''}` : '';
+      return `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">MC${repStr}</span><span class="font-mono text-on-surface">${bits.join(' · ')}</span></div>`;
+    })()}
+    ${(() => {
+      const sw = a.mc_swot; if (!sw || (!sw.strengths && !sw.weaknesses)) return '';
+      return `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">MC SWOT</span><span class="font-mono text-on-surface text-[#00e5a0]">S ${sw.strengths}</span><span class="font-mono text-on-surface text-[#ff4757] ml-2">W ${sw.weaknesses}</span><span class="font-mono text-on-surface text-primary ml-2">O ${sw.opportunities}</span><span class="font-mono text-on-surface text-yellow-400 ml-2">T ${sw.threats}</span></div>`;
+    })()}
+    ${(() => {
       if (!et) return '';
       const bits = [];
       bits.push(`${et.analysts||0} analysts`);
@@ -12822,6 +12845,52 @@ function _ipRenderAnalystBody(a, price, state) {
     ${yf
       ? `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">YF${_dateChip(yf.as_of)}</span><span class="font-mono text-on-surface">${yf.key||'—'} · ${yf.analysts||0} analysts · ₹${yf.target_low||'?'}-${yf.target_high||'?'}</span></div>`
       : ''}
+    ${(() => {
+      // Quarterly EPS sparkline — prefer screener.in, fall back to TT quarterly data
+      const qeps = a.screener_eps?.quarterly_eps || a.tt_forecasts?.quarterly_eps;
+      if (!qeps || qeps.length < 2) return '';
+      const vals = qeps.map(q => typeof q.value === 'number' ? q.value : (typeof q.eps_actual === 'number' ? q.eps_actual : null));
+      const nonNull = vals.filter(v => v !== null);
+      if (!nonNull.length) return '';
+      const mx = Math.max(...nonNull.map(Math.abs), 0.01);
+      const barsHtml = qeps.map((q, i) => {
+        const v = vals[i];
+        const h = v != null ? Math.max(2, Math.abs(v) / mx * 26).toFixed(1) : 2;
+        const col = (v == null || v >= 0) ? '#00e5a0' : '#ff4757';
+        const lbl = (q.quarter || '').replace(/.*?(Mar|Jun|Sep|Dec).*/i, (_,m)=>m.slice(0,1)).slice(0,6) || (q.quarter||'').slice(-5);
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center">
+          <div style="height:${26-parseFloat(h)}px"></div>
+          <div title="${v!=null?'₹'+v:'N/A'}" style="width:75%;height:${h}px;background:${col};border-radius:1px"></div>
+          <div style="font-size:6px;color:#666;margin-top:2px;text-align:center;overflow:hidden;max-width:100%">${lbl}</div>
+        </div>`;
+      }).join('');
+      const latestV = vals[vals.length-1], prevV = vals[vals.length-2];
+      const qoq = latestV != null && prevV != null && prevV !== 0
+        ? ((latestV-prevV)/Math.abs(prevV)*100).toFixed(1) : null;
+      const src = a.screener_eps ? 'SCR' : 'TT';
+      return `<div class="mt-2 pt-2 border-t border-outline-variant/10">
+        <div class="flex justify-between items-baseline mb-1">
+          <span class="text-[9px] uppercase font-bold text-on-surface-variant">Quarterly EPS <span class="font-normal normal-case" style="font-size:7px;opacity:.7">${src}</span></span>
+          <span class="text-[9px] font-mono text-on-surface">${latestV!=null?'₹'+latestV:'—'}${qoq!=null?` <span class="${parseFloat(qoq)>=0?'text-[#00e5a0]':'text-[#ff4757]'}">${parseFloat(qoq)>=0?'+':''}${qoq}%</span>`:''}</span>
+        </div>
+        <div style="display:flex;align-items:flex-end;height:36px">${barsHtml}</div>
+      </div>`;
+    })()}
+    ${(() => {
+      // Annual EPS consensus from Tickertape forecastsHistory
+      const fc = a.tt_forecasts?.annual_eps_forecast;
+      if (!fc || !fc.length) return '';
+      const items = fc.filter(e => e.eps_consensus).slice(-3);
+      if (!items.length) return '';
+      return `<div class="mt-1 pt-1 border-t border-outline-variant/5">
+        <div class="text-[9px] uppercase font-bold text-on-surface-variant mb-0.5">Annual EPS Forecast <span class="font-normal normal-case" style="font-size:7px;opacity:.7">TT consensus</span></div>
+        ${items.map(e => {
+          const col = e.yoy_change_pct > 0 ? 'text-[#00e5a0]' : e.yoy_change_pct < 0 ? 'text-[#ff4757]' : '';
+          const yoy = e.yoy_change_pct != null ? ` <span class="${col}">${e.yoy_change_pct>=0?'+':''}${e.yoy_change_pct}%</span>` : '';
+          return `<div class="flex justify-between py-0.5 text-[10px]"><span class="text-on-surface-variant">${e.fy_end||'—'}</span><span class="font-mono text-on-surface">₹${e.eps_consensus}${yoy}</span></div>`;
+        }).join('')}
+      </div>`;
+    })()}
     ${(hist || rss) ? `<div class="mt-2 pt-2 border-t border-outline-variant/10 text-[9px] uppercase font-bold text-on-surface-variant mb-1">Activity (last ${a.window_days}d)</div>` : ''}
     ${srcRow('YF rating changes', hist ? `${hist.changes} change${hist.changes!==1?'s':''}` : null)}
     ${srcRow('News upgrades/downgrades', rss ? `↑${rss.upgrades} ↓${rss.downgrades}` : null)}

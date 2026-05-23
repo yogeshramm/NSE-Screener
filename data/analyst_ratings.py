@@ -26,11 +26,28 @@ _HDR = {
 
 # ---------- A. Moneycontrol ----------
 _MC_SCID_CACHE = os.path.join(CACHE_DIR, "_mc_scid_map.json")
+_MC_SCID_MAP_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "mc_sc_ids.json")
+
+_mc_scid_map: Optional[Dict[str, str]] = None
+
+def _load_mc_scid_map() -> Dict[str, str]:
+    global _mc_scid_map
+    if _mc_scid_map is None:
+        try:
+            _mc_scid_map = json.load(open(_MC_SCID_MAP_PATH))
+        except Exception:
+            _mc_scid_map = {}
+    return _mc_scid_map
 
 
 def _mc_scid(symbol: str) -> Optional[str]:
-    """Resolve symbol → Moneycontrol internal SC_ID via their autosuggest API.
-    Note: MC often 403s direct calls; degrade gracefully when blocked."""
+    """Resolve symbol → Moneycontrol internal SC_ID.
+    Checks pre-built map first (481 stocks), falls back to autosuggest API."""
+    # Fast path: pre-built map
+    sc_id = _load_mc_scid_map().get(symbol)
+    if sc_id:
+        return sc_id
+
     cache = {}
     if os.path.exists(_MC_SCID_CACHE):
         try: cache = json.load(open(_MC_SCID_CACHE))
@@ -62,30 +79,48 @@ def _mc_scid(symbol: str) -> Optional[str]:
     return cache.get(symbol)
 
 
+_MC_API_HDR = {
+    "User-Agent": "MC-Android/7.4.0 Dalvik/2.1.0 (Linux; U; Android 12; SM-G991B)",
+    "Accept": "application/json",
+    "Referer": "https://www.moneycontrol.com/",
+}
+
 def _mc_consensus(symbol: str) -> Optional[Dict[str, Any]]:
+    """Fetch broker research from MC mobile API (mcapi/v1/stock/broker-research).
+    Uses curl_cffi impersonation + Android UA to bypass Akamai."""
     sc = _mc_scid(symbol)
     if not sc: return None
     try:
-        url = f"https://www.moneycontrol.com/stocks/company_info/print_broker_targets.php?sc_id={sc}"
-        r = requests.get(url, headers=_HDR, timeout=12)
-        if r.status_code != 200 or not r.text: return None
-        t = r.text
-        # Extract target price (strongest field)
-        tgt = None
-        m = re.search(r"Target Price</[^>]+>[^<]*<[^>]+>\s*Rs?\.?\s*([\d,]+\.?\d*)", t, re.I)
-        if not m: m = re.search(r"target\s+price[^<]*<[^>]+>\s*[:\-]?\s*(?:Rs?\.?\s*)?([\d,]+\.?\d*)", t, re.I)
-        if m:
-            try: tgt = float(m.group(1).replace(",", ""))
+        from curl_cffi import requests as cf
+        url = f"https://api.moneycontrol.com/mcapi/v1/stock/broker-research?scId={sc}&page=1&deviceType=A"
+        r = cf.get(url, impersonate="chrome124", headers=_MC_API_HDR, timeout=12)
+        if r.status_code not in (200, 201) or not r.text: return None
+        data = r.json().get("data", {})
+        rows = data.get("broker_research_data") or []
+        if not rows: return None
+
+        buy = hold = sell = 0
+        targets = []
+        for row in rows:
+            flag = (row.get("recommend_flag") or "").upper()
+            if "BUY" in flag and "SELL" not in flag: buy += 1
+            elif "HOLD" in flag or "NEUTRAL" in flag or "ACCUMULATE" in flag: hold += 1
+            elif "SELL" in flag or "REDUCE" in flag or "UNDERPERFORM" in flag: sell += 1
+            try:
+                t = row.get("target")
+                if t: targets.append(float(str(t).replace(",", "")))
             except Exception: pass
-        # Extract buy/hold/sell counts or mentions
-        buy = _ct(t, r"\bbuy\b"); hold = _ct(t, r"\bhold\b"); sell = _ct(t, r"\bsell\b")
-        # Broker rows (approximate)
-        brokers = len(re.findall(r"<tr[^>]*>[\s\S]*?</tr>", t))
-        if tgt is None and buy == 0 and sell == 0: return None
+
+        if buy == 0 and hold == 0 and sell == 0: return None
         return {
-            "target_price": tgt,
+            "target_price": round(sum(targets) / len(targets), 2) if targets else None,
             "buy": buy, "hold": hold, "sell": sell,
-            "brokers_mentioned": max(0, brokers - 1),
+            "brokers_mentioned": len(rows),
+            "reports": [
+                {"org": r.get("organization"), "flag": r.get("recommend_flag"),
+                 "target": r.get("target"), "date": r.get("recommend_date")}
+                for r in rows[:5]
+            ],
             "source_url": url,
         }
     except Exception: return None
@@ -94,6 +129,132 @@ def _mc_consensus(symbol: str) -> Optional[Dict[str, Any]]:
 def _ct(text: str, pat: str) -> int:
     try: return len(re.findall(pat, text, re.I))
     except Exception: return 0
+
+
+def _mc_swot(symbol: str) -> Optional[Dict[str, Any]]:
+    """Fetch MC SWOT signal counts for a stock. Works for all 481 mapped stocks."""
+    sc = _mc_scid(symbol)
+    if not sc: return None
+    try:
+        from curl_cffi import requests as cf
+        r = cf.get(f"https://api.moneycontrol.com/mcapi/v1/swot/count?scId={sc}",
+                   impersonate="chrome124", headers=_MC_API_HDR, timeout=8)
+        if r.status_code != 200: return None
+        info = r.json().get("data", {}).get("info", {})
+        if not info: return None
+        return {
+            "strengths": info.get("S", {}).get("count", 0),
+            "weaknesses": info.get("W", {}).get("count", 0),
+            "opportunities": info.get("O", {}).get("count", 0),
+            "threats": info.get("T", {}).get("count", 0),
+            "top_strength": info.get("S", {}).get("title", ""),
+            "top_opportunity": info.get("O", {}).get("title", ""),
+        }
+    except Exception: return None
+
+
+def _mc_technical(symbol: str) -> Optional[Dict[str, Any]]:
+    """Fetch MC's own technical indication (Very Bearish → Very Bullish)."""
+    sc = _mc_scid(symbol)
+    if not sc: return None
+    try:
+        from curl_cffi import requests as cf
+        r = cf.get(f"https://api.moneycontrol.com/mcapi/v1/technicals/indication?scId={sc}&dur=D",
+                   impersonate="chrome124", headers=_MC_API_HDR, timeout=8)
+        if r.status_code != 200: return None
+        label = r.json().get("data", {}).get("indication", "")
+        if not label: return None
+        score_map = {"Very Bullish": 1.0, "Bullish": 0.5, "Neutral": 0.0,
+                     "Bearish": -0.5, "Very Bearish": -1.0}
+        return {"label": label, "score": score_map.get(label, 0.0)}
+    except Exception: return None
+
+
+# ---------- Quarterly EPS — screener.in ----------
+def _screener_quarterly_eps(symbol: str) -> Optional[Dict[str, Any]]:
+    """Fetch quarterly EPS actuals from screener.in (last 8 quarters).
+    Tries consolidated first, falls back to standalone."""
+    try:
+        from curl_cffi import requests as cf
+        from bs4 import BeautifulSoup
+        hdrs = {
+            "Accept": "text/html,application/xhtml+xml,*/*;q=0.9",
+            "Accept-Language": "en-IN,en;q=0.9",
+            "Referer": "https://www.screener.in/",
+        }
+        r = None
+        for url in [
+            f"https://www.screener.in/company/{symbol}/consolidated/",
+            f"https://www.screener.in/company/{symbol}/",
+        ]:
+            resp = cf.get(url, impersonate="chrome124", headers=hdrs, timeout=12)
+            if resp.status_code == 200 and len(resp.text) > 10000:
+                r = resp
+                break
+        if not r:
+            return None
+        soup = BeautifulSoup(r.text, "html.parser")
+        sec = soup.find("section", {"id": "quarters"})
+        if not sec:
+            return None
+        tbl = sec.find("table")
+        if not tbl or not tbl.find("thead"):
+            return None
+        qlabels = [th.get_text(strip=True) for th in tbl.find("thead").find_all("th")[1:]]
+        eps_cells = np_cells = None
+        for row in tbl.find("tbody").find_all("tr"):
+            cells = row.find_all("td")
+            if not cells:
+                continue
+            lbl = cells[0].get_text(strip=True)
+            if "EPS" in lbl and eps_cells is None:
+                eps_cells = cells
+            if "Net Profit" in lbl and np_cells is None:
+                np_cells = cells
+        def _parse(cells):
+            out = []
+            for i, cell in enumerate(cells[1:]):
+                if i >= len(qlabels):
+                    break
+                try:
+                    v = float(cell.get_text(strip=True).replace(",", ""))
+                except ValueError:
+                    v = None
+                out.append({"quarter": qlabels[i], "value": v})
+            return out[-8:]
+        quarterly_eps = _parse(eps_cells) if eps_cells else []
+        if not quarterly_eps:
+            return None
+        from datetime import date
+        return {
+            "source": "screener.in",
+            "quarterly_eps": quarterly_eps,
+            "quarterly_net_profit_cr": _parse(np_cells) if np_cells else [],
+            "as_of": date.today().isoformat(),
+        }
+    except Exception:
+        return None
+
+
+def _tt_forecasts_for_symbol(symbol: str) -> Optional[Dict[str, Any]]:
+    """Wrapper: resolve TT slug + fetch /forecasts page for quarterly EPS + annual consensus."""
+    try:
+        from data.analyst_crawl import tt_fetch_forecasts_for_symbol
+        return tt_fetch_forecasts_for_symbol(symbol)
+    except Exception:
+        return None
+
+
+async def _run_executor_safe(fn, *args, timeout: float = 15):
+    """Run sync fn in the default executor with a timeout; returns None on any failure."""
+    try:
+        loop = asyncio.get_event_loop()
+        return await asyncio.wait_for(
+            loop.run_in_executor(None, fn, *args),
+            timeout=timeout,
+        )
+    except Exception:
+        return None
 
 
 # ---------- A2. ET Markets broker recommendations ----------
@@ -419,15 +580,27 @@ async def get_analyst_signal_async(symbol: str, tf: str = "1y") -> Dict[str, Any
     rss = _rss_activity(symbol, days=days)
     yf_hist = _yf_rating_history(symbol, days=days)
     tv = _tradingview_technical(symbol)  # batch-cached, near-instant
-    crawl = await _crawl_sources(symbol, lookback_days=days)
-    mc = crawl.get("moneycontrol")
+    # Parallel: crawl (TT broker + TL) + screener quarterly EPS + TT forecasts (EPS + consensus)
+    crawl_r, screener_eps, tt_forecasts = await asyncio.gather(
+        _crawl_sources(symbol, lookback_days=days),
+        _run_executor_safe(_screener_quarterly_eps, symbol),
+        _run_executor_safe(_tt_forecasts_for_symbol, symbol),
+    )
+    crawl = crawl_r if isinstance(crawl_r, dict) else {}
+    mc = crawl.get("moneycontrol") or _mc_consensus(symbol)
     tt = crawl.get("tickertape")
     tl = crawl.get("trendlyne")
+    mc_swot = _mc_swot(symbol)
+    mc_tech = _mc_technical(symbol)
     # TL + TT blocked from datacenter IPs — fall back to GHA-fetched cache if live fetch failed
     if not tl and existing_cache.get("trendlyne"):
         tl = existing_cache["trendlyne"]
     if not tt and existing_cache.get("tickertape"):
         tt = existing_cache["tickertape"]
+    if not screener_eps and existing_cache.get("screener_eps"):
+        screener_eps = existing_cache["screener_eps"]
+    if not tt_forecasts and existing_cache.get("tt_forecasts"):
+        tt_forecasts = existing_cache["tt_forecasts"]
     # Current price from local history (for target-based rating derivation)
     cur_price = None
     try:
@@ -443,6 +616,8 @@ async def get_analyst_signal_async(symbol: str, tf: str = "1y") -> Dict[str, Any
         "window_days": days,
         "target_horizon": "12M",
         "moneycontrol": mc,
+        "mc_swot": mc_swot,
+        "mc_technical": mc_tech,
         "et_markets": et,
         "tickertape": tt,
         "trendlyne": tl,
@@ -450,15 +625,22 @@ async def get_analyst_signal_async(symbol: str, tf: str = "1y") -> Dict[str, Any
         "yfinance": yf_,
         "yfinance_history": yf_hist,
         "news_activity": rss,
-        "composite": _composite_ext(mc, et, tt, tl, tv, yf_, rss, current_price=cur_price),
-        "sources_used": [n for n, v in [("moneycontrol", mc), ("et_markets", et), ("tickertape", tt), ("trendlyne", tl), ("tradingview", tv), ("yfinance", yf_), ("yf_history", yf_hist), ("news", rss)] if v],
+        "screener_eps": screener_eps,
+        "tt_forecasts": tt_forecasts,
+        "composite": _composite_ext(mc, et, tt, tl, tv, yf_, rss, mc_tech=mc_tech, current_price=cur_price),
+        "sources_used": [n for n, v in [
+            ("moneycontrol", mc), ("mc_swot", mc_swot), ("mc_technical", mc_tech),
+            ("et_markets", et), ("tickertape", tt), ("trendlyne", tl),
+            ("tradingview", tv), ("yfinance", yf_), ("yf_history", yf_hist),
+            ("news", rss), ("screener_eps", screener_eps), ("tt_forecasts", tt_forecasts),
+        ] if v],
     }
     try: json.dump(result, open(cache_f, "w"))
     except Exception: pass
     return result
 
 
-def _composite_ext(mc, et, tt, tl, tv, yf_, rss, current_price=None) -> Dict[str, Any]:
+def _composite_ext(mc, et, tt, tl, tv, yf_, rss, mc_tech=None, current_price=None) -> Dict[str, Any]:
     """Extended composite. Uses explicit ratings where present, derives rating
     from target upside when only target prices are available."""
     parts = []; targets = []
@@ -468,6 +650,9 @@ def _composite_ext(mc, et, tt, tl, tv, yf_, rss, current_price=None) -> Dict[str
     if tv and tv.get("score") is not None:
         tv_mapped = 3.0 - tv["score"] * 2.0   # 1.0=Strong Buy … 5.0=Strong Sell
         parts.append(tv_mapped)
+    # MC own technical indication: same [-1,1] → [1,5] conversion
+    if mc_tech and mc_tech.get("score") is not None:
+        parts.append(3.0 - mc_tech["score"] * 2.0)
     for src in (mc, et, tt, tl):
         if not src: continue
         sb, b, h, s, ss = src.get("strong_buy", 0), src.get("buy", 0), src.get("hold", 0), src.get("sell", 0), src.get("strong_sell", 0)
