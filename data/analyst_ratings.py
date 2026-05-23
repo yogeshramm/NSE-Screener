@@ -79,30 +79,48 @@ def _mc_scid(symbol: str) -> Optional[str]:
     return cache.get(symbol)
 
 
+_MC_API_HDR = {
+    "User-Agent": "MC-Android/7.4.0 Dalvik/2.1.0 (Linux; U; Android 12; SM-G991B)",
+    "Accept": "application/json",
+    "Referer": "https://www.moneycontrol.com/",
+}
+
 def _mc_consensus(symbol: str) -> Optional[Dict[str, Any]]:
+    """Fetch broker research from MC mobile API (mcapi/v1/stock/broker-research).
+    Uses curl_cffi impersonation + Android UA to bypass Akamai."""
     sc = _mc_scid(symbol)
     if not sc: return None
     try:
-        url = f"https://www.moneycontrol.com/stocks/company_info/print_broker_targets.php?sc_id={sc}"
-        r = requests.get(url, headers=_HDR, timeout=12)
-        if r.status_code != 200 or not r.text: return None
-        t = r.text
-        # Extract target price (strongest field)
-        tgt = None
-        m = re.search(r"Target Price</[^>]+>[^<]*<[^>]+>\s*Rs?\.?\s*([\d,]+\.?\d*)", t, re.I)
-        if not m: m = re.search(r"target\s+price[^<]*<[^>]+>\s*[:\-]?\s*(?:Rs?\.?\s*)?([\d,]+\.?\d*)", t, re.I)
-        if m:
-            try: tgt = float(m.group(1).replace(",", ""))
+        from curl_cffi import requests as cf
+        url = f"https://api.moneycontrol.com/mcapi/v1/stock/broker-research?scId={sc}&page=1&deviceType=A"
+        r = cf.get(url, impersonate="chrome124", headers=_MC_API_HDR, timeout=12)
+        if r.status_code not in (200, 201) or not r.text: return None
+        data = r.json().get("data", {})
+        rows = data.get("broker_research_data") or []
+        if not rows: return None
+
+        buy = hold = sell = 0
+        targets = []
+        for row in rows:
+            flag = (row.get("recommend_flag") or "").upper()
+            if "BUY" in flag and "SELL" not in flag: buy += 1
+            elif "HOLD" in flag or "NEUTRAL" in flag or "ACCUMULATE" in flag: hold += 1
+            elif "SELL" in flag or "REDUCE" in flag or "UNDERPERFORM" in flag: sell += 1
+            try:
+                t = row.get("target")
+                if t: targets.append(float(str(t).replace(",", "")))
             except Exception: pass
-        # Extract buy/hold/sell counts or mentions
-        buy = _ct(t, r"\bbuy\b"); hold = _ct(t, r"\bhold\b"); sell = _ct(t, r"\bsell\b")
-        # Broker rows (approximate)
-        brokers = len(re.findall(r"<tr[^>]*>[\s\S]*?</tr>", t))
-        if tgt is None and buy == 0 and sell == 0: return None
+
+        if buy == 0 and hold == 0 and sell == 0: return None
         return {
-            "target_price": tgt,
+            "target_price": round(sum(targets) / len(targets), 2) if targets else None,
             "buy": buy, "hold": hold, "sell": sell,
-            "brokers_mentioned": max(0, brokers - 1),
+            "brokers_mentioned": len(rows),
+            "reports": [
+                {"org": r.get("organization"), "flag": r.get("recommend_flag"),
+                 "target": r.get("target"), "date": r.get("recommend_date")}
+                for r in rows[:5]
+            ],
             "source_url": url,
         }
     except Exception: return None
