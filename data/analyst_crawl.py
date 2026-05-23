@@ -63,8 +63,10 @@ def _hydrate_from_disk():
             if tt is not None and sym not in _TT_SLUG_CACHE:
                 _TT_SLUG_CACHE[sym] = tt or None
             tid, tls = entry.get("tl_tid"), entry.get("tl_slug")
-            if sym not in _TL_META_CACHE:
-                _TL_META_CACHE[sym] = ({"tid": tid, "slug": tls} if tid and tls else None)
+            # Only populate cache with confirmed resolved data — missing TL meta means
+            # "not yet tried", not "failed". Don't cache None here or we skip live resolve.
+            if tid and tls and sym not in _TL_META_CACHE:
+                _TL_META_CACHE[sym] = {"tid": tid, "slug": tls}
 
 
 def _persist_resolve(symbol: str, tt_slug: Optional[str] = None,
@@ -437,28 +439,48 @@ _TL_META_CACHE: Dict[str, Optional[Dict[str, Any]]] = {}
 
 def _tl_resolve(symbol: str) -> Optional[Dict[str, Any]]:
     """Resolve NSE ticker → Trendlyne {tid, slug} via their autosuggest endpoint.
-    Disk-backed with 30-day TTL (see _tt_resolve_slug for the cache strategy)."""
+    Uses curl_cffi (TLS fingerprint spoof) — works from datacenter IPs.
+    Disk-backed with 30-day TTL."""
     _hydrate_from_disk()
     if symbol in _TL_META_CACHE: return _TL_META_CACHE[symbol]
     meta = None
     try:
-        import cloudscraper, re
-        s = cloudscraper.create_scraper(browser={"browser":"chrome","platform":"darwin","desktop":True})
-        s.headers.update({"Accept":"application/json","X-Requested-With":"XMLHttpRequest"})
-        s.get("https://trendlyne.com/", timeout=15)
-        r = s.get(f"https://trendlyne.com/equity/api/ac_snames/price/?term={symbol}", timeout=10)
-        if r.status_code == 200 and r.text.strip() not in ("fail", "[]"):
+        from curl_cffi import requests as cf
+        s = cf.Session(impersonate="chrome124")
+        hdrs = {"Accept": "application/json", "X-Requested-With": "XMLHttpRequest",
+                "Referer": "https://trendlyne.com/"}
+        r = s.get(f"https://trendlyne.com/equity/api/ac_snames/price/?term={symbol}",
+                  headers=hdrs, timeout=10)
+        if r.status_code == 200 and r.text.strip() not in ("fail", "[]", ""):
             d = r.json()
             for item in (d if isinstance(d, list) else []):
                 if not isinstance(item, dict): continue
                 if (item.get("value") or "").upper() == symbol.upper():
                     tid = item.get("k")
-                    # Extract slug from pageurl: https://trendlyne.com/equity/{tid}/{SYM}/{slug}/
                     pageurl = item.get("pageurl", "")
-                    m = re.search(r"/equity/\d+/[A-Z0-9&]+/([a-z0-9\-]+)", pageurl)
+                    m = re.search(r"/equity/\d+/[A-Z0-9&.]+/([a-z0-9\-]+)", pageurl)
                     slug = m.group(1) if m else None
                     if tid and slug: meta = {"tid": tid, "slug": slug}; break
-    except Exception: pass
+    except Exception:
+        # Fall back to cloudscraper if curl_cffi unavailable
+        try:
+            import cloudscraper
+            s = cloudscraper.create_scraper(browser={"browser":"chrome","platform":"darwin","desktop":True})
+            s.headers.update({"Accept":"application/json","X-Requested-With":"XMLHttpRequest"})
+            s.get("https://trendlyne.com/", timeout=15)
+            r = s.get(f"https://trendlyne.com/equity/api/ac_snames/price/?term={symbol}", timeout=10)
+            if r.status_code == 200 and r.text.strip() not in ("fail", "[]"):
+                d = r.json()
+                for item in (d if isinstance(d, list) else []):
+                    if not isinstance(item, dict): continue
+                    if (item.get("value") or "").upper() == symbol.upper():
+                        tid = item.get("k")
+                        pageurl = item.get("pageurl", "")
+                        m = re.search(r"/equity/\d+/[A-Z0-9&.]+/([a-z0-9\-]+)", pageurl)
+                        slug = m.group(1) if m else None
+                        if tid and slug: meta = {"tid": tid, "slug": slug}; break
+        except Exception:
+            pass
     _TL_META_CACHE[symbol] = meta
     if meta is not None:
         _persist_resolve(symbol, tl_meta=meta)
@@ -477,12 +499,11 @@ async def fetch_trendlyne(symbol: str, lookback_days: int = 365) -> Optional[Dic
 def _tl_sync(tid, symbol, slug, lookback_days=365) -> Optional[Dict[str, Any]]:
     """Trendlyne /equity/overview-second-part/{tid}/ returns JSON with
     researchReports.tableData[] containing {recoDate, targetPrice, recoPrice,
-    recoType, upside, postAuthor}. Discovered via XHR-interception on their
-    main equity page. cloudscraper bypasses the Cloudflare TLS challenge in ~1s."""
+    recoType, upside, postAuthor}. curl_cffi TLS spoofing works from datacenter IPs."""
     try:
-        import cloudscraper
+        from curl_cffi import requests as cf
         from datetime import datetime, timedelta
-        s = cloudscraper.create_scraper(browser={"browser":"chrome","platform":"darwin","desktop":True})
+        s = cf.Session(impersonate="chrome124")
         s.headers.update({"Accept":"application/json,text/plain,*/*","X-Requested-With":"XMLHttpRequest"})
         # Warm cookies by hitting the public equity page first
         s.get(f"https://trendlyne.com/equity/{tid}/{symbol}/{slug}/", timeout=15)
