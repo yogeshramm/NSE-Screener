@@ -1476,37 +1476,29 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
         </div>
         <!-- ── Strategy Strip (workspace only — auto-loads on chart open) ── -->
         <div id="sc-strategy-strip" class="hidden rounded-lg border border-outline-variant/15 px-3 py-1.5 text-[10px]" style="flex-shrink:0;background:rgba(255,255,255,0.03)">
-          <div class="flex items-center gap-2 flex-wrap min-w-0">
-            <!-- Regime + Setup type -->
-            <div class="flex items-center gap-1.5 shrink-0">
-              <span id="ss-regime-badge" class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wide">—</span>
-              <span id="ss-setup-type" class="text-on-surface-variant font-medium">—</span>
-            </div>
-            <div class="w-px h-4 bg-outline-variant/25 shrink-0"></div>
-            <!-- Entry / SL / Target / R:R -->
+          <!-- Row 1: Regime · Setup · Trade levels -->
+          <div class="flex items-center gap-2 overflow-hidden">
+            <span id="ss-regime-badge" class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wide shrink-0">—</span>
+            <span id="ss-setup-type" class="text-on-surface-variant font-medium shrink-0">—</span>
+            <div class="w-px h-3 bg-outline-variant/25 shrink-0"></div>
             <div id="ss-trade-block" class="flex items-center gap-2 shrink-0">
               <span class="text-on-surface-variant">E</span><span id="ss-entry" class="font-mono font-bold" style="color:#60a5fa">—</span>
               <span class="text-on-surface-variant">SL</span><span id="ss-sl" class="font-mono" style="color:#f87171">—</span>
               <span class="text-on-surface-variant">T</span><span id="ss-target" class="font-mono" style="color:#34d399">—</span>
               <span id="ss-rr" class="font-bold" style="color:#fbbf24"></span>
             </div>
-            <div class="w-px h-4 bg-outline-variant/25 shrink-0"></div>
-            <!-- Multi-timeframe trend -->
+          </div>
+          <!-- Row 2: MTF · Patterns · Confidence · Refresh -->
+          <div class="flex items-center gap-2 mt-1 overflow-hidden">
             <div class="flex items-center gap-1.5 shrink-0">
               <span class="text-on-surface-variant">D</span><span id="ss-mtf-d" class="font-bold text-sm leading-none">—</span>
               <span class="text-on-surface-variant">W</span><span id="ss-mtf-w" class="font-bold text-sm leading-none">—</span>
               <span class="text-on-surface-variant">M</span><span id="ss-mtf-m" class="font-bold text-sm leading-none">—</span>
             </div>
-            <div class="w-px h-4 bg-outline-variant/25 shrink-0"></div>
-            <!-- Chart patterns -->
-            <div id="ss-patterns" class="flex items-center gap-1 flex-wrap min-w-0"></div>
-            <!-- Spacer -->
-            <div class="flex-1 min-w-0"></div>
-            <!-- Confidence badge -->
-            <div class="flex items-center gap-1.5 shrink-0">
-              <span id="ss-confidence" class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wide">—</span>
-            </div>
-            <!-- Refresh -->
+            <div class="w-px h-3 bg-outline-variant/25 shrink-0"></div>
+            <div id="ss-patterns" class="flex items-center gap-1 min-w-0 overflow-hidden"></div>
+            <div class="flex-1"></div>
+            <span id="ss-confidence" class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wide shrink-0">—</span>
             <span class="material-symbols-outlined cursor-pointer hover:text-primary shrink-0" style="font-size:13px;color:var(--on-surface-variant)" onclick="loadStrategyStrip()" title="Refresh strategy">refresh</span>
           </div>
         </div>
@@ -7080,7 +7072,10 @@ function _renderStrategyStrip(plan) {
     no_setup:'rgba(255,255,255,0.05)|var(--on-surface-variant)' };
   const _setupLabel = { bull_pullback:'Pullback', vcp:'VCP', cup_handle:'Cup+Handle',
     breakout:'Breakout', pivot_breakout:'Pivot Brk', inside_bar:'Inside Bar',
-    no_setup:'No Setup', downtrend:'Downtrend', sideways:'Sideways' };
+    no_setup:'No Setup', downtrend:'Downtrend', sideways:'Sideways',
+    extended_pullback_only:'Ext. Pullback', pullback_to_ema21:'EMA21 Pullback',
+    trend_continuation:'Continuation', uptrend_pullback_complete:'Pullback Done',
+    early_uptrend_confirmed:'Early Uptrend', range_low:'Range Low', range_breakout:'Range Brk' };
   const _mtfArrow = t => t==='up' ? '↑' : t==='down' ? '↓' : '→';
   const _mtfClr   = t => t==='up' ? '#34d399' : t==='down' ? '#f87171' : '#fbbf24';
   function _applyBadge(id, text, palette) {
