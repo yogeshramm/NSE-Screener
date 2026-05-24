@@ -2970,9 +2970,9 @@ let _liveChartTimer = null; // interval id for live daily-candle updates
 let screenAbort = null;
 
 // ── Chart Drawing Tools ───────────────────────────────────────────────────────
-let _drawMode   = null;  // 'hline' | 'trend' | 'fib' | null
-let _drawPending = [];   // collected clicks for 2-click tools
-let _drawings   = {};    // { symbol: { hlines:[{price,pl}], trends:[{p1,p2,series}], fibs:[{hi,lo,lines}] } }
+// NOTE: _drawMode and _drawings are declared in the Workspace Drawing Tools block below.
+// _drawPending is used only by the small inline chart buttons (─ ↗ φ, non-workspace mode).
+let _drawPending = [];   // collected clicks for 2-click tools (small-chart mode)
 const _DRAW_KEY = 'mx_chart_drawings_v2';
 
 function _drawingsForSym(sym) {
@@ -5256,8 +5256,8 @@ function renderChart(data) {
       }
       _hideMarkerPopup(); // clicked away from any marker
     }
-    // Drawing tools
-    if (_drawMode && param.point) {
+    // Drawing tools (small-chart inline buttons ─ ↗ φ — skip when workspace toolbar is active)
+    if (_drawMode && !_fsWorkspaceOpen && param.point) {
       const price = window._scCandleSeries?.coordinateToPrice(param.point.y);
       if (price == null || !isFinite(price)) return;
       const time = param.time || Math.floor(Date.now() / 1000);
