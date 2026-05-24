@@ -6706,6 +6706,10 @@ async function _prefetchMarkerData(symbol) {
     if (typeof _fsWorkspaceOpen !== 'undefined' && _fsWorkspaceOpen && _fsCurTab === 'news') {
       loadFsNewsTab(symbol);
     }
+    // In fullpage tab mode, also refresh the scroll-below news section
+    if (document.body.classList.contains('chart-fullpage')) {
+      _renderFpNews(symbol);
+    }
   }
 }
 
@@ -7522,14 +7526,15 @@ function _renderFpGauge(composite, et, tl) {
   const label  = composite.label || '';
 
   // Map rating 1-5 → angle 0-180°; default neutral = 90°
+  // TradingView/analyst convention: 1 = Strong Buy (rightmost), 5 = Strong Sell (leftmost)
   let angle = 90, color = '#6b7280';
   if (rating !== null) {
-    angle = ((+rating - 1) / 4) * 180;
-    if (+rating >= 4.5) color = '#22c55e';
-    else if (+rating >= 3.5) color = '#86efac';
-    else if (+rating <= 1.5) color = '#ef4444';
-    else if (+rating <= 2.5) color = '#f87171';
-    else color = '#94a3b8';
+    angle = ((5 - +rating) / 4) * 180;  // invert: 1→180° (right/buy), 5→0° (left/sell)
+    if (+rating <= 1.5) color = '#22c55e';       // Strong Buy
+    else if (+rating <= 2.5) color = '#86efac';  // Buy
+    else if (+rating <= 3.5) color = '#94a3b8';  // Neutral
+    else if (+rating <= 4.5) color = '#f87171';  // Sell
+    else color = '#ef4444';                       // Strong Sell
   } else if (label) {
     const L = label.toUpperCase();
     if (L.includes('STRONG BUY'))  { angle = 162; color = '#22c55e'; }
