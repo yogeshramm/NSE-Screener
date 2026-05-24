@@ -566,8 +566,8 @@ body.chart-fullpage #sc-chart-body {
   overflow-y: auto !important;
 }
 body.chart-fullpage #chart-container {
-  flex: 1 !important;
-  height: 0 !important;
+  flex: none !important;
+  height: 60dvh !important;   /* chart ≈ 60% of viewport; rest goes to indicators */
   min-height: 200px !important;
 }
 /* Hide workspace sidebar toggle — financials live in the scroll section now */
@@ -5771,14 +5771,26 @@ function injectResizeHandles(){
       subs[i].after(h); _attachResizeHandle(h);
     }
   }
+  // ── Bottom handle on the very last visible panel ─────────────────────────
+  // The loop above only puts handles BETWEEN panels, so the last panel gets no
+  // bottom drag edge. Add one here — dataset.below is intentionally empty so
+  // doPanelResize grows only panel 'a' (single-direction into overflow scroll).
+  const subs2 = sp ? Array.from(sp.children).filter(el=>!el.classList.contains('panel-resize-handle')) : [];
+  const lastP  = subs2.length>0 ? subs2[subs2.length-1] : (panels.length>0 ? panels[panels.length-1] : null);
+  if(lastP){
+    const hBot=document.createElement('div'); hBot.className='panel-resize-handle';
+    hBot.dataset.above=lastP.id; hBot.dataset.below='';
+    lastP.after(hBot); _attachResizeHandle(hBot);
+  }
 }
 function _resizeClientY(e){ return e.touches ? e.touches[0].clientY : e.clientY; }
 function startPanelResize(e){
   e.preventDefault();
-  const h=e.currentTarget, a=document.getElementById(h.dataset.above), b=document.getElementById(h.dataset.below);
-  if(!a||!b) return;
+  const h=e.currentTarget, a=document.getElementById(h.dataset.above);
+  const b=h.dataset.below ? document.getElementById(h.dataset.below) : null; // null = bottom-only grow
+  if(!a) return;
   h.classList.add('active');
-  resizeState={handle:h,a,b,startY:_resizeClientY(e),aH:a.offsetHeight,bH:b.offsetHeight};
+  resizeState={handle:h,a,b,startY:_resizeClientY(e),aH:a.offsetHeight,bH:b?b.offsetHeight:0};
   document.addEventListener('mousemove',doPanelResize);
   document.addEventListener('mouseup',stopPanelResize);
   document.addEventListener('touchmove',doPanelResize,{passive:false});
@@ -5789,16 +5801,22 @@ function doPanelResize(e){
   if(!resizeState) return;
   if(e.cancelable) e.preventDefault();
   const delta=_resizeClientY(e)-resizeState.startY;
-  const isMainA=resizeState.a.id==='chart-container', isMainB=resizeState.b.id==='chart-container';
-  const minA=isMainA?150:40, minB=isMainB?150:40, maxA=isMainA?600:300, maxB=isMainB?600:300;
+  const isMainA=resizeState.a.id==='chart-container';
+  const minA=isMainA?150:40, maxA=isMainA?600:400;
   let nA=Math.max(minA,Math.min(maxA,resizeState.aH+delta));
-  let nB=Math.max(minB,Math.min(maxB,resizeState.bH-delta));
-  if(nA<minA||nB<minB||nA>maxA||nB>maxB) return;
   if(isMainA){resizeState.a.style.flex='none';resizeState.a.style.height=nA+'px';resizeState.a.style.minHeight=nA+'px';}
   else resizeState.a.style.height=nA+'px';
-  if(isMainB){resizeState.b.style.flex='none';resizeState.b.style.height=nB+'px';resizeState.b.style.minHeight=nB+'px';}
-  else resizeState.b.style.height=nB+'px';
-  updateChartH(resizeState.a.id,nA); updateChartH(resizeState.b.id,nB);
+  updateChartH(resizeState.a.id,nA);
+  // Two-panel resize: also shrink/grow the panel below
+  if(resizeState.b){
+    const isMainB=resizeState.b.id==='chart-container';
+    const minB=isMainB?150:40, maxB=isMainB?600:300;
+    let nB=Math.max(minB,Math.min(maxB,resizeState.bH-delta));
+    if(nB<minB||nB>maxB) return;
+    if(isMainB){resizeState.b.style.flex='none';resizeState.b.style.height=nB+'px';resizeState.b.style.minHeight=nB+'px';}
+    else resizeState.b.style.height=nB+'px';
+    updateChartH(resizeState.b.id,nB);
+  }
 }
 function stopPanelResize(){
   if(resizeState){resizeState.handle.classList.remove('active');resizeState=null;}
