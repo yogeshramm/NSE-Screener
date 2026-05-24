@@ -40,10 +40,21 @@ NIFTY_500_FALLBACK = [
 
 
 def _is_stale(cache_path: Path) -> bool:
+    """Check staleness from _gh_updated field inside JSON (not mtime — git clone resets mtime)."""
     if not cache_path.exists():
         return True
-    age = time.time() - cache_path.stat().st_mtime
-    return age > TTL
+    try:
+        d = json.loads(cache_path.read_text())
+        ts_str = d.get("_gh_updated")
+        if not ts_str:
+            return True  # Never been GHA-fetched — always refresh
+        ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        age = (datetime.now(timezone.utc) - ts).total_seconds()
+        return age > TTL
+    except Exception:
+        return True  # Can't read/parse → treat as stale
 
 
 def _fetch_trendlyne(symbol: str) -> dict | None:
