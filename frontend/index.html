@@ -4117,6 +4117,11 @@ function openChart(symbol) {
   if (_stIcon) _stIcon.textContent = _sidebarCollapsed ? 'chevron_right' : 'chevron_left';
   document.getElementById('chart-title').textContent = symbol;
   document.getElementById('chart-container').innerHTML = '';
+  // Re-inject marker popup — innerHTML='' destroys child elements
+  (function(){ const p=document.createElement('div'); p.id='sc-marker-popup';
+    p.style.cssText='display:none;position:absolute;z-index:50;min-width:200px;max-width:260px;pointer-events:auto';
+    p.className='bg-surface-container-highest border border-outline-variant/30 rounded-xl shadow-2xl p-3 text-[11px]';
+    document.getElementById('chart-container').appendChild(p); })();
   document.getElementById('rsi-container').innerHTML   = '';
   document.getElementById('vol-container').innerHTML   = '';
   // Apply user-starred indicator defaults before loadChart — renderChart
