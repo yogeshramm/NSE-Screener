@@ -291,6 +291,9 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(255,14
 #chart-panel.workspace-mode #sc-fs-btn { display: none !important; }
 #chart-panel.workspace-mode #sc-fs-close-btn { display: inline-flex !important; }
 #chart-panel.workspace-mode #sc-draw-toolbar { display: flex !important; }
+/* Strategy strip — visible only inside workspace */
+#sc-strategy-strip { display: none !important; }
+#chart-panel.workspace-mode #sc-strategy-strip { display: block !important; }
 
 /* ── Drawing toolbar buttons ── */
 #sc-draw-toolbar { display:none; }
@@ -1470,6 +1473,42 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
           <div id="ohlc-overlay" class="absolute top-2 left-2 z-10 flex gap-3 text-[10px] font-mono pointer-events-none" style="text-shadow:0 0 3px rgba(0,0,0,0.5)"></div>
           <!-- Drawing overlay SVG — pointer-events toggled by draw mode -->
           <svg id="sc-draw-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:20;overflow:visible"></svg>
+        </div>
+        <!-- ── Strategy Strip (workspace only — auto-loads on chart open) ── -->
+        <div id="sc-strategy-strip" class="hidden rounded-lg border border-outline-variant/15 px-3 py-1.5 text-[10px]" style="flex-shrink:0;background:rgba(255,255,255,0.03)">
+          <div class="flex items-center gap-2 flex-wrap min-w-0">
+            <!-- Regime + Setup type -->
+            <div class="flex items-center gap-1.5 shrink-0">
+              <span id="ss-regime-badge" class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wide">—</span>
+              <span id="ss-setup-type" class="text-on-surface-variant font-medium">—</span>
+            </div>
+            <div class="w-px h-4 bg-outline-variant/25 shrink-0"></div>
+            <!-- Entry / SL / Target / R:R -->
+            <div id="ss-trade-block" class="flex items-center gap-2 shrink-0">
+              <span class="text-on-surface-variant">E</span><span id="ss-entry" class="font-mono font-bold" style="color:#60a5fa">—</span>
+              <span class="text-on-surface-variant">SL</span><span id="ss-sl" class="font-mono" style="color:#f87171">—</span>
+              <span class="text-on-surface-variant">T</span><span id="ss-target" class="font-mono" style="color:#34d399">—</span>
+              <span id="ss-rr" class="font-bold" style="color:#fbbf24"></span>
+            </div>
+            <div class="w-px h-4 bg-outline-variant/25 shrink-0"></div>
+            <!-- Multi-timeframe trend -->
+            <div class="flex items-center gap-1.5 shrink-0">
+              <span class="text-on-surface-variant">D</span><span id="ss-mtf-d" class="font-bold text-sm leading-none">—</span>
+              <span class="text-on-surface-variant">W</span><span id="ss-mtf-w" class="font-bold text-sm leading-none">—</span>
+              <span class="text-on-surface-variant">M</span><span id="ss-mtf-m" class="font-bold text-sm leading-none">—</span>
+            </div>
+            <div class="w-px h-4 bg-outline-variant/25 shrink-0"></div>
+            <!-- Chart patterns -->
+            <div id="ss-patterns" class="flex items-center gap-1 flex-wrap min-w-0"></div>
+            <!-- Spacer -->
+            <div class="flex-1 min-w-0"></div>
+            <!-- Confidence badge -->
+            <div class="flex items-center gap-1.5 shrink-0">
+              <span id="ss-confidence" class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wide">—</span>
+            </div>
+            <!-- Refresh -->
+            <span class="material-symbols-outlined cursor-pointer hover:text-primary shrink-0" style="font-size:13px;color:var(--on-surface-variant)" onclick="loadStrategyStrip()" title="Refresh strategy">refresh</span>
+          </div>
         </div>
         <div id="rsi-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:80px"></div>
         <div id="macd-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:80px;display:none"></div>
@@ -5335,6 +5374,7 @@ function renderChart(data) {
     _drawChartSubscribed = false; // force re-subscribe on new chart instance
     _attachDrawEvents();
     _subscribeDrawRedraw();
+    loadStrategyStrip(currentChartSymbol); // refresh strategy strip for new stock
   }
 
   // Trade Zones: background auto-fetch on chart open (only if checkbox on + no cached data).
@@ -6989,12 +7029,13 @@ function openChartWorkspace() {
     _fsResizeCharts();
     loadFsTab(_fsCurTab);
   }));
-  // Init draw toolbar after everything settles (setTimeout > RAF so it runs last)
+  // Init draw toolbar + strategy strip after everything settles
   setTimeout(() => {
     _drawChartSubscribed = false;
     _attachDrawEvents();
     _subscribeDrawRedraw();
     setDrawMode('select');
+    loadStrategyStrip();   // populate strategy strip
   }, 200);
 }
 
@@ -7007,6 +7048,92 @@ function closeChartWorkspace() {
   _drawChartSubscribed = false;
   // Restore normal chart dimensions after layout settles
   requestAnimationFrame(() => requestAnimationFrame(() => _fsResizeCharts()));
+}
+
+// ── Strategy Strip (workspace only) ──────────────────────────────────────────
+async function loadStrategyStrip(sym) {
+  sym = sym || currentChartSymbol;
+  if (!sym) return;
+  const strip = document.getElementById('sc-strategy-strip');
+  if (!strip) return;
+  // Show loading state
+  const regBadge = document.getElementById('ss-regime-badge');
+  if (regBadge) { regBadge.textContent = '…'; regBadge.className = 'px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wide text-on-surface-variant'; }
+  try {
+    const r = await fetch(API + '/stock/' + sym + '/optimal-levels');
+    if (!r.ok) return;
+    const plan = await r.json();
+    _renderStrategyStrip(plan);
+  } catch(e) {}
+}
+
+function _renderStrategyStrip(plan) {
+  if (!plan) return;
+  const strip = document.getElementById('sc-strategy-strip');
+  if (!strip) return;
+
+  const _regClr = { uptrend:'rgba(52,211,153,0.15)|#34d399', pullback:'rgba(96,165,250,0.15)|#60a5fa',
+    breakout:'rgba(52,211,153,0.15)|#34d399', downtrend:'rgba(248,113,113,0.15)|#f87171',
+    sideways:'rgba(251,191,36,0.15)|#fbbf24', no_setup:'rgba(255,255,255,0.05)|var(--on-surface-variant)' };
+  const _confClr = { high:'rgba(52,211,153,0.15)|#34d399', moderate:'rgba(251,191,36,0.15)|#fbbf24',
+    low:'rgba(251,146,60,0.15)|#fb923c', very_low:'rgba(248,113,113,0.15)|#f87171',
+    no_setup:'rgba(255,255,255,0.05)|var(--on-surface-variant)' };
+  const _setupLabel = { bull_pullback:'Pullback', vcp:'VCP', cup_handle:'Cup+Handle',
+    breakout:'Breakout', pivot_breakout:'Pivot Brk', inside_bar:'Inside Bar',
+    no_setup:'No Setup', downtrend:'Downtrend', sideways:'Sideways' };
+  const _mtfArrow = t => t==='up' ? '↑' : t==='down' ? '↓' : '→';
+  const _mtfClr   = t => t==='up' ? '#34d399' : t==='down' ? '#f87171' : '#fbbf24';
+  function _applyBadge(id, text, palette) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const [bg, clr] = (palette || '').split('|');
+    el.textContent = text;
+    el.style.background = bg || '';
+    el.style.color = clr || '';
+  }
+
+  // Regime + setup
+  const regKey = plan.regime || 'no_setup';
+  _applyBadge('ss-regime-badge', (plan.regime || '—').replace(/_/g,' '), _regClr[regKey] || _regClr.no_setup);
+  const stEl = document.getElementById('ss-setup-type');
+  if (stEl) stEl.textContent = _setupLabel[plan.setup_type] || (plan.setup_type||'—').replace(/_/g,' ');
+
+  // Entry / SL / Target / R:R
+  if (plan.tradeable && plan.entry) {
+    document.getElementById('ss-entry').textContent  = '₹' + Math.round(plan.entry);
+    document.getElementById('ss-sl').textContent     = plan.stop_loss ? '₹' + Math.round(plan.stop_loss) : '—';
+    document.getElementById('ss-target').textContent = plan.target    ? '₹' + Math.round(plan.target)    : '—';
+    const rr = plan.risk_reward;
+    const rrEl = document.getElementById('ss-rr');
+    if (rrEl) rrEl.textContent = rr ? '1:' + rr.toFixed(1) : '';
+    const tb = document.getElementById('ss-trade-block');
+    if (tb) tb.style.opacity = '1';
+  } else {
+    ['ss-entry','ss-sl','ss-target'].forEach(id => { const e=document.getElementById(id); if(e) e.textContent='—'; });
+    const rrEl = document.getElementById('ss-rr'); if (rrEl) rrEl.textContent = '';
+    const tb = document.getElementById('ss-trade-block'); if (tb) tb.style.opacity = '0.45';
+  }
+
+  // MTF trend arrows
+  const mtf = plan.mtf_confluence || {};
+  [['d','d1'],['w','w1'],['m','m1']].forEach(([short,key]) => {
+    const el = document.getElementById('ss-mtf-' + short);
+    if (!el) return;
+    const t = (mtf[key] || {}).trend || 'side';
+    el.textContent = _mtfArrow(t);
+    el.style.color = _mtfClr(t);
+  });
+
+  // Chart patterns
+  const pats = (plan.chart_patterns_detected || []).slice(0, 3);
+  const pEl = document.getElementById('ss-patterns');
+  if (pEl) pEl.innerHTML = pats.length
+    ? pats.map(p => `<span style="padding:1px 5px;border-radius:3px;background:rgba(255,140,0,0.12);color:var(--primary);font-size:9px;font-weight:600">${p}</span>`).join('')
+    : `<span style="color:var(--on-surface-variant)">No pattern</span>`;
+
+  // Confidence
+  const confKey = plan.confidence || 'no_setup';
+  _applyBadge('ss-confidence', (plan.confidence || '—').replace(/_/g,' '), _confClr[confKey] || _confClr.no_setup);
 }
 
 function _fsResizeCharts() {
