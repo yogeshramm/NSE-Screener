@@ -258,6 +258,39 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(255,14
 #chart-panel .text-on-surface-variant { color: var(--on-surface-variant) !important; }
 #chart-panel .text-primary { color: var(--primary) !important; }
 
+/* ========== FULL-SCREEN WORKSPACE ========== */
+#chart-panel.workspace-mode {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 500 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  display: flex !important;
+  flex-direction: row !important;
+}
+#chart-panel.workspace-mode #sc-fs-left {
+  flex: 1 !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+#chart-panel.workspace-mode #sc-fs-sidebar {
+  display: flex !important;
+}
+#chart-panel.workspace-mode #sc-chart-body {
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+}
+#chart-panel.workspace-mode #chart-container {
+  flex: 1 !important;
+  height: 0 !important;
+  min-height: 200px !important;
+}
+#chart-panel.workspace-mode #sc-fs-btn { display: none !important; }
+#chart-panel.workspace-mode #sc-fs-close-btn { display: inline-flex !important; }
+
 /* ========== RESIZE HANDLES ========== */
 .panel-resize-handle { height:6px; cursor:row-resize; background:transparent; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
 .panel-resize-handle:hover, .panel-resize-handle.active { background: var(--outline-variant-alpha); }
@@ -1277,6 +1310,8 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
         </div>
         <div id="sc-tt-rows" class="flex-1 overflow-y-auto p-3 space-y-2 text-[10px]"></div>
       </div>
+      <!-- ── Workspace left column (wraps header + chart body) ── -->
+      <div id="sc-fs-left" class="flex-1 flex flex-col min-h-0 min-w-0">
       <!-- CHART HEADER: responsive two-row layout on mobile -->
       <div id="chart-header" class="border-b border-outline-variant/20 px-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 bg-surface-container" style="min-height:2.5rem;padding-top:4px;padding-bottom:4px">
         <!-- Row 1 left: back (mobile) + title + price -->
@@ -1336,6 +1371,13 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
           <button id="sc-oe-btn" onclick="toggleScreenerOptimal()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded hidden sm:inline-flex" title="Optimal Entry/Exit">ENTRY/EXIT</button>
           <button id="sc-mark-btn" onclick="toggleMarkMode()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded inline-flex" title="Click then click a candle to mark your BUY entry">MARK</button>
           <span class="material-symbols-outlined text-sm cursor-pointer hover:text-primary" onclick="openInsightsFromChart()">psychology</span>
+          <!-- Expand to workspace / close workspace -->
+          <button id="sc-fs-btn" onclick="openChartWorkspace()" class="hidden sm:inline-flex items-center justify-center w-6 h-6 rounded text-on-surface-variant hover:text-primary hover:bg-surface-container-highest" title="Full-screen workspace — Financials &amp; News">
+            <span class="material-symbols-outlined text-sm">open_in_full</span>
+          </button>
+          <button id="sc-fs-close-btn" onclick="closeChartWorkspace()" class="hidden items-center justify-center w-6 h-6 rounded text-on-surface-variant hover:text-error hover:bg-surface-container-highest" title="Exit workspace">
+            <span class="material-symbols-outlined text-sm">close_fullscreen</span>
+          </button>
           <a id="chart-popout-btn" href="#" target="_blank" onclick="this.href='#chart='+encodeURIComponent(currentChartSymbol||'')" class="inline-flex items-center text-on-surface-variant hover:text-primary" title="Open full-page chart in new tab">
             <span class="material-symbols-outlined text-sm">open_in_new</span>
           </a>
@@ -1394,7 +1436,7 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
         <div id="sc-breakout-pills" class="hidden w-full flex items-center flex-wrap gap-1.5 pt-0.5">
         </div>
       </div>
-      <div class="flex-1 flex flex-col p-2 gap-2 overflow-y-auto">
+      <div id="sc-chart-body" class="flex-1 flex flex-col p-2 gap-2 overflow-y-auto">
         <div id="sc-help-summary" class="hidden bg-surface-container-highest rounded-lg px-3 py-1.5 border border-outline-variant/20 flex flex-wrap items-center"></div>
         <div id="sc-optimal-panel" class="hidden bg-surface-container-highest rounded-lg p-3 border border-outline-variant/20 text-xs"></div>
         <div id="sc-briefing-panel" class="hidden bg-surface-container-highest rounded-lg p-3 text-xs border border-outline-variant/20">
@@ -1411,8 +1453,28 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
         <div id="macd-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:80px;display:none"></div>
         <div id="sub-panels" class="flex flex-col gap-2"></div>
         <div id="vol-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:60px"></div>
-      </div>
-    </div>
+      </div><!-- end sc-chart-body -->
+      </div><!-- end sc-fs-left -->
+
+      <!-- ── Full-screen workspace sidebar ────────────────────── -->
+      <div id="sc-fs-sidebar" class="hidden flex-col border-l border-outline-variant/20 bg-surface-container-lowest overflow-hidden" style="width:320px;flex-shrink:0">
+        <!-- Tab bar -->
+        <div class="flex border-b border-outline-variant/20 flex-shrink-0 bg-surface-container">
+          <button onclick="switchFsTab('financials')" id="fs-tab-fin-btn" class="flex-1 py-2 text-[9px] font-black uppercase tracking-wider text-primary border-b-2 border-primary bg-transparent">FINANCIALS</button>
+          <button onclick="switchFsTab('news')" id="fs-tab-news-btn" class="flex-1 py-2 text-[9px] font-black uppercase tracking-wider text-on-surface-variant border-b-2 border-transparent bg-transparent">NEWS</button>
+        </div>
+        <!-- Tab: FINANCIALS -->
+        <div id="fs-tab-financials" class="flex-1 overflow-y-auto p-3 space-y-3">
+          <div id="fs-fin-loading" class="flex items-center justify-center h-24 text-xs text-on-surface-variant">Loading…</div>
+          <div id="fs-fin-content" class="hidden space-y-3"></div>
+        </div>
+        <!-- Tab: NEWS -->
+        <div id="fs-tab-news" class="hidden flex-1 overflow-y-auto p-3">
+          <div id="fs-news-content" class="space-y-2"></div>
+        </div>
+      </div><!-- end sc-fs-sidebar -->
+
+    </div><!-- end chart-panel -->
   </div>
 </section>
 
@@ -3364,6 +3426,7 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (_drawMode) { setDrawMode(null); return; }  // cancel drawing tool first
+    if (_fsWorkspaceOpen) { closeChartWorkspace(); return; } // exit fullscreen workspace
     const p = document.getElementById('profile-modal');
     const c = document.getElementById('change-pwd-modal');
     if (p && p.style.display === 'flex') closeProfileModal();
@@ -4707,6 +4770,16 @@ function closeChart() {
   window._scCandleSeries=null;
   window._scVolSeries=null;
   scAnalyzeCache = {};
+  // Reset financials cache entry for fresh load when workspace opens
+  if (typeof _fsFinCache !== 'undefined') {
+    const prevSym = currentChartSymbol;
+    if (prevSym) delete _fsFinCache[prevSym];
+    // Reset sidebar loading state
+    const fl = document.getElementById('fs-fin-loading');
+    const fc = document.getElementById('fs-fin-content');
+    if (fl) { fl.classList.remove('hidden'); fl.textContent = 'Loading…'; }
+    if (fc) { fc.classList.add('hidden'); fc.innerHTML = ''; }
+  }
   const hs=document.getElementById('sc-help-summary'); if(hs){hs.classList.add('hidden');hs.innerHTML='';}
   const pp=document.getElementById('sc-breakout-pills'); if(pp){pp.classList.add('hidden');pp.innerHTML='';}
   // Return to originating tab if chart was opened from outside the screener
@@ -6833,6 +6906,221 @@ function scApplyMarkers() {
   try { cs.setMarkers(markers); } catch(e){}
   // D/E/~E/⚡ go on the volume series so they sit below volume bars (TradingView-style)
   try { window._scVolSeries?.setMarkers(volMarkers); } catch(e){}
+}
+
+// ============ FULL-SCREEN CHART WORKSPACE ============
+let _fsWorkspaceOpen = false;
+let _fsCurTab = 'financials';
+let _fsFinCache = {}; // sym → data
+
+function openChartWorkspace() {
+  const panel = document.getElementById('chart-panel');
+  if (!panel || _fsWorkspaceOpen) return;
+  panel.classList.add('workspace-mode');
+  _fsWorkspaceOpen = true;
+  // Give layout a tick to settle, then resize charts + load tab
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    _fsResizeCharts();
+    loadFsTab(_fsCurTab);
+  }));
+}
+
+function closeChartWorkspace() {
+  const panel = document.getElementById('chart-panel');
+  if (!panel || !_fsWorkspaceOpen) return;
+  panel.classList.remove('workspace-mode');
+  _fsWorkspaceOpen = false;
+  // Restore normal chart dimensions after layout settles
+  requestAnimationFrame(() => requestAnimationFrame(() => _fsResizeCharts()));
+}
+
+function _fsResizeCharts() {
+  const chartEl = document.getElementById('chart-container');
+  if (!chartEl) return;
+  const w = chartEl.clientWidth, h = chartEl.clientHeight;
+  if (currentChart && w > 0 && h > 0) currentChart.applyOptions({ width: w, height: h });
+  if (currentRsiChart) { const e = document.getElementById('rsi-container'); if(e) currentRsiChart.applyOptions({ width: e.clientWidth }); }
+  if (currentMacdChart) { const e = document.getElementById('macd-container'); if(e) currentMacdChart.applyOptions({ width: e.clientWidth }); }
+  if (currentVolChart) { const e = document.getElementById('vol-container'); if(e) currentVolChart.applyOptions({ width: e.clientWidth }); }
+}
+
+function switchFsTab(tab) {
+  _fsCurTab = tab;
+  document.getElementById('fs-tab-financials').classList.toggle('hidden', tab !== 'financials');
+  document.getElementById('fs-tab-news').classList.toggle('hidden', tab !== 'news');
+  const btnFin = document.getElementById('fs-tab-fin-btn');
+  const btnNews = document.getElementById('fs-tab-news-btn');
+  const activeClass = 'flex-1 py-2 text-[9px] font-black uppercase tracking-wider text-primary border-b-2 border-primary bg-transparent';
+  const idleClass   = 'flex-1 py-2 text-[9px] font-black uppercase tracking-wider text-on-surface-variant border-b-2 border-transparent bg-transparent';
+  btnFin.className  = tab === 'financials' ? activeClass : idleClass;
+  btnNews.className = tab === 'news'        ? activeClass : idleClass;
+  loadFsTab(tab);
+}
+
+async function loadFsTab(tab) {
+  if (!currentChartSymbol) return;
+  if (tab === 'financials') await loadFinancialsTab(currentChartSymbol);
+  else if (tab === 'news') loadFsNewsTab(currentChartSymbol);
+}
+
+async function loadFinancialsTab(sym) {
+  if (_fsFinCache[sym]) {
+    const loading = document.getElementById('fs-fin-loading');
+    const content = document.getElementById('fs-fin-content');
+    loading.classList.add('hidden');
+    content.innerHTML = _buildFinancialsHtml(_fsFinCache[sym]);
+    content.classList.remove('hidden');
+    return;
+  }
+  document.getElementById('fs-fin-loading').classList.remove('hidden');
+  document.getElementById('fs-fin-loading').textContent = 'Loading…';
+  document.getElementById('fs-fin-content').classList.add('hidden');
+  try {
+    const resp = await fetch(`/financials/${encodeURIComponent(sym)}`);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const d = await resp.json();
+    _fsFinCache[sym] = d;
+    document.getElementById('fs-fin-loading').classList.add('hidden');
+    const content = document.getElementById('fs-fin-content');
+    content.innerHTML = _buildFinancialsHtml(d);
+    content.classList.remove('hidden');
+  } catch(e) {
+    document.getElementById('fs-fin-loading').textContent = 'Could not load data.';
+  }
+}
+
+function _buildFinancialsHtml(d) {
+  const funda    = d.fundamentals || {};
+  const earnings = d.earnings     || {};
+  const composite= d.analyst      || {};
+  const et       = d.et_markets   || {};
+  const tl       = d.trendlyne    || {};
+  let html = '';
+
+  // ── EARNINGS ──────────────────────────────────────────────────
+  if (earnings.eps_actual !== undefined || earnings.next_earnings_ts) {
+    const beatColor = earnings.beat === true ? '#22c55e' : earnings.beat === false ? '#ef4444' : '#6b7280';
+    const beatLabel = earnings.beat === true ? 'BEAT ✓' : earnings.beat === false ? 'MISS ✗' : '—';
+    const surp = earnings.eps_surprise_pct;
+    const surpStr = surp !== null && surp !== undefined ? `${surp >= 0 ? '+' : ''}${surp.toFixed(1)}%` : '';
+    const fmt = ts => ts ? new Date(ts*1000).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'2-digit'}) : '—';
+    html += `
+<div class="bg-surface-container rounded-xl p-3">
+  <div class="flex items-center justify-between mb-2">
+    <span class="text-[8px] font-black uppercase tracking-widest text-on-surface-variant">EARNINGS</span>
+    <span class="text-[9px] font-bold px-2 py-0.5 rounded-full" style="background:${beatColor}22;color:${beatColor}">${beatLabel}${surpStr ? ' ' + surpStr : ''}</span>
+  </div>
+  <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[10px]">
+    <div><div class="text-[7.5px] text-on-surface-variant uppercase tracking-wider mb-0.5">Actual EPS</div><div class="font-mono font-bold">${earnings.eps_actual != null ? '₹'+earnings.eps_actual.toFixed(2) : '—'}</div></div>
+    <div><div class="text-[7.5px] text-on-surface-variant uppercase tracking-wider mb-0.5">Estimate</div><div class="font-mono font-bold">${earnings.eps_estimate != null ? '₹'+earnings.eps_estimate.toFixed(2) : '—'}</div></div>
+    <div><div class="text-[7.5px] text-on-surface-variant uppercase tracking-wider mb-0.5">EPS TTM</div><div class="font-mono">${earnings.eps_ttm != null ? '₹'+earnings.eps_ttm.toFixed(2) : '—'}</div></div>
+    <div><div class="text-[7.5px] text-on-surface-variant uppercase tracking-wider mb-0.5">Last Release</div><div class="font-mono">${fmt(earnings.last_earnings_ts)}</div></div>
+  </div>
+  ${earnings.next_earnings_ts ? `<div class="flex items-center gap-1.5 mt-2 pt-2 border-t border-outline-variant/20 text-[9px]"><span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block"></span><span class="text-amber-400 font-semibold">Next: ${fmt(earnings.next_earnings_ts)}</span></div>` : ''}
+</div>`;
+  }
+
+  // ── ANALYST CONSENSUS ─────────────────────────────────────────
+  const totalA = et.analysts || tl.analysts || 0;
+  const sBuy = et.strong_buy||0, buy = et.buy||0, hold = et.hold||0, sell = et.sell||0, sSell = et.strong_sell||0;
+  const totalV = sBuy+buy+hold+sell+sSell || 1;
+  const targetAvg  = composite.target_avg || tl.target_price || et.target_price || null;
+  const targetHigh = et.target_high || tl.target_high || null;
+  const targetLow  = et.target_low  || tl.target_low  || null;
+  const curPrice   = funda.current_price || 0;
+  const upside = (targetAvg && curPrice) ? ((targetAvg-curPrice)/curPrice*100).toFixed(1) : null;
+  const ratingLabel = composite.label || '';
+  const ratingColor = ratingLabel.includes('STRONG BUY') ? '#22c55e'
+                    : ratingLabel.includes('BUY') ? '#86efac'
+                    : ratingLabel.includes('STRONG SELL') ? '#ef4444'
+                    : ratingLabel.includes('SELL') ? '#f87171'
+                    : '#6b7280';
+  if (totalA > 0 || targetAvg) {
+    const pct = x => Math.round(x/totalV*100);
+    html += `
+<div class="bg-surface-container rounded-xl p-3">
+  <div class="flex items-center justify-between mb-2">
+    <span class="text-[8px] font-black uppercase tracking-widest text-on-surface-variant">ANALYST CONSENSUS</span>
+    <span class="text-[9px] font-bold" style="color:${ratingColor}">${ratingLabel}</span>
+  </div>
+  <div class="flex rounded-full overflow-hidden h-2.5 gap-px mb-1.5">
+    ${sSell>0?`<div style="width:${pct(sSell)}%;background:#ef4444" title="Strong Sell:${sSell}"></div>`:''}
+    ${sell>0?`<div style="width:${pct(sell)}%;background:#f87171" title="Sell:${sell}"></div>`:''}
+    ${hold>0?`<div style="width:${pct(hold)}%;background:#6b7280" title="Hold:${hold}"></div>`:''}
+    ${buy>0?`<div style="width:${pct(buy)}%;background:#86efac" title="Buy:${buy}"></div>`:''}
+    ${sBuy>0?`<div style="width:${pct(sBuy)}%;background:#22c55e" title="Strong Buy:${sBuy}"></div>`:''}
+  </div>
+  <div class="flex justify-between text-[8px] text-on-surface-variant mb-2">
+    <span>${totalA} analysts</span>
+    <span><span class="text-green-400">${sBuy+buy} buy</span> · <span>${hold} hold</span> · <span class="text-red-400">${sell+sSell} sell</span></span>
+  </div>
+  ${targetAvg ? `<div class="space-y-1 pt-2 border-t border-outline-variant/20">
+    <div class="flex justify-between text-[10px]">
+      <span class="text-on-surface-variant">Avg Target</span>
+      <span class="font-mono font-bold">₹${targetAvg.toFixed(0)}${upside?` <span class="text-green-400 text-[8px] font-normal">(+${upside}%)</span>`:''}</span>
+    </div>
+    ${(targetHigh&&targetLow&&curPrice) ? (() => {
+      const lo=targetLow, hi=targetHigh, rng=hi-lo||1;
+      const cp=Math.max(0,Math.min(100,(curPrice-lo)/rng*100));
+      const ap=Math.max(0,Math.min(100,(targetAvg-lo)/rng*100));
+      return `<div class="relative h-2 rounded-full bg-surface-container-highest mt-1">
+        <div class="absolute top-0 bottom-0 w-px bg-primary/70" style="left:${cp}%"></div>
+        <div class="absolute top-0 bottom-0 w-px bg-green-400" style="left:${ap}%"></div>
+      </div>
+      <div class="flex justify-between text-[7.5px] text-on-surface-variant/60 font-mono mt-0.5">
+        <span>₹${lo.toFixed(0)}</span><span>₹${hi.toFixed(0)}</span>
+      </div>`;
+    })() : ''}
+  </div>` : ''}
+</div>`;
+  }
+
+  // ── KEY METRICS ───────────────────────────────────────────────
+  const fmt2 = v => v != null && v !== '' ? v : null;
+  const metrics = [
+    ['P/E',          fmt2(funda.pe) ? parseFloat(funda.pe).toFixed(1) : null],
+    ['P/B',          fmt2(funda.pb) ? parseFloat(funda.pb).toFixed(2) : null],
+    ['ROE',          fmt2(funda.roe_pct) ? parseFloat(funda.roe_pct).toFixed(1)+'%' : null],
+    ['ROCE',         fmt2(funda.roce_pct) ? parseFloat(funda.roce_pct).toFixed(1)+'%' : null],
+    ['D/E',          fmt2(funda.debt_to_equity) ? parseFloat(funda.debt_to_equity).toFixed(2) : null],
+    ['Div Yield',    fmt2(funda.dividend_yield)],
+    ['Promoters',    fmt2(funda.promoter_holding)],
+    ['FII',          fmt2(funda.fii_holding)],
+    ['DII',          fmt2(funda.dii_holding)],
+  ].filter(([,v]) => v != null);
+  if (metrics.length) {
+    html += `
+<div class="bg-surface-container rounded-xl p-3">
+  <div class="text-[8px] font-black uppercase tracking-widest text-on-surface-variant mb-2">KEY METRICS</div>
+  <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+    ${metrics.map(([l,v]) => `<div class="flex justify-between text-[10px] py-0.5 border-b border-outline-variant/10">
+      <span class="text-on-surface-variant">${l}</span><span class="font-mono font-bold">${v}</span>
+    </div>`).join('')}
+  </div>
+</div>`;
+  }
+
+  return html || '<div class="text-[11px] text-on-surface-variant text-center py-6">No data available</div>';
+}
+
+function loadFsNewsTab(sym) {
+  const container = document.getElementById('fs-news-content');
+  const news = (typeof scNewsCache !== 'undefined' && scNewsCache[sym]) ? scNewsCache[sym] : [];
+  if (!news.length) {
+    container.innerHTML = '<div class="text-[11px] text-on-surface-variant text-center py-6">No recent news</div>';
+    return;
+  }
+  container.innerHTML = news.slice(0, 20).map(n => {
+    const d = n.pub ? new Date(n.pub) : null;
+    const ds = d ? d.toLocaleDateString('en-IN', {day:'numeric',month:'short'}) : '';
+    return `<div class="bg-surface-container rounded-lg p-2.5 mb-2">
+      <div class="text-[10px] font-semibold leading-tight mb-1">${n.title||'—'}</div>
+      <div class="flex items-center gap-2 text-[8px] text-on-surface-variant">
+        ${n.source?`<span>${n.source}</span>`:''}${ds?`<span>· ${ds}</span>`:''}
+      </div>
+      ${n.url?`<a href="${n.url}" target="_blank" rel="noopener" class="text-[8px] text-primary hover:underline mt-0.5 inline-block">Read →</a>`:''}
+    </div>`;
+  }).join('');
 }
 
 // ============ MARKET PULSE (Screener top) ============
