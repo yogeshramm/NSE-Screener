@@ -290,6 +290,14 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(255,14
 }
 #chart-panel.workspace-mode #sc-fs-btn { display: none !important; }
 #chart-panel.workspace-mode #sc-fs-close-btn { display: inline-flex !important; }
+#chart-panel.workspace-mode #sc-draw-toolbar { display: flex !important; }
+
+/* ── Drawing toolbar buttons ── */
+#sc-draw-toolbar { display:none; }
+.dtb { width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;color:var(--on-surface-variant);flex-shrink:0;border:none;background:transparent; }
+.dtb:hover { color:var(--primary);background:rgba(255,140,0,0.12); }
+.dtb.dtb-active { color:var(--primary);background:rgba(255,140,0,0.18);box-shadow:inset 0 0 0 1px rgba(255,140,0,0.4); }
+.dtb-sep { width:20px;height:1px;background:var(--outline-variant);opacity:0.3;margin:4px auto;flex-shrink:0; }
 
 /* ========== RESIZE HANDLES ========== */
 .panel-resize-handle { height:6px; cursor:row-resize; background:transparent; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
@@ -1310,6 +1318,18 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
         </div>
         <div id="sc-tt-rows" class="flex-1 overflow-y-auto p-3 space-y-2 text-[10px]"></div>
       </div>
+      <!-- ── Drawing toolbar (fullscreen workspace only) ── -->
+      <div id="sc-draw-toolbar" class="flex-col items-center gap-1 border-r border-outline-variant/20 bg-surface-container-lowest py-2 overflow-y-auto" style="width:40px;flex-shrink:0">
+        <button class="dtb dtb-active" data-tool="select" onclick="setDrawMode('select')" title="Select / Pan (V)"><span class="material-symbols-outlined" style="font-size:17px">arrow_selector_tool</span></button>
+        <div class="dtb-sep"></div>
+        <button class="dtb" data-tool="hline" onclick="setDrawMode('hline')" title="Horizontal Line — 1 click (H)"><span class="material-symbols-outlined" style="font-size:17px">horizontal_rule</span></button>
+        <button class="dtb" data-tool="trendline" onclick="setDrawMode('trendline')" title="Trendline — 2 clicks (T)"><span class="material-symbols-outlined" style="font-size:17px">trending_up</span></button>
+        <button class="dtb" data-tool="rect" onclick="setDrawMode('rect')" title="Zone / Rectangle — 2 clicks (R)"><span class="material-symbols-outlined" style="font-size:17px">crop_square</span></button>
+        <button class="dtb" data-tool="fib" onclick="setDrawMode('fib')" title="Fibonacci Retracement — click high then low (F)"><span class="material-symbols-outlined" style="font-size:17px">format_list_numbered</span></button>
+        <div class="dtb-sep"></div>
+        <button class="dtb" onclick="undoLastDrawing()" title="Undo last drawing (Ctrl+Z)"><span class="material-symbols-outlined" style="font-size:17px">undo</span></button>
+        <button class="dtb" onclick="clearAllDrawings()" title="Clear all drawings"><span class="material-symbols-outlined" style="font-size:17px">delete_sweep</span></button>
+      </div>
       <!-- ── Workspace left column (wraps header + chart body) ── -->
       <div id="sc-fs-left" class="flex-1 flex flex-col min-h-0 min-w-0">
       <!-- CHART HEADER: responsive two-row layout on mobile -->
@@ -1448,6 +1468,8 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
         </div>
         <div id="chart-container" class="bg-surface-container rounded-lg relative overflow-hidden border border-outline-variant/10" style="min-height:300px;height:350px;flex-shrink:0">
           <div id="ohlc-overlay" class="absolute top-2 left-2 z-10 flex gap-3 text-[10px] font-mono pointer-events-none" style="text-shadow:0 0 3px rgba(0,0,0,0.5)"></div>
+          <!-- Drawing overlay SVG — pointer-events toggled by draw mode -->
+          <svg id="sc-draw-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:20;overflow:visible"></svg>
         </div>
         <div id="rsi-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:80px"></div>
         <div id="macd-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:80px;display:none"></div>
@@ -4779,6 +4801,10 @@ function closeChart() {
   window._scCandleSeries=null;
   window._scVolSeries=null;
   scAnalyzeCache = {};
+  // Clear drawings from previous stock
+  if (typeof clearAllDrawings === 'function') { clearAllDrawings(); }
+  if (typeof _svg === 'function') { const s=_svg(); if(s) s.innerHTML=''; }
+  _drawChartSubscribed = false;
   // Reset financials cache entry for fresh load when workspace opens
   if (typeof _fsFinCache !== 'undefined') {
     const prevSym = currentChartSymbol;
@@ -6937,6 +6963,10 @@ function openChartWorkspace() {
   requestAnimationFrame(() => requestAnimationFrame(() => {
     _fsResizeCharts();
     loadFsTab(_fsCurTab);
+    // Attach drawing events + subscribe chart redraw
+    _attachDrawEvents();
+    _subscribeDrawRedraw();
+    setDrawMode('select'); // reset to select on open
   }));
 }
 
@@ -6945,6 +6975,8 @@ function closeChartWorkspace() {
   if (!panel || !_fsWorkspaceOpen) return;
   panel.classList.remove('workspace-mode');
   _fsWorkspaceOpen = false;
+  _detachDrawEvents();
+  _drawChartSubscribed = false;
   // Restore normal chart dimensions after layout settles
   requestAnimationFrame(() => requestAnimationFrame(() => _fsResizeCharts()));
 }
@@ -7137,6 +7169,226 @@ function loadFsNewsTab(sym) {
     </div>`;
   }).join('');
 }
+
+// ============ DRAWING TOOLS (fullscreen workspace) ============
+
+let _drawMode = 'select';
+let _drawings  = [];          // {type, data, svgEl?, priceLine?, lines?}
+let _drawP1    = null;        // first click anchor {x,y,time,price}
+let _drawPreview = null;      // live preview SVG element
+
+// ── coordinate helpers ──────────────────────────────────────────────────
+function _coordFromEvent(e) {
+  const c = document.getElementById('chart-container');
+  if (!c) return null;
+  const r = c.getBoundingClientRect();
+  const x = e.clientX - r.left;
+  const y = e.clientY - r.top;
+  const time  = window.currentChart?.timeScale()?.coordinateToTime(x) ?? null;
+  const price = window._scCandleSeries?.coordinateToPrice(y) ?? null;
+  return {x, y, time, price};
+}
+function _toXY(time, price) {
+  if (!window.currentChart || !window._scCandleSeries) return null;
+  const x = window.currentChart.timeScale().timeToCoordinate(time);
+  const y = window._scCandleSeries.priceToCoordinate(price);
+  if (x === null || y === null) return null;
+  return {x, y};
+}
+
+// ── toolbar state ────────────────────────────────────────────────────────
+function setDrawMode(mode) {
+  _drawMode = mode;
+  _drawP1   = null;
+  if (_drawPreview) { _drawPreview.remove(); _drawPreview = null; }
+  // update button active states
+  document.querySelectorAll('#sc-draw-toolbar .dtb[data-tool]').forEach(b => {
+    b.classList.toggle('dtb-active', b.dataset.tool === mode);
+  });
+  // pointer-events: only capture when drawing
+  const overlay = document.getElementById('sc-draw-overlay');
+  if (overlay) overlay.style.pointerEvents = mode === 'select' ? 'none' : 'all';
+}
+
+// ── SVG helpers ──────────────────────────────────────────────────────────
+function _svg() { return document.getElementById('sc-draw-overlay'); }
+function _mkEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k, v));
+  return el;
+}
+
+// ── click handler ────────────────────────────────────────────────────────
+function _drawClick(e) {
+  if (_drawMode === 'select') return;
+  const c = _coordFromEvent(e);
+  if (!c || c.price === null || c.time === null) return;
+
+  if (_drawMode === 'hline') { _addHLine(c.price); return; }
+
+  if (!_drawP1) {
+    _drawP1 = c;
+  } else {
+    const p1 = _drawP1; _drawP1 = null;
+    if (_drawPreview) { _drawPreview.remove(); _drawPreview = null; }
+    if (_drawMode === 'trendline') _addTrendline(p1, c);
+    else if (_drawMode === 'rect')  _addRect(p1, c);
+    else if (_drawMode === 'fib')   _addFib(p1, c);
+  }
+}
+
+// ── mousemove preview ────────────────────────────────────────────────────
+function _drawMove(e) {
+  if (_drawMode === 'select' || !_drawP1) return;
+  if (_drawPreview) { _drawPreview.remove(); _drawPreview = null; }
+  const c = _coordFromEvent(e);
+  if (!c) return;
+  const svg = _svg(); if (!svg) return;
+  const DASH = '5,3', COL = '#f59e0b', W = '1.5';
+
+  if (_drawMode === 'trendline') {
+    _drawPreview = _mkEl('line', {x1:_drawP1.x,y1:_drawP1.y,x2:c.x,y2:c.y,stroke:COL,'stroke-width':W,'stroke-dasharray':DASH,opacity:'0.75'});
+  } else if (_drawMode === 'rect') {
+    const x=Math.min(_drawP1.x,c.x), y=Math.min(_drawP1.y,c.y), w=Math.abs(c.x-_drawP1.x), h=Math.abs(c.y-_drawP1.y);
+    _drawPreview = _mkEl('rect', {x,y,width:w,height:h,fill:'rgba(245,158,11,0.07)',stroke:COL,'stroke-width':W,'stroke-dasharray':DASH});
+  } else if (_drawMode === 'fib') {
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    [0,0.236,0.382,0.5,0.618,0.786,1.0].forEach((lv,i) => {
+      const py = _drawP1.y + (_drawP1.y - c.y) * lv;
+      g.appendChild(_mkEl('line', {x1:0,y1:py,x2:9999,y2:py,stroke:['#22d3ee','#a855f7','#f59e0b','#3b82f6','#22c55e','#f472b6','#22d3ee'][i],'stroke-width':'1','stroke-dasharray':'4,3',opacity:'0.6'}));
+    });
+    _drawPreview = g;
+  }
+  if (_drawPreview) svg.appendChild(_drawPreview);
+}
+
+// ── H-Line ───────────────────────────────────────────────────────────────
+const _HLINE_COLS = ['#f59e0b','#3b82f6','#22d3ee','#a855f7','#f472b6','#22c55e','#ef4444'];
+function _addHLine(price) {
+  if (!window._scCandleSeries) return;
+  const col = _HLINE_COLS[_drawings.filter(d=>d.type==='hline').length % _HLINE_COLS.length];
+  const pl = window._scCandleSeries.createPriceLine({
+    price, color: col, lineWidth: 1,
+    lineStyle: 2,           // dashed
+    axisLabelVisible: true,
+    title: '─ ' + price.toFixed(2),
+    draggable: true,
+  });
+  _drawings.push({type:'hline', price, priceLine: pl});
+}
+
+// ── Trendline (SVG) ──────────────────────────────────────────────────────
+function _addTrendline(p1, p2) {
+  const svg = _svg(); if (!svg) return;
+  const COL = '#3b82f6';
+  const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.innerHTML = `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${COL}" stroke-width="1.5"/>
+    <circle cx="${p1.x}" cy="${p1.y}" r="3.5" fill="${COL}" opacity="0.8"/>
+    <circle cx="${p2.x}" cy="${p2.y}" r="3.5" fill="${COL}" opacity="0.8"/>`;
+  svg.appendChild(g);
+  _drawings.push({type:'trendline', p1:{time:p1.time,price:p1.price}, p2:{time:p2.time,price:p2.price}, svgEl:g});
+}
+
+// ── Rectangle zone (SVG) ─────────────────────────────────────────────────
+function _addRect(p1, p2) {
+  const svg = _svg(); if (!svg) return;
+  const x=Math.min(p1.x,p2.x), y=Math.min(p1.y,p2.y), w=Math.abs(p2.x-p1.x), h=Math.abs(p2.y-p1.y);
+  const el = _mkEl('rect', {x,y,width:w,height:h,fill:'rgba(34,211,238,0.07)',stroke:'#22d3ee','stroke-width':'1.5'});
+  svg.appendChild(el);
+  _drawings.push({type:'rect', p1:{time:p1.time,price:p1.price}, p2:{time:p2.time,price:p2.price}, svgEl:el});
+}
+
+// ── Fibonacci (price lines) ──────────────────────────────────────────────
+const FIB_LVL  = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0];
+const FIB_COL  = ['#22d3ee','#a855f7','#f59e0b','#3b82f6','#22c55e','#f472b6','#94a3b8'];
+const FIB_LBLS = ['0%','23.6%','38.2%','50%','61.8%','78.6%','100%'];
+function _addFib(p1, p2) {
+  if (!window._scCandleSeries) return;
+  const range = p2.price - p1.price;
+  const lines = FIB_LVL.map((lv, i) => {
+    const price = p1.price + range * lv;
+    return window._scCandleSeries.createPriceLine({
+      price, color: FIB_COL[i], lineWidth: 1, lineStyle: 2,
+      axisLabelVisible: true, title: FIB_LBLS[i], draggable: false,
+    });
+  });
+  _drawings.push({type:'fib', lines, baseP1:p1.price, baseP2:p2.price});
+}
+
+// ── Re-render SVG drawings on chart pan/zoom ─────────────────────────────
+function _reRenderDrawings() {
+  if (!window.currentChart || !window._scCandleSeries) return;
+  const ts = window.currentChart.timeScale();
+  for (const d of _drawings) {
+    if (!d.svgEl) continue;
+    if (d.type === 'trendline') {
+      const a = _toXY(d.p1.time, d.p1.price), b = _toXY(d.p2.time, d.p2.price);
+      if (!a || !b) continue;
+      const [line,...circles] = d.svgEl.children;
+      line.setAttribute('x1',a.x); line.setAttribute('y1',a.y);
+      line.setAttribute('x2',b.x); line.setAttribute('y2',b.y);
+      circles[0]?.setAttribute('cx',a.x); circles[0]?.setAttribute('cy',a.y);
+      circles[1]?.setAttribute('cx',b.x); circles[1]?.setAttribute('cy',b.y);
+    } else if (d.type === 'rect') {
+      const a = _toXY(d.p1.time, d.p1.price), b = _toXY(d.p2.time, d.p2.price);
+      if (!a || !b) continue;
+      d.svgEl.setAttribute('x',Math.min(a.x,b.x)); d.svgEl.setAttribute('y',Math.min(a.y,b.y));
+      d.svgEl.setAttribute('width',Math.abs(b.x-a.x)); d.svgEl.setAttribute('height',Math.abs(b.y-a.y));
+    }
+  }
+}
+
+// ── Undo + clear ─────────────────────────────────────────────────────────
+function undoLastDrawing() {
+  const d = _drawings.pop();
+  if (!d) return;
+  if (d.priceLine && window._scCandleSeries) try { window._scCandleSeries.removePriceLine(d.priceLine); } catch(e){}
+  if (d.lines)     d.lines.forEach(pl => { if (window._scCandleSeries) try { window._scCandleSeries.removePriceLine(pl); } catch(e){} });
+  if (d.svgEl)     d.svgEl.remove();
+}
+function clearAllDrawings() {
+  while (_drawings.length) undoLastDrawing();
+  _drawP1 = null;
+  if (_drawPreview) { _drawPreview.remove(); _drawPreview = null; }
+}
+
+// ── Attach / detach chart event listeners ────────────────────────────────
+let _drawEventsAttached = false;
+function _attachDrawEvents() {
+  const c = document.getElementById('chart-container');
+  if (!c || _drawEventsAttached) return;
+  c.addEventListener('click',     _drawClick);
+  c.addEventListener('mousemove', _drawMove);
+  _drawEventsAttached = true;
+}
+function _detachDrawEvents() {
+  const c = document.getElementById('chart-container');
+  if (c) { c.removeEventListener('click', _drawClick); c.removeEventListener('mousemove', _drawMove); }
+  _drawEventsAttached = false;
+}
+
+// ── Subscribe to chart pan/zoom for SVG redraw ───────────────────────────
+let _drawChartSubscribed = false;
+function _subscribeDrawRedraw() {
+  if (_drawChartSubscribed || !window.currentChart) return;
+  window.currentChart.timeScale().subscribeVisibleTimeRangeChange(_reRenderDrawings);
+  window.currentChart.subscribeCrosshairMove(_reRenderDrawings);
+  _drawChartSubscribed = true;
+}
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────
+function _drawKeyHandler(e) {
+  if (!_fsWorkspaceOpen) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  const k = e.key.toLowerCase();
+  if      (k === 'v') setDrawMode('select');
+  else if (k === 'h') setDrawMode('hline');
+  else if (k === 't') setDrawMode('trendline');
+  else if (k === 'r') setDrawMode('rect');
+  else if (k === 'f') setDrawMode('fib');
+  else if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); undoLastDrawing(); }
+}
+document.addEventListener('keydown', _drawKeyHandler);
 
 // ============ MARKET PULSE (Screener top) ============
 let mpLoaded = false;
