@@ -4190,6 +4190,7 @@ function closeChart() {
   scClear52WLines();
   scClearTriggerLines();
   window._scCandleSeries=null;
+  window._scVolSeries=null;
   scAnalyzeCache = {};
   const hs=document.getElementById('sc-help-summary'); if(hs){hs.classList.add('hidden');hs.innerHTML='';}
   const pp=document.getElementById('sc-breakout-pills'); if(pp){pp.classList.add('hidden');pp.innerHTML='';}
@@ -4535,6 +4536,7 @@ function renderChart(data) {
     return {...v, color: up?vUp:vDown};
   });
   volSeries.setData(themedVols);
+  window._scVolSeries = volSeries;
   chartOverlays['_volume']=volSeries;
 
   // Clear old sub-panels
@@ -6115,6 +6117,7 @@ function scApplyMarkers() {
   const cs = window._scCandleSeries;
   if (!cs || !chartData) return;
   const markers = [];
+  const volMarkers = [];
   scMarkerMeta = []; // reset parallel metadata store
 
   // ── Helper: snap unix timestamp to nearest candle ─────────────────────────
@@ -6146,7 +6149,7 @@ function scApplyMarkers() {
       // Extract amount from event string e.g. "Dividend - Rs 8.00 Per Share"
       const amtM = e.event?.match(/rs\.?\s*([\d.]+)/i);
       const amount = amtM ? amtM[1] : null;
-      markers.push({ time: candle.time, position: 'belowBar', color: '#3b82f6', shape: 'circle', text: 'D' });
+      volMarkers.push({ time: candle.time, position: 'belowBar', color: '#3b82f6', shape: 'circle', text: 'D' });
       scMarkerMeta.push({ time: candle.time, type: 'dividend', data: { event: e.event, amount, ex_date: d, pay_date: e.bm_date || null } });
     }
   }
@@ -6158,7 +6161,7 @@ function scApplyMarkers() {
       const candle = _snapCandle(er.last_earnings_ts);
       if (candle) {
         const col = er.beat === true ? '#22c55e' : er.beat === false ? '#ef4444' : '#6b7280';
-        markers.push({ time: candle.time, position: 'belowBar', color: col, shape: 'square', text: 'E' });
+        volMarkers.push({ time: candle.time, position: 'belowBar', color: col, shape: 'circle', text: 'E' });
         scMarkerMeta.push({ time: candle.time, type: 'earnings', data: er });
       }
     }
@@ -6171,12 +6174,12 @@ function scApplyMarkers() {
         // Avoid duplicate if same time as E marker
         const alreadyUsed = scMarkerMeta.some(m => m.time === lastCandle.time && m.type === 'earnings');
         if (!alreadyUsed) {
-          markers.push({ time: lastCandle.time, position: 'belowBar', color: '#f59e0b', shape: 'circle', text: '~E' });
+          volMarkers.push({ time: lastCandle.time, position: 'belowBar', color: '#f59e0b', shape: 'circle', text: '~E' });
+          scMarkerMeta.push({ time: lastCandle.time, type: 'upcoming_earnings', data: er });
         } else {
-          // Push ≈E slightly — use aboveBar to avoid collision
-          markers.push({ time: lastCandle.time, position: 'aboveBar', color: '#f59e0b', shape: 'circle', text: '~E' });
+          volMarkers.push({ time: lastCandle.time, position: 'belowBar', color: '#f59e0b', shape: 'circle', text: '~E' });
+          scMarkerMeta.push({ time: lastCandle.time, type: 'upcoming_earnings', data: er });
         }
-        scMarkerMeta.push({ time: lastCandle.time, type: 'upcoming_earnings', data: er });
       }
     }
   }
@@ -6200,7 +6203,7 @@ function scApplyMarkers() {
     }
     for (const [t, items] of Object.entries(newsGroups)) {
       const time = parseInt(t);
-      markers.push({ time, position: 'aboveBar', color: '#a855f7', shape: 'circle', text: '⚡' });
+      volMarkers.push({ time, position: 'belowBar', color: '#a855f7', shape: 'circle', text: '⚡' });
       // Store the most recent article for popup
       scMarkerMeta.push({ time, type: 'news', data: items[0] });
     }
@@ -6328,7 +6331,9 @@ function scApplyMarkers() {
     }
   }
   markers.sort((a,b) => a.time - b.time);
+  volMarkers.sort((a,b) => a.time - b.time);
   try { cs.setMarkers(markers); } catch(e){}
+  try { window._scVolSeries?.setMarkers(volMarkers); } catch(e){}
 }
 
 // ============ MARKET PULSE (Screener top) ============

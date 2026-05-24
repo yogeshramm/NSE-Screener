@@ -4705,6 +4705,7 @@ function closeChart() {
   scClear52WLines();
   scClearTriggerLines();
   window._scCandleSeries=null;
+  window._scVolSeries=null;
   scAnalyzeCache = {};
   const hs=document.getElementById('sc-help-summary'); if(hs){hs.classList.add('hidden');hs.innerHTML='';}
   const pp=document.getElementById('sc-breakout-pills'); if(pp){pp.classList.add('hidden');pp.innerHTML='';}
@@ -5050,6 +5051,7 @@ function renderChart(data) {
     return {...v, color: up?vUp:vDown};
   });
   volSeries.setData(themedVols);
+  window._scVolSeries = volSeries; // exposed so scApplyMarkers can place D/E/⚡ below volume bars
   chartOverlays['_volume']=volSeries;
 
   // Clear old sub-panels
@@ -6623,7 +6625,8 @@ async function renderScreenerTemplate() {
 function scApplyMarkers() {
   const cs = window._scCandleSeries;
   if (!cs || !chartData) return;
-  const markers = [];
+  const markers = [];      // applied to candle series (HELP, EVENTS, TRADE ZONES, VOL SURGE)
+  const volMarkers = [];   // applied to volume series (D, E, ~E, ⚡) — appear below volume bars like TradingView
   scMarkerMeta = []; // reset parallel metadata store
 
   // ── Helper: snap unix timestamp to nearest candle ─────────────────────────
@@ -6653,7 +6656,7 @@ function scApplyMarkers() {
       if (!candle) continue;
       const amtM = e.event?.match(/rs\.?\s*([\d.]+)/i);
       const amount = amtM ? amtM[1] : null;
-      markers.push({ time: candle.time, position: 'belowBar', color: '#3b82f6', shape: 'circle', text: 'D' });
+      volMarkers.push({ time: candle.time, position: 'belowBar', color: '#3b82f6', shape: 'circle', text: 'D' });
       scMarkerMeta.push({ time: candle.time, type: 'dividend', data: { event: e.event, amount, ex_date: d, pay_date: e.bm_date || null } });
     }
   }
@@ -6665,7 +6668,7 @@ function scApplyMarkers() {
       const candle = _snapCandle(er.last_earnings_ts);
       if (candle) {
         const col = er.beat === true ? '#22c55e' : er.beat === false ? '#ef4444' : '#6b7280';
-        markers.push({ time: candle.time, position: 'belowBar', color: col, shape: 'square', text: 'E' });
+        volMarkers.push({ time: candle.time, position: 'belowBar', color: col, shape: 'circle', text: 'E' });
         scMarkerMeta.push({ time: candle.time, type: 'earnings', data: er });
       }
     }
@@ -6674,12 +6677,8 @@ function scApplyMarkers() {
       const daysAhead = (er.next_earnings_ts - now) / 86400;
       if (daysAhead > 0 && daysAhead <= 120 && chartData.candles?.length) {
         const lastCandle = chartData.candles[chartData.candles.length - 1];
-        const alreadyUsed = scMarkerMeta.some(m => m.time === lastCandle.time && m.type === 'earnings');
-        if (!alreadyUsed) {
-          markers.push({ time: lastCandle.time, position: 'belowBar', color: '#f59e0b', shape: 'circle', text: '~E' });
-        } else {
-          markers.push({ time: lastCandle.time, position: 'aboveBar', color: '#f59e0b', shape: 'circle', text: '~E' });
-        }
+        // Always belowBar on vol series — no aboveBar needed since it's a separate series
+        volMarkers.push({ time: lastCandle.time, position: 'belowBar', color: '#f59e0b', shape: 'circle', text: '~E' });
         scMarkerMeta.push({ time: lastCandle.time, type: 'upcoming_earnings', data: er });
       }
     }
@@ -6703,7 +6702,7 @@ function scApplyMarkers() {
     }
     for (const [t, items] of Object.entries(newsGroups)) {
       const time = parseInt(t);
-      markers.push({ time, position: 'aboveBar', color: '#a855f7', shape: 'circle', text: '⚡' });
+      volMarkers.push({ time, position: 'belowBar', color: '#a855f7', shape: 'circle', text: '⚡' });
       scMarkerMeta.push({ time, type: 'news', data: items[0] });
     }
   }
@@ -6830,7 +6829,10 @@ function scApplyMarkers() {
     }
   }
   markers.sort((a,b) => a.time - b.time);
+  volMarkers.sort((a,b) => a.time - b.time);
   try { cs.setMarkers(markers); } catch(e){}
+  // D/E/~E/⚡ go on the volume series so they sit below volume bars (TradingView-style)
+  try { window._scVolSeries?.setMarkers(volMarkers); } catch(e){}
 }
 
 // ============ MARKET PULSE (Screener top) ============
