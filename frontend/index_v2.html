@@ -6496,9 +6496,15 @@ async function _prefetchMarkerData(symbol) {
   ]);
   if (evRes.status === 'fulfilled') scEventsCache[symbol]  = evRes.value.events  || [];
   if (erRes.status === 'fulfilled') scEarningsCache[symbol] = erRes.value.earnings || null;
-  if (nwRes.status === 'fulfilled') scNewsCache[symbol]     = nwRes.value.news    || [];
+  if (nwRes.status === 'fulfilled') scNewsCache[symbol]     = nwRes.value.items   || nwRes.value.news || [];
   // Repaint once all data is in
-  if (currentChartSymbol === symbol) scApplyMarkers();
+  if (currentChartSymbol === symbol) {
+    scApplyMarkers();
+    // If workspace news tab is active, refresh it now that news data arrived
+    if (typeof _fsWorkspaceOpen !== 'undefined' && _fsWorkspaceOpen && _fsCurTab === 'news') {
+      loadFsNewsTab(symbol);
+    }
+  }
 }
 
 // ── Marker popup ──────────────────────────────────────────────────────────────
@@ -7127,7 +7133,7 @@ function loadFsNewsTab(sym) {
       <div class="flex items-center gap-2 text-[8px] text-on-surface-variant">
         ${n.source?`<span>${n.source}</span>`:''}${ds?`<span>· ${ds}</span>`:''}
       </div>
-      ${n.url?`<a href="${n.url}" target="_blank" rel="noopener" class="text-[8px] text-primary hover:underline mt-0.5 inline-block">Read →</a>`:''}
+      ${(n.url||n.link)?`<a href="${n.url||n.link}" target="_blank" rel="noopener" class="text-[8px] text-primary hover:underline mt-0.5 inline-block">Read →</a>`:''}
     </div>`;
   }).join('');
 }
