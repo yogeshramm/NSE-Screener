@@ -1327,6 +1327,13 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
             <span id="chart-title">--</span>
             <span id="chart-price" class="text-primary font-mono ml-1"></span>
           </span>
+          <!-- Expand / collapse workspace — lives here so it's never pushed off-screen by toolbar overflow -->
+          <button id="sc-fs-btn" onclick="openChartWorkspace()" class="hidden sm:inline-flex items-center justify-center w-6 h-6 rounded text-on-surface-variant hover:text-primary hover:bg-surface-container-highest flex-shrink-0" title="Full-screen workspace — Financials &amp; News">
+            <span class="material-symbols-outlined text-sm">open_in_full</span>
+          </button>
+          <button id="sc-fs-close-btn" onclick="closeChartWorkspace()" class="hidden items-center justify-center w-6 h-6 rounded text-on-surface-variant hover:text-error hover:bg-surface-container-highest flex-shrink-0" title="Exit workspace">
+            <span class="material-symbols-outlined text-sm">close_fullscreen</span>
+          </button>
         </div>
         <!-- Row 1 right: action buttons + close -->
         <div id="chart-header-right" class="flex gap-1.5 items-center flex-shrink-0">
@@ -1371,13 +1378,6 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
           <button id="sc-oe-btn" onclick="toggleScreenerOptimal()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded hidden sm:inline-flex" title="Optimal Entry/Exit">ENTRY/EXIT</button>
           <button id="sc-mark-btn" onclick="toggleMarkMode()" class="text-[9px] font-bold text-on-surface-variant hover:text-primary px-2 py-0.5 bg-surface-container-highest rounded inline-flex" title="Click then click a candle to mark your BUY entry">MARK</button>
           <span class="material-symbols-outlined text-sm cursor-pointer hover:text-primary" onclick="openInsightsFromChart()">psychology</span>
-          <!-- Expand to workspace / close workspace -->
-          <button id="sc-fs-btn" onclick="openChartWorkspace()" class="hidden sm:inline-flex items-center justify-center w-6 h-6 rounded text-on-surface-variant hover:text-primary hover:bg-surface-container-highest" title="Full-screen workspace — Financials &amp; News">
-            <span class="material-symbols-outlined text-sm">open_in_full</span>
-          </button>
-          <button id="sc-fs-close-btn" onclick="closeChartWorkspace()" class="hidden items-center justify-center w-6 h-6 rounded text-on-surface-variant hover:text-error hover:bg-surface-container-highest" title="Exit workspace">
-            <span class="material-symbols-outlined text-sm">close_fullscreen</span>
-          </button>
           <a id="chart-popout-btn" href="#" target="_blank" onclick="this.href='#chart='+encodeURIComponent(currentChartSymbol||'')" class="inline-flex items-center text-on-surface-variant hover:text-primary" title="Open full-page chart in new tab">
             <span class="material-symbols-outlined text-sm">open_in_new</span>
           </a>
