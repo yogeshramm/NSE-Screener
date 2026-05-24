@@ -539,11 +539,11 @@ body.chart-fullpage #chart-panel {
   overflow-y: auto !important;        /* natural scroll within the fixed panel */
   height: 100% !important;
 }
-/* Chart zone: draw-toolbar + chart, always 100dvh (first viewport) */
+/* Chart zone: draw-toolbar + chart, exactly 100dvh so sc-chart-body scroll is constrained */
 body.chart-fullpage #fp-chart-zone {
   display: flex !important;
   flex-direction: row !important;
-  min-height: 100dvh !important;
+  height: 100dvh !important;     /* fixed height → sc-chart-body overflow-y:auto works */
   flex-shrink: 0 !important;
 }
 /* Insights section revealed on scroll */
@@ -566,6 +566,9 @@ body.chart-fullpage #sc-chart-body {
   overflow-y: auto !important;
 }
 body.chart-fullpage #chart-container {
+  position: sticky !important; /* stays at top of sc-chart-body while panels scroll beneath */
+  top: 0 !important;
+  z-index: 5 !important;
   flex: none !important;
   height: 60dvh !important;   /* chart ≈ 60% of viewport; rest goes to indicators */
   min-height: 200px !important;
