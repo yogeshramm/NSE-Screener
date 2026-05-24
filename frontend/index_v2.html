@@ -6988,11 +6988,14 @@ function openChartWorkspace() {
   requestAnimationFrame(() => requestAnimationFrame(() => {
     _fsResizeCharts();
     loadFsTab(_fsCurTab);
-    // Attach drawing events + subscribe chart redraw
+  }));
+  // Init draw toolbar after everything settles (setTimeout > RAF so it runs last)
+  setTimeout(() => {
+    _drawChartSubscribed = false;
     _attachDrawEvents();
     _subscribeDrawRedraw();
-    setDrawMode('select'); // reset to select on open
-  }));
+    setDrawMode('select');
+  }, 200);
 }
 
 function closeChartWorkspace() {
