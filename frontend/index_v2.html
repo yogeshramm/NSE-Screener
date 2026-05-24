@@ -7063,6 +7063,13 @@ function closeChartWorkspace() {
   _drawChartSubscribed = false;
   // Restore normal chart dimensions after layout settles
   requestAnimationFrame(() => requestAnimationFrame(() => _fsResizeCharts()));
+  // In fullpage mode the draw toolbar is still visible — re-attach events
+  if (document.body.classList.contains('chart-fullpage')) {
+    _drawEventsAttached = false; // allow re-attach
+    _attachDrawEvents();
+    _subscribeDrawRedraw();
+    setDrawMode('select');
+  }
 }
 
 // ── Strategy Strip (workspace only) ──────────────────────────────────────────
@@ -7551,7 +7558,7 @@ function _subscribeDrawRedraw() {
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────
 function _drawKeyHandler(e) {
-  if (!_fsWorkspaceOpen) return;
+  if (!_fsWorkspaceOpen && !document.body.classList.contains('chart-fullpage')) return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   const k = e.key.toLowerCase();
   if      (k === 'v') setDrawMode('select');
