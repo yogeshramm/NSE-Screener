@@ -1306,8 +1306,7 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
           <div id="chart-container" class="bg-surface-container rounded-lg relative overflow-hidden border border-outline-variant/10" style="min-height:300px;height:350px;flex-shrink:0">
             <div id="ohlc-overlay" class="absolute top-2 left-2 z-10 flex gap-3 text-[10px] font-mono pointer-events-none" style="text-shadow:0 0 3px rgba(0,0,0,0.5)"></div>
           </div>
-          <!-- Marker popup — shown on D/E/≈E/⚡ click — lives OUTSIDE chart-container so innerHTML='' doesn't destroy it -->
-          <div id="sc-marker-popup" style="display:none;position:absolute;z-index:50;min-width:200px;max-width:260px;pointer-events:auto" class="bg-surface-container-highest border border-outline-variant/30 rounded-xl shadow-2xl p-3 text-[11px]"></div>
+          <!-- Marker popup created on document.body by _getOrCreatePopup() with position:fixed so overflow:hidden doesn't clip it -->
         </div>
         <div id="rsi-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:80px"></div>
         <div id="macd-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:80px;display:none"></div>
@@ -4117,11 +4116,6 @@ function openChart(symbol) {
   if (_stIcon) _stIcon.textContent = _sidebarCollapsed ? 'chevron_right' : 'chevron_left';
   document.getElementById('chart-title').textContent = symbol;
   document.getElementById('chart-container').innerHTML = '';
-  // Re-inject marker popup — innerHTML='' destroys child elements
-  (function(){ const p=document.createElement('div'); p.id='sc-marker-popup';
-    p.style.cssText='display:none;position:absolute;z-index:50;min-width:200px;max-width:260px;pointer-events:auto';
-    p.className='bg-surface-container-highest border border-outline-variant/30 rounded-xl shadow-2xl p-3 text-[11px]';
-    document.getElementById('chart-container').appendChild(p); })();
   document.getElementById('rsi-container').innerHTML   = '';
   document.getElementById('vol-container').innerHTML   = '';
   // Apply user-starred indicator defaults before loadChart — renderChart
@@ -5905,8 +5899,19 @@ async function _prefetchMarkerData(symbol) {
 }
 
 // ── Marker popup ──────────────────────────────────────────────────────────────
+function _getOrCreatePopup() {
+  let p = document.getElementById('sc-marker-popup');
+  if (!p) {
+    p = document.createElement('div');
+    p.id = 'sc-marker-popup';
+    p.style.cssText = 'display:none;position:fixed;z-index:9999;min-width:200px;max-width:260px;pointer-events:auto';
+    p.className = 'bg-surface-container-highest border border-outline-variant/30 rounded-xl shadow-2xl p-3 text-[11px]';
+    document.body.appendChild(p);
+  }
+  return p;
+}
 function _showMarkerPopup(entries, point) {
-  const popup = document.getElementById('sc-marker-popup');
+  const popup = _getOrCreatePopup();
   if (!popup) return;
 
   // Build HTML for all markers at this time (could be E + ⚡ on same candle)
@@ -5978,14 +5983,14 @@ function _showMarkerPopup(entries, point) {
 
   popup.innerHTML = html;
 
-  // Position popup — keep it within chart bounds
-  const container = document.getElementById('chart-container');
-  const rect = container.getBoundingClientRect();
-  const pw = 260, ph = 160;
-  let left = point.x + 12;
-  let top  = point.y - 10;
-  if (left + pw > container.clientWidth - 8)  left = point.x - pw - 12;
-  if (top  + ph > container.clientHeight - 8) top  = container.clientHeight - ph - 8;
+  // Position fixed relative to viewport — point coords are relative to chart-container
+  const rect = document.getElementById('chart-container').getBoundingClientRect();
+  const pw = 260, ph = 180;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let left = rect.left + (point?.x || 20) + 12;
+  let top  = rect.top  + (point?.y || 20) - 10;
+  if (left + pw > vw - 8) left = rect.left + (point?.x || 20) - pw - 12;
+  if (top  + ph > vh - 8) top  = vh - ph - 8;
   if (left < 4) left = 4;
   if (top  < 4) top  = 4;
   popup.style.left    = left + 'px';
