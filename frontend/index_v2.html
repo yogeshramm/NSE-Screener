@@ -3447,8 +3447,8 @@ document.addEventListener('click', (e) => {
 // Esc to close any open auth modal
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
-    if (_drawMode) { setDrawMode(null); return; }  // cancel drawing tool first
-    if (_fsWorkspaceOpen) { closeChartWorkspace(); return; } // exit fullscreen workspace
+    if (_drawMode && _drawMode !== 'select') { setDrawMode(_fsWorkspaceOpen ? 'select' : null); return; } // cancel active drawing → select (workspace) or none
+    if (_fsWorkspaceOpen) { closeChartWorkspace(); return; } // exit fullscreen workspace (Esc again after cancelling tool)
     const p = document.getElementById('profile-modal');
     const c = document.getElementById('change-pwd-modal');
     if (p && p.style.display === 'flex') closeProfileModal();
