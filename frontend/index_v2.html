@@ -7212,13 +7212,13 @@ function _coordFromEvent(e) {
   const r = c.getBoundingClientRect();
   const x = e.clientX - r.left;
   const y = e.clientY - r.top;
-  const time  = window.currentChart?.timeScale()?.coordinateToTime(x) ?? null;
+  const time  = currentChart?.timeScale()?.coordinateToTime(x) ?? null;
   const price = window._scCandleSeries?.coordinateToPrice(y) ?? null;
   return {x, y, time, price};
 }
 function _toXY(time, price) {
-  if (!window.currentChart || !window._scCandleSeries) return null;
-  const x = window.currentChart.timeScale().timeToCoordinate(time);
+  if (!currentChart || !window._scCandleSeries) return null;
+  const x = currentChart.timeScale().timeToCoordinate(time);
   const y = window._scCandleSeries.priceToCoordinate(price);
   if (x === null || y === null) return null;
   return {x, y};
@@ -7345,8 +7345,8 @@ function _addFib(p1, p2) {
 
 // ── Re-render SVG drawings on chart pan/zoom ─────────────────────────────
 function _reRenderDrawings() {
-  if (!window.currentChart || !window._scCandleSeries) return;
-  const ts = window.currentChart.timeScale();
+  if (!currentChart || !window._scCandleSeries) return;
+  const ts = currentChart.timeScale();
   for (const d of _drawings) {
     if (!d.svgEl) continue;
     if (d.type === 'trendline') {
@@ -7398,9 +7398,9 @@ function _detachDrawEvents() {
 // ── Subscribe to chart pan/zoom for SVG redraw ───────────────────────────
 let _drawChartSubscribed = false;
 function _subscribeDrawRedraw() {
-  if (_drawChartSubscribed || !window.currentChart) return;
-  window.currentChart.timeScale().subscribeVisibleTimeRangeChange(_reRenderDrawings);
-  window.currentChart.subscribeCrosshairMove(_reRenderDrawings);
+  if (_drawChartSubscribed || !currentChart) return;
+  currentChart.timeScale().subscribeVisibleTimeRangeChange(_reRenderDrawings);
+  currentChart.subscribeCrosshairMove(_reRenderDrawings);
   _drawChartSubscribed = true;
 }
 
