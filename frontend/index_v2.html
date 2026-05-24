@@ -5131,8 +5131,14 @@ function renderChart(data) {
   currentChart.subscribeClick(param => {
     // Marker popup — highest priority when not in draw/mark mode
     if (!_drawMode && !scMarkMode) {
-      if (param.time) {
-        const hits = scMarkerMeta.filter(m => m.time === param.time);
+      if (param.point && scMarkerMeta.length > 0) {
+        // Use pixel-proximity (±10px) rather than exact time match — candle times may
+        // differ between param.time and the snapped marker candle by 1-2 days.
+        const ts = currentChart.timeScale();
+        const hits = scMarkerMeta.filter(m => {
+          const mx = ts.timeToCoordinate(m.time);
+          return mx !== null && Math.abs(mx - param.point.x) < 10;
+        });
         if (hits.length > 0) {
           _showMarkerPopup(hits, param.point);
           return;
