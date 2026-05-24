@@ -5328,8 +5328,14 @@ function renderChart(data) {
   // Restore saved drawings for this symbol (after all series are ready)
   setTimeout(() => _restoreDrawings(currentChartSymbol), 200);
 
-  // Reset any active draw mode when a new chart opens
-  setDrawMode(null);
+  // Reset draw mode: 'select' in workspace (toolbar stays active), null in small chart
+  setDrawMode(_fsWorkspaceOpen ? 'select' : null);
+  // Re-attach draw events + subscribe redraw after chart rebuild (new chart instance)
+  if (_fsWorkspaceOpen) {
+    _drawChartSubscribed = false; // force re-subscribe on new chart instance
+    _attachDrawEvents();
+    _subscribeDrawRedraw();
+  }
 
   // Trade Zones: background auto-fetch on chart open (only if checkbox on + no cached data).
   // /optimal-levels is pure numpy (~350ms), safe to fire non-blocking.
