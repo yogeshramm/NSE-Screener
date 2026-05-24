@@ -5136,6 +5136,13 @@ function renderChart(data) {
   ohlcDiv.className='absolute top-2 left-2 z-10 flex gap-3 text-[10px] font-mono pointer-events-none';
   ohlcDiv.style.textShadow='0 0 3px rgba(0,0,0,0.5)';
   chartEl.appendChild(ohlcDiv);
+  // Drawing overlay SVG (re-create after innerHTML clear — used by workspace drawing toolbar)
+  if (!chartEl.querySelector('#sc-draw-overlay')) {
+    const drawSvg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    drawSvg.id = 'sc-draw-overlay';
+    drawSvg.setAttribute('style','position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:20;overflow:visible');
+    chartEl.appendChild(drawSvg);
+  }
 
   // Main candlestick
   currentChart=LightweightCharts.createChart(chartEl,{width:chartEl.clientWidth,height:chartEl.clientHeight,layout:{background:{color:getChartColors().bg},textColor:getChartColors().text,fontSize:10},grid:{vertLines:{color:getChartColors().grid},horzLines:{color:getChartColors().grid}},crosshair:{mode:0},timeScale:{borderColor:getChartColors().border,timeVisible:false},rightPriceScale:{borderColor:getChartColors().border,minimumWidth:65}});
