@@ -5807,7 +5807,12 @@ function doPanelResize(e){
   const isMainA=resizeState.a.id==='chart-container';
   const minA=isMainA?150:40, maxA=isMainA?600:400;
   let nA=Math.max(minA,Math.min(maxA,resizeState.aH+delta));
-  if(isMainA){resizeState.a.style.flex='none';resizeState.a.style.height=nA+'px';resizeState.a.style.minHeight=nA+'px';}
+  const _isFP=document.body.classList.contains('chart-fullpage');
+  if(isMainA){resizeState.a.style.flex='none';
+    // In fullpage, chart height is overridden by CSS !important — must match priority
+    if(_isFP) resizeState.a.style.setProperty('height',nA+'px','important');
+    else resizeState.a.style.height=nA+'px';
+    resizeState.a.style.minHeight=nA+'px';}
   else resizeState.a.style.height=nA+'px';
   updateChartH(resizeState.a.id,nA);
   // Two-panel resize: also shrink/grow the panel below
@@ -5816,7 +5821,10 @@ function doPanelResize(e){
     const minB=isMainB?150:40, maxB=isMainB?600:300;
     let nB=Math.max(minB,Math.min(maxB,resizeState.bH-delta));
     if(nB<minB||nB>maxB) return;
-    if(isMainB){resizeState.b.style.flex='none';resizeState.b.style.height=nB+'px';resizeState.b.style.minHeight=nB+'px';}
+    if(isMainB){resizeState.b.style.flex='none';
+      if(_isFP) resizeState.b.style.setProperty('height',nB+'px','important');
+      else resizeState.b.style.height=nB+'px';
+      resizeState.b.style.minHeight=nB+'px';}
     else resizeState.b.style.height=nB+'px';
     updateChartH(resizeState.b.id,nB);
   }
