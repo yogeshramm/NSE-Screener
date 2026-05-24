@@ -4699,6 +4699,15 @@ function openChart(symbol) {
   // Apply user-starred indicator defaults before loadChart — renderChart
   // iterates the checkboxes and paints whatever is checked.
   applyStarredChartDefaults();
+  // If workspace is already open, refresh the financials/news sidebar for new symbol
+  if (typeof _fsWorkspaceOpen !== 'undefined' && _fsWorkspaceOpen) {
+    if (typeof _fsFinCache !== 'undefined') delete _fsFinCache[symbol];
+    const fl = document.getElementById('fs-fin-loading');
+    const fc = document.getElementById('fs-fin-content');
+    if (fl) { fl.classList.remove('hidden'); fl.textContent = 'Loading…'; }
+    if (fc) { fc.classList.add('hidden'); fc.innerHTML = ''; }
+    setTimeout(() => { if (typeof loadFsTab === 'function') loadFsTab(_fsCurTab || 'financials'); }, 300);
+  }
   loadChart(symbol);
 }
 function resetScreenerTab() {
