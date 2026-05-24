@@ -178,6 +178,11 @@ _BRAND_OVERRIDE: Dict[str, str] = {
     "LTIM":         "LTIMindtree",
     "LTTS":         "L&T Technology Services",
     "LT":           "Larsen and Toubro",
+    "TCS":          "TCS",
+    "WIPRO":        "Wipro",
+    "INFY":         "Infosys",
+    "HCLTECH":      "HCL Technologies",
+    "TECHM":        "Tech Mahindra",
     "RELIANCE":     "Reliance Industries",
     "SUNPHARMA":    "Sun Pharma",
     "DRREDDY":      "Dr Reddys",
@@ -306,9 +311,14 @@ def _match_direct(items: List[Dict], query: str, symbol: str) -> List[Dict]:
     out = []
     for it in items:
         text = (it["title"] + " " + it.get("desc", "")).lower()
-        if query_words and all(re.search(r"\b" + re.escape(w) + r"\b", text) for w in query_words):
-            out.append(it)
-        elif len(symbol) >= 4 and re.search(r"\b" + re.escape(symbol.lower()) + r"\b", text):
+        # Name match: require ANY 2 of the query words (less strict than requiring all)
+        name_match = (
+            query_words and
+            sum(1 for w in query_words if re.search(r"\b" + re.escape(w) + r"\b", text)) >= min(2, len(query_words))
+        )
+        # Symbol match: works for any symbol length ≥ 2 chars (was ≥ 4, missed TCS, LT etc.)
+        sym_match = len(symbol) >= 2 and re.search(r"\b" + re.escape(symbol.lower()) + r"\b", text)
+        if name_match or sym_match:
             out.append(it)
     return out
 
