@@ -533,12 +533,22 @@ body.chart-fullpage #chart-panel {
   position: fixed !important;
   inset: 0 !important;
   width: 100% !important;
-  height: 100dvh !important;
   z-index: 999 !important;
   display: flex !important;
-  flex-direction: row !important;   /* row: draw-toolbar | chart | (optional sidebar) */
+  flex-direction: column !important;  /* chart zone on top, insights below */
+  overflow-y: auto !important;        /* natural scroll within the fixed panel */
+  height: 100% !important;
 }
-/* Draw toolbar + strategy strip visible in fullpage (same as workspace) */
+/* Chart zone: draw-toolbar + chart, always 100dvh (first viewport) */
+body.chart-fullpage #fp-chart-zone {
+  display: flex !important;
+  flex-direction: row !important;
+  min-height: 100dvh !important;
+  flex-shrink: 0 !important;
+}
+/* Insights section revealed on scroll */
+body.chart-fullpage #fp-insights-section { display: block !important; }
+/* Draw toolbar + strategy strip visible in fullpage */
 body.chart-fullpage #sc-draw-toolbar { display: flex !important; }
 body.chart-fullpage #sc-strategy-strip { display: block !important; }
 /* Left column layout in fullpage */
@@ -560,10 +570,16 @@ body.chart-fullpage #chart-container {
   height: 0 !important;
   min-height: 200px !important;
 }
+/* Hide workspace sidebar toggle — financials live in the scroll section now */
+body.chart-fullpage #sc-fs-btn { display: none !important; }
+body.chart-fullpage #sc-fs-close-btn { display: none !important; }
 body.chart-fullpage #chart-back-btn,
 body.chart-fullpage #sc-sidebar-toggle { display: none !important; }
 #chart-fullpage-exit { display: none !important; }
 body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
+/* Scroll hint arrow at bottom of chart zone */
+#fp-scroll-hint { display: none; }
+body.chart-fullpage #fp-scroll-hint { display: flex !important; }
 
 @media (max-width: 639px) {
   /* 4. Chart header: two-row layout on mobile */
@@ -1343,6 +1359,8 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
         </div>
         <div id="sc-tt-rows" class="flex-1 overflow-y-auto p-3 space-y-2 text-[10px]"></div>
       </div>
+      <!-- ── Fullpage chart zone: wraps toolbar+chart; becomes 100dvh row in fullpage tab mode ── -->
+      <div id="fp-chart-zone" style="display:contents">
       <!-- ── Drawing toolbar (fullscreen workspace only) ── -->
       <div id="sc-draw-toolbar" class="flex-col items-center gap-1 border-r border-outline-variant/20 bg-surface-container-lowest py-2 overflow-y-auto" style="width:40px;flex-shrink:0">
         <button class="dtb dtb-active" data-tool="select" onclick="setDrawMode('select')" title="Select / Pan (V)"><span class="material-symbols-outlined" style="font-size:17px">arrow_selector_tool</span></button>
@@ -1530,6 +1548,80 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
         <div id="vol-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:60px"></div>
       </div><!-- end sc-chart-body -->
       </div><!-- end sc-fs-left -->
+      </div><!-- end fp-chart-zone -->
+
+      <!-- Scroll hint — shown only in fullpage tab mode (CSS controls display) -->
+      <div id="fp-scroll-hint" class="justify-center items-center py-2.5 gap-2 text-[9px] text-on-surface-variant/50 border-t border-outline-variant/20" style="flex-shrink:0">
+        <span class="material-symbols-outlined animate-bounce" style="font-size:15px">keyboard_double_arrow_down</span>
+        <span class="uppercase tracking-widest font-semibold">Scroll for Financial Intelligence</span>
+        <span class="material-symbols-outlined animate-bounce" style="font-size:15px">keyboard_double_arrow_down</span>
+      </div>
+
+      <!-- ── Fullpage insights section (scroll-below, fullpage tab only) ── -->
+      <div id="fp-insights-section" style="display:none;flex-shrink:0" class="bg-surface-container-lowest border-t border-outline-variant/10">
+        <div class="max-w-6xl mx-auto px-4 py-8">
+          <!-- Header -->
+          <div class="flex items-center gap-3 mb-8">
+            <div>
+              <h2 id="fp-ins-sym" class="text-xl font-black uppercase tracking-widest text-on-surface">—</h2>
+              <p class="text-[9px] uppercase tracking-widest text-on-surface-variant/50 mt-0.5">Financial Intelligence · Analyst Ratings · News</p>
+            </div>
+            <div class="flex-1"></div>
+            <button onclick="loadFpInsights(window._fpInsSym,true)" class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-widest font-bold text-on-surface-variant hover:text-primary hover:bg-surface-container-highest transition-colors">
+              <span class="material-symbols-outlined" style="font-size:13px">refresh</span> Refresh
+            </button>
+          </div>
+          <!-- Loading state -->
+          <div id="fp-ins-loading" class="flex items-center justify-center py-14 text-on-surface-variant/50 gap-2">
+            <span class="material-symbols-outlined animate-spin" style="font-size:20px">autorenew</span>
+            <span class="text-xs uppercase tracking-wider">Loading financial intelligence…</span>
+          </div>
+          <!-- Error state -->
+          <div id="fp-ins-error" class="hidden flex-col items-center py-14 gap-2 text-on-surface-variant/50">
+            <span class="material-symbols-outlined" style="font-size:32px">error_outline</span>
+            <span class="text-xs uppercase tracking-wider">Could not load financial data</span>
+          </div>
+          <!-- Content (populated by JS) -->
+          <div id="fp-ins-content" class="hidden space-y-6">
+            <!-- Row 1: Gauge · Price Target · EPS -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <!-- Analyst consensus speedometer gauge -->
+              <div class="bg-surface-container rounded-2xl p-5 flex flex-col items-center gap-2 border border-outline-variant/10">
+                <div class="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Analyst Consensus</div>
+                <div id="fp-gauge-svg" class="flex justify-center w-full"></div>
+                <div id="fp-gauge-label" class="text-sm font-black uppercase tracking-widest text-center" style="color:#6b7280">—</div>
+                <div id="fp-gauge-meta" class="text-[9px] text-on-surface-variant/60 text-center leading-relaxed">—</div>
+              </div>
+              <!-- Price target range bar -->
+              <div class="bg-surface-container rounded-2xl p-5 flex flex-col gap-3 border border-outline-variant/10">
+                <div class="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Price Target</div>
+                <div id="fp-target-bar" class="flex-1"></div>
+              </div>
+              <!-- EPS track record -->
+              <div class="bg-surface-container rounded-2xl p-5 flex flex-col gap-3 border border-outline-variant/10">
+                <div class="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">EPS Track Record</div>
+                <div id="fp-eps-content" class="flex-1"></div>
+              </div>
+            </div>
+            <!-- Row 2: Key Metrics grid -->
+            <div class="bg-surface-container rounded-2xl p-5 border border-outline-variant/10">
+              <div class="text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-4">Key Metrics</div>
+              <div id="fp-metrics-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-4"></div>
+            </div>
+            <!-- Row 3: Analyst breakdown + News -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div class="bg-surface-container rounded-2xl p-5 border border-outline-variant/10">
+                <div class="text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-4">Analyst Breakdown</div>
+                <div id="fp-analyst-detail" class="space-y-3"></div>
+              </div>
+              <div class="bg-surface-container rounded-2xl p-5 border border-outline-variant/10">
+                <div class="text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-4">Latest News</div>
+                <div id="fp-news-list" class="space-y-2.5 overflow-y-auto" style="max-height:300px"></div>
+              </div>
+            </div>
+          </div><!-- end fp-ins-content -->
+        </div>
+      </div><!-- end fp-insights-section -->
 
       <!-- ── Full-screen workspace sidebar ────────────────────── -->
       <div id="sc-fs-sidebar" class="hidden flex-col border-l border-outline-variant/20 bg-surface-container-lowest overflow-hidden" style="width:320px;flex-shrink:0">
@@ -5390,6 +5482,10 @@ function renderChart(data) {
     _attachDrawEvents();
     _subscribeDrawRedraw();
     loadStrategyStrip(currentChartSymbol); // refresh strategy strip for new stock
+    // In fullpage tab mode, also load the scroll-below financial intelligence section
+    if (document.body.classList.contains('chart-fullpage')) {
+      loadFpInsights(currentChartSymbol);
+    }
   }
 
   // Trade Zones: background auto-fetch on chart open (only if checkbox on + no cached data).
@@ -7346,6 +7442,339 @@ function loadFsNewsTab(sym) {
         ${n.source?`<span>${n.source}</span>`:''}${ds?`<span>· ${ds}</span>`:''}
       </div>
       ${(n.url||n.link)?`<a href="${n.url||n.link}" target="_blank" rel="noopener" class="text-[8px] text-primary hover:underline mt-0.5 inline-block">Read →</a>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ============ FULLPAGE SCROLL INSIGHTS ============
+
+let _fpInsCache = {};
+window._fpInsSym = null;
+
+async function loadFpInsights(sym, force = false) {
+  if (!sym) return;
+  window._fpInsSym = sym;
+  const loading = document.getElementById('fp-ins-loading');
+  const content  = document.getElementById('fp-ins-content');
+  const errEl    = document.getElementById('fp-ins-error');
+  const symEl    = document.getElementById('fp-ins-sym');
+  if (!loading || !content) return; // not in DOM (non-fullpage mode)
+
+  if (symEl) symEl.textContent = sym;
+
+  if (!force && _fpInsCache[sym]) {
+    _renderFpInsights(sym, _fpInsCache[sym]);
+    return;
+  }
+
+  loading.classList.remove('hidden');
+  content.classList.add('hidden');
+  if (errEl) errEl.classList.add('hidden');
+
+  try {
+    const [finD, earnD] = await Promise.all([
+      fetch(`/financials/${encodeURIComponent(sym)}`).then(r => r.ok ? r.json() : {}),
+      fetch(`/earnings/${encodeURIComponent(sym)}`).then(r => r.ok ? r.json() : {}),
+    ]);
+    // /earnings returns {symbol, earnings:{...}}; /financials already includes earnings
+    const data = Object.assign({}, finD);
+    if (earnD.earnings) data.earnings = earnD.earnings; // prefer fresh earnings endpoint
+    _fpInsCache[sym] = data;
+    _renderFpInsights(sym, data);
+  } catch(e) {
+    loading.classList.add('hidden');
+    if (errEl) { errEl.classList.remove('hidden'); errEl.style.display = 'flex'; }
+  }
+}
+
+function _renderFpInsights(sym, d) {
+  const loading = document.getElementById('fp-ins-loading');
+  const content  = document.getElementById('fp-ins-content');
+  const symEl    = document.getElementById('fp-ins-sym');
+  if (!content) return;
+  if (symEl) symEl.textContent = sym;
+
+  const funda     = d.fundamentals || {};
+  const earnings  = d.earnings     || {};
+  const composite = d.analyst      || {};
+  const et        = d.et_markets   || {};
+  const tl        = d.trendlyne    || {};
+
+  _renderFpGauge(composite, et, tl);
+  _renderFpTarget(composite, et, tl, funda.current_price);
+  _renderFpEps(earnings);
+  _renderFpMetrics(funda);
+  _renderFpAnalystDetail(composite, et, tl);
+  _renderFpNews(sym);
+
+  if (loading) loading.classList.add('hidden');
+  content.classList.remove('hidden');
+}
+
+// ── Speedometer gauge ──────────────────────────────────────────────────────
+function _renderFpGauge(composite, et, tl) {
+  const svgEl   = document.getElementById('fp-gauge-svg');
+  const labelEl = document.getElementById('fp-gauge-label');
+  const metaEl  = document.getElementById('fp-gauge-meta');
+  if (!svgEl) return;
+
+  const rating = composite.rating ?? tl.rating ?? null;  // float 1–5
+  const label  = composite.label || '';
+
+  // Map rating 1-5 → angle 0-180°; default neutral = 90°
+  let angle = 90, color = '#6b7280';
+  if (rating !== null) {
+    angle = ((+rating - 1) / 4) * 180;
+    if (+rating >= 4.5) color = '#22c55e';
+    else if (+rating >= 3.5) color = '#86efac';
+    else if (+rating <= 1.5) color = '#ef4444';
+    else if (+rating <= 2.5) color = '#f87171';
+    else color = '#94a3b8';
+  } else if (label) {
+    const L = label.toUpperCase();
+    if (L.includes('STRONG BUY'))  { angle = 162; color = '#22c55e'; }
+    else if (L.includes('BUY'))    { angle = 126; color = '#86efac'; }
+    else if (L.includes('STRONG SELL')) { angle = 18; color = '#ef4444'; }
+    else if (L.includes('SELL'))   { angle = 54;  color = '#f87171'; }
+  }
+
+  // SVG arc helpers
+  const cx = 80, cy = 72, R = 60, Ri = 42;
+  const toRad = a => a * Math.PI / 180;
+  const pt = (r, a) => [cx + r * Math.cos(toRad(180 - a)), cy - r * Math.sin(toRad(180 - a))];
+
+  const seg = (a0, a1, col) => {
+    const [x1,y1] = pt(R,a0), [x2,y2] = pt(R,a1);
+    const [xi1,yi1] = pt(Ri,a0), [xi2,yi2] = pt(Ri,a1);
+    return `<path d="M${xi1},${yi1} L${x1},${y1} A${R},${R} 0 0,1 ${x2},${y2} L${xi2},${yi2} A${Ri},${Ri} 0 0,0 ${xi1},${yi1}" fill="${col}" opacity="0.82"/>`;
+  };
+
+  const segs = [
+    seg(0,36,'#ef4444'), seg(36,72,'#f87171'), seg(72,108,'#94a3b8'),
+    seg(108,144,'#86efac'), seg(144,180,'#22c55e'),
+  ].join('');
+
+  // Needle
+  const [nx, ny] = pt(R - 6, angle);
+  const needle = `<line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="${color}" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="${cx}" cy="${cy}" r="4.5" fill="${color}"/>`;
+
+  // Rating text
+  const rText = rating !== null
+    ? `<text x="${cx}" y="${cy+20}" text-anchor="middle" font-size="11" fill="#94a3b8" font-family="monospace">${parseFloat(rating).toFixed(1)}/5</text>`
+    : '';
+
+  svgEl.innerHTML = `<svg viewBox="0 0 160 85" width="160" height="85" style="overflow:visible">${segs}${needle}${rText}</svg>`;
+
+  if (labelEl) { labelEl.textContent = label || (rating !== null ? '' : '—'); labelEl.style.color = color; }
+
+  const totalA = et.analysts || tl.analysts || 0;
+  const bTotal = (et.buy||0)+(et.strong_buy||0);
+  if (metaEl) metaEl.textContent = totalA
+    ? `${totalA} analysts · ${bTotal} buy · ${et.hold||0} hold · ${(et.sell||0)+(et.strong_sell||0)} sell`
+    : 'No analyst data';
+}
+
+// ── Price target range bar ─────────────────────────────────────────────────
+function _renderFpTarget(composite, et, tl, curPrice) {
+  const el = document.getElementById('fp-target-bar');
+  if (!el) return;
+
+  const targetAvg  = composite.target_avg || tl.target_price || et.target_price || null;
+  const targetHigh = et.target_high || tl.target_high || null;
+  const targetLow  = et.target_low  || tl.target_low  || null;
+
+  if (!targetAvg) {
+    el.innerHTML = '<div class="text-[10px] text-on-surface-variant/50 text-center py-6">No price target data</div>';
+    return;
+  }
+
+  const upside = curPrice ? ((targetAvg - curPrice) / curPrice * 100).toFixed(1) : null;
+  const uColor = upside && +upside > 0 ? '#22c55e' : '#ef4444';
+
+  let rangeBar = '';
+  if (targetHigh && targetLow && curPrice) {
+    const lo = targetLow, hi = targetHigh, rng = hi - lo || 1;
+    const cp = Math.max(0, Math.min(100, (curPrice - lo) / rng * 100));
+    const ap = Math.max(0, Math.min(100, (targetAvg - lo) / rng * 100));
+    const left  = Math.min(cp, ap), width = Math.abs(ap - cp);
+    const gradC = +upside > 0 ? 'rgba(34,197,94,0.25),rgba(34,197,94,0.55)' : 'rgba(239,68,68,0.25),rgba(239,68,68,0.55)';
+    rangeBar = `<div class="mt-3">
+      <div class="relative h-3 rounded-full bg-surface-container-highest">
+        <div class="absolute top-0 bottom-0 rounded-full" style="left:${left}%;width:${width}%;background:linear-gradient(90deg,${gradC})"></div>
+        <div class="absolute top-0 bottom-0 w-0.5 bg-primary rounded" style="left:${cp}%" title="Current ₹${curPrice}"></div>
+        <div class="absolute top-0 bottom-0 w-0.5 rounded" style="left:${ap}%;background:${uColor}" title="Target ₹${targetAvg.toFixed(0)}"></div>
+      </div>
+      <div class="flex justify-between text-[8px] text-on-surface-variant/50 font-mono mt-1">
+        <span>₹${lo.toFixed(0)}</span><span>₹${hi.toFixed(0)}</span>
+      </div>
+    </div>`;
+  }
+
+  el.innerHTML = `
+    <div class="flex items-end justify-between">
+      <div>
+        <div class="text-[8px] text-on-surface-variant uppercase tracking-wider">Consensus Target</div>
+        <div class="text-3xl font-black font-mono text-on-surface mt-1">₹${targetAvg.toFixed(0)}</div>
+      </div>
+      ${upside ? `<div class="text-right pb-0.5">
+        <div class="text-[8px] text-on-surface-variant uppercase tracking-wider">Upside</div>
+        <div class="text-xl font-black font-mono mt-0.5" style="color:${uColor}">${+upside >= 0 ? '+' : ''}${upside}%</div>
+      </div>` : ''}
+    </div>
+    ${curPrice ? `<div class="text-[9px] text-on-surface-variant/60 font-mono mt-1">Current ₹${curPrice.toFixed ? curPrice.toFixed(1) : curPrice}</div>` : ''}
+    ${rangeBar}
+    ${(targetHigh && targetLow) ? `<div class="flex justify-between mt-2 text-[9px] text-on-surface-variant/60">
+      <span>Bear ₹${targetLow.toFixed(0)}</span><span>Bull ₹${targetHigh.toFixed(0)}</span>
+    </div>` : ''}`;
+}
+
+// ── EPS beat/miss chip ─────────────────────────────────────────────────────
+function _renderFpEps(earnings) {
+  const el = document.getElementById('fp-eps-content');
+  if (!el) return;
+
+  if (!earnings || (earnings.eps_actual === undefined && !earnings.next_earnings_ts)) {
+    el.innerHTML = '<div class="text-[10px] text-on-surface-variant/50 text-center py-6">No earnings data</div>';
+    return;
+  }
+
+  const beatColor = earnings.beat === true ? '#22c55e' : earnings.beat === false ? '#ef4444' : '#6b7280';
+  const beatLabel = earnings.beat === true ? 'BEAT ✓' : earnings.beat === false ? 'MISS ✗' : '—';
+  const surp      = earnings.eps_surprise_pct;
+  const surpStr   = surp != null ? `${surp >= 0 ? '+' : ''}${surp.toFixed(1)}%` : '';
+  const fmt       = ts => ts ? new Date(ts * 1000).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'2-digit'}) : '—';
+
+  el.innerHTML = `
+    <div class="flex items-center gap-3">
+      <span class="text-2xl font-black px-4 py-2 rounded-xl font-mono" style="background:${beatColor}1a;color:${beatColor};border:1px solid ${beatColor}33">${beatLabel}</span>
+      ${surpStr ? `<span class="text-lg font-black font-mono" style="color:${beatColor}">${surpStr}</span>` : ''}
+    </div>
+    <div class="grid grid-cols-2 gap-x-6 gap-y-3 mt-3 text-[10px]">
+      ${earnings.eps_actual != null ? `<div>
+        <div class="text-[8px] text-on-surface-variant uppercase tracking-wider mb-1">Actual EPS</div>
+        <div class="font-mono font-black text-lg">₹${earnings.eps_actual.toFixed(2)}</div>
+      </div>` : ''}
+      ${earnings.eps_estimate != null ? `<div>
+        <div class="text-[8px] text-on-surface-variant uppercase tracking-wider mb-1">Estimate</div>
+        <div class="font-mono font-bold text-lg">₹${earnings.eps_estimate.toFixed(2)}</div>
+      </div>` : ''}
+      ${earnings.eps_ttm != null ? `<div>
+        <div class="text-[8px] text-on-surface-variant uppercase tracking-wider mb-1">EPS TTM</div>
+        <div class="font-mono text-base">₹${earnings.eps_ttm.toFixed(2)}</div>
+      </div>` : ''}
+      ${earnings.last_earnings_ts ? `<div>
+        <div class="text-[8px] text-on-surface-variant uppercase tracking-wider mb-1">Last Release</div>
+        <div class="font-mono text-base">${fmt(earnings.last_earnings_ts)}</div>
+      </div>` : ''}
+    </div>
+    ${earnings.next_earnings_ts ? `<div class="flex items-center gap-2 mt-3 pt-3 border-t border-outline-variant/20 text-[9px]">
+      <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse inline-block shrink-0"></span>
+      <span class="text-amber-400 font-semibold">Next earnings: ${fmt(earnings.next_earnings_ts)}</span>
+    </div>` : ''}`;
+}
+
+// ── Key metrics grid ───────────────────────────────────────────────────────
+function _renderFpMetrics(funda) {
+  const el = document.getElementById('fp-metrics-grid');
+  if (!el) return;
+
+  const fmt2 = v => (v != null && v !== '') ? v : null;
+  const pf   = (v, dp) => v != null ? parseFloat(v).toFixed(dp) : null;
+
+  const metrics = [
+    ['P/E Ratio',   pf(funda.pe,1)],
+    ['P/B Ratio',   pf(funda.pb,2)],
+    ['ROE',         funda.roe_pct   != null ? pf(funda.roe_pct,1)+'%' : null],
+    ['ROCE',        funda.roce_pct  != null ? pf(funda.roce_pct,1)+'%' : null],
+    ['Debt / Equity', funda.debt_to_equity != null ? pf(funda.debt_to_equity,2) : null],
+    ['Div Yield',   fmt2(funda.dividend_yield)],
+    ['Promoters',   funda.promoter_holding != null ? funda.promoter_holding+'%' : null],
+    ['FII Holding', funda.fii_holding      != null ? funda.fii_holding+'%' : null],
+    ['DII Holding', funda.dii_holding      != null ? funda.dii_holding+'%' : null],
+    ['Market Cap',  funda.market_cap ? `₹${(funda.market_cap/100).toFixed(0)} Cr` : null],
+    ['Book Value',  funda.book_value  != null ? `₹${pf(funda.book_value,1)}` : null],
+    ['EPS',         funda.eps         != null ? `₹${pf(funda.eps,2)}` : null],
+  ].filter(([,v]) => v != null);
+
+  if (!metrics.length) {
+    el.innerHTML = '<div class="col-span-4 text-[10px] text-on-surface-variant/50 text-center py-4">No metrics available</div>';
+    return;
+  }
+
+  el.innerHTML = metrics.map(([l, v]) => `
+    <div class="flex flex-col gap-1">
+      <span class="text-[8px] uppercase tracking-widest text-on-surface-variant/70">${l}</span>
+      <span class="font-mono font-black text-base text-on-surface">${v}</span>
+    </div>`).join('');
+}
+
+// ── Analyst breakdown horizontal bars ─────────────────────────────────────
+function _renderFpAnalystDetail(composite, et, tl) {
+  const el = document.getElementById('fp-analyst-detail');
+  if (!el) return;
+
+  const sBuy = et.strong_buy||0, buy = et.buy||0, hold = et.hold||0, sell = et.sell||0, sSell = et.strong_sell||0;
+  const totalV = sBuy+buy+hold+sell+sSell || 1;
+  const totalA = et.analysts || tl.analysts || 0;
+
+  if (!totalA && !composite.label && !et.strong_buy && !tl.target_price) {
+    el.innerHTML = '<div class="text-[10px] text-on-surface-variant/50 text-center py-6">No analyst coverage data</div>';
+    return;
+  }
+
+  const pct  = x => Math.round(x / totalV * 100);
+  const row  = (label, count, color) => count > 0 ? `
+    <div class="flex items-center gap-2.5">
+      <span class="text-[9px] text-on-surface-variant/80 w-24 shrink-0">${label}</span>
+      <div class="flex-1 h-2.5 rounded-full bg-surface-container-highest overflow-hidden">
+        <div class="h-full rounded-full" style="width:${pct(count)}%;background:${color}"></div>
+      </div>
+      <span class="text-[9px] font-mono font-bold w-6 text-right" style="color:${color}">${count}</span>
+    </div>` : '';
+
+  const bars = [
+    row('Strong Buy', sBuy, '#22c55e'), row('Buy', buy, '#86efac'),
+    row('Hold', hold, '#94a3b8'),
+    row('Sell', sell, '#f87171'), row('Strong Sell', sSell, '#ef4444'),
+  ].filter(Boolean).join('');
+
+  const sources = [et.analysts && `ET Markets (${et.analysts})`, tl.analysts && `Trendlyne (${tl.analysts})`].filter(Boolean).join(' · ');
+
+  const trendTarget = tl.target_price ? `<div class="flex items-center justify-between mt-2 text-[9px]">
+    <span class="text-on-surface-variant/60">Trendlyne target</span>
+    <span class="font-mono font-bold">₹${tl.target_price.toFixed(0)}${tl.upside ? ` <span style="color:#22c55e">(+${tl.upside}%)</span>` : ''}</span>
+  </div>` : '';
+
+  el.innerHTML = `
+    ${bars || '<div class="text-[10px] text-on-surface-variant/50">No breakdown available</div>'}
+    ${totalA ? `<div class="mt-4 pt-3 border-t border-outline-variant/20 flex items-center justify-between text-[8px] text-on-surface-variant/50">
+      <span>${totalA} total analysts</span>
+      ${sources ? `<span>${sources}</span>` : ''}
+    </div>` : ''}
+    ${trendTarget}`;
+}
+
+// ── News feed ──────────────────────────────────────────────────────────────
+function _renderFpNews(sym) {
+  const el = document.getElementById('fp-news-list');
+  if (!el) return;
+
+  const news = (typeof scNewsCache !== 'undefined' && scNewsCache[sym]) ? scNewsCache[sym] : [];
+  if (!news.length) {
+    el.innerHTML = '<div class="text-[10px] text-on-surface-variant/50 text-center py-6">No recent news · Open chart to fetch news</div>';
+    return;
+  }
+
+  el.innerHTML = news.slice(0, 15).map(n => {
+    const d  = n.pub ? new Date(n.pub) : null;
+    const ds = d ? d.toLocaleDateString('en-IN', {day:'numeric',month:'short'}) : '';
+    return `<div class="bg-surface-container-highest/50 rounded-lg p-2.5">
+      <div class="text-[10px] font-semibold leading-snug mb-1.5">${n.title || '—'}</div>
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-[8px] text-on-surface-variant/60">${n.source || ''}${ds ? ' · ' + ds : ''}</span>
+        ${(n.url||n.link) ? `<a href="${n.url||n.link}" target="_blank" rel="noopener" class="text-[8px] text-primary hover:underline shrink-0">Read →</a>` : ''}
+      </div>
     </div>`;
   }).join('');
 }
