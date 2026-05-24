@@ -536,7 +536,29 @@ body.chart-fullpage #chart-panel {
   height: 100dvh !important;
   z-index: 999 !important;
   display: flex !important;
+  flex-direction: row !important;   /* row: draw-toolbar | chart | (optional sidebar) */
+}
+/* Draw toolbar + strategy strip visible in fullpage (same as workspace) */
+body.chart-fullpage #sc-draw-toolbar { display: flex !important; }
+body.chart-fullpage #sc-strategy-strip { display: block !important; }
+/* Left column layout in fullpage */
+body.chart-fullpage #sc-fs-left {
+  flex: 1 !important;
+  display: flex !important;
   flex-direction: column !important;
+  min-height: 0 !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+body.chart-fullpage #sc-chart-body {
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+}
+body.chart-fullpage #chart-container {
+  flex: 1 !important;
+  height: 0 !important;
+  min-height: 200px !important;
 }
 body.chart-fullpage #chart-back-btn,
 body.chart-fullpage #sc-sidebar-toggle { display: none !important; }
@@ -3478,7 +3500,7 @@ document.addEventListener('click', (e) => {
 // Esc to close any open auth modal
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
-    if (_drawMode && _drawMode !== 'select') { setDrawMode(_fsWorkspaceOpen ? 'select' : null); return; } // cancel active drawing → select (workspace) or none
+    if (_drawMode && _drawMode !== 'select') { setDrawMode((_fsWorkspaceOpen || document.body.classList.contains('chart-fullpage')) ? 'select' : null); return; } // cancel active drawing → select (workspace/fullpage) or none
     if (_fsWorkspaceOpen) { closeChartWorkspace(); return; } // exit fullscreen workspace (Esc again after cancelling tool)
     const p = document.getElementById('profile-modal');
     const c = document.getElementById('change-pwd-modal');
@@ -5359,10 +5381,11 @@ function renderChart(data) {
   // Restore saved drawings for this symbol (after all series are ready)
   setTimeout(() => _restoreDrawings(currentChartSymbol), 200);
 
-  // Reset draw mode: 'select' in workspace (toolbar stays active), null in small chart
-  setDrawMode(_fsWorkspaceOpen ? 'select' : null);
+  // Reset draw mode: 'select' in workspace/fullpage (toolbar stays active), null in small chart
+  const _inDrawEnv = _fsWorkspaceOpen || document.body.classList.contains('chart-fullpage');
+  setDrawMode(_inDrawEnv ? 'select' : null);
   // Re-attach draw events + subscribe redraw after chart rebuild (new chart instance)
-  if (_fsWorkspaceOpen) {
+  if (_inDrawEnv) {
     _drawChartSubscribed = false; // force re-subscribe on new chart instance
     _attachDrawEvents();
     _subscribeDrawRedraw();
