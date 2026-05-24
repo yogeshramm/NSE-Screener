@@ -4715,9 +4715,21 @@ function openChart(symbol) {
   const _stIcon = document.querySelector('#sc-sidebar-toggle .material-symbols-outlined');
   if (_stIcon) _stIcon.textContent = _sidebarCollapsed ? 'chevron_right' : 'chevron_left';
   document.getElementById('chart-title').textContent = symbol;
+  // Clear drawings before wiping the container (removes price lines from old chart)
+  if (typeof clearAllDrawings === 'function') clearAllDrawings();
   document.getElementById('chart-container').innerHTML = '';
   document.getElementById('rsi-container').innerHTML   = '';
   document.getElementById('vol-container').innerHTML   = '';
+  // Re-insert drawing overlay SVG (destroyed by innerHTML clear above)
+  (function() {
+    const cc = document.getElementById('chart-container');
+    if (cc && !cc.querySelector('#sc-draw-overlay')) {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+      svg.id = 'sc-draw-overlay';
+      svg.setAttribute('style','position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:20;overflow:visible');
+      cc.appendChild(svg);
+    }
+  })();
   // Apply user-starred indicator defaults before loadChart — renderChart
   // iterates the checkboxes and paints whatever is checked.
   applyStarredChartDefaults();
