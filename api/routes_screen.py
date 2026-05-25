@@ -140,13 +140,18 @@ def run_screen(request: ScreenRequest):
             nifty500_list = list(get_nifty500_live())
         except Exception:
             nifty500_list = list(NIFTY_500_FALLBACK)
-        # Nifty 200 — first 200 of the live Nifty 500 (index constituents
-        # are market-cap ordered). Falls back to first 120 of the fallback
-        # list if live fetch failed.
+        # Nifty 50/100/200 — first N of the live Nifty 500 (index constituents
+        # are market-cap ordered). Falls back to slices of the fallback list.
+        nifty50_list  = nifty500_list[:50]  if len(nifty500_list) >= 50  else list(NIFTY_500_FALLBACK[:50])
+        nifty100_list = nifty500_list[:100] if len(nifty500_list) >= 100 else list(NIFTY_500_FALLBACK[:100])
         nifty200_list = nifty500_list[:200] if len(nifty500_list) >= 200 else list(NIFTY_500_FALLBACK[:120])
 
         # Choose scope
-        if request.scope == "nifty200":
+        if request.scope == "nifty50":
+            candidates = [s for s in nifty50_list if s in all_symbols]
+        elif request.scope == "nifty100":
+            candidates = [s for s in nifty100_list if s in all_symbols]
+        elif request.scope == "nifty200":
             candidates = [s for s in nifty200_list if s in all_symbols]
         elif request.scope == "nifty500":
             candidates = [s for s in nifty500_list if s in all_symbols]
