@@ -283,9 +283,17 @@ input:focus { outline: 1px solid var(--primary); box-shadow: 0 0 4px rgba(255,14
   min-height: 0 !important;
   overflow-y: auto !important;
 }
+/* sc-chart-wrapper wraps chart-container; must also flex-grow so the inner
+   chart-container can use flex:1 relative to sc-chart-body */
+#chart-panel.workspace-mode #sc-chart-wrapper {
+  flex: 1 !important;
+  min-height: 200px !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
 #chart-panel.workspace-mode #chart-container {
   flex: 1 !important;
-  height: 0 !important;
+  height: 100% !important;
   min-height: 200px !important;
 }
 #chart-panel.workspace-mode #sc-fs-btn { display: none !important; }
@@ -5469,7 +5477,7 @@ function renderChart(data) {
   }, 100);
 
   new ResizeObserver(()=>{
-    if(currentChart)currentChart.applyOptions({width:chartEl.clientWidth});
+    if(currentChart)currentChart.applyOptions({width:chartEl.clientWidth,height:chartEl.clientHeight});
     if(currentRsiChart)currentRsiChart.applyOptions({width:rsiEl.clientWidth});
     if(currentMacdChart)currentMacdChart.applyOptions({width:macdEl.clientWidth});
     if(currentVolChart)currentVolChart.applyOptions({width:volEl.clientWidth});
