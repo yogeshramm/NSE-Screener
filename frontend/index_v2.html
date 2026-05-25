@@ -583,6 +583,8 @@ body.chart-fullpage #chart-fullpage-exit { display: inline-flex !important; }
 /* Scroll hint arrow at bottom of chart zone */
 #fp-scroll-hint { display: none; }
 body.chart-fullpage #fp-scroll-hint { display: flex !important; }
+/* Insights panel must sit above chart-panel (z:999) in fullpage mode */
+body.chart-fullpage #ip-panel { z-index: 1001 !important; }
 
 @media (max-width: 639px) {
   /* 4. Chart header: two-row layout on mobile */
