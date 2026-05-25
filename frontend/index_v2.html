@@ -4459,6 +4459,26 @@ async function ensureScBriefing(symbol) {
 }
 
 // ============ HOME QUICK CHART SEARCH ============
+// ── Nifty tier map (fetched once, used in search dropdowns) ──────────────────
+let _niftyTiers = {};  // { RELIANCE: 'N50', ... }
+(async () => {
+  try {
+    const r = await fetch(API + '/data/nifty-tiers');
+    if (r.ok) _niftyTiers = await r.json();
+  } catch(e) {}
+})();
+function _tierPill(sym) {
+  const t = _niftyTiers[sym];
+  if (!t) return '';
+  const colors = {
+    N50:  'color:#FF8C00;background:rgba(255,140,0,0.12)',
+    N100: 'color:#3b82f6;background:rgba(59,130,246,0.12)',
+    N200: 'color:#4ade80;background:rgba(74,222,128,0.12)',
+    N500: 'color:#94a3b8;background:rgba(148,163,184,0.08)',
+  };
+  return `<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;flex-shrink:0;${colors[t]}">${t}</span>`;
+}
+
 let _homeSearchTimeout = null;
 function onHomeSearchInput(val) {
   clearTimeout(_homeSearchTimeout);
@@ -4477,7 +4497,7 @@ function onHomeSearchInput(val) {
         const enc = encodeURIComponent(r.symbol);
         const safe = r.symbol.replace(/'/g, "\\'");
         return `<a href="#stock=${enc}" onclick="event.preventDefault();openHomeChart('${safe}')" class="flex items-center justify-between hover:bg-surface-container-highest/60 px-4 py-2.5 cursor-pointer no-underline block">
-          <span class="text-xs font-black text-primary">${r.symbol}</span>
+          <span class="flex items-center gap-1.5"><span class="text-xs font-black text-primary">${r.symbol}</span>${_tierPill(r.symbol)}</span>
           <span class="text-[10px] text-on-surface-variant truncate ml-3">${r.name !== r.symbol ? r.name : ''}</span>
         </a>`;
       }).join('');
@@ -4511,7 +4531,7 @@ function onSearchInput(val) {
       const res=await fetch(API+'/data/search?q='+encodeURIComponent(val));
       const data=await res.json();
       if(!data.results.length){dd.innerHTML='<div class="text-[10px] text-on-surface-variant/50 p-3 text-center">No matches</div>';dd.classList.remove('hidden');return;}
-      dd.innerHTML=data.results.map(r=>{const enc=encodeURIComponent(r.symbol);const safe=r.symbol.replace(/'/g,"\\'");return `<a href="#stock=${enc}" onclick="event.preventDefault();selectSearchResult('${safe}')" class="flex items-center justify-between hover:bg-surface-container-highest/60 rounded-lg px-3 py-2 cursor-pointer no-underline block"><span class="text-xs font-bold text-primary">${r.symbol}</span><span class="text-[10px] text-on-surface-variant truncate ml-2">${r.name!==r.symbol?r.name:''}</span></a>`;}).join('');
+      dd.innerHTML=data.results.map(r=>{const enc=encodeURIComponent(r.symbol);const safe=r.symbol.replace(/'/g,"\\'");return `<a href="#stock=${enc}" onclick="event.preventDefault();selectSearchResult('${safe}')" class="flex items-center justify-between hover:bg-surface-container-highest/60 rounded-lg px-3 py-2 cursor-pointer no-underline block"><span class="flex items-center gap-1.5"><span class="text-xs font-bold text-primary">${r.symbol}</span>${_tierPill(r.symbol)}</span><span class="text-[10px] text-on-surface-variant truncate ml-2">${r.name!==r.symbol?r.name:''}</span></a>`;}).join('');
       dd.classList.remove('hidden');
     } catch(e){}
   }, 200);
