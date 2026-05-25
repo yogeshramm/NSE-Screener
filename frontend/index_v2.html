@@ -6977,7 +6977,6 @@ function scApplyMarkers() {
     volMarkers.push({ time: candle.time, position: 'belowBar', color: '#3b82f6', shape: 'circle', text: 'D' });
     scMarkerMeta.push({ time: candle.time, type: 'dividend', data: { event: dv.label, amount: dv.amount, ex_date: new Date(dv.date_ts*1000).toDateString() } });
   }
-  }
 
   // ── E markers — Earnings beat/miss (always on) ────────────────────────────
   if (currentChartSymbol && scEarningsCache[currentChartSymbol]) {
