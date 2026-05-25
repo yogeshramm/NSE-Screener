@@ -7869,9 +7869,9 @@ function setDrawMode(mode) {
   document.querySelectorAll('#sc-draw-toolbar .dtb[data-tool]').forEach(b => {
     b.classList.toggle('dtb-active', b.dataset.tool === mode);
   });
-  // pointer-events: only capture when drawing
+  // pointer-events: capture only when actively drawing (not select, not null/off)
   const overlay = document.getElementById('sc-draw-overlay');
-  if (overlay) overlay.style.pointerEvents = mode === 'select' ? 'none' : 'all';
+  if (overlay) overlay.style.pointerEvents = (mode && mode !== 'select') ? 'all' : 'none';
 }
 
 // ── SVG helpers ──────────────────────────────────────────────────────────
