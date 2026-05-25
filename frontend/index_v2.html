@@ -547,9 +547,8 @@ body.chart-fullpage #fp-chart-zone {
 }
 /* Insights section revealed on scroll */
 body.chart-fullpage #fp-insights-section { display: block !important; }
-/* Draw toolbar + strategy strip visible in fullpage */
+/* Draw toolbar visible in fullpage */
 body.chart-fullpage #sc-draw-toolbar { display: flex !important; }
-body.chart-fullpage #sc-strategy-strip { display: block !important; }
 /* Left column layout in fullpage */
 body.chart-fullpage #sc-fs-left {
   flex: 1 !important;
@@ -1515,36 +1514,32 @@ body.chart-fullpage #ip-panel { z-index: 1001 !important; }
         </div>
         <div id="chart-container" class="bg-surface-container rounded-lg relative overflow-hidden border border-outline-variant/10" style="min-height:300px;height:350px;flex-shrink:0">
           <div id="ohlc-overlay" class="absolute top-2 left-2 z-10 flex gap-3 text-[10px] font-mono pointer-events-none" style="text-shadow:0 0 3px rgba(0,0,0,0.5)"></div>
-          <!-- Drawing overlay SVG — pointer-events toggled by draw mode -->
-          <svg id="sc-draw-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:20;overflow:visible"></svg>
-        </div>
-        <!-- ── Strategy Strip (workspace only — auto-loads on chart open) ── -->
-        <div id="sc-strategy-strip" class="hidden rounded-lg border border-outline-variant/15 px-3 py-1.5 text-[10px]" style="flex-shrink:0;background:rgba(255,255,255,0.03)">
-          <!-- Row 1: Regime · Setup · Trade levels -->
-          <div class="flex items-center gap-2 overflow-hidden">
-            <span id="ss-regime-badge" class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wide shrink-0">—</span>
-            <span id="ss-setup-type" class="text-on-surface-variant font-medium shrink-0">—</span>
-            <div class="w-px h-3 bg-outline-variant/25 shrink-0"></div>
-            <div id="ss-trade-block" class="flex items-center gap-2 shrink-0">
-              <span class="text-on-surface-variant">E</span><span id="ss-entry" class="font-mono font-bold" style="color:#60a5fa">—</span>
-              <span class="text-on-surface-variant">SL</span><span id="ss-sl" class="font-mono" style="color:#f87171">—</span>
-              <span class="text-on-surface-variant">T</span><span id="ss-target" class="font-mono" style="color:#34d399">—</span>
+          <!-- ── Strategy overlay — top-right of canvas (before price scale ~68px) ── -->
+          <div id="sc-strategy-strip" class="absolute z-[15] pointer-events-none text-right" style="top:8px;right:72px;max-width:55%">
+            <!-- Row 1: Regime · MTF arrows · Pattern badges · Setup verdict -->
+            <div class="flex items-center gap-1.5 justify-end flex-wrap">
+              <span id="ss-regime-badge" class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wide" style="text-shadow:0 1px 4px rgba(0,0,0,0.9)">—</span>
+              <div class="flex items-center gap-1 text-[9px]" style="text-shadow:0 1px 4px rgba(0,0,0,0.9)">
+                <span style="color:var(--on-surface-variant)">D</span><span id="ss-mtf-d" class="font-bold leading-none">—</span>
+                <span style="color:var(--on-surface-variant)">W</span><span id="ss-mtf-w" class="font-bold leading-none">—</span>
+                <span style="color:var(--on-surface-variant)">M</span><span id="ss-mtf-m" class="font-bold leading-none">—</span>
+              </div>
+              <div id="ss-patterns" class="flex items-center gap-1"></div>
+              <span id="ss-confidence" class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wide" style="text-shadow:0 1px 4px rgba(0,0,0,0.9)">—</span>
+              <span class="material-symbols-outlined hover:text-primary pointer-events-auto" style="font-size:11px;color:var(--on-surface-variant);cursor:pointer;text-shadow:0 1px 4px rgba(0,0,0,0.9)" onclick="loadStrategyStrip()" title="Refresh strategy">refresh</span>
+            </div>
+            <!-- Row 2: E / SL / T — visible only when a setup exists -->
+            <div id="ss-trade-block" class="flex items-center gap-1.5 mt-0.5 justify-end text-[9px] font-mono" style="text-shadow:0 1px 4px rgba(0,0,0,0.9)">
+              <span style="color:var(--on-surface-variant)">E</span><span id="ss-entry" class="font-bold" style="color:#60a5fa">—</span>
+              <span style="color:var(--on-surface-variant)">SL</span><span id="ss-sl" style="color:#f87171">—</span>
+              <span style="color:var(--on-surface-variant)">T</span><span id="ss-target" style="color:#34d399">—</span>
               <span id="ss-rr" class="font-bold" style="color:#fbbf24"></span>
             </div>
+            <!-- kept for JS compat, not visible -->
+            <span id="ss-setup-type" class="hidden">—</span>
           </div>
-          <!-- Row 2: MTF · Patterns · Confidence · Refresh -->
-          <div class="flex items-center gap-2 mt-1 overflow-hidden">
-            <div class="flex items-center gap-1.5 shrink-0">
-              <span class="text-on-surface-variant">D</span><span id="ss-mtf-d" class="font-bold text-sm leading-none">—</span>
-              <span class="text-on-surface-variant">W</span><span id="ss-mtf-w" class="font-bold text-sm leading-none">—</span>
-              <span class="text-on-surface-variant">M</span><span id="ss-mtf-m" class="font-bold text-sm leading-none">—</span>
-            </div>
-            <div class="w-px h-3 bg-outline-variant/25 shrink-0"></div>
-            <div id="ss-patterns" class="flex items-center gap-1 min-w-0 overflow-hidden"></div>
-            <div class="flex-1"></div>
-            <span id="ss-confidence" class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wide shrink-0">—</span>
-            <span class="material-symbols-outlined cursor-pointer hover:text-primary shrink-0" style="font-size:13px;color:var(--on-surface-variant)" onclick="loadStrategyStrip()" title="Refresh strategy">refresh</span>
-          </div>
+          <!-- Drawing overlay SVG — pointer-events toggled by draw mode -->
+          <svg id="sc-draw-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:20;overflow:visible"></svg>
         </div>
         <div id="rsi-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:80px"></div>
         <div id="macd-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:80px;display:none"></div>
