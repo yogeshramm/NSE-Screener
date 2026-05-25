@@ -563,10 +563,14 @@ body.chart-fullpage #sc-chart-body {
   min-height: 0 !important;
   overflow-y: auto !important;
 }
-body.chart-fullpage #chart-container {
-  position: sticky !important; /* stays at top of sc-chart-body while panels scroll beneath */
+/* Wrapper is sticky so both chart and strategy overlay move together */
+body.chart-fullpage #sc-chart-wrapper {
+  position: sticky !important;
   top: 0 !important;
   z-index: 5 !important;
+  flex-shrink: 0 !important;
+}
+body.chart-fullpage #chart-container {
   flex: none !important;
   height: 60dvh !important;   /* chart ≈ 60% of viewport; rest goes to indicators */
   min-height: 200px !important;
@@ -1512,9 +1516,15 @@ body.chart-fullpage #ip-panel { z-index: 1001 !important; }
           </div>
           <div id="sc-briefing-content" class="grid grid-cols-4 gap-3 text-[10px]"></div>
         </div>
-        <div id="chart-container" class="bg-surface-container rounded-lg relative overflow-hidden border border-outline-variant/10" style="min-height:300px;height:350px;flex-shrink:0">
-          <div id="ohlc-overlay" class="absolute top-2 left-2 z-10 flex gap-3 text-[10px] font-mono pointer-events-none" style="text-shadow:0 0 3px rgba(0,0,0,0.5)"></div>
-          <!-- ── Strategy overlay — top-right of canvas (before price scale ~68px) ── -->
+        <!-- sc-chart-wrapper: relative shell so sc-strategy-strip overlays the chart
+             without living inside chart-container (renderChart clears innerHTML) -->
+        <div id="sc-chart-wrapper" class="relative" style="flex-shrink:0">
+          <div id="chart-container" class="bg-surface-container rounded-lg relative overflow-hidden border border-outline-variant/10" style="min-height:300px;height:350px">
+            <div id="ohlc-overlay" class="absolute top-2 left-2 z-10 flex gap-3 text-[10px] font-mono pointer-events-none" style="text-shadow:0 0 3px rgba(0,0,0,0.5)"></div>
+            <!-- Drawing overlay SVG — pointer-events toggled by draw mode -->
+            <svg id="sc-draw-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:20;overflow:visible"></svg>
+          </div>
+          <!-- ── Strategy overlay — top-right of chart, before price scale (~72px) ── -->
           <div id="sc-strategy-strip" class="absolute z-[15] pointer-events-none text-right" style="top:8px;right:72px;max-width:55%">
             <!-- Row 1: Regime · MTF arrows · Pattern badges · Setup verdict -->
             <div class="flex items-center gap-1.5 justify-end flex-wrap">
@@ -1535,11 +1545,9 @@ body.chart-fullpage #ip-panel { z-index: 1001 !important; }
               <span style="color:var(--on-surface-variant)">T</span><span id="ss-target" style="color:#34d399">—</span>
               <span id="ss-rr" class="font-bold" style="color:#fbbf24"></span>
             </div>
-            <!-- kept for JS compat, not visible -->
+            <!-- kept for JS compat -->
             <span id="ss-setup-type" class="hidden">—</span>
           </div>
-          <!-- Drawing overlay SVG — pointer-events toggled by draw mode -->
-          <svg id="sc-draw-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:20;overflow:visible"></svg>
         </div>
         <div id="rsi-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:80px"></div>
         <div id="macd-container" class="bg-surface-container rounded-lg border border-outline-variant/10" style="height:80px;display:none"></div>
