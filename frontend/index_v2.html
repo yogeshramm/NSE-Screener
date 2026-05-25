@@ -4609,7 +4609,7 @@ function renderResults(data) {
     const rsi=r.indicators?.find(x=>x.name.toLowerCase().includes('rsi'))?.value||'--';
     return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" data-sym="${r.symbol}" onclick="openInsightsPro('${r.symbol}')" oncontextmenu="event.preventDefault();showCtxMenu(event,'${r.symbol}')">
       <td class="px-3 py-2.5 font-bold ${r.passed?'text-primary':'text-on-surface-variant'}">${r.rank||i+1}</td>
-      <td class="px-3 py-2.5"><div class="font-bold text-on-surface">${_stockLink(r.symbol)}</div><div class="text-[9px] text-on-surface-variant">${r.sector||''}</div>${_evBadge(r)}</td>
+      <td class="px-3 py-2.5"><div class="flex items-center gap-1.5"><div class="font-bold text-on-surface">${_stockLink(r.symbol)}</div>${_tierPill(r.symbol)}</div><div class="text-[9px] text-on-surface-variant">${r.sector||''}</div>${_evBadge(r)}</td>
       <td class="px-3 py-2.5 text-right text-on-surface ltp-cell" data-sym="${r.symbol}">\u20b9${r.price||'--'}</td>
       <td class="px-3 py-2.5 text-right text-on-surface-variant">${pe}</td>
       <td class="px-3 py-2.5 text-right text-on-surface-variant">${rsi}</td>
@@ -4627,7 +4627,7 @@ function renderResults(data) {
   const _s2RowHtml = (r, displayRank, useExt) => `
     <tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors" data-sym="${r.symbol}" onclick="openInsightsPro('${r.symbol}')" oncontextmenu="event.preventDefault();showCtxMenu(event,'${r.symbol}')">
       <td class="px-3 py-2.5 font-bold text-secondary">${displayRank}</td>
-      <td class="px-3 py-2.5"><div class="font-bold text-on-surface">${_stockLink(r.symbol)}</div>${_evBadge(r)}</td>
+      <td class="px-3 py-2.5"><div class="flex items-center gap-1.5"><div class="font-bold text-on-surface">${_stockLink(r.symbol)}</div>${_tierPill(r.symbol)}</div>${_evBadge(r)}</td>
       <td class="px-3 py-2.5 text-right text-on-surface ltp-cell" data-sym="${r.symbol}">\u20b9${r.price||'--'}</td>
       <td class="px-3 py-2.5 text-right text-error font-mono">${r.stop_loss?'\u20b9'+r.stop_loss:'--'}</td>
       <td class="px-3 py-2.5 text-right text-primary font-mono">${r.target?'\u20b9'+r.target:'--'}</td>
@@ -4733,7 +4733,7 @@ function renderResults(data) {
              </div>`;
         return `<tr class="border-b border-outline-variant/10 hover:bg-surface-container-highest/40 cursor-pointer transition-colors ${passed?'':'opacity-50'}" data-sym="${r.symbol}" onclick="openInsightsPro('${r.symbol}')" oncontextmenu="event.preventDefault();showCtxMenu(event,'${r.symbol}')">
           <td class="px-3 py-2.5 font-bold ${passed?'text-[#6effc0]':'text-on-surface-variant'}">${r.rank||i+1}</td>
-          <td class="px-3 py-2.5"><div class="font-bold text-on-surface">${_stockLink(r.symbol)}</div>${_evBadge(r)}</td>
+          <td class="px-3 py-2.5"><div class="flex items-center gap-1.5"><div class="font-bold text-on-surface">${_stockLink(r.symbol)}</div>${_tierPill(r.symbol)}</div>${_evBadge(r)}</td>
           <td class="px-3 py-2.5 text-right text-on-surface ltp-cell" data-sym="${r.symbol}">₹${r.price||'--'}</td>
           <td class="px-3 py-2.5 text-right text-error font-mono">${r.stop_loss?'₹'+r.stop_loss:'--'}</td>
           <td class="px-3 py-2.5 text-right text-primary font-mono">${r.target?'₹'+r.target:'--'}</td>
