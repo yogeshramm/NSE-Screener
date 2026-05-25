@@ -7018,7 +7018,7 @@ function scApplyMarkers() {
       if (!n.pub) continue;
       try {
         const ts = Math.floor(new Date(n.pub).getTime() / 1000);
-        if (ts < tMin || ts > tMax + 86400) continue;
+        if (ts < tMin || ts > Math.floor(Date.now()/1000)) continue;
         const candle = _snapCandle(ts);
         if (!candle) continue;
         if (!newsGroups[candle.time]) newsGroups[candle.time] = [];
