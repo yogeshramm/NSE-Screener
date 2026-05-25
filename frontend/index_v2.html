@@ -5518,25 +5518,53 @@ function renderChart(data) {
   // Inject resize handles between panels
   setTimeout(()=>injectResizeHandles(), 150);
 
-  // Single wheel handler on the chart column — forwards horizontal scroll to the
-  // main chart when the cursor is over any indicator panel (RSI, MACD, sub-panels).
+  // Unified wheel handler on the chart column.
+  // • Over chart-container: handle BOTH horizontal pan AND vertical zoom (mouse wheel)
+  //   — must preventDefault so sc-chart-body (overflow-y-auto) doesn't steal the event.
+  // • Over indicator panels: forward horizontal scroll only to main chart.
   const _chartPanel = document.getElementById('chart-panel');
   if (_chartPanel && !_chartPanel._indWheelHandler) {
     _chartPanel._indWheelHandler = (e) => {
-      if (e.target.closest('#chart-container')) return;
       if (!currentChart) return;
-      // Only intercept horizontal scroll (trackpad swipe or Shift+wheel).
-      // Pure vertical scroll must reach the overflow-y-auto panel so the user
-      // can scroll down to see all indicator sub-panels.
+      const inChart = !!e.target.closest('#chart-container');
       const isHorizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey;
-      if (!isHorizontal) return;
-      e.preventDefault();
-      const ts = currentChart.timeScale();
-      const r = ts.getVisibleLogicalRange();
-      if (!r) return;
-      const dx = e.shiftKey ? e.deltaY : e.deltaX;
-      const shift = dx * 0.4;
-      ts.setVisibleLogicalRange({ from: r.from + shift, to: r.to + shift });
+
+      if (inChart) {
+        // Always prevent default so sc-chart-body doesn't scroll underneath
+        e.preventDefault();
+        const ts = currentChart.timeScale();
+        const r = ts.getVisibleLogicalRange();
+        if (!r) return;
+        const span = r.to - r.from;
+
+        if (isHorizontal) {
+          // Pan left/right
+          const dx = e.shiftKey ? e.deltaY : e.deltaX;
+          ts.setVisibleLogicalRange({ from: r.from + dx * 0.4, to: r.to + dx * 0.4 });
+        } else {
+          // Zoom in/out centered on the cursor's time position
+          const rect = e.target.closest('#chart-container').getBoundingClientRect();
+          const logical = ts.coordinateToLogical(e.clientX - rect.left);
+          const factor = e.deltaY > 0 ? 1.12 : 0.90; // down = zoom out, up = zoom in
+          const newSpan = span * factor;
+          if (logical !== null) {
+            const ratio = (logical - r.from) / span;
+            ts.setVisibleLogicalRange({ from: logical - ratio * newSpan, to: logical + (1 - ratio) * newSpan });
+          } else {
+            const mid = (r.from + r.to) / 2;
+            ts.setVisibleLogicalRange({ from: mid - newSpan / 2, to: mid + newSpan / 2 });
+          }
+        }
+      } else {
+        // Indicator panel — only intercept horizontal scroll, let vertical pass through
+        if (!isHorizontal) return;
+        e.preventDefault();
+        const ts = currentChart.timeScale();
+        const r = ts.getVisibleLogicalRange();
+        if (!r) return;
+        const dx = e.shiftKey ? e.deltaY : e.deltaX;
+        ts.setVisibleLogicalRange({ from: r.from + dx * 0.4, to: r.to + dx * 0.4 });
+      }
     };
     _chartPanel.addEventListener('wheel', _chartPanel._indWheelHandler, { passive: false });
   }
@@ -5639,11 +5667,9 @@ function renderRsiPanel(data, el) {
   const rsiLine=currentRsiChart.addLineSeries({color:'#a855f7',lineWidth:1.5,title:'RSI (14)'});
   rsiLine.setData(data.panels.rsi);
   if(data.panels.rsi.length){
-    const t0=data.candles[0].time, t1=data.candles[data.candles.length-1].time;
-    const r70=currentRsiChart.addLineSeries({color:'#ff475744',lineWidth:1,lineStyle:2});
-    const r30=currentRsiChart.addLineSeries({color:'#00e5a044',lineWidth:1,lineStyle:2});
-    r70.setData([{time:t0,value:70},{time:t1,value:70}]);
-    r30.setData([{time:t0,value:30},{time:t1,value:30}]);
+    // Use createPriceLine instead of series so they don't anchor the Y-axis (auto-scale works)
+    rsiLine.createPriceLine({price:70,color:'#ff475788',lineWidth:1,lineStyle:2,axisLabelVisible:false});
+    rsiLine.createPriceLine({price:30,color:'#00e5a088',lineWidth:1,lineStyle:2,axisLabelVisible:false});
   }
   syncSubPanelToMain(currentRsiChart);
   currentRsiChart._uniqueId='rsi'; window._chartSyncSeries['rsi']=rsiLine;
@@ -5875,7 +5901,8 @@ function addSubPanel(key) {
   let firstSeries = null;
   if(cfg.lines) cfg.lines.forEach(l=>{const d=chartData.panels[l.key];if(d?.length){const s=chart.addLineSeries({color:l.color,lineWidth:1.5,title:l.title});s.setData(d);if(!firstSeries)firstSeries=s;}});
   if(cfg.hist) {const d=chartData.panels[cfg.hist.key];if(d?.length){const s=chart.addHistogramSeries({title:cfg.hist.title});s.setData(d);if(!firstSeries)firstSeries=s;}}
-  if(cfg.levels&&cfg.lines) {const d=chartData.panels[cfg.lines[0].key];if(d?.length) cfg.levels.forEach(lv=>{const s=chart.addLineSeries({color:'#ffffff22',lineWidth:1,lineStyle:2});s.setData([{time:d[0].time,value:lv},{time:d[d.length-1].time,value:lv}]);});}
+  // Use createPriceLine for reference levels — decorative only, excluded from auto-scale
+  if(cfg.levels&&firstSeries) cfg.levels.forEach(lv=>{firstSeries.createPriceLine({price:lv,color:'#ffffff33',lineWidth:1,lineStyle:2,axisLabelVisible:false});});
   syncSubPanelToMain(chart);
   chart._uniqueId='sub_'+key; if(firstSeries) window._chartSyncSeries['sub_'+key]=firstSeries;
   subPanelCharts[key] = chart;
