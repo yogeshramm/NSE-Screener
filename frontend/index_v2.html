@@ -5519,44 +5519,21 @@ function renderChart(data) {
   setTimeout(()=>injectResizeHandles(), 150);
 
   // Unified wheel handler on the chart column.
-  // • Over chart-container: handle BOTH horizontal pan AND vertical zoom (mouse wheel)
-  //   — must preventDefault so sc-chart-body (overflow-y-auto) doesn't steal the event.
-  // • Over indicator panels: forward horizontal scroll only to main chart.
+  // • Over chart-container: preventDefault only — stops sc-chart-body (overflow-y-auto)
+  //   from stealing the scroll. lightweight-charts handles zoom/pan natively on its canvas.
+  // • Over indicator panels: forward horizontal scroll only to main chart's timeScale.
   const _chartPanel = document.getElementById('chart-panel');
   if (_chartPanel && !_chartPanel._indWheelHandler) {
     _chartPanel._indWheelHandler = (e) => {
       if (!currentChart) return;
       const inChart = !!e.target.closest('#chart-container');
-      const isHorizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey;
 
       if (inChart) {
-        // Always prevent default so sc-chart-body doesn't scroll underneath
+        // Just block the container from scrolling; LW-charts canvas handles the rest natively.
         e.preventDefault();
-        const ts = currentChart.timeScale();
-        const r = ts.getVisibleLogicalRange();
-        if (!r) return;
-        const span = r.to - r.from;
-
-        if (isHorizontal) {
-          // Pan left/right
-          const dx = e.shiftKey ? e.deltaY : e.deltaX;
-          ts.setVisibleLogicalRange({ from: r.from + dx * 0.4, to: r.to + dx * 0.4 });
-        } else {
-          // Zoom in/out centered on the cursor's time position
-          const rect = e.target.closest('#chart-container').getBoundingClientRect();
-          const logical = ts.coordinateToLogical(e.clientX - rect.left);
-          const factor = e.deltaY > 0 ? 1.12 : 0.90; // down = zoom out, up = zoom in
-          const newSpan = span * factor;
-          if (logical !== null) {
-            const ratio = (logical - r.from) / span;
-            ts.setVisibleLogicalRange({ from: logical - ratio * newSpan, to: logical + (1 - ratio) * newSpan });
-          } else {
-            const mid = (r.from + r.to) / 2;
-            ts.setVisibleLogicalRange({ from: mid - newSpan / 2, to: mid + newSpan / 2 });
-          }
-        }
       } else {
-        // Indicator panel — only intercept horizontal scroll, let vertical pass through
+        // Indicator panel — only intercept horizontal scroll and forward as pan to main chart.
+        const isHorizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey;
         if (!isHorizontal) return;
         e.preventDefault();
         const ts = currentChart.timeScale();
