@@ -100,22 +100,30 @@ def get_nse_stock_list(source: str = "bhavcopy") -> list[str]:
 # every API call that needed it — saturated 1-vCPU droplet with repeated
 # HTTP requests every ~80s in production. Now cached for 24h, refreshed
 # on first call after expiry.
-_nifty500_cache = {"data": None, "ts": 0.0}
-_NIFTY500_TTL = 86400  # 24 hours
+_NIFTY_TTL = 86400  # 24 hours — all index caches
+
+# Per-index caches: keyed by index name
+_nifty_cache: dict = {}   # { "nifty50": {"data": [...], "ts": 0.0}, ... }
+
+# NSE archives CSV URLs — Symbol is column index 2 (0-based)
+_NIFTY_URLS = {
+    "nifty50":  "https://archives.nseindia.com/content/indices/ind_nifty50list.csv",
+    "nifty100": "https://archives.nseindia.com/content/indices/ind_nifty100list.csv",
+    "nifty200": "https://archives.nseindia.com/content/indices/ind_nifty200list.csv",
+    "nifty500": "https://archives.nseindia.com/content/indices/ind_nifty500list.csv",
+}
+_NIFTY_MIN = {"nifty50": 40, "nifty100": 80, "nifty200": 150, "nifty500": 400}
 
 
-def get_nifty500_live():
-    """Fetch current Nifty 500 constituents from NSE archives.
-
-    Cached in-memory for 24 hours to avoid hammering NSE on every request.
-    Falls back to NIFTY_500_FALLBACK on any error.
-    """
+def _fetch_nifty_index(key: str) -> list:
+    """Generic fetcher for any NSE index CSV. Returns list of symbols."""
     import time
+    cache = _nifty_cache.setdefault(key, {"data": None, "ts": 0.0})
     now = time.time()
-    if _nifty500_cache["data"] and (now - _nifty500_cache["ts"]) < _NIFTY500_TTL:
-        return _nifty500_cache["data"]
+    if cache["data"] and (now - cache["ts"]) < _NIFTY_TTL:
+        return cache["data"]
 
-    url = "https://archives.nseindia.com/content/indices/ind_nifty500list.csv"
+    url = _NIFTY_URLS[key]
     try:
         r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
         if r.status_code == 200:
@@ -124,14 +132,32 @@ def get_nifty500_live():
             for line in lines[1:]:
                 parts = line.split(",")
                 if len(parts) >= 3:
-                    symbols.append(parts[2].strip().strip('"'))
-            if len(symbols) > 400:
-                print(f"  Fetched {len(symbols)} Nifty 500 symbols from NSE (cached 24h)")
-                _nifty500_cache["data"] = symbols
-                _nifty500_cache["ts"] = now
+                    sym = parts[2].strip().strip('"')
+                    if sym:
+                        symbols.append(sym)
+            if len(symbols) >= _NIFTY_MIN[key]:
+                print(f"  Fetched {len(symbols)} {key} symbols from NSE (cached 24h)")
+                cache["data"] = symbols
+                cache["ts"] = now
                 return symbols
     except Exception as e:
-        print(f"  Nifty 500 live fetch failed: {e}")
+        print(f"  {key} live fetch failed: {e}")
 
-    # Fallback to curated list (don't cache the fallback — let next call retry)
-    return list(NIFTY_500_FALLBACK)
+    return []   # caller falls back
+
+
+def get_nifty50_live() -> list:
+    return _fetch_nifty_index("nifty50") or list(NIFTY_500_FALLBACK[:50])
+
+def get_nifty100_live() -> list:
+    return _fetch_nifty_index("nifty100") or list(NIFTY_500_FALLBACK[:100])
+
+def get_nifty200_live() -> list:
+    return _fetch_nifty_index("nifty200") or list(NIFTY_500_FALLBACK[:120])
+
+def get_nifty500_live() -> list:
+    """Fetch current Nifty 500 constituents from NSE archives (24h cache)."""
+    return _fetch_nifty_index("nifty500") or list(NIFTY_500_FALLBACK)
+
+# Keep legacy alias
+_nifty500_cache = _nifty_cache.setdefault("nifty500", {"data": None, "ts": 0.0})

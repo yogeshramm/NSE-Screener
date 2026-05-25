@@ -124,7 +124,7 @@ def run_screen(request: ScreenRequest):
     # Determine which symbols to screen
     if request.scan_all or not request.symbols:
         from data.nse_history import get_history_stats, load_history
-        from data.nse_symbols import NIFTY_500_FALLBACK, get_nifty500_live
+        from data.nse_symbols import NIFTY_500_FALLBACK, get_nifty500_live, get_nifty50_live, get_nifty100_live, get_nifty200_live
         from setup_data import FUNDAMENTALS_DIR
 
         hist = get_history_stats()
@@ -140,11 +140,10 @@ def run_screen(request: ScreenRequest):
             nifty500_list = list(get_nifty500_live())
         except Exception:
             nifty500_list = list(NIFTY_500_FALLBACK)
-        # Nifty 50/100/200 — first N of the live Nifty 500 (index constituents
-        # are market-cap ordered). Falls back to slices of the fallback list.
-        nifty50_list  = nifty500_list[:50]  if len(nifty500_list) >= 50  else list(NIFTY_500_FALLBACK[:50])
-        nifty100_list = nifty500_list[:100] if len(nifty500_list) >= 100 else list(NIFTY_500_FALLBACK[:100])
-        nifty200_list = nifty500_list[:200] if len(nifty500_list) >= 200 else list(NIFTY_500_FALLBACK[:120])
+        # Fetch each index from its own NSE CSV (proper constituents, not slices).
+        nifty50_list  = list(get_nifty50_live())
+        nifty100_list = list(get_nifty100_live())
+        nifty200_list = list(get_nifty200_live())
 
         # Choose scope
         if request.scope == "nifty50":

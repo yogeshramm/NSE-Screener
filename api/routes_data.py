@@ -338,21 +338,20 @@ def search_symbols(q: str = ""):
 @router.get("/data/nifty-tiers")
 def nifty_tiers():
     """Return Nifty index tier for each symbol: N50, N100, N200, N500.
-    Based on position in the market-cap-ordered Nifty 500 list (same
-    slicing logic as the screener scope selector).
+    Uses each index's own NSE CSV so membership is accurate (not positional slicing).
     """
-    from data.nse_symbols import get_nifty500_live, NIFTY_500_FALLBACK
-    try:
-        n500 = list(get_nifty500_live())
-    except Exception:
-        n500 = list(NIFTY_500_FALLBACK)
+    from data.nse_symbols import get_nifty50_live, get_nifty100_live, get_nifty200_live, get_nifty500_live
+    n50  = set(get_nifty50_live())
+    n100 = set(get_nifty100_live())
+    n200 = set(get_nifty200_live())
+    n500 = set(get_nifty500_live())
     result = {}
-    for i, sym in enumerate(n500):
-        if i < 50:
+    for sym in n500:
+        if sym in n50:
             result[sym] = "N50"
-        elif i < 100:
+        elif sym in n100:
             result[sym] = "N100"
-        elif i < 200:
+        elif sym in n200:
             result[sym] = "N200"
         else:
             result[sym] = "N500"
