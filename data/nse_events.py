@@ -366,3 +366,84 @@ def fetch_nse_events(days_ahead: int = 14) -> List[Dict[str, Any]]:
 def events_for_symbol(symbol: str) -> List[Dict[str, Any]]:
     sym = symbol.upper()
     return [e for e in fetch_nse_events() if e.get("symbol", "").upper() == sym]
+
+
+# ── Historical dividends (per-symbol, NSE corporate actions) ─────────────────
+
+_DIV_CACHE: Dict[str, Any] = {}   # { sym: (fetched_at, list) }
+_DIV_TTL = 24 * 3600              # 24h — dividends change at most once a year
+
+
+def dividends_for_symbol(symbol: str, years: int = 5) -> List[Dict[str, Any]]:
+    """Return historical dividend ex-dates for a symbol via NSE corporate actions.
+
+    Result: [{date_ts: int, amount: float, label: str}] sorted oldest→newest.
+    Cached 24h in-process. On any NSE failure returns [].
+    """
+    sym = symbol.upper().strip()
+    cached = _DIV_CACHE.get(sym)
+    if cached and time.time() - cached[0] < _DIV_TTL:
+        return cached[1]
+
+    try:
+        from curl_cffi import requests as cf
+    except Exception:
+        return []
+
+    try:
+        s = cf.Session(impersonate="chrome131")
+        s.headers.update(_HEADERS)
+        try:
+            s.get("https://www.nseindia.com", timeout=6)
+        except Exception:
+            pass
+        try:
+            s.get("https://www.nseindia.com/companies-listing/corporate-filings-actions", timeout=8)
+        except Exception:
+            pass
+
+        today = datetime.utcnow()
+        from_d = (today - timedelta(days=years * 365)).strftime("%d-%m-%Y")
+        to_d = today.strftime("%d-%m-%Y")
+
+        r = s.get(
+            f"https://www.nseindia.com/api/corporates-corporateActions"
+            f"?index=equities&from_date={from_d}&to_date={to_d}&symbol={sym}",
+            timeout=12,
+        )
+        if not r.ok:
+            _DIV_CACHE[sym] = (time.time(), [])
+            return []
+
+        raw = r.json()
+        items = raw if isinstance(raw, list) else raw.get("data", [])
+        result: List[Dict[str, Any]] = []
+        for item in items or []:
+            subj = item.get("subject", "")
+            if "dividend" not in subj.lower():
+                continue
+            ex_date_str = item.get("exDate") or item.get("recDate", "")
+            if not ex_date_str or ex_date_str == "-":
+                continue
+            # Parse "18-Aug-2022" format
+            try:
+                dt = datetime.strptime(ex_date_str.strip(), "%d-%b-%Y")
+                ts = int(dt.timestamp())
+            except Exception:
+                continue
+            # Extract amount from subject e.g. "Dividend - Rs 8 Per Share"
+            amt = None
+            m = re.search(r'rs\.?\s*([\d.]+)', subj, re.I)
+            if m:
+                try:
+                    amt = float(m.group(1))
+                except Exception:
+                    pass
+            result.append({"date_ts": ts, "amount": amt, "label": subj})
+
+        result.sort(key=lambda x: x["date_ts"])
+        _DIV_CACHE[sym] = (time.time(), result)
+        return result
+
+    except Exception:
+        return []
