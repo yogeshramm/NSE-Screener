@@ -9932,7 +9932,7 @@ function renderWatchlist() {
     }
 
     return `<tr class="group hover:bg-surface-container-highest/30 transition-colors cursor-pointer ${triggered>0?'bg-primary/5':''}">
-      <td class="px-6 py-4"><div class="flex flex-col"><a href="#chart=${encodeURIComponent(item.symbol)}" onclick="event.preventDefault();viewWatchlistStock('${item.symbol.replace(/'/g,"\\'")}');" oncontextmenu="event.stopPropagation()" class="text-sm font-bold text-on-surface hover:text-primary cursor-pointer transition-colors">${item.symbol}</a><span class="text-[0.65rem] text-on-surface-variant/60">${item.added_date?new Date(item.added_date).toLocaleDateString():''}</span></div></td>
+      <td class="px-6 py-4"><div class="flex flex-col"><div class="flex items-center gap-1.5"><a href="#chart=${encodeURIComponent(item.symbol)}" onclick="event.preventDefault();viewWatchlistStock('${item.symbol.replace(/'/g,"\\'")}');" oncontextmenu="event.stopPropagation()" class="text-sm font-bold text-on-surface hover:text-primary cursor-pointer transition-colors">${item.symbol}</a>${_tierPill(item.symbol)}</div><span class="text-[0.65rem] text-on-surface-variant/60">${item.added_date?new Date(item.added_date).toLocaleDateString():''}</span></div></td>
       <td class="px-6 py-4 text-right"><span class="wl-price-cell" data-sym="${item.symbol}">${price}</span></td>
       <td class="px-6 py-4 text-center"><span class="wl-sparkline" data-sym="${item.symbol}"><svg width="60" height="20" viewBox="0 0 60 20"><line x1="0" y1="10" x2="60" y2="10" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="3"/></svg></span></td>
       <td class="px-6 py-4 text-right"><span class="text-xs font-bold ${scoreColor} tabular-nums">${score}</span></td>
