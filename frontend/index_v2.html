@@ -4489,7 +4489,13 @@ let _niftyTiers = {};  // { RELIANCE: 'N50', ... }
 (async () => {
   try {
     const r = await fetch(API + '/data/nifty-tiers');
-    if (r.ok) _niftyTiers = await r.json();
+    if (r.ok) {
+      _niftyTiers = await r.json();
+      // Re-render any already-loaded tab that uses tier pills so badges appear
+      // even if the tab data arrived before the tiers fetch resolved.
+      try { if (typeof renderWatchlist === 'function' && document.getElementById('wl-body')?.childElementCount > 0) renderWatchlist(); } catch(e) {}
+      try { if (typeof renderEvents === 'function' && typeof eventsData !== 'undefined' && eventsData.length > 0) renderEvents(); } catch(e) {}
+    }
   } catch(e) {}
 })();
 function _tierPill(sym) {
