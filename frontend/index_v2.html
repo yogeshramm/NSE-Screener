@@ -6253,7 +6253,7 @@ function renderEvents() {
           <div class="px-4 py-2.5 flex items-center gap-3 hover:bg-surface-container-highest/30 cursor-pointer" onclick="switchTab('screener'); setTimeout(()=>openChart('${e.symbol}'),100);">
             <span class="text-xl">${iconFor(e.event)}</span>
             <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2"><span class="font-bold text-on-surface text-sm">${e.symbol}</span><span class="text-[10px] text-on-surface-variant truncate">${e.company || ''}</span></div>
+              <div class="flex items-center gap-2"><span class="font-bold text-on-surface text-sm">${e.symbol}</span>${_tierPill(e.symbol)}<span class="text-[10px] text-on-surface-variant truncate">${e.company || ''}</span></div>
               <div class="text-[11px] ${colorFor(e.event)} font-bold">${e.event}</div>
             </div>
             <span class="material-symbols-outlined text-on-surface-variant hover:text-primary">bar_chart</span>
@@ -8323,7 +8323,7 @@ async function runBOScan() {
       const safeSym = h.symbol.replace(/'/g, "\\'");
       const encSym  = encodeURIComponent(h.symbol);
       return `<tr class="hover:bg-surface-container-highest/30 cursor-pointer" onclick="openBoChart('${safeSym}')">
-        <td class="px-4 py-2.5 font-bold text-on-surface"><a href="#stock=${encSym}" onclick="event.preventDefault();event.stopPropagation();openBoChart('${safeSym}');" class="hover:text-primary transition-colors">${h.symbol}</a></td>
+        <td class="px-4 py-2.5 font-bold text-on-surface"><div class="flex items-center gap-1.5"><a href="#stock=${encSym}" onclick="event.preventDefault();event.stopPropagation();openBoChart('${safeSym}');" class="hover:text-primary transition-colors">${h.symbol}</a>${_tierPill(h.symbol)}</div></td>
         <td class="px-4 py-2.5 text-right">\u20b9${h.close}</td>
         <td class="px-4 py-2.5 text-right font-bold ${scCol}">${sc}</td>
         ${modeCols.map(([k]) => `<td class="px-4 py-2.5 text-right">${fmt(h[k])}</td>`).join('')}
@@ -13405,7 +13405,7 @@ async function loadHome() {
         const safeSym = m.symbol.replace(/'/g, "\\'");
         return `<a href="#stock=${enc}" onclick="event.preventDefault();switchTab('screener');setTimeout(()=>openChart('${safeSym}'),100)" class="px-4 py-2.5 flex items-center justify-between hover:bg-surface-container-highest/30 cursor-pointer no-underline block">
           <div class="min-w-0">
-            <div class="text-xs font-black text-on-surface">${m.symbol}</div>
+            <div class="flex items-center gap-1.5"><span class="text-xs font-black text-on-surface">${m.symbol}</span>${_tierPill(m.symbol)}</div>
             <div class="text-[9px] text-on-surface-variant/60 truncate">${m.sector || ''}</div>
           </div>
           <div class="text-right flex-shrink-0 ml-3">
@@ -13432,7 +13432,7 @@ async function loadHome() {
             const safeSym = b.symbol.replace(/'/g, "\\'");
             return `<a href="#stock=${enc}" onclick="event.preventDefault();switchTab('screener');setTimeout(()=>openChart('${safeSym}'),100)" class="px-4 py-2.5 flex items-center justify-between hover:bg-surface-container-highest/30 cursor-pointer no-underline block">
               <div class="min-w-0">
-                <div class="text-xs font-black text-on-surface">${b.symbol}</div>
+                <div class="flex items-center gap-1.5"><span class="text-xs font-black text-on-surface">${b.symbol}</span>${_tierPill(b.symbol)}</div>
                 <div class="text-[9px] text-on-surface-variant/60 truncate">${b.sector || ''}</div>
               </div>
               <div class="text-right flex-shrink-0 ml-3">
