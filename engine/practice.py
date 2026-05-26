@@ -609,10 +609,9 @@ def _build_briefing(symbol, df, start_idx):
         else:
             vol_pct = None
 
-        # Sector from static map; market cap + company name from fundamentals
+        # Sector from static map; market cap from fundamentals
         sector = None
         market_cap = None
-        short_name = symbol
         try:
             from data.sector_map import get_sector as _gs
             s = _gs(symbol)
@@ -630,13 +629,11 @@ def _build_briefing(symbol, df, start_idx):
                     if not sector:
                         sector = fa.get("sector") or fa.get("industry")
                     market_cap = fa.get("market_cap") or fa.get("mcap")
-                    short_name = fa.get("short_name") or fa.get("name") or symbol
         except Exception:
             pass
 
         return {
             "symbol": symbol,
-            "short_name": short_name,
             "last_close": round(last_close, 2),
             "w52_high": round(w52_high, 2),
             "w52_low": round(w52_low, 2),

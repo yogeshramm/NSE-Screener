@@ -4461,12 +4461,10 @@ function updateOhlcOverlay(candle) {
     const pctCol = b.pct_from_high >= -5 ? 'var(--candle-up)' : 'var(--candle-down)';
     w52Txt = `<div class="flex gap-3"><span style="color:var(--on-surface-variant)">52W</span><span style="color:var(--on-surface)">H ${b.w52_high} <span style="color:${pctCol}">${b.pct_from_high}%</span></span><span style="color:var(--on-surface)">L ${b.w52_low} <span style="color:var(--on-surface-variant)">+${b.pct_from_low}%</span></span></div>`;
   }
-  // Company name — shown left of OHLC on same line (TradingView style), truncated to 22 chars
-  let namePrefix = '';
-  if (b && b.short_name && b.short_name !== currentChartSymbol) {
-    const n = b.short_name.length > 22 ? b.short_name.slice(0, 21) + '…' : b.short_name;
-    namePrefix = `<span style="color:var(--on-surface-variant);opacity:0.55;font-size:9px;letter-spacing:0.02em;padding-right:6px;border-right:1px solid rgba(148,163,184,0.2);margin-right:0">${n}</span>`;
-  }
+  // Ticker shown left of OHLC on same line (TradingView style)
+  const namePrefix = currentChartSymbol
+    ? `<span style="color:var(--on-surface-variant);opacity:0.55;font-size:9px;letter-spacing:0.04em;padding-right:6px;border-right:1px solid rgba(148,163,184,0.2);margin-right:0">${currentChartSymbol}</span>`
+    : '';
   el.innerHTML=`<div class="flex flex-col gap-0.5"><div class="flex items-baseline gap-3">${namePrefix}<span style="color:var(--on-surface-variant)">O</span><span style="color:${color}">${candle.open.toFixed(2)}</span><span style="color:var(--on-surface-variant)">H</span><span style="color:${color}">${candle.high.toFixed(2)}</span><span style="color:var(--on-surface-variant)">L</span><span style="color:${color}">${candle.low.toFixed(2)}</span><span style="color:var(--on-surface-variant)">C</span><span style="color:${color}">${candle.close.toFixed(2)}</span>${volTxt}</div>${w52Txt}</div>`;
 }
 
