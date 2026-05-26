@@ -5111,7 +5111,7 @@ function fpSelectSymbol(sym) {
   if (inp) { inp.value = ''; inp.placeholder = sym; }
   // Update URL hash so back/forward works, then reload chart
   history.replaceState(null, '', '#chart=' + encodeURIComponent(sym));
-  openStockChart(sym);
+  openChart(sym);
 }
 // Close fullpage search dropdown on outside click
 document.addEventListener('click', e => {
