@@ -4463,7 +4463,7 @@ function updateOhlcOverlay(candle) {
   }
   // Ticker shown left of OHLC on same line (TradingView style)
   const namePrefix = currentChartSymbol
-    ? `<span style="color:var(--on-surface-variant);opacity:0.55;font-size:9px;letter-spacing:0.04em;padding-right:6px;border-right:1px solid rgba(148,163,184,0.2);margin-right:0">${currentChartSymbol}</span>`
+    ? `<span style="color:var(--primary);font-size:9px;font-weight:700;letter-spacing:0.04em;padding-right:6px;border-right:1px solid rgba(148,163,184,0.2);margin-right:0">${currentChartSymbol}</span>`
     : '';
   el.innerHTML=`<div class="flex flex-col gap-0.5"><div class="flex items-baseline gap-3">${namePrefix}<span style="color:var(--on-surface-variant)">O</span><span style="color:${color}">${candle.open.toFixed(2)}</span><span style="color:var(--on-surface-variant)">H</span><span style="color:${color}">${candle.high.toFixed(2)}</span><span style="color:var(--on-surface-variant)">L</span><span style="color:${color}">${candle.low.toFixed(2)}</span><span style="color:var(--on-surface-variant)">C</span><span style="color:${color}">${candle.close.toFixed(2)}</span>${volTxt}</div>${w52Txt}</div>`;
 }
