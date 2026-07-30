@@ -5736,18 +5736,22 @@ function syncSubPanelToMain(subChart) {
   }, 50);
 }
 
-// Add hidden baseline series with candle timestamps so bar count matches main chart
+// Add hidden baseline series with all candle timestamps — ensures bar count matches main
+// chart so logical-range sync aligns correctly. Also used as the sync series for
+// setCrosshairPosition so the crosshair can land on ANY candle timestamp, not just
+// bars where the indicator series has a value (indicator series skip warm-up bars).
 function addTimeBaseline(chart) {
-  if(!chartData?.candles?.length) return;
+  if(!chartData?.candles?.length) return null;
   const bl=chart.addLineSeries({visible:false,priceScaleId:'baseline_hidden'});
   bl.setData(chartData.candles.map(c=>({time:c.time,value:0})));
+  return bl;
 }
 
 
 function renderRsiPanel(data, el) {
   el.innerHTML='';
   currentRsiChart=LightweightCharts.createChart(el,{width:el.clientWidth,height:80,layout:{background:{color:getChartColors().bg},textColor:getChartColors().text,fontSize:9},grid:{vertLines:{color:getChartColors().grid},horzLines:{color:getChartColors().grid}},timeScale:{visible:false},rightPriceScale:{borderColor:getChartColors().border,minimumWidth:65},crosshair:{mode:0},handleScroll:false,handleScale:false});
-  addTimeBaseline(currentRsiChart);
+  const rsiBl=addTimeBaseline(currentRsiChart);
   const rsiLine=currentRsiChart.addLineSeries({color:'#a855f7',lineWidth:1.5,title:'RSI (14)'});
   rsiLine.setData(data.panels.rsi);
   if(data.panels.rsi.length){
@@ -5756,7 +5760,7 @@ function renderRsiPanel(data, el) {
     rsiLine.createPriceLine({price:30,color:'#00e5a088',lineWidth:1,lineStyle:2,axisLabelVisible:false});
   }
   syncSubPanelToMain(currentRsiChart);
-  currentRsiChart._uniqueId='rsi'; window._chartSyncSeries['rsi']=rsiLine;
+  currentRsiChart._uniqueId='rsi'; window._chartSyncSeries['rsi']=rsiBl||rsiLine;
   const _rsiCh = currentRsiChart;
   _rsiCh.subscribeCrosshairMove(param => _pushXhair(_rsiCh, param));
 }
@@ -5765,7 +5769,7 @@ function renderMacdPanel(data, el) {
   if(!data.panels.macd) return;
   el.innerHTML='';
   currentMacdChart=LightweightCharts.createChart(el,{width:el.clientWidth,height:80,layout:{background:{color:getChartColors().bg},textColor:getChartColors().text,fontSize:9},grid:{vertLines:{color:getChartColors().grid},horzLines:{color:getChartColors().grid}},timeScale:{visible:false},rightPriceScale:{borderColor:getChartColors().border,minimumWidth:65},crosshair:{mode:0},handleScroll:false,handleScale:false});
-  addTimeBaseline(currentMacdChart);
+  const macdBl=addTimeBaseline(currentMacdChart);
   const macdLine=currentMacdChart.addLineSeries({color:'#f97316',lineWidth:1.5,title:'MACD'});
   macdLine.setData(data.panels.macd);
   const sigLine=currentMacdChart.addLineSeries({color:'#06b6d4',lineWidth:1,title:'Signal'});
@@ -5773,7 +5777,7 @@ function renderMacdPanel(data, el) {
   const hist=currentMacdChart.addHistogramSeries({title:'Histogram'});
   hist.setData(data.panels.macd_hist);
   syncSubPanelToMain(currentMacdChart);
-  currentMacdChart._uniqueId='macd'; window._chartSyncSeries['macd']=macdLine;
+  currentMacdChart._uniqueId='macd'; window._chartSyncSeries['macd']=macdBl||macdLine;
   const _macdCh = currentMacdChart;
   _macdCh.subscribeCrosshairMove(param => _pushXhair(_macdCh, param));
 }
@@ -5981,14 +5985,14 @@ function addSubPanel(key) {
   div.style.height = '80px';
   container.appendChild(div);
   const chart = LightweightCharts.createChart(div, {width:div.clientWidth,height:80,layout:{background:{color:getChartColors().bg},textColor:getChartColors().text,fontSize:9},grid:{vertLines:{color:getChartColors().grid},horzLines:{color:getChartColors().grid}},timeScale:{visible:false},rightPriceScale:{borderColor:getChartColors().border,minimumWidth:65},crosshair:{mode:0},handleScroll:false,handleScale:false});
-  addTimeBaseline(chart);
+  const subBl=addTimeBaseline(chart);
   let firstSeries = null;
   if(cfg.lines) cfg.lines.forEach(l=>{const d=chartData.panels[l.key];if(d?.length){const s=chart.addLineSeries({color:l.color,lineWidth:1.5,title:l.title});s.setData(d);if(!firstSeries)firstSeries=s;}});
   if(cfg.hist) {const d=chartData.panels[cfg.hist.key];if(d?.length){const s=chart.addHistogramSeries({title:cfg.hist.title});s.setData(d);if(!firstSeries)firstSeries=s;}}
   // Use createPriceLine for reference levels — decorative only, excluded from auto-scale
   if(cfg.levels&&firstSeries) cfg.levels.forEach(lv=>{firstSeries.createPriceLine({price:lv,color:'#ffffff33',lineWidth:1,lineStyle:2,axisLabelVisible:false});});
   syncSubPanelToMain(chart);
-  chart._uniqueId='sub_'+key; if(firstSeries) window._chartSyncSeries['sub_'+key]=firstSeries;
+  chart._uniqueId='sub_'+key; window._chartSyncSeries['sub_'+key]=subBl||firstSeries;
   subPanelCharts[key] = chart;
   // Crosshair sync: broadcast from this panel to main chart + all other panels
   chart.subscribeCrosshairMove(param => _pushXhair(chart, param));
