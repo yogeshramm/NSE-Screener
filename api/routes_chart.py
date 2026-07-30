@@ -231,10 +231,13 @@ def get_chart_data(symbol: str, days: int = 200, interval: str = "1D", sparkline
     display_bars = days if interval == "1D" else (days // 7 if interval == "1W" else days // 30)
     display_bars = max(display_bars, 5)
 
-    # OHLCV candles
+    import math as _math
+    # OHLCV candles — skip rows with NaN OHLC (bad history rows / resample gaps)
     candles = []
     for idx, row in df.iterrows():
         t = int(idx.timestamp()) if hasattr(idx, 'timestamp') else 0
+        if any(_math.isnan(float(row[c])) for c in ("Open", "High", "Low", "Close")):
+            continue
         candles.append({
             "time": t,
             "open": round(row["Open"], 2),
@@ -247,8 +250,9 @@ def get_chart_data(symbol: str, days: int = 200, interval: str = "1D", sparkline
     volumes = []
     for idx, row in df.iterrows():
         t = int(idx.timestamp()) if hasattr(idx, 'timestamp') else 0
+        vol = row["Volume"]
         color = "#00d4aa" if row["Close"] >= row["Open"] else "#ff4757"
-        volumes.append({"time": t, "value": int(row["Volume"]), "color": color})
+        volumes.append({"time": t, "value": 0 if _math.isnan(float(vol)) else int(vol), "color": color})
 
     # EMA 50 & 200
     ema50 = df["Close"].ewm(span=50, adjust=False).mean()
