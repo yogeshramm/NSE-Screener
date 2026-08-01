@@ -5742,15 +5742,23 @@ function renderBreakoutPills(data) {
   el.classList.remove('hidden');
 }
 
-// Sync a sub-panel's logical range to the main chart (pixel-perfect)
-function syncSubPanelToMain(subChart) {
+// Sync a sub-panel's logical range to the main chart (pixel-perfect).
+// `el` is the panel's container: a panel toggled on mid-session is created while its
+// container is still display:none, so it gets built from a stale/zero clientWidth. The
+// logical range then resolves against the wrong plot width and the panel settles a few
+// px off the main chart. Match the live width before applying the range, and re-assert
+// once more after layout has settled.
+function syncSubPanelToMain(subChart, el) {
   if(!currentChart || !subChart) return;
-  setTimeout(()=>{
+  const apply = () => {
     try {
+      if(el && el.clientWidth) subChart.applyOptions({width: el.clientWidth});
       const lr = currentChart.timeScale().getVisibleLogicalRange();
       if(lr) subChart.timeScale().setVisibleLogicalRange(lr);
     } catch(e){}
-  }, 50);
+  };
+  setTimeout(apply, 50);
+  setTimeout(apply, 250);
 }
 
 // Add hidden baseline series with all candle timestamps — ensures bar count matches main
@@ -5776,7 +5784,7 @@ function renderRsiPanel(data, el) {
     rsiLine.createPriceLine({price:70,color:'#ff475788',lineWidth:1,lineStyle:2,axisLabelVisible:false});
     rsiLine.createPriceLine({price:30,color:'#00e5a088',lineWidth:1,lineStyle:2,axisLabelVisible:false});
   }
-  syncSubPanelToMain(currentRsiChart);
+  syncSubPanelToMain(currentRsiChart, el);
   currentRsiChart._uniqueId='rsi'; window._chartSyncSeries['rsi']=rsiBl||rsiLine;
   const _rsiCh = currentRsiChart;
   _rsiCh.subscribeCrosshairMove(param => _pushXhair(_rsiCh, param));
@@ -5793,7 +5801,7 @@ function renderMacdPanel(data, el) {
   sigLine.setData(data.panels.macd_signal);
   const hist=currentMacdChart.addHistogramSeries({title:'Histogram'});
   hist.setData(data.panels.macd_hist);
-  syncSubPanelToMain(currentMacdChart);
+  syncSubPanelToMain(currentMacdChart, el);
   currentMacdChart._uniqueId='macd'; window._chartSyncSeries['macd']=macdBl||macdLine;
   const _macdCh = currentMacdChart;
   _macdCh.subscribeCrosshairMove(param => _pushXhair(_macdCh, param));
@@ -6008,7 +6016,7 @@ function addSubPanel(key) {
   if(cfg.hist) {const d=chartData.panels[cfg.hist.key];if(d?.length){const s=chart.addHistogramSeries({title:cfg.hist.title});s.setData(d);if(!firstSeries)firstSeries=s;}}
   // Use createPriceLine for reference levels — decorative only, excluded from auto-scale
   if(cfg.levels&&firstSeries) cfg.levels.forEach(lv=>{firstSeries.createPriceLine({price:lv,color:'#ffffff33',lineWidth:1,lineStyle:2,axisLabelVisible:false});});
-  syncSubPanelToMain(chart);
+  syncSubPanelToMain(chart, div);
   chart._uniqueId='sub_'+key; window._chartSyncSeries['sub_'+key]=subBl||firstSeries;
   subPanelCharts[key] = chart;
   // Crosshair sync: broadcast from this panel to main chart + all other panels
