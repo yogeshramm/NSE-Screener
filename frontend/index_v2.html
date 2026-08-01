@@ -5355,6 +5355,23 @@ let subPanelCharts = {}; // { key: chart instance }
 
 function renderChart(data) {
   stopLiveChart();   // clear any running live-candle timer before rebuilding
+  // lightweight-charts merges the time index across every series on a chart, so any
+  // overlay/panel point whose timestamp isn't a candle timestamp adds a phantom bar.
+  // That shifts the bar-index space the sub-panels sync against (setVisibleLogicalRange
+  // + setCrosshairPosition are both index-based) and desynchronises every panel.
+  // Backend guarantees this too — this is the invariant the whole sync design rests on.
+  if (data?.candles?.length) {
+    const _ct = new Set(data.candles.map(c => c.time));
+    for (const bag of [data.overlays, data.panels]) {
+      if (!bag) continue;
+      for (const k in bag) {
+        const arr = bag[k];
+        if (!Array.isArray(arr)) continue;   // pivot_pp etc. are plain numbers
+        const clean = arr.filter(p => p && _ct.has(p.time));
+        if (clean.length !== arr.length) bag[k] = clean;
+      }
+    }
+  }
   chartData = data;
   chartOverlays = {};
   // Adapt overlay titles for intraday (backend reuses daily slots for EMA 9/21/50)

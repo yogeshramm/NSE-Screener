@@ -210,6 +210,9 @@ def get_chart_data(symbol: str, days: int = 200, interval: str = "1D", sparkline
     df = df_full.copy()
     # Remove duplicate indices (can happen from data downloads) — lightweight-charts requires unique timestamps
     df = df[~df.index.duplicated(keep='last')]
+    # NaN volume rows poison every rolling volume sum (VWAP especially), producing
+    # NaN holes that later shift the series' displayed time window. Fill once here.
+    df["Volume"] = df["Volume"].fillna(0)
 
     # Resample to weekly or monthly if requested
     if interval == "1W":
@@ -232,8 +235,11 @@ def get_chart_data(symbol: str, days: int = 200, interval: str = "1D", sparkline
     display_bars = max(display_bars, 5)
 
     import math as _math
-    # OHLCV candles — skip rows with NaN OHLC (bad history rows / resample gaps)
+    # OHLCV candles + volume — built in one pass so both carry exactly the same
+    # timestamps. Rows with NaN OHLC (bad history rows / resample gaps) are skipped
+    # from both; a volume bar at a timestamp with no candle would add a phantom bar.
     candles = []
+    volumes = []
     for idx, row in df.iterrows():
         t = int(idx.timestamp()) if hasattr(idx, 'timestamp') else 0
         if any(_math.isnan(float(row[c])) for c in ("Open", "High", "Low", "Close")):
@@ -245,14 +251,10 @@ def get_chart_data(symbol: str, days: int = 200, interval: str = "1D", sparkline
             "low": round(row["Low"], 2),
             "close": round(row["Close"], 2),
         })
-
-    # Volume
-    volumes = []
-    for idx, row in df.iterrows():
-        t = int(idx.timestamp()) if hasattr(idx, 'timestamp') else 0
-        vol = row["Volume"]
-        color = "#00d4aa" if row["Close"] >= row["Open"] else "#ff4757"
-        volumes.append({"time": t, "value": 0 if _math.isnan(float(vol)) else int(vol), "color": color})
+        vol = float(row["Volume"])
+        volumes.append({"time": t,
+                        "value": 0 if _math.isnan(vol) else int(vol),
+                        "color": "#00d4aa" if row["Close"] >= row["Open"] else "#ff4757"})
 
     # EMA 50 & 200
     ema50 = df["Close"].ewm(span=50, adjust=False).mean()
@@ -457,9 +459,24 @@ def get_chart_data(symbol: str, days: int = 200, interval: str = "1D", sparkline
     vortex_minus_data = [{"time": int(idx.timestamp()), "value": round(v, 4)}
                          for idx, v in vi_minus.items() if not pd.isna(v)]
 
-    # Trim all arrays to display range (computed on full data, show last N)
+    # Trim all arrays to the display range (computed on full data, show last N).
+    #
+    # The window is defined by the CANDLES and every other array is clamped to that
+    # exact time span — never by taking each array's own last N points. Indicator
+    # arrays are NaN-filtered, so "last N valid points" reaches further back in time
+    # than N candles whenever the indicator has holes (VWAP does, on rows with no
+    # volume). lightweight-charts merges the time index across all series on a chart,
+    # so a single point outside the candle range adds a phantom bar and shifts the
+    # bar-index space that every sub-panel syncs against via setVisibleLogicalRange —
+    # which desynchronises the crosshair and pan/zoom across all panels.
+    _disp = candles[-display_bars:] if len(candles) > display_bars else candles
+    _t_lo = _disp[0]["time"] if _disp else 0
+    _t_hi = _disp[-1]["time"] if _disp else 0
+
     def trim(arr):
-        return arr[-display_bars:] if isinstance(arr, list) and len(arr) > display_bars else arr
+        if not isinstance(arr, list):
+            return arr
+        return [p for p in arr if _t_lo <= p["time"] <= _t_hi]
 
     result = {
         "symbol": symbol,
