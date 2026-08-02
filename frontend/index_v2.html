@@ -5742,6 +5742,24 @@ function renderBreakoutPills(data) {
   el.classList.remove('hidden');
 }
 
+// Width a panel must be CREATED at so its plot lines up with the main chart.
+//
+// LightweightCharts fixes a chart's price-axis width when the chart is built and does not
+// recompute it on resize — applyOptions({width}) afterwards is absorbed by the axis and
+// leaves the plot area unchanged (measured: axis 66->70, plot stuck at 956). So the width
+// has to be right at construction time. The containers are not a reliable source: the main
+// chart is laid out at 1026 while every container reports clientWidth 1023, so a panel
+// built from its container ends up a 4px-narrower plot. Bars are anchored to the right
+// edge, so that shifts every bar 4px left of the main chart — a constant crosshair offset.
+// Derive the width from the main chart itself: its plot area plus its price axis.
+function panelWidthFromMain() {
+  try {
+    const plot = currentChart.timeScale().width();          // main plot area
+    const axis = currentChart.priceScale('right').width();  // main right axis
+    return plot > 0 ? plot + axis : 0;
+  } catch(e) { return 0; }
+}
+
 // Sync a sub-panel's logical range to the main chart (pixel-perfect)
 function syncSubPanelToMain(subChart) {
   if(!currentChart || !subChart) return;
@@ -5767,7 +5785,7 @@ function addTimeBaseline(chart) {
 
 function renderRsiPanel(data, el) {
   el.innerHTML='';
-  currentRsiChart=LightweightCharts.createChart(el,{width:el.clientWidth,height:80,layout:{background:{color:getChartColors().bg},textColor:getChartColors().text,fontSize:9},grid:{vertLines:{color:getChartColors().grid},horzLines:{color:getChartColors().grid}},timeScale:{visible:false},rightPriceScale:{borderColor:getChartColors().border,minimumWidth:65},crosshair:{mode:0},handleScroll:false,handleScale:false});
+  currentRsiChart=LightweightCharts.createChart(el,{width:panelWidthFromMain()||el.clientWidth,height:80,layout:{background:{color:getChartColors().bg},textColor:getChartColors().text,fontSize:9},grid:{vertLines:{color:getChartColors().grid},horzLines:{color:getChartColors().grid}},timeScale:{visible:false},rightPriceScale:{borderColor:getChartColors().border,minimumWidth:65},crosshair:{mode:0},handleScroll:false,handleScale:false});
   const rsiBl=addTimeBaseline(currentRsiChart);
   const rsiLine=currentRsiChart.addLineSeries({color:'#a855f7',lineWidth:1.5,title:'RSI (14)'});
   rsiLine.setData(data.panels.rsi);
@@ -5785,7 +5803,7 @@ function renderRsiPanel(data, el) {
 function renderMacdPanel(data, el) {
   if(!data.panels.macd) return;
   el.innerHTML='';
-  currentMacdChart=LightweightCharts.createChart(el,{width:el.clientWidth,height:80,layout:{background:{color:getChartColors().bg},textColor:getChartColors().text,fontSize:9},grid:{vertLines:{color:getChartColors().grid},horzLines:{color:getChartColors().grid}},timeScale:{visible:false},rightPriceScale:{borderColor:getChartColors().border,minimumWidth:65},crosshair:{mode:0},handleScroll:false,handleScale:false});
+  currentMacdChart=LightweightCharts.createChart(el,{width:panelWidthFromMain()||el.clientWidth,height:80,layout:{background:{color:getChartColors().bg},textColor:getChartColors().text,fontSize:9},grid:{vertLines:{color:getChartColors().grid},horzLines:{color:getChartColors().grid}},timeScale:{visible:false},rightPriceScale:{borderColor:getChartColors().border,minimumWidth:65},crosshair:{mode:0},handleScroll:false,handleScale:false});
   const macdBl=addTimeBaseline(currentMacdChart);
   const macdLine=currentMacdChart.addLineSeries({color:'#f97316',lineWidth:1.5,title:'MACD'});
   macdLine.setData(data.panels.macd);
@@ -6002,7 +6020,7 @@ function addSubPanel(key) {
   div.className = 'bg-surface-container rounded-lg border border-outline-variant/10';
   div.style.height = '80px';
   container.appendChild(div);
-  const chart = LightweightCharts.createChart(div, {width:div.clientWidth,height:80,layout:{background:{color:getChartColors().bg},textColor:getChartColors().text,fontSize:9},grid:{vertLines:{color:getChartColors().grid},horzLines:{color:getChartColors().grid}},timeScale:{visible:false},rightPriceScale:{borderColor:getChartColors().border,minimumWidth:65},crosshair:{mode:0},handleScroll:false,handleScale:false});
+  const chart = LightweightCharts.createChart(div, {width:panelWidthFromMain()||div.clientWidth,height:80,layout:{background:{color:getChartColors().bg},textColor:getChartColors().text,fontSize:9},grid:{vertLines:{color:getChartColors().grid},horzLines:{color:getChartColors().grid}},timeScale:{visible:false},rightPriceScale:{borderColor:getChartColors().border,minimumWidth:65},crosshair:{mode:0},handleScroll:false,handleScale:false});
   const subBl=addTimeBaseline(chart);
   let firstSeries = null;
   if(cfg.lines) cfg.lines.forEach(l=>{const d=chartData.panels[l.key];if(d?.length){const s=chart.addLineSeries({color:l.color,lineWidth:1.5,title:l.title});s.setData(d);if(!firstSeries)firstSeries=s;}});
