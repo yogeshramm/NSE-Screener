@@ -5594,7 +5594,9 @@ function renderChart(data) {
 
   new ResizeObserver(()=>{
     if(currentChart)currentChart.applyOptions({width:chartEl.clientWidth,height:chartEl.clientHeight});
-    syncPanelWidths();   // panels follow the MAIN chart's width, never their own container
+    if(currentRsiChart)currentRsiChart.applyOptions({width:rsiEl.clientWidth});
+    if(currentMacdChart)currentMacdChart.applyOptions({width:macdEl.clientWidth});
+    if(currentVolChart)currentVolChart.applyOptions({width:volEl.clientWidth});
   }).observe(chartEl);
 
   // Restore saved drawings for this symbol (after all series are ready)
@@ -5740,43 +5742,15 @@ function renderBreakoutPills(data) {
   el.classList.remove('hidden');
 }
 
-// The main chart and every panel MUST end up with the same plot width. Bars are anchored
-// to the right edge, so a plot even a few px narrower shifts every bar left relative to
-// the main chart — a constant crosshair offset across the whole panel. Each container's
-// clientWidth is not a safe common source: the main chart routinely ends up laid out at a
-// different width than the containers report (measured 1026 vs 1023), so panels sized from
-// their own container drift. Derive one width from the main chart and use it everywhere.
-function panelWidthFromMain() {
-  try {
-    const ts = currentChart.timeScale().width();          // plot area
-    const ps = currentChart.priceScale('right').width();  // right axis
-    return ts > 0 ? ts + ps : 0;
-  } catch(e) { return 0; }
-}
-
-function syncPanelWidths() {
-  const w = panelWidthFromMain();
-  if (!(w > 0)) return;
-  const set = c => { if (c) { try { c.applyOptions({width: w}); } catch(e){} } };
-  set(currentRsiChart); set(currentMacdChart); set(currentVolChart);
-  for (const k in subPanelCharts) set(subPanelCharts[k]);
-}
-
-// Sync a sub-panel's width + logical range to the main chart (pixel-perfect).
-// Re-asserted once after layout settles: a panel toggled on mid-session is created while
-// its container is still display:none, so its first measurement can be stale or zero.
-function syncSubPanelToMain(subChart, el) {
+// Sync a sub-panel's logical range to the main chart (pixel-perfect)
+function syncSubPanelToMain(subChart) {
   if(!currentChart || !subChart) return;
-  const apply = () => {
+  setTimeout(()=>{
     try {
-      const w = panelWidthFromMain() || (el && el.clientWidth) || 0;
-      if(w > 0) subChart.applyOptions({width: w});
       const lr = currentChart.timeScale().getVisibleLogicalRange();
       if(lr) subChart.timeScale().setVisibleLogicalRange(lr);
     } catch(e){}
-  };
-  setTimeout(apply, 50);
-  setTimeout(apply, 250);
+  }, 50);
 }
 
 // Add hidden baseline series with all candle timestamps — ensures bar count matches main
@@ -5802,7 +5776,7 @@ function renderRsiPanel(data, el) {
     rsiLine.createPriceLine({price:70,color:'#ff475788',lineWidth:1,lineStyle:2,axisLabelVisible:false});
     rsiLine.createPriceLine({price:30,color:'#00e5a088',lineWidth:1,lineStyle:2,axisLabelVisible:false});
   }
-  syncSubPanelToMain(currentRsiChart, el);
+  syncSubPanelToMain(currentRsiChart);
   currentRsiChart._uniqueId='rsi'; window._chartSyncSeries['rsi']=rsiBl||rsiLine;
   const _rsiCh = currentRsiChart;
   _rsiCh.subscribeCrosshairMove(param => _pushXhair(_rsiCh, param));
@@ -5819,7 +5793,7 @@ function renderMacdPanel(data, el) {
   sigLine.setData(data.panels.macd_signal);
   const hist=currentMacdChart.addHistogramSeries({title:'Histogram'});
   hist.setData(data.panels.macd_hist);
-  syncSubPanelToMain(currentMacdChart, el);
+  syncSubPanelToMain(currentMacdChart);
   currentMacdChart._uniqueId='macd'; window._chartSyncSeries['macd']=macdBl||macdLine;
   const _macdCh = currentMacdChart;
   _macdCh.subscribeCrosshairMove(param => _pushXhair(_macdCh, param));
@@ -6034,12 +6008,12 @@ function addSubPanel(key) {
   if(cfg.hist) {const d=chartData.panels[cfg.hist.key];if(d?.length){const s=chart.addHistogramSeries({title:cfg.hist.title});s.setData(d);if(!firstSeries)firstSeries=s;}}
   // Use createPriceLine for reference levels — decorative only, excluded from auto-scale
   if(cfg.levels&&firstSeries) cfg.levels.forEach(lv=>{firstSeries.createPriceLine({price:lv,color:'#ffffff33',lineWidth:1,lineStyle:2,axisLabelVisible:false});});
-  syncSubPanelToMain(chart, div);
+  syncSubPanelToMain(chart);
   chart._uniqueId='sub_'+key; window._chartSyncSeries['sub_'+key]=subBl||firstSeries;
   subPanelCharts[key] = chart;
   // Crosshair sync: broadcast from this panel to main chart + all other panels
   chart.subscribeCrosshairMove(param => _pushXhair(chart, param));
-  new ResizeObserver(()=>{if(subPanelCharts[key])subPanelCharts[key].applyOptions({width:panelWidthFromMain()||div.clientWidth});}).observe(div);
+  new ResizeObserver(()=>{if(subPanelCharts[key])subPanelCharts[key].applyOptions({width:div.clientWidth});}).observe(div);
 }
 
 function removeSubPanel(key) {
@@ -7447,7 +7421,9 @@ function _fsResizeCharts() {
   if (!chartEl) return;
   const w = chartEl.clientWidth, h = chartEl.clientHeight;
   if (currentChart && w > 0 && h > 0) currentChart.applyOptions({ width: w, height: h });
-  syncPanelWidths();   // panels follow the MAIN chart's width, never their own container
+  if (currentRsiChart) { const e = document.getElementById('rsi-container'); if(e) currentRsiChart.applyOptions({ width: e.clientWidth }); }
+  if (currentMacdChart) { const e = document.getElementById('macd-container'); if(e) currentMacdChart.applyOptions({ width: e.clientWidth }); }
+  if (currentVolChart) { const e = document.getElementById('vol-container'); if(e) currentVolChart.applyOptions({ width: e.clientWidth }); }
 }
 
 function switchFsTab(tab) {
