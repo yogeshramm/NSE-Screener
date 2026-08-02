@@ -5878,19 +5878,28 @@ function _attachResizeHandle(h){
 }
 function injectResizeHandles(){
   document.querySelectorAll('.panel-resize-handle').forEach(h=>h.remove());
-  // FIX: use chart-container's parentElement — querySelector('#chart-panel .flex-1') incorrectly
-  // finds #sc-tt-rows (inside the Trend Template overlay) which has 0 children.
-  const container=document.getElementById('chart-container')?.parentElement;
-  if(!container) return;
-  // FIX: use computed style — sc-help-summary/sc-optimal-panel/sc-briefing-panel use the Tailwind
+  // Panels are the children of #sc-chart-body. The chart itself sits one level deeper,
+  // inside #sc-chart-wrapper — so walking chart-container.parentElement only ever sees the
+  // chart and the strategy strip, and every panel that is a direct child of #sc-chart-body
+  // (RSI, MACD, volume) silently gets NO drag handle. Walk the real panel column instead.
+  const body=document.getElementById('sc-chart-body')
+          || document.getElementById('chart-container')?.parentElement;
+  if(!body) return;
+  // Use computed style — sc-help-summary/sc-optimal-panel/sc-briefing-panel use the Tailwind
   // 'hidden' class for display:none, not inline style, so el.style.display is '' not 'none'.
-  const panels=Array.from(container.children).filter(el=>
+  const panels=Array.from(body.children).filter(el=>
     getComputedStyle(el).display!=='none'&&el.id&&el.id!=='sub-panels'&&!el.classList.contains('panel-resize-handle'));
-  for(let i=0;i<panels.length-1;i++){
+  // A wrapper isn't itself resizable: resize the chart inside it, and hang the handle off
+  // the chart so the drag bar sits directly under it rather than under the strategy strip.
+  const targetId=el=>el.querySelector&&el.querySelector('#chart-container')?'chart-container':el.id;
+  const anchorOf=el=>(el.querySelector&&el.querySelector('#chart-container'))||el;
+  const addH=(afterEl,aboveId,belowId)=>{
     const h=document.createElement('div'); h.className='panel-resize-handle';
-    h.dataset.above=panels[i].id; h.dataset.below=panels[i+1].id;
-    panels[i].after(h); _attachResizeHandle(h);
-  }
+    h.dataset.above=aboveId; h.dataset.below=belowId||'';
+    afterEl.after(h); _attachResizeHandle(h);
+  };
+  for(let i=0;i<panels.length-1;i++)
+    addH(anchorOf(panels[i]), targetId(panels[i]), targetId(panels[i+1]));
   // Sub-panels: bridge handle between last main panel and first sub-panel,
   // then handles between each sub-panel
   const sp=document.getElementById('sub-panels');
@@ -5898,14 +5907,10 @@ function injectResizeHandles(){
     const subs=Array.from(sp.children).filter(el=>!el.classList.contains('panel-resize-handle'));
     if(subs.length>0&&panels.length>0){
       const h=document.createElement('div'); h.className='panel-resize-handle';
-      h.dataset.above=panels[panels.length-1].id; h.dataset.below=subs[0].id;
+      h.dataset.above=targetId(panels[panels.length-1]); h.dataset.below=subs[0].id;
       sp.insertBefore(h,subs[0]); _attachResizeHandle(h);
     }
-    for(let i=0;i<subs.length-1;i++){
-      const h=document.createElement('div'); h.className='panel-resize-handle';
-      h.dataset.above=subs[i].id; h.dataset.below=subs[i+1].id;
-      subs[i].after(h); _attachResizeHandle(h);
-    }
+    for(let i=0;i<subs.length-1;i++) addH(subs[i],subs[i].id,subs[i+1].id);
   }
   // ── Bottom handle on the very last visible panel ─────────────────────────
   // The loop above only puts handles BETWEEN panels, so the last panel gets no
@@ -5913,11 +5918,7 @@ function injectResizeHandles(){
   // doPanelResize grows only panel 'a' (single-direction into overflow scroll).
   const subs2 = sp ? Array.from(sp.children).filter(el=>!el.classList.contains('panel-resize-handle')) : [];
   const lastP  = subs2.length>0 ? subs2[subs2.length-1] : (panels.length>0 ? panels[panels.length-1] : null);
-  if(lastP){
-    const hBot=document.createElement('div'); hBot.className='panel-resize-handle';
-    hBot.dataset.above=lastP.id; hBot.dataset.below='';
-    lastP.after(hBot); _attachResizeHandle(hBot);
-  }
+  if(lastP) addH(anchorOf(lastP), targetId(lastP), '');
 }
 function _resizeClientY(e){ return e.touches ? e.touches[0].clientY : e.clientY; }
 function startPanelResize(e){
