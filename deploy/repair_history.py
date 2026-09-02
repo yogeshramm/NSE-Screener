@@ -44,7 +44,11 @@ BAK = os.path.join(ROOT, "data_store", "history_prerepair")
 CA = os.path.join(ROOT, "data_store", "corporate_actions")
 STATE = os.path.join(ROOT, "data_store", "repair_state.json")
 COLS = ["Open", "High", "Low", "Close", "Volume"]
-TOL = 0.005
+# Prices are stored to two decimals, so genuine float noise is ~1e-9. A
+# percentage tolerance is the wrong instrument: 0.5% silently accepted bars
+# holding LAST_PRICE instead of CLOSE_PRICE (they differ by 0.1-0.5%).
+# One paisa is the real resolution of the data.
+TOL_ABS = 0.011
 
 
 def log(m):
@@ -135,8 +139,8 @@ def repair_symbol(sym: str, nse: pd.DataFrame, dry: bool):
         a = out.loc[common, COLS].astype(float)
         b = nse_win.loc[common, COLS].astype(float)
         dev = (a[["Open", "High", "Low", "Close"]]
-               - b[["Open", "High", "Low", "Close"]]).abs() / b[["Open", "High", "Low", "Close"]].replace(0, np.nan)
-        bad = (dev > TOL).any(axis=1)
+               - b[["Open", "High", "Low", "Close"]]).abs()
+        bad = (dev > TOL_ABS).any(axis=1)
         idx = common[bad.values]
         fixed = int(len(idx))
         if fixed:

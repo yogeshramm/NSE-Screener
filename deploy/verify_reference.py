@@ -26,8 +26,13 @@ def main() -> int:
     checks = []
     checks.append(("trading days/year", 240 <= len(days)/yrs <= 252, f"{len(days)/yrs:.1f} vs ~246"))
     checks.append(("holidays/year", 11 <= len(nod)/yrs <= 17, f"{len(nod)/yrs:.1f} vs 12-15"))
-    checks.append(("no weekend sessions",
-                   not [d for d in days if dt.date.fromisoformat(d).weekday() >= 5], ""))
+    # NSE DOES trade on some weekends — Union Budget Saturdays and Diwali
+    # Muhurat sessions. They are real sessions, so the test is that they are
+    # rare (a handful a decade), not that they are absent.
+    wknd = [d for d in days if dt.date.fromisoformat(d).weekday() >= 5]
+    checks.append(("weekend sessions are rare & plausible",
+                   len(wknd) <= max(3, int(yrs)),
+                   f"{len(wknd)} found: {wknd[:6]}"))
 
     d0, miss = dt.date.fromisoformat(days[0]), []
     while d0 <= dt.date.fromisoformat(days[-1]):

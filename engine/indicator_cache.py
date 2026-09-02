@@ -10,7 +10,9 @@ overwriting each other.
 
 import hashlib
 import json
+import os
 import pickle
+import time
 from pathlib import Path
 
 CACHE_DIR = Path(__file__).parent.parent / "data_store" / "indicator_cache"
@@ -76,9 +78,44 @@ def load_cached(symbol: str, config: dict, sector: str | None, last_bar_date: st
     return None
 
 
+# ── which symbols are worth persisting ──────────────────────────────────────
+# The cache stores one file per (symbol, config_hash). A new formula creates an
+# entirely new hash, so every tuned variant scanned at "all" scope wrote another
+# ~500 MB that no later scan could ever reuse. Persisting only the warmed
+# universe caps the cache at what the twice-daily warm actually rebuilds;
+# wider scans still run, they just recompute instead of accumulating.
+_WARM_SET: set[str] | None = None
+_WARM_SET_AT: float = 0.0
+_WARM_TTL = 6 * 3600
+
+
+def _warm_set() -> set[str] | None:
+    """Symbols the scheduled warm covers. None = persist everything."""
+    global _WARM_SET, _WARM_SET_AT
+    if os.environ.get("YOINTELL_CACHE_ALL_SYMBOLS") == "1":
+        return None
+    now = time.time()
+    if _WARM_SET is not None and now - _WARM_SET_AT < _WARM_TTL:
+        return _WARM_SET
+    try:
+        from data.nse_symbols import get_nifty500_live, NIFTY_500_FALLBACK
+        syms = set(get_nifty500_live() or []) or set(NIFTY_500_FALLBACK)
+    except Exception:
+        syms = None
+    if syms:
+        _WARM_SET, _WARM_SET_AT = syms, now
+    return _WARM_SET
+
+
 def save_cached(symbol: str, config: dict, sector: str | None,
                 last_bar_date: str, results: list) -> None:
-    """Atomically write indicator_results to cache."""
+    """Atomically write indicator_results to cache.
+
+    Only symbols inside the warmed universe are persisted — see _warm_set().
+    """
+    warm = _warm_set()
+    if warm is not None and symbol.upper() not in warm:
+        return
     h = _config_hash(config)
     path = _cache_path(symbol, h)
     entry = {
