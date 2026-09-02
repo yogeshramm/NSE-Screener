@@ -76,25 +76,50 @@ def parse_factor(subject: str):
     """Return (factor, kind, detail) or (None, kind, why) if unreadable.
 
     factor multiplies PRE-ex-date prices to put them on the post-action basis.
+
+    Two traps NSE's text sets, both found by the adjustment verifier:
+
+      compound subjects  "Bonus 1:1/Face Value Split - From Rs 10 To Rs 2" is
+                         TWO actions on one line. Matching only the first
+                         under-adjusts by the second (BAJFINANCE 2016-09-08:
+                         real factor 0.1, first-match gives 0.5).
+
+      non-equity bonus   "Bonus Ncrps 4:1" issues preference shares, which do
+                         not touch the equity price at all (TVSMOTOR
+                         2025-08-25: price did not move; applying 0.2 was
+                         a pure fabrication).
     """
     t = " ".join(subject.split()).upper()
 
-    # ---- BONUS a:b  → b held become a+b ----
+    # A bonus of anything other than equity does not adjust the share price.
+    if "BONUS" in t and re.search(r"\bNCRPS\b|\bNCD\b|PREFERENCE|DEBENTURE", t):
+        return None, "non_equity_bonus", "bonus of preference shares/debentures — price unaffected"
+
+    # ---- BONUS and SPLIT — a subject may carry BOTH; combine them ----
+    combined = 1.0
+    bits = []
     m = re.search(r"BONUS[^0-9]{0,20}(\d+)\s*[:/]\s*(\d+)", t)
     if m:
         a, b = int(m.group(1)), int(m.group(2))
         if a > 0 and b > 0:
-            return b / (a + b), "bonus", f"{a}:{b}"
-        return None, "bonus", f"bad ratio {a}:{b}"
+            combined *= b / (a + b)
+            bits.append(f"bonus {a}:{b}")
+        else:
+            return None, "bonus", f"bad ratio {a}:{b}"
 
-    # ---- SPLIT from face value X to Y ----
     m = re.search(r"(?:SPLIT|SUB[- ]?DIVISION|SUBDIVISION)[^0-9]{0,40}?"
                   r"(?:RS\.?\s*)?(\d+(?:\.\d+)?)[^0-9]{1,20}?(?:RS\.?\s*)?(\d+(?:\.\d+)?)", t)
     if m and ("SPLIT" in t or "DIVISION" in t):
         frm, to = float(m.group(1)), float(m.group(2))
         if frm > 0 and to > 0 and to < frm:
-            return to / frm, "split", f"FV {frm:g}->{to:g}"
-        return None, "split", f"unreadable FV {frm:g}->{to:g}"
+            combined *= to / frm
+            bits.append(f"split FV {frm:g}->{to:g}")
+        elif not bits:
+            return None, "split", f"unreadable FV {frm:g}->{to:g}"
+
+    if bits:
+        kind = "bonus+split" if len(bits) > 1 else ("bonus" if "bonus" in bits[0] else "split")
+        return combined, kind, " + ".join(bits)
 
     # ---- RIGHTS a:b at a stated price ----
     # factor needs the cum-date market price, so it is derived later; the
@@ -147,7 +172,7 @@ def fetch_symbol(sess, sym: str, years: int = 12):
         if not subj or not ex or ex == "-":
             continue
         f, kind, detail = parse_factor(subj)
-        if kind in ("other", "buyback", "meeting"):
+        if kind in ("other", "buyback", "meeting", "non_equity_bonus"):
             continue          # these do not adjust the price series
         try:
             ex_dt = datetime.strptime(ex, "%d-%b-%Y").strftime("%Y-%m-%d")
