@@ -1,9 +1,39 @@
 """
 One-time historical backfill from Angel One.
 
+!! DISABLED BY DEFAULT — see WHY below. !!
+
+WHY
+---
+Angel returns prices ADJUSTED for splits and bonuses; NSE bhavcopy (what
+data_store/history holds) returns the RAW traded price. The two are correct
+in their own conventions but must never share a column.
+
+The original merge here was:
+
+    merged = pd.concat([existing, new_df]).sort_index()
+    merged = merged[~merged.index.duplicated(keep="last")]
+
+`sort_index()` defaults to quicksort, which is NOT stable, so on a duplicated
+date the surviving row was chosen arbitrarily — NSE for one bar, Angel for the
+next. The result was a series that alternates between two price scales:
+
+    HINDPETRO   2024-06-18  530.15   (NSE raw)
+                2024-06-19  343.67   (Angel adjusted)   <- 1.5x apart
+                2024-06-20  523.80   (NSE raw)
+
+That corrupted ~1,384 bars across 357 symbols in production and silently broke
+52-week highs, ATR, RS ranks and every backtest.
+
+Historical prices now come from NSE only (see deploy/fetch_nse_reference.py),
+with corporate-action adjustment applied from NSE's own announcements. Angel
+is for LIVE quotes and intraday, not history.
+
+If you genuinely need Angel's history, run with --separate-store: it writes to
+data_store/angel_history/ and never touches the NSE series.
+
 Walks the Nifty 500 (or a custom symbol list) and fetches up to N years of
-daily candles per symbol, merges with the existing data_store/history/{SYM}.pkl
-(Angel wins on duplicate dates), saves the merged result.
+daily candles per symbol.
 
 Usage:
     python deploy/angel_backfill.py                         # Nifty 500, 10 years
@@ -34,6 +64,10 @@ from data.angel_master import get_master_df, symbol_to_token  # noqa: E402
 HIST_DIR = Path(__file__).resolve().parent.parent / "data_store" / "history"
 
 
+ANGEL_DIR = HIST_DIR.parent / "angel_history"
+SEPARATE_STORE = False
+
+
 def _load_existing(sym: str) -> pd.DataFrame | None:
     p = HIST_DIR / f"{sym}.pkl"
     if not p.exists():
@@ -58,7 +92,34 @@ def _normalize_for_merge(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def backfill_one(sym: str, years: int, force: bool, dry_run: bool) -> dict:
+def _convention_conflict(existing: pd.DataFrame, new: pd.DataFrame,
+                         tol: float = 0.005) -> tuple[bool, str]:
+    """Do the two frames use the same price convention on their overlap?
+
+    Angel back-adjusts, NSE does not, so any split or bonus inside the overlap
+    makes the ratio depart from 1. Refusing on that is the whole point: it is
+    exactly the condition that produced the interleaved series.
+    """
+    common = existing.index.intersection(new.index)
+    if len(common) < 10:
+        return True, f"only {len(common)} overlapping dates — cannot verify convention"
+    a = existing.loc[common, "Close"].astype(float)
+    b = new.loc[common, "Close"].astype(float)
+    ok = (a > 0) & (b > 0)
+    if ok.sum() < 10:
+        return True, "too few usable overlapping closes"
+    ratio = (a[ok] / b[ok])
+    med = float(ratio.median())
+    spread = float(ratio.max() - ratio.min())
+    if abs(med - 1.0) > tol or spread > tol * 4:
+        return True, (f"scale mismatch on {int(ok.sum())} overlapping dates: "
+                      f"median ratio {med:.4f}, range {ratio.min():.4f}-{ratio.max():.4f} "
+                      f"(a corporate action sits inside the overlap)")
+    return False, f"conventions agree on {int(ok.sum())} dates (median ratio {med:.4f})"
+
+
+def backfill_one(sym: str, years: int, force: bool, dry_run: bool,
+                 allow_mismatch: bool = False) -> dict:
     """Returns a result dict: {symbol, status, rows_added, total_rows, oldest, newest}."""
     out = {"symbol": sym, "status": "?", "rows_added": 0, "total_rows": 0, "oldest": None, "newest": None}
     if not symbol_to_token(sym):
@@ -90,10 +151,26 @@ def backfill_one(sym: str, years: int, force: bool, dry_run: bool) -> dict:
 
     new_df = _normalize_for_merge(new_df)
 
-    if existing is not None:
-        merged = pd.concat([existing, new_df]).sort_index()
-        merged = merged[~merged.index.duplicated(keep="last")]
-        out["rows_added"] = len(merged) - len(existing)
+    if existing is not None and len(existing):
+        conflict, why = _convention_conflict(existing, new_df)
+        if conflict:
+            out["status"] = "refused-convention"
+            out["note"] = why
+            out["total_rows"] = len(existing)
+            if not allow_mismatch:
+                return out
+            print(f"    !! {sym}: overriding convention guard — {why}")
+
+    if SEPARATE_STORE:
+        # Angel data kept on its own, never merged into the NSE series.
+        merged = new_df
+        out["rows_added"] = len(merged)
+    elif existing is not None:
+        raise RuntimeError(
+            f"{sym}: refusing to merge Angel bars into the NSE price history — "
+            "the two use different conventions (Angel is split/bonus adjusted, "
+            "NSE bhavcopy is raw). Use --separate-store, or take history from "
+            "deploy/fetch_nse_reference.py instead.")
     else:
         merged = new_df
         out["rows_added"] = len(merged)
@@ -103,8 +180,9 @@ def backfill_one(sym: str, years: int, force: bool, dry_run: bool) -> dict:
     out["newest"] = str(merged.index.max().date())
 
     if not dry_run:
-        HIST_DIR.mkdir(parents=True, exist_ok=True)
-        merged.to_pickle(HIST_DIR / f"{sym}.pkl")
+        target = ANGEL_DIR if SEPARATE_STORE else HIST_DIR
+        target.mkdir(parents=True, exist_ok=True)
+        merged.to_pickle(target / f"{sym}.pkl")
 
     out["status"] = "OK"
     return out
@@ -142,21 +220,47 @@ def main():
     ap.add_argument("--limit", type=int, default=None, help="first N symbols only (for testing)")
     ap.add_argument("--force", action="store_true", help="re-fetch even if existing pkl is already deep")
     ap.add_argument("--dry-run", action="store_true", help="no writes")
+    ap.add_argument("--allow-convention-mismatch", action="store_true",
+                    help="override the adjusted-vs-raw guard (see module docstring). "
+                         "Do not use unless you have read why this exists.")
+    ap.add_argument("--i-know-this-corrupts-history", action="store_true",
+                    help="required to run at all; the script is disabled by default")
+    ap.add_argument("--separate-store", action="store_true",
+                    help="write to data_store/angel_history/ instead of the NSE "
+                         "series (the only supported mode — see module docstring)")
     args = ap.parse_args()
 
+    global SEPARATE_STORE
+    SEPARATE_STORE = args.separate_store
+
     syms = resolve_symbols(args)
+    if not args.i_know_this_corrupts_history:
+        print(__doc__)
+        print("REFUSING TO RUN.\n"
+              "Angel is back-adjusted, data_store/history is raw NSE. Merging them\n"
+              "interleaves two conventions and corrupts the series. Historical prices\n"
+              "now come from NSE (deploy/fetch_nse_reference.py) with corporate-action\n"
+              "adjustment applied separately.\n\n"
+              "If you genuinely need this, pass --i-know-this-corrupts-history.")
+        return
+
     print(f"[backfill] {len(syms)} symbols, {args.years}y depth, dry-run={args.dry_run}, force={args.force}", flush=True)
 
     t0 = time.time()
-    stats = {"OK": 0, "already-deep": 0, "no-token": 0, "no-data": 0, "errors": 0, "rows_added": 0}
+    stats = {"OK": 0, "already-deep": 0, "no-token": 0, "no-data": 0,
+             "refused": 0, "errors": 0, "rows_added": 0}
     for i, sym in enumerate(syms, 1):
-        r = backfill_one(sym, args.years, args.force, args.dry_run)
+        r = backfill_one(sym, args.years, args.force, args.dry_run,
+                          allow_mismatch=args.allow_convention_mismatch)
         time.sleep(0.25)  # 0.25s between symbols → ~4/s overall, well under 3/s API limit per-call
         if r["status"] == "OK":
             stats["OK"] += 1
             stats["rows_added"] += r["rows_added"]
         elif r["status"] == "already-deep":
             stats["already-deep"] += 1
+        elif r["status"] == "refused-convention":
+            stats["refused"] += 1
+            print(f"       ^ refused: {r.get('note','')}", flush=True)
         elif r["status"] in ("no-token", "no-data"):
             stats[r["status"]] += 1
         else:
@@ -169,7 +273,7 @@ def main():
 
     elapsed = time.time() - t0
     print(f"\n[backfill] DONE in {elapsed/60:.1f} min", flush=True)
-    print(f"  OK: {stats['OK']}  already-deep: {stats['already-deep']}  no-token: {stats['no-token']}  no-data: {stats['no-data']}  errors: {stats['errors']}", flush=True)
+    print(f"  OK: {stats['OK']}  already-deep: {stats['already-deep']}  no-token: {stats['no-token']}  no-data: {stats['no-data']}  refused(convention): {stats['refused']}  errors: {stats['errors']}", flush=True)
     print(f"  rows added (cumulative): {stats['rows_added']:,}", flush=True)
 
 

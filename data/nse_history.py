@@ -172,23 +172,51 @@ def append_bhavcopy_to_history(bhavcopy_df: pd.DataFrame = None) -> dict:
             break
 
     if series_col:
-        eq_df = bhavcopy_df[bhavcopy_df[series_col].str.strip() == "EQ"].copy()
+        # EQ and BE both belong in the price history. BE is the trade-to-trade
+        # segment — real listed stock, just settlement-restricted. Dropping it
+        # meant those symbols silently stopped receiving daily updates.
+        eq_df = bhavcopy_df[
+            bhavcopy_df[series_col].astype(str).str.strip().isin(["EQ", "BE"])
+        ].copy()
     else:
         eq_df = bhavcopy_df.copy()
+
+    # A partial column mapping is never acceptable. If Volume (or any OHLCV
+    # field) cannot be located, the file format has changed; writing rows
+    # without it produces NaN volume that silently breaks OBV and every
+    # volume-based indicator. Refuse the whole run rather than corrupt the store.
+    missing_cols = [k for k in ("Open", "High", "Low", "Close", "Volume")
+                    if k not in col_map.values()]
+    if missing_cols:
+        msg = (f"Bhavcopy column mapping incomplete — missing {missing_cols}. "
+               f"Available columns: {list(bhavcopy_df.columns)}. "
+               f"Refusing to append (would write NaN).")
+        print(f"  [ERROR] {msg}")
+        return {"total_in_bhavcopy": len(eq_df), "updated": 0, "new": 0,
+                "errors": len(eq_df), "aborted": msg}
 
     updated = 0
     new = 0
     errors = 0
+    skipped_bad_date = 0
 
     for _, row in eq_df.iterrows():
         symbol = str(row[symbol_col]).strip()
         try:
             # Build today's OHLCV row
             today_data = {}
+            bad_price = False
             for bhav_col, ohlcv_col in col_map.items():
-                today_data[ohlcv_col] = float(row[bhav_col])
-
-            if len(today_data) < 4:
+                v = pd.to_numeric(row[bhav_col], errors="coerce")
+                if pd.isna(v):
+                    if ohlcv_col == "Volume":
+                        v = 0.0          # "-" or blank volume: a real zero-trade day
+                    else:
+                        bad_price = True
+                        break
+                today_data[ohlcv_col] = float(v)
+            if bad_price or len(today_data) < 5:
+                errors += 1
                 continue
 
             # Parse date
@@ -202,11 +230,17 @@ def append_bhavcopy_to_history(bhavcopy_df: pd.DataFrame = None) -> dict:
                         except ValueError:
                             continue
                     else:
-                        trade_date = pd.Timestamp.now().normalize()
+                        # Unparseable date. Filing it under today would write a
+                        # bar to the wrong day and silently corrupt the series.
+                        trade_date = None
                 except Exception:
-                    trade_date = pd.Timestamp.now().normalize()
+                    trade_date = None
             else:
-                trade_date = pd.Timestamp.now().normalize()
+                trade_date = None
+
+            if trade_date is None:
+                skipped_bad_date += 1
+                continue
 
             today_row = pd.DataFrame([today_data], index=pd.DatetimeIndex([trade_date]))
             today_row.index.name = "Date"
@@ -237,9 +271,11 @@ def append_bhavcopy_to_history(bhavcopy_df: pd.DataFrame = None) -> dict:
         "updated": updated,
         "new": new,
         "errors": errors,
+        "skipped_bad_date": skipped_bad_date,
     }
 
-    print(f"  Bhavcopy update: {updated} updated, {new} new, {errors} errors")
+    print(f"  Bhavcopy update: {updated} updated, {new} new, {errors} errors"
+          + (f", {skipped_bad_date} skipped (unreadable date)" if skipped_bad_date else ""))
     return stats
 
 
